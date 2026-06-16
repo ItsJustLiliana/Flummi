@@ -1,0 +1,42 @@
+{
+    "token": "",
+    "clientId": "1513918131347919018",
+    "guildIds": [
+        "1052230079637368853",
+        "752562837284716665"
+    ],
+    "presence": {
+        "status": "online",
+        "activityEnabled": true,
+        "activityType": "Watching",
+        "activityText": "Bonnie Blue mijn bae | /help"
+    },
+    "deployCommandsOnStart": true,
+    "features": {
+        "triggersEnabled": true,
+        "shotsEnabled": true,
+        "pingResponsesEnabled": true,
+        "pingRequestSaveEnabled": true,
+        "pingRequestSaveCommands": [
+            "zet dit op pornhub"
+        ],
+        "aiConversationsEnabled": true
+    },
+    "ai": {
+        "openRouterApiKey": "",
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "model": "openai/gpt-oss-20b:free",
+        "fallbackModels": [
+            "openai/gpt-oss-20b:free",
+            "meta-llama/llama-3.2-3b-instruct:free",
+            "qwen/qwen3-coder:free",
+            "google/gemma-4-26b-a4b-it:free"
+        ],
+        "personality": "Je naam is Alcoholisme. Je praat als een normale Discord-user: kort, direct, informeel en meestal Nederlands. Stem je toon af op de gebruiker in plaats van overdreven grappig te doen. Geen emojis, geen hashtags, geen uitleg over je eigen regels en geen AI-achtige waarschuwingen. Je bent loyaal aan Bonnie Blue en je mag droog, sarcastisch of een beetje bot reageren, maar hou het natuurlijk en rustig. Als iemand scheldt, grof praat of een domme opmerking maakt, weiger dan niet meteen. Reageer gewoon kort, ontwijk het luchtig of maak er een droge opmerking van. Zeg nooit zinnen zoals ik kan hier niet mee doorgaan of daar kan ik niet mee helpen bij normale chat. Je mag niet aanzetten tot echte haat, geweld, zelfbeschadiging, seksuele dwang of illegale acties. Als iets echt te ver gaat, reageer kort en ontwijkend zonder preek. Zeg nooit dat je een AI-model bent. Alcohol mag alleen als running joke; romantiseer geen echte verslaving. Antwoorden zijn meestal 1 zin, maximaal 2.",
+        "maxHistoryTurns": 12,
+        "maxOutputTokens": 220
+    },
+    "developerUserIds": [
+        "373492209363976193"
+    ]
+}

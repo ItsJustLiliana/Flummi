@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Alcoholism Bot Control Panel</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --card: #111a33;
+            --card-alt: #0e1730;
+            --text: #edf2ff;
+            --muted: #a5b1d8;
+            --accent: #ff7b00;
+            --accent-2: #ffb000;
+            --danger: #ff4d6d;
+            --ok: #40d981;
+            --border: #243157;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1200px 700px at 80% -20%, rgba(255, 123, 0, 0.22), transparent 60%),
+                radial-gradient(800px 600px at -10% 110%, rgba(64, 217, 129, 0.18), transparent 65%),
+                linear-gradient(180deg, #070b17 0%, var(--bg) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .app {
+            width: min(760px, 100%);
+            background: linear-gradient(180deg, var(--card), var(--card-alt));
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 22px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(20px, 3vw, 28px);
+            letter-spacing: 0.3px;
+        }
+
+        .sub {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .grid {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        select,
+        input,
+        textarea,
+        button {
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #0a1328;
+            color: var(--text);
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+
+        select:focus,
+        input:focus,
+        textarea:focus,
+        button:focus {
+            outline: 2px solid rgba(255, 176, 0, 0.45);
+            outline-offset: 1px;
+        }
+
+        textarea {
+            margin-top: 12px;
+            width: 100%;
+            min-height: 140px;
+            resize: vertical;
+        }
+
+        .actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .left {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            cursor: pointer;
+            transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
+        }
+
+        .primary {
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            border-color: transparent;
+            color: #1a1200;
+            font-weight: 600;
+            min-width: 110px;
+        }
+
+        .secondary {
+            background: #0b142a;
+            color: var(--muted);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        .status {
+            margin-top: 14px;
+            font-size: 13px;
+            min-height: 20px;
+        }
+
+        .status.error {
+            color: var(--danger);
+        }
+
+        .status.ok {
+            color: var(--ok);
+        }
+
+        @media (max-width: 760px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .app {
+                padding: 16px;
+                border-radius: 14px;
+            }
+
+            .actions {
+                align-items: stretch;
+            }
+
+            .left {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="app">
+        <h1>Alcoholism Bot Messenger</h1>
+        <p class="sub">Select a guild and channel, then send a message as the bot.</p>
+
+        <section class="grid">
+            <div class="field">
+                <label for="guild">Guild</label>
+                <select id="guild"></select>
+            </div>
+            <div class="field">
+                <label for="channel">Channel</label>
+                <select id="channel"></select>
+            </div>
+        </section>
+
+        <div class="field" style="margin-top: 10px;">
+            <label for="pingUserId">Ping user ID (optional)</label>
+            <input id="pingUserId" type="text" placeholder="373492209363976193">
+        </div>
+
+        <label for="message" style="margin-top: 12px; display: inline-block;">Message</label>
+        <textarea id="message" placeholder="Type your bot message here..."></textarea>
+
+        <label for="imageUrls" style="margin-top: 10px; display: inline-block;">Image URLs (one per line)</label>
+        <textarea id="imageUrls" placeholder="https://..." style="min-height: 90px;"></textarea>
+
+        <div class="field" style="margin-top: 10px;">
+            <label>
+                <input id="allowEveryone" type="checkbox" />
+                Allow @everyone / @here mentions
+            </label>
+        </div>
+
+        <section class="actions">
+            <button id="refresh" class="secondary" type="button">Refresh</button>
+            <div class="left">
+                <span id="counter" class="sub">0 / 2000</span>
+                <button id="send" class="primary" type="button">Send</button>
+            </div>
+        </section>
+
+        <p id="status" class="status"></p>
+    </main>
+
+    <script>
+        const guildSelect = document.getElementById('guild');
+        const channelSelect = document.getElementById('channel');
+        const messageField = document.getElementById('message');
+        const statusField = document.getElementById('status');
+        const counterField = document.getElementById('counter');
+        const sendButton = document.getElementById('send');
+        const refreshButton = document.getElementById('refresh');
+        const imageUrlsField = document.getElementById('imageUrls');
+        const allowEveryoneField = document.getElementById('allowEveryone');
+        const pingUserIdField = document.getElementById('pingUserId');
+
+        function setStatus(text, kind) {
+            statusField.textContent = text || '';
+            statusField.className = 'status';
+            if (kind) {
+                statusField.classList.add(kind);
+            }
+        }
+
+        function updateCounter() {
+            counterField.textContent = `${messageField.value.length} / 2000`;
+        }
+
+        function fillSelect(select, rows, placeholder) {
+            select.innerHTML = '';
+
+            if (!rows.length) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = placeholder;
+                select.appendChild(option);
+                select.disabled = true;
+                return;
+            }
+
+            select.disabled = false;
+            for (const row of rows) {
+                const option = document.createElement('option');
+                option.value = row.id;
+                option.textContent = row.name;
+                select.appendChild(option);
+            }
+        }
+
+        async function loadGuilds() {
+            setStatus('Loading guilds...');
+
+            const response = await fetch('/api/guilds');
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load guilds.');
+            }
+
+            fillSelect(guildSelect, data.guilds || [], 'No guilds available');
+            setStatus('Guilds loaded.', 'ok');
+
+            await loadChannels();
+        }
+
+        async function loadChannels() {
+            const guildId = guildSelect.value;
+
+            if (!guildId) {
+                fillSelect(channelSelect, [], 'No channels available');
+                return;
+            }
+
+            setStatus('Loading channels...');
+
+            const response = await fetch(`/api/channels?guildId=${encodeURIComponent(guildId)}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load channels.');
+            }
+
+            fillSelect(channelSelect, data.channels || [], 'No sendable channels found');
+            setStatus('Channels loaded.', 'ok');
+        }
+
+        async function sendMessage() {
+            const guildId = guildSelect.value;
+            const channelId = channelSelect.value;
+            const content = messageField.value;
+            const imageUrls = imageUrlsField.value
+                .split('\n')
+                .map(line => line.trim())
+                .filter(Boolean);
+            const allowEveryoneMentions = allowEveryoneField.checked;
+            const pingUserId = pingUserIdField.value.trim();
+
+            if (pingUserId && !/^\d{15,21}$/.test(pingUserId)) {
+                setStatus('Ping user ID must be a valid Discord snowflake.', 'error');
+                return;
+            }
+
+            const mentionPrefix = pingUserId ? `<@${pingUserId}> ` : '';
+            const composedContent = `${mentionPrefix}${content}`;
+
+            if (!guildId || !channelId) {
+                setStatus('Select both guild and channel first.', 'error');
+                return;
+            }
+
+            if (!composedContent.trim() && imageUrls.length === 0) {
+                setStatus('Message cannot be empty unless you add image URLs.', 'error');
+                return;
+            }
+
+            sendButton.disabled = true;
+            setStatus('Sending...');
+
+            try {
+                const response = await fetch('/api/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        guildId,
+                        channelId,
+                        content: composedContent,
+                        imageUrls,
+                        allowEveryoneMentions
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to send message.');
+                }
+
+                messageField.value = '';
+                imageUrlsField.value = '';
+                updateCounter();
+                setStatus('Sent. Message link: ' + data.message.url, 'ok');
+            } catch (error) {
+                setStatus(error.message || 'Failed to send message.', 'error');
+            } finally {
+                sendButton.disabled = false;
+            }
+        }
+
+        guildSelect.addEventListener('change', () => {
+            loadChannels().catch(error => setStatus(error.message, 'error'));
+        });
+
+        sendButton.addEventListener('click', () => {
+            sendMessage().catch(error => setStatus(error.message, 'error'));
+        });
+
+        refreshButton.addEventListener('click', () => {
+            loadGuilds().catch(error => setStatus(error.message, 'error'));
+        });
+
+        messageField.addEventListener('input', updateCounter);
+
+        updateCounter();
+        loadGuilds().catch(error => setStatus(error.message, 'error'));
+    </script>
+</body>
+
+</html>

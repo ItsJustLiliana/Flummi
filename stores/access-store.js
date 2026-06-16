@@ -34,7 +34,7 @@ function getDeveloperUserIds() {
     return Array.from(new Set([
         ...(Array.isArray(config.developerUserIds) ? config.developerUserIds : []),
         ...(config.developerUserId ? [config.developerUserId] : [])
-    ]));
+    ].map(String)));
 }
 
 function getManagerUserIds(guildId) {
@@ -46,15 +46,15 @@ function getManagerUserIds(guildId) {
     return Array.from(new Set([
         ...(Array.isArray(config.managerUserIds) ? config.managerUserIds : []),
         ...(Array.isArray(fileManagers) ? fileManagers : [])
-    ]));
+    ].map(String)));
 }
 
 function isDeveloper(userId) {
-    return getDeveloperUserIds().includes(userId);
+    return getDeveloperUserIds().includes(String(userId));
 }
 
 function isManager(userId, guildId) {
-    return isDeveloper(userId) || getManagerUserIds(guildId).includes(userId);
+    return isDeveloper(userId) || getManagerUserIds(guildId).includes(String(userId));
 }
 
 function isTriggerFeatureEnabled() {
@@ -74,6 +74,13 @@ function getPermissionRecord(guildId) {
 }
 
 function getUserPermissions(userId, guildId) {
+    if (isDeveloper(userId)) {
+        return {
+            useTriggers: true,
+            addTriggers: true
+        };
+    }
+
     const record = getPermissionRecord(guildId);
     const entry = record[userId] || {};
 
@@ -84,6 +91,10 @@ function getUserPermissions(userId, guildId) {
 }
 
 function setUserPermission(userId, permissionKey, value, guildId) {
+    if (isDeveloper(userId)) {
+        return;
+    }
+
     const guildPaths = resolveGuildPaths(guildId);
 
     if (!guildPaths) {

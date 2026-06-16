@@ -6,6 +6,26 @@ const usersDir = path.join(dataDir, 'users');
 
 const DEFAULT_MAX_HISTORY = 24;
 
+function formatTimestamp(date = new Date()) {
+    const value = date instanceof Date ? date : new Date(date);
+
+    if (Number.isNaN(value.getTime())) {
+        return '';
+    }
+
+    const pad = number => String(number).padStart(2, '0');
+
+    return [
+        value.getFullYear(),
+        pad(value.getMonth() + 1),
+        pad(value.getDate())
+    ].join('-') + ' ' + [
+        pad(value.getHours()),
+        pad(value.getMinutes()),
+        pad(value.getSeconds())
+    ].join(':');
+}
+
 function ensureUsersDir() {
     fs.mkdirSync(usersDir, { recursive: true });
 }
@@ -88,7 +108,7 @@ function getUserHistory(userId) {
 function appendConversationTurn(userId, userMessage, assistantMessage, maxHistory = DEFAULT_MAX_HISTORY) {
     const userData = readUserData(userId);
 
-    const now = new Date().toISOString();
+    const now = formatTimestamp();
 
     userData.history.push({
         role: 'user',
@@ -116,11 +136,12 @@ function appendConversationTurn(userId, userMessage, assistantMessage, maxHistor
 function clearUserHistory(userId) {
     writeUserData(userId, {
         history: [],
-        updatedAt: new Date().toISOString()
+        updatedAt: formatTimestamp()
     });
 }
 
 module.exports = {
+    formatTimestamp,
     getUserHistory,
     appendConversationTurn,
     clearUserHistory

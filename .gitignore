@@ -8,14 +8,12 @@ node_modules/
 config.local.json
 
 # Runtime and generated data
-data/*.json
 !data/*.example.json
 !data/.gitkeep
 data/.runtime/
 data/runtime/
 data/guilds/
 data/users/
-data/userConversations.json
 
 # Logs
 *.log

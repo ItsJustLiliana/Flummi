@@ -46,6 +46,13 @@ function getAiConfig() {
     const visionModels = Array.isArray(aiConfig.visionModels)
         ? aiConfig.visionModels.filter(item => typeof item === 'string' && item.trim().length > 0)
         : DEFAULT_VISION_MODELS;
+    const basePersonality = aiConfig.personality || 'You are a friendly but direct Discord community bot. Keep responses concise, helpful, and playful. Avoid spammy repetition and avoid roleplay that pretends to be human.';
+    const imageSearchInstructions = [
+        'Als iemand expliciet vraagt om een foto, plaatje, afbeelding, screenshot of visuele referentie die jij online moet zoeken,',
+        'zet dan aan het einde van je antwoord exact deze marker: [[image_search: korte zoekopdracht]].',
+        'Gebruik geen marker als de gebruiker alleen een meegestuurde afbeelding wil laten analyseren.',
+        'Voorbeeld: [[image_search: Ludwig Ahgren streamer portrait]].'
+    ].join(' ');
 
     return {
         apiKey,
@@ -53,7 +60,7 @@ function getAiConfig() {
         model: process.env.OPENROUTER_MODEL || aiConfig.model || DEFAULT_MODEL,
         fallbackModels,
         visionModels,
-        botPersonality: aiConfig.personality || 'You are a friendly but direct Discord community bot. Keep responses concise, helpful, and playful. Avoid spammy repetition and avoid roleplay that pretends to be human.',
+        botPersonality: `${basePersonality}\n\n${imageSearchInstructions}`,
         maxHistoryTurns: Number(aiConfig.maxHistoryTurns || 12),
         maxOutputTokens: Number(aiConfig.maxOutputTokens || 220)
     };
@@ -311,6 +318,32 @@ function buildRateLimitedFallbackReply() {
     return 'AI zit even tegen z’n limiet aan. Probeer zo nog eens.';
 }
 
+function extractImageSearchRequest(reply) {
+    const text = String(reply || '');
+    const markerPattern = /\[{1,2}\s*image_search\s*:\s*([^\]]{1,160})\]{1,2}/gi;
+    const matches = Array.from(text.matchAll(markerPattern));
+
+    if (matches.length === 0) {
+        return {
+            text: text.trim(),
+            imageSearch: null
+        };
+    }
+
+    const query = matches[matches.length - 1][1]
+        .replace(/\s+/g, ' ')
+        .trim();
+    const cleanText = text
+        .replace(markerPattern, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return {
+        text: cleanText,
+        imageSearch: query ? { query } : null
+    };
+}
+
 async function tryModels({ cfg, models, messages }) {
     let lastError = null;
     let attemptedModels = 0;
@@ -382,12 +415,14 @@ async function generateAiReply({ userInput, history }) {
 
     try {
         const reply = await tryModels({ cfg, models, messages: messagesWithHistory });
-        const text = isRefusalReply(reply) ? buildNormalFallbackReply(userInput) : reply;
+        const parsed = extractImageSearchRequest(reply);
+        const text = isRefusalReply(parsed.text) ? buildNormalFallbackReply(userInput) : parsed.text;
 
         return {
             text,
+            imageSearch: parsed.imageSearch,
             maxHistoryTurns: cfg.maxHistoryTurns,
-            resetHistory: isRefusalReply(reply)
+            resetHistory: isRefusalReply(parsed.text)
         };
     } catch (error) {
         if (
@@ -404,12 +439,14 @@ async function generateAiReply({ userInput, history }) {
                     models: buildModelCandidates(cfg),
                     messages: textOnlyMessages
                 });
-                const text = isRefusalReply(reply) ? buildNormalFallbackReply(textOnlyInput) : reply;
+                const parsed = extractImageSearchRequest(reply);
+                const text = isRefusalReply(parsed.text) ? buildNormalFallbackReply(textOnlyInput) : parsed.text;
 
                 return {
                     text,
+                    imageSearch: parsed.imageSearch,
                     maxHistoryTurns: cfg.maxHistoryTurns,
-                    resetHistory: isRefusalReply(reply),
+                    resetHistory: isRefusalReply(parsed.text),
                     usedTextOnlyFallback: true
                 };
             } catch (fallbackError) {
@@ -441,10 +478,12 @@ async function generateAiReply({ userInput, history }) {
 
         const messagesWithoutHistory = buildMessages(cfg.botPersonality, [], userInput);
         const reply = await tryModels({ cfg, models, messages: messagesWithoutHistory });
-        const text = isRefusalReply(reply) ? buildNormalFallbackReply(userInput) : reply;
+        const parsed = extractImageSearchRequest(reply);
+        const text = isRefusalReply(parsed.text) ? buildNormalFallbackReply(userInput) : parsed.text;
 
         return {
             text,
+            imageSearch: parsed.imageSearch,
             maxHistoryTurns: cfg.maxHistoryTurns,
             resetHistory: true
         };
@@ -458,6 +497,7 @@ module.exports = {
     buildImageUnavailableFallbackReply,
     buildRateLimitedFallbackReply,
     buildVisionModelCandidates,
+    extractImageSearchRequest,
     hasImageContent,
     stripImageContent,
     stringifyUserInput,

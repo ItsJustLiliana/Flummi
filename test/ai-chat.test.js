@@ -4,6 +4,7 @@ const {
     buildImageUnavailableFallbackReply,
     buildMessages,
     buildVisionModelCandidates,
+    extractImageSearchRequest,
     generateAiReply,
     hasImageContent,
     stringifyUserInput,
@@ -28,6 +29,20 @@ test('buildMessages keeps text history and allows image content for the current 
     assert.equal(messages[2].content, 'hoi terug');
     assert.equal(messages[3].content, userInput);
     assert.equal(hasImageContent(messages[3].content), true);
+});
+
+test('extractImageSearchRequest removes marker and returns the image query', () => {
+    const result = extractImageSearchRequest('Ja hoor, deze bedoel je. [[image_search: Ludwig Ahgren streamer portrait]]');
+
+    assert.equal(result.text, 'Ja hoor, deze bedoel je.');
+    assert.deepEqual(result.imageSearch, { query: 'Ludwig Ahgren streamer portrait' });
+});
+
+test('extractImageSearchRequest accepts single bracket model output', () => {
+    const result = extractImageSearchRequest('[image_search: iuno wuthering waves]');
+
+    assert.equal(result.text, '');
+    assert.deepEqual(result.imageSearch, { query: 'iuno wuthering waves' });
 });
 
 test('stripImageContent turns multimodal input back into text-only context', () => {

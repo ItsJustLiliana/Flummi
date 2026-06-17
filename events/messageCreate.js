@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { EmbedBuilder } = require('discord.js');
 const {
     canSavePingRequests,
     canUseAiChat,
@@ -12,6 +13,7 @@ const { appendPingRequest } = require('../stores/ping-request-store');
 const { getUserHistory, appendConversationTurn, clearUserHistory } = require('../stores/user-conversation-store');
 const { incrementMessageStats } = require('../stores/server-stats-store');
 const { AiChatError, generateAiReply, stringifyUserInput } = require('../services/ai-chat');
+const { ImageSearchError, searchImage } = require('../services/image-search');
 
 const pingResponsesPath = path.join(__dirname, '..', 'data', 'botPingResponses.json');
 const defaultPingRequestSaveCommands = ['zet dit op pornhub'];
@@ -296,6 +298,61 @@ async function replyWithRandomPingResponse(message) {
     return false;
 }
 
+function truncateEmbedText(text, maxLength) {
+    const value = String(text || '').trim();
+
+    if (value.length <= maxLength) {
+        return value;
+    }
+
+    return `${value.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+}
+
+function buildImageSearchEmbed(result, query) {
+    const embed = new EmbedBuilder()
+        .setColor(0x1E88E5)
+        .setTitle(truncateEmbedText(result.title || query || 'Image result', 256))
+        .setImage(result.imageUrl)
+        .setFooter({ text: truncateEmbedText(`Image search: ${query}`, 2048) });
+
+    if (result.sourceUrl && /^https?:\/\//i.test(result.sourceUrl)) {
+        embed.setURL(result.sourceUrl);
+    }
+
+    return embed;
+}
+
+async function buildAiReplyPayload(ai) {
+    const payload = {
+        content: ai.text || 'Hier.',
+        allowedMentions: {
+            repliedUser: false
+        }
+    };
+
+    if (!ai.imageSearch?.query) {
+        return payload;
+    }
+
+    try {
+        const result = await searchImage(ai.imageSearch.query);
+
+        if (result?.imageUrl) {
+            payload.embeds = [buildImageSearchEmbed(result, ai.imageSearch.query)];
+        } else if (!ai.text || /^hier\.?$/i.test(ai.text.trim())) {
+            payload.content = 'Ik vond geen bruikbare afbeelding hiervoor.';
+        }
+    } catch (error) {
+        if (error instanceof ImageSearchError && error.code === 'UNSUPPORTED_PROVIDER') {
+            console.warn('Image search provider is not supported:', error.message);
+        } else {
+            console.error('Failed to search image for AI reply:', error);
+        }
+    }
+
+    return payload;
+}
+
 module.exports = {
     name: 'messageCreate',
 
@@ -378,8 +435,9 @@ module.exports = {
                     const history = getUserHistory(message.author.id);
                     const aiInput = buildAiUserInput(userInput, message, referencedMessage, config);
                     const ai = await generateAiReply({ userInput: aiInput, history });
+                    const replyPayload = await buildAiReplyPayload(ai);
 
-                    await message.reply({ content: ai.text });
+                    await message.reply(replyPayload);
 
                     if (ai.resetHistory) {
                         clearUserHistory(message.author.id);
@@ -388,7 +446,9 @@ module.exports = {
                     appendConversationTurn(
                         message.author.id,
                         stringifyUserInput(aiInput),
-                        ai.text,
+                        [ai.text, ai.imageSearch?.query ? `[image search: ${ai.imageSearch.query}]` : '']
+                            .filter(Boolean)
+                            .join('\n'),
                         ai.maxHistoryTurns
                     );
                 } catch (error) {

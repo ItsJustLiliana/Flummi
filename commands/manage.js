@@ -1,8 +1,36 @@
-const { MessageFlags } = require('discord.js');
+const { EmbedBuilder, MessageFlags } = require('discord.js');
 const { SlashCommandBuilder } = require('discord.js');
-const { setUserPermission, getUserPermissions, isDeveloper, setManagerRole } = require('../stores/access-store');
+const {
+    getRequiredCommandRole,
+    getUserPermissions,
+    getUserRole,
+    isDeveloper,
+    normalizeCommandPath,
+    roleMeetsRequirement,
+    setManagerRole,
+    setUserCommandPermission,
+    setUserPermission
+} = require('../stores/access-store');
 const { checkCooldown } = require('../utils/cooldowns');
 const { readSettings } = require('../stores/settings-store');
+
+function formatCommandOverrides(overrides) {
+    const rows = Object.entries(overrides || {})
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([pathKey, allowed]) => `${pathKey}: ${allowed ? 'allowed' : 'blocked'}`);
+
+    return rows.length ? rows.join(' | ') : 'none';
+}
+
+function formatFeaturePermissions(perms) {
+    return [
+        `Normal triggers: ${perms.useTriggers ? 'Enabled' : 'Disabled'}`,
+        `Add triggers: ${perms.addTriggers ? 'Enabled' : 'Disabled'}`,
+        `AI chat: ${perms.useAiChat ? 'Enabled' : 'Disabled'}`,
+        `@bot responses: ${perms.useBotMentions ? 'Enabled' : 'Disabled'}`,
+        `Ping-save: ${perms.savePingRequests ? 'Enabled' : 'Disabled'}`
+    ].join('\n');
+}
 
 module.exports = {
     managerOnly: true,
@@ -13,7 +41,7 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('permissions')
-                .setDescription('Set trigger permissions for a user')
+                .setDescription('Set bot feature permissions for a user')
                 .addUserOption(option =>
                     option
                         .setName('user')
@@ -31,6 +59,41 @@ module.exports = {
                         .setName('adding-triggers')
                         .setDescription('Allow or deny adding triggers')
                         .setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option
+                        .setName('ai-chat')
+                        .setDescription('Allow or deny AI replies when mentioning/replying to the bot')
+                        .setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option
+                        .setName('bot-mentions')
+                        .setDescription('Allow or deny @bot random mention responses')
+                        .setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option
+                        .setName('ping-save')
+                        .setDescription('Allow or deny saving replied messages with configured @bot save phrases')
+                        .setRequired(false)
+                )
+                .addStringOption(option =>
+                    option
+                        .setName('command-path')
+                        .setDescription('Command to override, for example trigger.add, shots.gamble, serverstats')
+                        .setRequired(false)
+                )
+                .addStringOption(option =>
+                    option
+                        .setName('command-access')
+                        .setDescription('Override access for command-path')
+                        .setRequired(false)
+                        .addChoices(
+                            { name: 'Allow', value: 'allow' },
+                            { name: 'Block', value: 'block' },
+                            { name: 'Inherit role config', value: 'inherit' }
+                        )
                 )
         )
         .addSubcommand(subcommand =>
@@ -82,21 +145,64 @@ module.exports = {
 
             const usingTriggers = interaction.options.getBoolean('using-triggers');
             const addingTriggers = interaction.options.getBoolean('adding-triggers');
+            const aiChat = interaction.options.getBoolean('ai-chat');
+            const botMentions = interaction.options.getBoolean('bot-mentions');
+            const pingSave = interaction.options.getBoolean('ping-save');
+            const commandPathInput = interaction.options.getString('command-path');
+            const commandAccess = interaction.options.getString('command-access');
+            const commandPath = normalizeCommandPath(commandPathInput);
+            const featureOptions = [
+                ['useTriggers', usingTriggers, 'normal triggers'],
+                ['addTriggers', addingTriggers, 'add triggers'],
+                ['useAiChat', aiChat, 'AI chat'],
+                ['useBotMentions', botMentions, '@bot responses'],
+                ['savePingRequests', pingSave, 'ping-save']
+            ];
 
-            if (usingTriggers === null && addingTriggers === null) {
+            if (featureOptions.every(([, value]) => value === null) && !commandPathInput && !commandAccess) {
                 return interaction.reply({
-                    content: 'For permissions mode, provide using-triggers and/or adding-triggers.',
+                    content: 'Provide at least one feature permission or command-path with command-access.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            if ((commandPathInput || commandAccess) && (!commandPath || !commandAccess)) {
+                return interaction.reply({
+                    content: 'For command overrides, provide both command-path and command-access. Example: command-path:trigger.add command-access:Block.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            if (!isDeveloper(interaction.user.id) && isDeveloper(targetUser.id)) {
+                return interaction.reply({
+                    content: 'Only developers can change permissions for developers.',
                     flags: MessageFlags.Ephemeral
                 });
             }
 
             try {
-                if (usingTriggers !== null) {
-                    setUserPermission(targetUser.id, 'useTriggers', usingTriggers, guildId);
+                for (const [key, value] of featureOptions) {
+                    if (value !== null) {
+                        setUserPermission(targetUser.id, key, value, guildId);
+                    }
                 }
 
-                if (addingTriggers !== null) {
-                    setUserPermission(targetUser.id, 'addTriggers', addingTriggers, guildId);
+                if (commandPath && commandAccess) {
+                    const [commandName, subcommandName] = commandPath.split('.');
+                    const requiredRole = getRequiredCommandRole(commandName, subcommandName || null, null);
+                    const actorRole = getUserRole(interaction.user.id, guildId);
+                    const nextValue = commandAccess === 'inherit'
+                        ? null
+                        : commandAccess === 'allow';
+
+                    if (nextValue === true && !roleMeetsRequirement(actorRole, requiredRole)) {
+                        return interaction.reply({
+                            content: `You cannot allow ${commandPath}; it requires ${requiredRole} permissions.`,
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
+
+                    setUserCommandPermission(targetUser.id, commandPath, nextValue, guildId);
                 }
             } catch (error) {
                 console.error('Failed to update user permission:', error);
@@ -104,11 +210,29 @@ module.exports = {
             }
 
             const updated = getUserPermissions(targetUser.id, guildId);
+            const changes = [];
+
+            for (const [key, value, label] of featureOptions) {
+                if (value !== null) {
+                    changes.push(`${label}: ${updated[key] ? 'enabled' : 'disabled'}`);
+                }
+            }
+
+            if (commandPath && commandAccess) {
+                changes.push(`command ${commandPath}: ${commandAccess === 'inherit' ? 'inherited' : commandAccess === 'allow' ? 'allowed' : 'blocked'}`);
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle(`Permissions Updated: ${targetUser.tag}`)
+                .setColor(0x1E88E5)
+                .addFields(
+                    { name: 'Changes', value: changes.join('\n') || 'No changes.', inline: false },
+                    { name: 'Feature Permissions', value: formatFeaturePermissions(updated), inline: false },
+                    { name: 'Command Overrides', value: formatCommandOverrides(updated.commandOverrides), inline: false }
+                );
+
             return interaction.reply({
-                content:
-                    `Updated ${targetUser.tag}. ` +
-                    `using triggers enabled:${updated.useTriggers} | ` +
-                    `adding triggers enabled:${updated.addTriggers}`,
+                embeds: [embed],
                 flags: MessageFlags.Ephemeral
             });
         }
@@ -123,13 +247,13 @@ module.exports = {
             if (role === 'manager') {
                 setManagerRole(targetUser.id, true, guildId);
 
-                return interaction.reply({ content: `${targetUser.tag} role:manager`, flags: MessageFlags.Ephemeral });
+                return interaction.reply({ content: `${targetUser.tag} role: manager`, flags: MessageFlags.Ephemeral });
             }
 
             if (role === 'user') {
                 setManagerRole(targetUser.id, false, guildId);
 
-                return interaction.reply({ content: `${targetUser.tag} role:user`, flags: MessageFlags.Ephemeral });
+                return interaction.reply({ content: `${targetUser.tag} role: user`, flags: MessageFlags.Ephemeral });
             }
         }
 

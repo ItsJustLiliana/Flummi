@@ -12,6 +12,9 @@ const DEFAULT_FALLBACK_MODELS = [
     'qwen/qwen3-coder:free',
     'google/gemma-4-26b-a4b-it:free'
 ];
+const DEFAULT_VISION_MODELS = [
+    'nex-agi/nex-n2-pro:free'
+];
 const MODEL_RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
 const rateLimitedModels = new Map();
 
@@ -40,12 +43,16 @@ function getAiConfig() {
     const fallbackModels = Array.isArray(aiConfig.fallbackModels)
         ? aiConfig.fallbackModels.filter(item => typeof item === 'string' && item.trim().length > 0)
         : DEFAULT_FALLBACK_MODELS;
+    const visionModels = Array.isArray(aiConfig.visionModels)
+        ? aiConfig.visionModels.filter(item => typeof item === 'string' && item.trim().length > 0)
+        : DEFAULT_VISION_MODELS;
 
     return {
         apiKey,
         baseUrl: process.env.OPENROUTER_BASE_URL || aiConfig.baseUrl || DEFAULT_BASE_URL,
         model: process.env.OPENROUTER_MODEL || aiConfig.model || DEFAULT_MODEL,
         fallbackModels,
+        visionModels,
         botPersonality: aiConfig.personality || 'You are a friendly but direct Discord community bot. Keep responses concise, helpful, and playful. Avoid spammy repetition and avoid roleplay that pretends to be human.',
         maxHistoryTurns: Number(aiConfig.maxHistoryTurns || 12),
         maxOutputTokens: Number(aiConfig.maxOutputTokens || 220)
@@ -54,6 +61,18 @@ function getAiConfig() {
 
 function buildModelCandidates(cfg) {
     const candidates = [cfg.model, ...cfg.fallbackModels]
+        .filter(item => typeof item === 'string' && item.trim().length > 0)
+        .map(item => item.trim());
+
+    return Array.from(new Set(candidates));
+}
+
+function buildVisionModelCandidates(cfg) {
+    const candidates = [
+        ...cfg.visionModels,
+        cfg.model,
+        ...cfg.fallbackModels
+    ]
         .filter(item => typeof item === 'string' && item.trim().length > 0)
         .map(item => item.trim());
 
@@ -100,6 +119,18 @@ function shouldTryNextModel(statusCode, errorText) {
         text.includes('not found') ||
         text.includes('not a valid model id') ||
         text.includes('invalid model')
+    );
+}
+
+function isRateLimitError(statusCode, errorText) {
+    const text = String(errorText || '').toLowerCase();
+
+    return (
+        statusCode === 429 ||
+        text.includes('rate-limit') ||
+        text.includes('rate limited') ||
+        text.includes('rate_limit') ||
+        text.includes('temporarily rate-limited')
     );
 }
 
@@ -178,6 +209,66 @@ function buildMessages(personality, history, userInput) {
     ];
 }
 
+function hasImageContent(input) {
+    return Array.isArray(input) && input.some(part => part?.type === 'image_url');
+}
+
+function stringifyUserInput(input) {
+    if (typeof input === 'string') {
+        return input;
+    }
+
+    if (!Array.isArray(input)) {
+        return String(input || '');
+    }
+
+    return input
+        .map(part => {
+            if (part?.type === 'text') {
+                return part.text || '';
+            }
+
+            if (part?.type === 'image_url') {
+                return `[image: ${part.image_url?.url || 'unknown'}]`;
+            }
+
+            return '';
+        })
+        .filter(Boolean)
+        .join('\n');
+}
+
+function stripImageContent(input) {
+    if (!Array.isArray(input)) {
+        return input;
+    }
+
+    const textParts = input
+        .filter(part => part?.type === 'text')
+        .map(part => part.text)
+        .filter(Boolean);
+
+    return textParts.join('\n') || stringifyUserInput(input);
+}
+
+function isUnsupportedImageError(errorText) {
+    const text = String(errorText || '').toLowerCase();
+
+    return (
+        text.includes('image') ||
+        text.includes('vision') ||
+        text.includes('modality') ||
+        text.includes('multi-modal') ||
+        text.includes('multimodal')
+    ) && (
+        text.includes('unsupported') ||
+        text.includes('not support') ||
+        text.includes('invalid') ||
+        text.includes('cannot') ||
+        text.includes('only supports')
+    );
+}
+
 function isRefusalReply(reply) {
     const text = String(reply || '')
         .toLowerCase()
@@ -212,26 +303,43 @@ function buildNormalFallbackReply(userInput) {
     return 'Ik ben er gewoon. Wat is er?';
 }
 
+function buildImageUnavailableFallbackReply() {
+    return 'Ik kan die foto nu niet uitlezen; het image-model zit even tegen z’n limiet aan.';
+}
+
+function buildRateLimitedFallbackReply() {
+    return 'AI zit even tegen z’n limiet aan. Probeer zo nog eens.';
+}
+
 async function tryModels({ cfg, models, messages }) {
     let lastError = null;
+    let attemptedModels = 0;
+    let rateLimitedCount = 0;
 
     for (const model of models) {
         if (isModelTemporarilyUnavailable(model)) {
             lastError = `AI model ${model} is temporarily rate limited.`;
+            rateLimitedCount += 1;
             continue;
         }
 
+        attemptedModels += 1;
         const response = await requestCompletion(cfg, model, messages);
 
         if (!response.ok) {
             const errorText = await response.text();
             lastError = `AI API request failed for model ${model}: ${response.status} ${errorText}`;
 
+            if (isUnsupportedImageError(errorText)) {
+                throw new AiChatError(lastError, 'UNSUPPORTED_IMAGE_INPUT');
+            }
+
             if (isContentPolicyError(response.status, errorText)) {
                 throw new AiChatError(lastError, 'CONTENT_BLOCKED');
             }
 
-            if (response.status === 429) {
+            if (isRateLimitError(response.status, errorText)) {
+                rateLimitedCount += 1;
                 markModelRateLimited(model, getRetryAfterMs(response));
             }
 
@@ -253,6 +361,10 @@ async function tryModels({ cfg, models, messages }) {
         return reply.trim();
     }
 
+    if (rateLimitedCount > 0 && rateLimitedCount >= attemptedModels) {
+        throw new AiChatError(lastError || 'All configured AI models are temporarily rate limited.', 'RATE_LIMITED');
+    }
+
     throw new AiChatError(lastError || 'No configured model returned a valid response.', 'REQUEST_FAILED');
 }
 
@@ -263,7 +375,8 @@ async function generateAiReply({ userInput, history }) {
         throw new Error('Missing OPENROUTER_API_KEY in .env.');
     }
 
-    const models = buildModelCandidates(cfg);
+    const hasImages = hasImageContent(userInput);
+    const models = hasImages ? buildVisionModelCandidates(cfg) : buildModelCandidates(cfg);
     const hasHistory = Array.isArray(history) && history.length > 0;
     const messagesWithHistory = buildMessages(cfg.botPersonality, history, userInput);
 
@@ -277,6 +390,51 @@ async function generateAiReply({ userInput, history }) {
             resetHistory: isRefusalReply(reply)
         };
     } catch (error) {
+        if (
+            error instanceof AiChatError &&
+            (error.code === 'UNSUPPORTED_IMAGE_INPUT' || error.code === 'RATE_LIMITED') &&
+            hasImages
+        ) {
+            const textOnlyInput = stripImageContent(userInput);
+            const textOnlyMessages = buildMessages(cfg.botPersonality, history, textOnlyInput);
+
+            try {
+                const reply = await tryModels({
+                    cfg,
+                    models: buildModelCandidates(cfg),
+                    messages: textOnlyMessages
+                });
+                const text = isRefusalReply(reply) ? buildNormalFallbackReply(textOnlyInput) : reply;
+
+                return {
+                    text,
+                    maxHistoryTurns: cfg.maxHistoryTurns,
+                    resetHistory: isRefusalReply(reply),
+                    usedTextOnlyFallback: true
+                };
+            } catch (fallbackError) {
+                if (fallbackError instanceof AiChatError && fallbackError.code === 'RATE_LIMITED') {
+                    return {
+                        text: buildImageUnavailableFallbackReply(),
+                        maxHistoryTurns: cfg.maxHistoryTurns,
+                        resetHistory: false,
+                        usedLocalFallback: true
+                    };
+                }
+
+                throw fallbackError;
+            }
+        }
+
+        if (error instanceof AiChatError && error.code === 'RATE_LIMITED') {
+            return {
+                text: buildRateLimitedFallbackReply(),
+                maxHistoryTurns: cfg.maxHistoryTurns,
+                resetHistory: false,
+                usedLocalFallback: true
+            };
+        }
+
         if (!(error instanceof AiChatError) || error.code !== 'CONTENT_BLOCKED' || !hasHistory) {
             throw error;
         }
@@ -295,6 +453,13 @@ async function generateAiReply({ userInput, history }) {
 
 module.exports = {
     AiChatError,
+    buildMessages,
     buildNormalFallbackReply,
+    buildImageUnavailableFallbackReply,
+    buildRateLimitedFallbackReply,
+    buildVisionModelCandidates,
+    hasImageContent,
+    stripImageContent,
+    stringifyUserInput,
     generateAiReply
 };

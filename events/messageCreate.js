@@ -1,11 +1,17 @@
 const fs = require('fs');
 const path = require('path');
-const { canUseTriggers } = require('../stores/access-store');
+const {
+    canSavePingRequests,
+    canUseAiChat,
+    canUseBotMentions,
+    canUseTriggers
+} = require('../stores/access-store');
 const { incrementTriggerStat, getTriggers } = require('../stores/trigger-store');
 const { readSettings } = require('../stores/settings-store');
 const { appendPingRequest } = require('../stores/ping-request-store');
 const { getUserHistory, appendConversationTurn, clearUserHistory } = require('../stores/user-conversation-store');
-const { AiChatError, generateAiReply } = require('../services/ai-chat');
+const { incrementMessageStats } = require('../stores/server-stats-store');
+const { AiChatError, generateAiReply, stringifyUserInput } = require('../services/ai-chat');
 
 const pingResponsesPath = path.join(__dirname, '..', 'data', 'botPingResponses.json');
 const defaultPingRequestSaveCommands = ['zet dit op pornhub'];
@@ -164,6 +170,36 @@ function getAttachmentSummaries(message) {
         .filter(attachment => attachment.url);
 }
 
+function isImageAttachment(attachment) {
+    const contentType = String(attachment.contentType || '').toLowerCase();
+    const url = String(attachment.url || '').toLowerCase();
+
+    return (
+        contentType.startsWith('image/') ||
+        /\.(png|jpe?g|webp|gif)(?:[?#].*)?$/.test(url)
+    );
+}
+
+function getAiImageParts(messages, config) {
+    if (config.features?.aiAttachmentsEnabled === false) {
+        return [];
+    }
+
+    const maxImages = Math.max(0, Number(config.ai?.maxImageAttachments) || 4);
+
+    return messages
+        .filter(Boolean)
+        .flatMap(message => Array.from(message.attachments?.values?.() || []))
+        .filter(attachment => attachment.url && isImageAttachment(attachment))
+        .slice(0, maxImages)
+        .map(attachment => ({
+            type: 'image_url',
+            image_url: {
+                url: attachment.url
+            }
+        }));
+}
+
 function buildPingRequestEntry(message, referencedMessage) {
     return {
         byId: message.author.id,
@@ -181,6 +217,28 @@ function buildPingRequestEntry(message, referencedMessage) {
     };
 }
 
+function buildAttachmentContext(label, message) {
+    const attachments = getAttachmentSummaries(message);
+
+    if (attachments.length === 0) {
+        return [];
+    }
+
+    const lines = [`${label} attachments:`];
+
+    for (const attachment of attachments) {
+        const details = [
+            attachment.name,
+            attachment.contentType,
+            `${attachment.size} bytes`
+        ].filter(Boolean).join(' | ');
+
+        lines.push(`- ${details}: ${attachment.url}`);
+    }
+
+    return lines;
+}
+
 function buildReferencedMessageContext(referencedMessage) {
     if (!referencedMessage) {
         return '';
@@ -192,37 +250,32 @@ function buildReferencedMessageContext(referencedMessage) {
         `Bericht: ${referencedMessage.content || '[geen tekst]'}`
     ];
 
-    const attachments = getAttachmentSummaries(referencedMessage);
-
-    if (attachments.length > 0) {
-        lines.push('Attachments:');
-
-        for (const attachment of attachments) {
-            const details = [
-                attachment.name,
-                attachment.contentType,
-                `${attachment.size} bytes`
-            ].filter(Boolean).join(' | ');
-
-            lines.push(`- ${details}: ${attachment.url}`);
-        }
-    }
+    lines.push(...buildAttachmentContext('Gereplyde bericht', referencedMessage));
 
     return lines.join('\n');
 }
 
-function buildAiUserInput(userInput, referencedMessage) {
+function buildAiUserInput(userInput, message, referencedMessage, config) {
     const referencedContext = buildReferencedMessageContext(referencedMessage);
+    const currentAttachmentContext = buildAttachmentContext('Huidige bericht', message).join('\n');
+    const textInput = [
+        referencedContext,
+        currentAttachmentContext,
+        `Gebruiker zegt tegen jou: ${userInput || '[geen tekst]'}`
+    ].filter(Boolean).join('\n\n');
+    const imageParts = getAiImageParts([referencedMessage, message], config);
 
-    if (!referencedContext) {
-        return userInput;
+    if (imageParts.length === 0) {
+        return textInput;
     }
 
     return [
-        referencedContext,
-        '',
-        `Gebruiker zegt tegen jou: ${userInput}`
-    ].join('\n');
+        {
+            type: 'text',
+            text: textInput
+        },
+        ...imageParts
+    ];
 }
 
 async function replyWithRandomPingResponse(message) {
@@ -253,6 +306,18 @@ module.exports = {
 
         if (message.author.bot) return;
 
+        try {
+            incrementMessageStats({
+                guildId,
+                channelId: message.channelId,
+                channelName: message.channel?.name || message.channelId,
+                userId: message.author.id,
+                userTag: message.author.tag || message.author.username || message.author.id
+            });
+        } catch (error) {
+            console.warn('Failed to update server stats:', error);
+        }
+
         const content = message.content.trim();
 
         if (/@(?:everyone|here)\b/i.test(content)) {
@@ -264,6 +329,9 @@ module.exports = {
         const conversationEnabled = features.aiConversationsEnabled !== false;
         const isMentioningBot = Boolean(client?.user) && message.mentions.has(client.user);
         const mentionInput = stripBotMentions(content);
+        const canUseAi = canUseAiChat(message.author.id, guildId);
+        const canUseMentionResponses = canUseBotMentions(message.author.id, guildId);
+        const canSavePingRequest = canSavePingRequests(message.author.id, guildId);
 
         let isReplyToBot = false;
         let referencedMessage = null;
@@ -276,6 +344,7 @@ module.exports = {
         if (
             isMentioningBot &&
             features.pingRequestSaveEnabled !== false &&
+            canSavePingRequest &&
             message.reference?.messageId &&
             referencedMessage &&
             isPingRequestSaveCommand(mentionInput, config)
@@ -292,10 +361,14 @@ module.exports = {
             return;
         }
 
-        if (conversationEnabled && (isMentioningBot || isReplyToBot)) {
+        if (conversationEnabled && canUseAi && (isMentioningBot || isReplyToBot)) {
             const userInput = mentionInput;
+            const hasAttachments = Boolean(
+                message.attachments?.size ||
+                referencedMessage?.attachments?.size
+            );
 
-            if (!userInput) {
+            if (!userInput && !hasAttachments) {
                 if (!isMentioningBot) {
                     return;
                 }
@@ -303,7 +376,7 @@ module.exports = {
                 try {
                     await message.channel.sendTyping();
                     const history = getUserHistory(message.author.id);
-                    const aiInput = buildAiUserInput(userInput, referencedMessage);
+                    const aiInput = buildAiUserInput(userInput, message, referencedMessage, config);
                     const ai = await generateAiReply({ userInput: aiInput, history });
 
                     await message.reply({ content: ai.text });
@@ -314,7 +387,7 @@ module.exports = {
 
                     appendConversationTurn(
                         message.author.id,
-                        aiInput,
+                        stringifyUserInput(aiInput),
                         ai.text,
                         ai.maxHistoryTurns
                     );
@@ -343,6 +416,7 @@ module.exports = {
 
             if (
                 features.pingRequestSaveEnabled !== false &&
+                canSavePingRequest &&
                 message.reference?.messageId &&
                 referencedMessage &&
                 userInput
@@ -350,7 +424,7 @@ module.exports = {
                 appendPingRequest(buildPingRequestEntry(message, referencedMessage), guildId);
             }
 
-            if (features.pingResponsesEnabled !== false) {
+            if (features.pingResponsesEnabled !== false && canUseMentionResponses) {
                 await replyWithRandomPingResponse(message);
                 return;
             }

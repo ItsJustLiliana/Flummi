@@ -9,7 +9,7 @@ config.local.json
 
 # Runtime and generated data
 !data/*.example.json
-!data/.gitkeep
+data/global/
 data/.runtime/
 data/runtime/
 data/guilds/

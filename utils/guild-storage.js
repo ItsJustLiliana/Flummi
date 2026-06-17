@@ -22,12 +22,32 @@ function ensureGuildStorage(guildId) {
     ensureJsonFile(path.join(base, 'settings.json'), defaultSettings);
     ensureJsonFile(path.join(base, 'triggers.json'), []);
     ensureJsonFile(path.join(base, 'triggerStats.json'), {});
+    ensureJsonFile(path.join(base, 'serverStats.json'), {
+        messages: {
+            total: 0,
+            byChannel: {},
+            byUser: {}
+        }
+    });
     ensureJsonFile(path.join(base, 'triggerAudit.json'), []);
     ensureJsonFile(path.join(base, 'pingRequests.json'), []);
     ensureJsonFile(path.join(base, 'managers.json'), []);
     ensureJsonFile(path.join(base, 'userPermissions.json'), {});
 }
 
+function ensureGlobalStorage() {
+    ensureJsonFile(path.join(dataDir, 'global', 'profiles.json'), {});
+    fs.mkdirSync(path.join(dataDir, 'global', 'users'), { recursive: true });
+
+    try {
+        const { migrateLegacyUsers } = require('../stores/user-conversation-store');
+        migrateLegacyUsers();
+    } catch (error) {
+        console.warn(`Failed to migrate legacy global users: ${error.message}`);
+    }
+}
+
 module.exports = {
+    ensureGlobalStorage,
     ensureGuildStorage
 };

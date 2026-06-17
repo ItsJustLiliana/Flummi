@@ -1,5 +1,5 @@
 const { MessageFlags } = require('discord.js');
-const { isDeveloper, isManager, canUseTriggerCommands } = require('../stores/access-store');
+const { canUseCommandPath, canUseTriggerCommands } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
 
 async function handleRemoveTriggerButton(interaction) {
@@ -10,7 +10,7 @@ async function handleRemoveTriggerButton(interaction) {
         return false;
     }
 
-    const { pendingRemovals } = require('../commands/removetrigger');
+    const { pendingRemovals } = require('../commands/trigger');
     const pendingKey = `${interaction.guildId || 'global'}:${interaction.user.id}`;
     const phrase = pendingRemovals.get(pendingKey);
     pendingRemovals.delete(pendingKey);
@@ -99,10 +99,7 @@ module.exports = {
         }
 
         const triggerCommands = new Set([
-            'addtrigger',
-            'edittrigger',
-            'removetrigger',
-            'triggerstats'
+            'trigger'
         ]);
 
         if (
@@ -115,19 +112,32 @@ module.exports = {
             });
         }
 
-        if (command.devOnly && !isDeveloper(interaction.user.id)) {
-            return interaction.reply({
-                content: 'You do not have permission to use this command.',
-                flags: MessageFlags.Ephemeral
-            });
+        let subcommandName = null;
+
+        try {
+            subcommandName = interaction.options.getSubcommand(false);
+        } catch {
+            subcommandName = null;
         }
 
-        if (
-            command.managerOnly &&
-            !isManager(interaction.user.id, guildId)
-        ) {
+        const commandAccess = canUseCommandPath({
+            userId: interaction.user.id,
+            guildId,
+            commandName: command.data.name,
+            subcommandName,
+            commandDefinition: command
+        });
+
+        if (!commandAccess.allowed) {
+            const commandPath = subcommandName
+                ? `${command.data.name}.${subcommandName}`
+                : command.data.name;
+            const blockedByOverride = commandAccess.override && commandAccess.override.allowed === false;
+
             return interaction.reply({
-                content: 'You need manager permissions to use this command.',
+                content: blockedByOverride
+                    ? `You are blocked from using /${commandPath}.`
+                    : `You need ${commandAccess.requiredRole} permissions to use this command.`,
                 flags: MessageFlags.Ephemeral
             });
         }

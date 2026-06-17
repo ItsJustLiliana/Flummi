@@ -1,7 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { installTimestampedConsole } = require('./utils/logger');
 const config = require('./config.json');
 const deployCommands = require('./deploy-commands');
+
+installTimestampedConsole();
 
 const runtimeDir = path.join(__dirname, 'data', 'runtime');
 const runtimeFile = path.join(runtimeDir, 'runtime.json');

@@ -9,7 +9,7 @@
     "panel": "node control-panel.js",
     "stop": "node stop.js",
     "deploy": "node deploy-commands.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",

@@ -1,4 +1,4 @@
-const { ensureGuildStorage } = require('../utils/guild-storage');
+const { ensureGlobalStorage, ensureGuildStorage } = require('../utils/guild-storage');
 const { applyConfiguredPresence } = require('../utils/presence');
 
 module.exports = {
@@ -6,6 +6,8 @@ module.exports = {
     once: true,
 
     execute(client) {
+        ensureGlobalStorage();
+
         for (const guild of client.guilds.cache.values()) {
             ensureGuildStorage(guild.id);
         }

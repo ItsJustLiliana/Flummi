@@ -1,6 +1,12 @@
 const { MessageFlags } = require('discord.js');
 const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
-const { isDeveloper, isManager } = require('../stores/access-store');
+const {
+    getRequiredCommandRole,
+    getUserRole,
+    isDeveloper,
+    isManager,
+    roleMeetsRequirement
+} = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
 
 const HELP_COMMAND_ORDER = [
@@ -8,14 +14,10 @@ const HELP_COMMAND_ORDER = [
     'ping',
     'tree',
     'resetmemory',
+    'profile',
     'shots',
-    'addtrigger',
-    'triggerlist',
-    'triggerinfo',
-    'triggerstats',
-    'triggeraudit',
-    'edittrigger',
-    'removetrigger',
+    'serverstats',
+    'trigger',
     'userinfo',
     'manage',
     'settings'
@@ -50,6 +52,7 @@ module.exports = {
         const userId = interaction.user.id;
         const developer = isDeveloper(userId);
         const manager = isManager(userId, guildId);
+        const userRole = getUserRole(userId, guildId);
 
         const roleLabel = developer ? 'Developer' : manager ? 'Manager' : 'User';
         const roleColor = developer
@@ -68,17 +71,27 @@ module.exports = {
         const commands = Array.from(interaction.client.commands.values())
             .sort(sortByHelpOrder);
 
-        const publicCommands = commands
-            .filter(command => !command.devOnly && !command.managerOnly)
-            .map(command => `/${command.data.name} - ${command.data.description}`);
+        const commandRows = commands.map(command => {
+            const requiredRole = getRequiredCommandRole(command.data.name, null, command);
 
-        const managerCommands = commands
-            .filter(command => command.managerOnly)
-            .map(command => `/${command.data.name} - ${command.data.description}`);
+            return {
+                command,
+                requiredRole,
+                label: `/${command.data.name} - ${command.data.description}`
+            };
+        });
 
-        const developerCommands = commands
-            .filter(command => command.devOnly)
-            .map(command => `/${command.data.name} - ${command.data.description}`);
+        const availableCommands = commandRows
+            .filter(row => roleMeetsRequirement(userRole, row.requiredRole))
+            .map(row => row.label);
+
+        const managerCommands = commandRows
+            .filter(row => row.requiredRole === 'manager')
+            .map(row => row.label);
+
+        const developerCommands = commandRows
+            .filter(row => row.requiredRole === 'developer')
+            .map(row => row.label);
 
         const embed = new EmbedBuilder()
             .setColor(roleColor)
@@ -87,7 +100,7 @@ module.exports = {
             .addFields(
                 { name: 'Your Role', value: roleLabel, inline: true },
                 { name: 'Bot Status', value: botStatus, inline: true },
-                { name: 'Available Commands', value: publicCommands.join('\n') || 'No public commands.', inline: false }
+                { name: 'Available Commands', value: availableCommands.join('\n') || 'No commands available.', inline: false }
             )
             .setFooter({ text: 'Blue = manager, red = developer, white = user' });
 

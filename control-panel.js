@@ -4,9 +4,11 @@ const path = require('path');
 const { URL } = require('url');
 const { exec } = require('child_process');
 const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
+const { installTimestampedConsole } = require('./utils/logger');
 const { loadEnv } = require('./utils/env-loader');
 const config = require('./config.json');
 
+installTimestampedConsole();
 loadEnv();
 
 const botToken = process.env.DISCORD_BOT_TOKEN || config.token;

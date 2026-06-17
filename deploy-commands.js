@@ -1,8 +1,10 @@
 const { REST, Routes } = require('discord.js');
 const fs = require('fs');
+const { installTimestampedConsole } = require('./utils/logger');
 const { loadEnv } = require('./utils/env-loader');
 const config = require('./config.json');
 
+installTimestampedConsole();
 loadEnv();
 
 const commands = [];

@@ -57,6 +57,160 @@ function isManager(userId, guildId) {
     return isDeveloper(userId) || getManagerUserIds(guildId).includes(String(userId));
 }
 
+function getUserRole(userId, guildId) {
+    if (isDeveloper(userId)) {
+        return 'developer';
+    }
+
+    if (isManager(userId, guildId)) {
+        return 'manager';
+    }
+
+    return 'user';
+}
+
+function normalizeRole(role, fallbackRole = 'user') {
+    const normalized = String(role || '').trim().toLowerCase();
+
+    if (['user', 'manager', 'developer'].includes(normalized)) {
+        return normalized;
+    }
+
+    return fallbackRole;
+}
+
+function normalizeCommandPath(commandPath) {
+    const normalized = String(commandPath || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .replace(/^\//, '');
+
+    if (!/^[a-z0-9_-]+(?:\.[a-z0-9_-]+)?$/.test(normalized)) {
+        return '';
+    }
+
+    return normalized;
+}
+
+function roleMeetsRequirement(userRole, requiredRole) {
+    const ranks = {
+        user: 0,
+        manager: 1,
+        developer: 2
+    };
+
+    return ranks[normalizeRole(userRole)] >= ranks[normalizeRole(requiredRole)];
+}
+
+function getUserCommandOverrides(userId, guildId) {
+    if (isDeveloper(userId)) {
+        return {};
+    }
+
+    const record = getPermissionRecord(guildId);
+    const entry = record[userId] || {};
+    const overrides = entry.commandOverrides && typeof entry.commandOverrides === 'object' && !Array.isArray(entry.commandOverrides)
+        ? entry.commandOverrides
+        : {};
+
+    return Object.fromEntries(
+        Object.entries(overrides)
+            .map(([pathKey, value]) => [normalizeCommandPath(pathKey), value])
+            .filter(([pathKey, value]) => pathKey && typeof value === 'boolean')
+    );
+}
+
+function getCommandOverrideForPath(userId, guildId, commandName, subcommandName) {
+    if (isDeveloper(userId)) {
+        return null;
+    }
+
+    const overrides = getUserCommandOverrides(userId, guildId);
+    const commandKey = normalizeCommandPath(commandName);
+    const subcommandKey = subcommandName ? normalizeCommandPath(`${commandName}.${subcommandName}`) : '';
+
+    if (subcommandKey && Object.prototype.hasOwnProperty.call(overrides, subcommandKey)) {
+        return {
+            path: subcommandKey,
+            allowed: overrides[subcommandKey]
+        };
+    }
+
+    if (commandKey && Object.prototype.hasOwnProperty.call(overrides, commandKey)) {
+        return {
+            path: commandKey,
+            allowed: overrides[commandKey]
+        };
+    }
+
+    return null;
+}
+
+function getCommandPath(interaction) {
+    const commandName = interaction?.commandName;
+
+    if (!commandName) {
+        return '';
+    }
+
+    let subcommand = null;
+
+    try {
+        subcommand = interaction.options?.getSubcommand(false);
+    } catch {
+        subcommand = null;
+    }
+
+    return subcommand ? `${commandName}.${subcommand}` : commandName;
+}
+
+function getRequiredCommandRole(commandName, subcommandName, commandDefinition) {
+    const permissions = config.commandPermissions || {};
+    const commandKey = String(commandName || '');
+    const subcommandKey = subcommandName ? `${commandKey}.${subcommandName}` : null;
+
+    if (subcommandKey && permissions[subcommandKey]) {
+        return normalizeRole(permissions[subcommandKey]);
+    }
+
+    if (permissions[commandKey]) {
+        return normalizeRole(permissions[commandKey]);
+    }
+
+    if (commandDefinition?.devOnly) {
+        return 'developer';
+    }
+
+    if (commandDefinition?.managerOnly) {
+        return 'manager';
+    }
+
+    return 'user';
+}
+
+function canUseCommandPath({ userId, guildId, commandName, subcommandName, commandDefinition }) {
+    const requiredRole = getRequiredCommandRole(commandName, subcommandName, commandDefinition);
+    const userRole = getUserRole(userId, guildId);
+    const override = getCommandOverrideForPath(userId, guildId, commandName, subcommandName);
+
+    if (override) {
+        return {
+            allowed: override.allowed,
+            requiredRole,
+            userRole,
+            override
+        };
+    }
+
+    return {
+        allowed: roleMeetsRequirement(userRole, requiredRole),
+        requiredRole,
+        userRole,
+        override: null
+    };
+}
+
 function isTriggerFeatureEnabled() {
     const featureConfig = config.features || {};
 
@@ -77,16 +231,25 @@ function getUserPermissions(userId, guildId) {
     if (isDeveloper(userId)) {
         return {
             useTriggers: true,
-            addTriggers: true
+            addTriggers: true,
+            useAiChat: true,
+            useBotMentions: true,
+            savePingRequests: true,
+            commandOverrides: {}
         };
     }
 
     const record = getPermissionRecord(guildId);
     const entry = record[userId] || {};
+    const manager = isManager(userId, guildId);
 
     return {
         useTriggers: entry.useTriggers !== false,
-        addTriggers: entry.addTriggers !== false
+        addTriggers: manager ? entry.addTriggers !== false : entry.addTriggers !== false,
+        useAiChat: entry.useAiChat !== false,
+        useBotMentions: entry.useBotMentions !== false,
+        savePingRequests: entry.savePingRequests !== false,
+        commandOverrides: getUserCommandOverrides(userId, guildId)
     };
 }
 
@@ -110,6 +273,46 @@ function setUserPermission(userId, permissionKey, value, guildId) {
     };
 
     writeJson(guildPaths.userPermissions, record);
+}
+
+function setUserCommandPermission(userId, commandPath, value, guildId) {
+    if (isDeveloper(userId)) {
+        return {};
+    }
+
+    const normalizedPath = normalizeCommandPath(commandPath);
+
+    if (!normalizedPath) {
+        throw new Error('Invalid command path.');
+    }
+
+    const guildPaths = resolveGuildPaths(guildId);
+
+    if (!guildPaths) {
+        return {};
+    }
+
+    const record = getPermissionRecord(guildId);
+    const existing = record[userId] || {};
+    const commandOverrides = existing.commandOverrides && typeof existing.commandOverrides === 'object' && !Array.isArray(existing.commandOverrides)
+        ? { ...existing.commandOverrides }
+        : {};
+
+    if (value === null) {
+        delete commandOverrides[normalizedPath];
+    } else if (typeof value === 'boolean') {
+        commandOverrides[normalizedPath] = value;
+    } else {
+        throw new Error('Command permission value must be true, false, or null.');
+    }
+
+    record[userId] = {
+        ...existing,
+        commandOverrides
+    };
+
+    writeJson(guildPaths.userPermissions, record);
+    return getUserCommandOverrides(userId, guildId);
 }
 
 function setManagerRole(userId, shouldBeManager, guildId) {
@@ -137,7 +340,7 @@ function setManagerRole(userId, shouldBeManager, guildId) {
 }
 
 function canUseTriggers(userId, guildId) {
-    if (isManager(userId, guildId)) {
+    if (isDeveloper(userId)) {
         return true;
     }
 
@@ -145,11 +348,27 @@ function canUseTriggers(userId, guildId) {
 }
 
 function canAddTriggers(userId, guildId) {
-    if (isManager(userId, guildId)) {
+    if (isDeveloper(userId)) {
         return true;
     }
 
+    if (isManager(userId, guildId)) {
+        return getUserPermissions(userId, guildId).addTriggers;
+    }
+
     return getUserPermissions(userId, guildId).addTriggers;
+}
+
+function canUseAiChat(userId, guildId) {
+    return getUserPermissions(userId, guildId).useAiChat;
+}
+
+function canUseBotMentions(userId, guildId) {
+    return getUserPermissions(userId, guildId).useBotMentions;
+}
+
+function canSavePingRequests(userId, guildId) {
+    return getUserPermissions(userId, guildId).savePingRequests;
 }
 
 function canUseTriggerCommands(userId) {
@@ -159,13 +378,24 @@ function canUseTriggerCommands(userId) {
 module.exports = {
     getDeveloperUserIds,
     getManagerUserIds,
+    getUserRole,
+    getCommandPath,
+    getRequiredCommandRole,
+    getUserCommandOverrides,
+    normalizeCommandPath,
+    roleMeetsRequirement,
     isDeveloper,
     isManager,
+    canUseCommandPath,
     isTriggerFeatureEnabled,
     getUserPermissions,
     setUserPermission,
+    setUserCommandPermission,
     setManagerRole,
     canUseTriggers,
     canAddTriggers,
+    canUseAiChat,
+    canUseBotMentions,
+    canSavePingRequests,
     canUseTriggerCommands
 };

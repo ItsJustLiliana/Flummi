@@ -5,8 +5,10 @@ const { getUserMessageStats } = require('../stores/server-stats-store');
 const {
     clearProfileField,
     formatColor,
+    formatLanguages,
     getProfile,
     normalizeColor,
+    normalizeLanguages,
     normalizeText,
     normalizeUrl,
     setProfileSocial,
@@ -78,9 +80,10 @@ async function buildProfileEmbed(interaction, targetUser) {
                 name: 'About',
                 value: [
                     `Pronouns: ${formatOptional(profile.pronouns)}`,
-                    `Location: ${formatOptional(profile.location)}`,
-                    `Mood: ${formatOptional(profile.mood)}`,
-                    `Favorite: ${formatOptional(profile.favorite)}`
+                    `Birthday: ${formatOptional(profile.birthday)}`,
+                    `Timezone: ${formatOptional(profile.timezone)}`,
+                    `Languages: ${formatLanguages(profile.languages)}`,
+                    `Website: ${profile.website || 'Not set'}`
                 ].join('\n'),
                 inline: false
             },
@@ -98,7 +101,7 @@ async function buildProfileEmbed(interaction, targetUser) {
                 name: 'Style',
                 value: [
                     `Color: ${formatColor(profile.color)}`,
-                    `Website: ${profile.website || 'Not set'}`
+                    `Banner: ${profile.bannerUrl ? 'Set' : 'Not set'}`
                 ].join('\n'),
                 inline: true
             },
@@ -139,9 +142,8 @@ function getSetUpdates(interaction) {
         ['nickname', 80],
         ['bio', 500],
         ['pronouns', 80],
-        ['location', 80],
-        ['mood', 80],
-        ['favorite', 80]
+        ['birthday', 20],
+        ['timezone', 40]
     ];
 
     for (const [field, maxLength] of textFields) {
@@ -172,7 +174,32 @@ function getSetUpdates(interaction) {
         updates.website = website;
     }
 
+    const languagesInput = interaction.options.getString('languages');
+
+    if (languagesInput !== null) {
+        updates.languages = normalizeLanguages(languagesInput);
+    }
+
     return updates;
+}
+
+function getClearFields(interaction) {
+    const fields = [
+        ['nickname', 'nickname'],
+        ['bio', 'bio'],
+        ['pronouns', 'pronouns'],
+        ['birthday', 'birthday'],
+        ['timezone', 'timezone'],
+        ['languages', 'languages'],
+        ['website', 'website'],
+        ['banner-url', 'banner'],
+        ['color', 'color'],
+        ['socials', 'socials']
+    ];
+
+    return fields
+        .filter(([optionName]) => interaction.options.getBoolean(optionName) === true)
+        .map(([, field]) => field);
 }
 
 async function replyWithProfile(interaction, targetUser, content = null) {
@@ -192,11 +219,11 @@ async function replyWithProfile(interaction, targetUser, content = null) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('profile')
-        .setDescription('View and customize global profiles')
+        .setDescription('View your profile')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('view')
-                .setDescription('View a profile')
+                .setDescription('View the profile from a specific user')
                 .addUserOption(option =>
                     option.setName('user').setDescription('Profile owner').setRequired(false)
                 )
@@ -204,7 +231,7 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('set')
-                .setDescription('Update your profile details')
+                .setDescription('Update part of your profile')
                 .addStringOption(option =>
                     option.setName('nickname').setDescription('Profile display name').setMaxLength(80).setRequired(false)
                 )
@@ -215,13 +242,13 @@ module.exports = {
                     option.setName('pronouns').setDescription('Pronouns').setMaxLength(80).setRequired(false)
                 )
                 .addStringOption(option =>
-                    option.setName('location').setDescription('Location or timezone').setMaxLength(80).setRequired(false)
+                    option.setName('birthday').setDescription('Birthday, for example 17-06 or 2006-06-17').setMaxLength(20).setRequired(false)
                 )
                 .addStringOption(option =>
-                    option.setName('mood').setDescription('Current mood/status').setMaxLength(80).setRequired(false)
+                    option.setName('timezone').setDescription('Timezone, for example UTC+2 or Europe/Amsterdam').setMaxLength(40).setRequired(false)
                 )
                 .addStringOption(option =>
-                    option.setName('favorite').setDescription('Favorite thing, quote, game, artist, etc.').setMaxLength(80).setRequired(false)
+                    option.setName('languages').setDescription('Comma-separated languages, for example Dutch, English, Japanese').setMaxLength(300).setRequired(false)
                 )
                 .addStringOption(option =>
                     option.setName('website').setDescription('Website URL').setRequired(false)
@@ -229,24 +256,14 @@ module.exports = {
                 .addStringOption(option =>
                     option.setName('banner-url').setDescription('Image URL shown as your profile banner').setRequired(false)
                 )
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('color')
-                .setDescription('Set your profile accent color')
                 .addStringOption(option =>
-                    option.setName('hex').setDescription('Hex color, for example #1E88E5').setRequired(true)
+                    option.setName('color').setDescription('Hex color, for example #1E88E5').setRequired(false)
                 )
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('social')
-                .setDescription('Add or update a social link/handle')
                 .addStringOption(option =>
                     option
-                        .setName('platform')
-                        .setDescription('Social platform')
-                        .setRequired(true)
+                        .setName('social-platform')
+                        .setDescription('Social platform to add/update')
+                        .setRequired(false)
                         .addChoices(
                             { name: 'Instagram', value: 'instagram' },
                             { name: 'TikTok', value: 'tiktok' },
@@ -259,29 +276,57 @@ module.exports = {
                         )
                 )
                 .addStringOption(option =>
-                    option.setName('handle').setDescription('Handle, username, or URL. Leave empty via clear to remove.').setMaxLength(80).setRequired(true)
+                    option.setName('social-handle').setDescription('Handle, username, or URL').setMaxLength(80).setRequired(false)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('clear')
                 .setDescription('Clear part of your profile')
+                .addBooleanOption(option =>
+                    option.setName('nickname').setDescription('Clear profile nickname').setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option.setName('bio').setDescription('Clear profile bio').setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option.setName('pronouns').setDescription('Clear pronouns').setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option.setName('birthday').setDescription('Clear birthday').setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option.setName('timezone').setDescription('Clear timezone').setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option.setName('languages').setDescription('Clear languages').setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option.setName('website').setDescription('Clear website').setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option.setName('banner-url').setDescription('Clear banner image').setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option.setName('color').setDescription('Reset profile color').setRequired(false)
+                )
+                .addBooleanOption(option =>
+                    option.setName('socials').setDescription('Clear all socials').setRequired(false)
+                )
                 .addStringOption(option =>
                     option
-                        .setName('field')
-                        .setDescription('Profile field to clear')
-                        .setRequired(true)
+                        .setName('social-platform')
+                        .setDescription('Clear one social platform')
+                        .setRequired(false)
                         .addChoices(
-                            { name: 'Nickname', value: 'nickname' },
-                            { name: 'Bio', value: 'bio' },
-                            { name: 'Pronouns', value: 'pronouns' },
-                            { name: 'Location', value: 'location' },
-                            { name: 'Mood', value: 'mood' },
-                            { name: 'Favorite', value: 'favorite' },
-                            { name: 'Website', value: 'website' },
-                            { name: 'Banner', value: 'banner' },
-                            { name: 'Color', value: 'color' },
-                            { name: 'Socials', value: 'socials' }
+                            { name: 'Instagram', value: 'instagram' },
+                            { name: 'TikTok', value: 'tiktok' },
+                            { name: 'Twitch', value: 'twitch' },
+                            { name: 'YouTube', value: 'youtube' },
+                            { name: 'GitHub', value: 'github' },
+                            { name: 'X/Twitter', value: 'x' },
+                            { name: 'Discord', value: 'discord' },
+                            { name: 'Website', value: 'website' }
                         )
                 )
         ),
@@ -306,44 +351,74 @@ module.exports = {
                 });
             }
 
-            if (Object.keys(updates).length === 0) {
+            const colorInput = interaction.options.getString('color');
+
+            if (colorInput !== null) {
+                const color = normalizeColor(colorInput);
+
+                if (color === null) {
+                    return interaction.reply({
+                        content: 'Use a valid 6-digit hex color, for example #1E88E5.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                }
+
+                updates.color = color;
+            }
+
+            const socialPlatform = interaction.options.getString('social-platform');
+            const socialHandle = interaction.options.getString('social-handle');
+
+            if ((socialPlatform && !socialHandle) || (!socialPlatform && socialHandle)) {
+                return interaction.reply({
+                    content: 'Use both social-platform and social-handle to update a social.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            if (Object.keys(updates).length > 0) {
+                updateProfile(interaction.user.id, interaction.guildId, updates);
+            }
+
+            if (socialPlatform && socialHandle) {
+                setProfileSocial(interaction.user.id, interaction.guildId, socialPlatform, socialHandle);
+            }
+
+            if (Object.keys(updates).length === 0 && !socialPlatform) {
                 return interaction.reply({
                     content: 'Add at least one profile field to update.',
                     flags: MessageFlags.Ephemeral
                 });
             }
 
-            updateProfile(interaction.user.id, interaction.guildId, updates);
             return replyWithProfile(interaction, interaction.user, 'Profile updated.');
         }
 
-        if (subcommand === 'color') {
-            const color = normalizeColor(interaction.options.getString('hex'));
+        if (subcommand === 'clear') {
+            const fields = getClearFields(interaction);
+            const socialPlatform = interaction.options.getString('social-platform');
 
-            if (color === null) {
+            if (fields.length === 0 && !socialPlatform) {
                 return interaction.reply({
-                    content: 'Use a valid 6-digit hex color, for example #1E88E5.',
+                    content: 'Choose at least one profile field to clear.',
                     flags: MessageFlags.Ephemeral
                 });
             }
 
-            updateProfile(interaction.user.id, interaction.guildId, { color });
-            return replyWithProfile(interaction, interaction.user, `Profile color set to ${formatColor(color)}.`);
-        }
+            for (const field of fields) {
+                clearProfileField(interaction.user.id, interaction.guildId, field);
+            }
 
-        if (subcommand === 'social') {
-            const platform = interaction.options.getString('platform');
-            const handle = interaction.options.getString('handle');
+            if (socialPlatform) {
+                setProfileSocial(interaction.user.id, interaction.guildId, socialPlatform, null);
+            }
 
-            setProfileSocial(interaction.user.id, interaction.guildId, platform, handle);
-            return replyWithProfile(interaction, interaction.user, `Updated ${platform}.`);
-        }
+            const cleared = [
+                ...fields,
+                socialPlatform ? `${socialPlatform} social` : null
+            ].filter(Boolean);
 
-        if (subcommand === 'clear') {
-            const field = interaction.options.getString('field');
-
-            clearProfileField(interaction.user.id, interaction.guildId, field);
-            return replyWithProfile(interaction, interaction.user, `Cleared ${field}.`);
+            return replyWithProfile(interaction, interaction.user, `Cleared ${cleared.join(', ')}.`);
         }
 
         return interaction.reply({

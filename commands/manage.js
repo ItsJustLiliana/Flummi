@@ -188,8 +188,13 @@ module.exports = {
                 }
 
                 if (commandPath && commandAccess) {
-                    const [commandName, subcommandName] = commandPath.split('.');
-                    const requiredRole = getRequiredCommandRole(commandName, subcommandName || null, null);
+                    const [commandName, groupOrSubcommandName, nestedSubcommandName] = commandPath.split('.');
+                    const requiredRole = getRequiredCommandRole(
+                        commandName,
+                        nestedSubcommandName || groupOrSubcommandName || null,
+                        null,
+                        nestedSubcommandName ? groupOrSubcommandName : null
+                    );
                     const actorRole = getUserRole(interaction.user.id, guildId);
                     const nextValue = commandAccess === 'inherit'
                         ? null

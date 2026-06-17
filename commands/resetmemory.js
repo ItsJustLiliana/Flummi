@@ -5,7 +5,7 @@ const { clearUserHistory } = require('../stores/user-conversation-store');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('resetmemory')
-        .setDescription('Reset AI memory')
+        .setDescription('Reset AI memory of yourself')
         .addUserOption(option =>
             option
                 .setName('user')

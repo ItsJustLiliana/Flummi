@@ -1,9 +1,14 @@
 const fs = require('fs');
 const path = require('path');
+const {
+    ensureGlobalUserDir,
+    getGlobalUserFilePath,
+    getGlobalUsersDir,
+    normalizeUserId
+} = require('../utils/global-user-storage');
 
 const dataDir = path.join(__dirname, '..', 'data');
-const globalDir = path.join(dataDir, 'global');
-const usersDir = path.join(globalDir, 'users');
+const usersDir = getGlobalUsersDir();
 const legacyUsersDir = path.join(dataDir, 'users');
 
 const DEFAULT_MAX_HISTORY = 24;
@@ -28,15 +33,11 @@ function formatTimestamp(date = new Date()) {
     ].join(':');
 }
 
-function ensureUsersDir() {
-    fs.mkdirSync(usersDir, { recursive: true });
-}
-
-function normalizeUserId(userId) {
-    return String(userId || '').trim().replace(/[^0-9]/g, '');
-}
-
 function getUserFilePath(userId) {
+    return getGlobalUserFilePath(userId, 'aiMemory.json');
+}
+
+function getLegacyGlobalUserFilePath(userId) {
     const normalizedUserId = normalizeUserId(userId);
 
     if (!normalizedUserId) {
@@ -93,39 +94,62 @@ function cleanupLegacyUsersDirIfEmpty() {
 function migrateLegacyUserFile(userId) {
     const userFilePath = getUserFilePath(userId);
     const legacyUserFilePath = getLegacyUserFilePath(userId);
+    const legacyGlobalUserFilePath = getLegacyGlobalUserFilePath(userId);
+    const legacySources = [legacyGlobalUserFilePath, legacyUserFilePath].filter(Boolean);
 
-    if (!userFilePath || !legacyUserFilePath || !fs.existsSync(legacyUserFilePath)) {
+    if (!userFilePath || !legacySources.some(filePath => fs.existsSync(filePath))) {
         return;
     }
 
-    ensureUsersDir();
+    ensureGlobalUserDir(userId);
 
-    const globalFileExists = fs.existsSync(userFilePath);
-    const legacyData = readRawUserData(legacyUserFilePath);
-    const globalData = globalFileExists ? readRawUserData(userFilePath) : ensureUserData(null);
+    let globalFileExists = fs.existsSync(userFilePath);
+    let globalData = globalFileExists ? readRawUserData(userFilePath) : ensureUserData(null);
 
-    if (shouldPreferLegacyUserData(legacyData, globalData, globalFileExists)) {
-        fs.writeFileSync(userFilePath, JSON.stringify(legacyData, null, 2), 'utf8');
+    for (const sourcePath of legacySources) {
+        if (!fs.existsSync(sourcePath)) {
+            continue;
+        }
+
+        const legacyData = readRawUserData(sourcePath);
+
+        if (shouldPreferLegacyUserData(legacyData, globalData, globalFileExists)) {
+            fs.writeFileSync(userFilePath, JSON.stringify(legacyData, null, 2), 'utf8');
+            globalFileExists = true;
+            globalData = legacyData;
+        }
+
+        try {
+            fs.unlinkSync(sourcePath);
+        } catch {
+            // If cleanup fails, keep using the nested global file path anyway.
+        }
     }
 
-    try {
-        fs.unlinkSync(legacyUserFilePath);
-        cleanupLegacyUsersDirIfEmpty();
-    } catch {
-        // If cleanup fails, keep using the global file path anyway.
-    }
+    cleanupLegacyUsersDirIfEmpty();
 }
 
 function migrateLegacyUsers() {
-    if (!fs.existsSync(legacyUsersDir)) {
-        return;
+    const userIds = new Set();
+
+    if (fs.existsSync(usersDir)) {
+        for (const file of fs.readdirSync(usersDir)) {
+            if (/^\d+\.json$/.test(file)) {
+                userIds.add(path.basename(file, '.json'));
+            }
+        }
     }
 
-    const files = fs.readdirSync(legacyUsersDir)
-        .filter(file => /^\d+\.json$/.test(file));
+    if (fs.existsSync(legacyUsersDir)) {
+        for (const file of fs.readdirSync(legacyUsersDir)) {
+            if (/^\d+\.json$/.test(file)) {
+                userIds.add(path.basename(file, '.json'));
+            }
+        }
+    }
 
-    for (const file of files) {
-        migrateLegacyUserFile(path.basename(file, '.json'));
+    for (const userId of userIds) {
+        migrateLegacyUserFile(userId);
     }
 
     cleanupLegacyUsersDirIfEmpty();
@@ -138,7 +162,7 @@ function ensureUserFile(userId) {
         return null;
     }
 
-    ensureUsersDir();
+    ensureGlobalUserDir(userId);
     migrateLegacyUserFile(userId);
 
     if (!fs.existsSync(userFilePath)) {

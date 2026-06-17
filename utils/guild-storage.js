@@ -36,7 +36,6 @@ function ensureGuildStorage(guildId) {
 }
 
 function ensureGlobalStorage() {
-    ensureJsonFile(path.join(dataDir, 'global', 'profiles.json'), {});
     fs.mkdirSync(path.join(dataDir, 'global', 'users'), { recursive: true });
 
     try {
@@ -44,6 +43,13 @@ function ensureGlobalStorage() {
         migrateLegacyUsers();
     } catch (error) {
         console.warn(`Failed to migrate legacy global users: ${error.message}`);
+    }
+
+    try {
+        const { migrateLegacyProfiles } = require('../stores/profile-store');
+        migrateLegacyProfiles();
+    } catch (error) {
+        console.warn(`Failed to migrate legacy global profiles: ${error.message}`);
     }
 }
 

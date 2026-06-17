@@ -86,7 +86,7 @@ function normalizeCommandPath(commandPath) {
         .replace(/\s+/g, '')
         .replace(/^\//, '');
 
-    if (!/^[a-z0-9_-]+(?:\.[a-z0-9_-]+)?$/.test(normalized)) {
+    if (!/^[a-z0-9_-]+(?:\.[a-z0-9_-]+){0,2}$/.test(normalized)) {
         return '';
     }
 
@@ -157,7 +157,12 @@ function getCommandPath(interaction) {
     let subcommand = null;
 
     try {
+        const group = interaction.options?.getSubcommandGroup(false);
         subcommand = interaction.options?.getSubcommand(false);
+
+        if (group && subcommand) {
+            return `${commandName}.${group}.${subcommand}`;
+        }
     } catch {
         subcommand = null;
     }
@@ -165,13 +170,22 @@ function getCommandPath(interaction) {
     return subcommand ? `${commandName}.${subcommand}` : commandName;
 }
 
-function getRequiredCommandRole(commandName, subcommandName, commandDefinition) {
+function getRequiredCommandRole(commandName, subcommandName, commandDefinition, subcommandGroupName = null) {
     const permissions = config.commandPermissions || {};
     const commandKey = String(commandName || '');
-    const subcommandKey = subcommandName ? `${commandKey}.${subcommandName}` : null;
+    const groupKey = subcommandGroupName ? `${commandKey}.${subcommandGroupName}` : null;
+    const subcommandKey = subcommandName
+        ? subcommandGroupName
+            ? `${commandKey}.${subcommandGroupName}.${subcommandName}`
+            : `${commandKey}.${subcommandName}`
+        : null;
 
     if (subcommandKey && permissions[subcommandKey]) {
         return normalizeRole(permissions[subcommandKey]);
+    }
+
+    if (groupKey && permissions[groupKey]) {
+        return normalizeRole(permissions[groupKey]);
     }
 
     if (permissions[commandKey]) {
@@ -189,10 +203,15 @@ function getRequiredCommandRole(commandName, subcommandName, commandDefinition) 
     return 'user';
 }
 
-function canUseCommandPath({ userId, guildId, commandName, subcommandName, commandDefinition }) {
-    const requiredRole = getRequiredCommandRole(commandName, subcommandName, commandDefinition);
+function canUseCommandPath({ userId, guildId, commandName, subcommandName, commandDefinition, subcommandGroupName = null }) {
+    const requiredRole = getRequiredCommandRole(commandName, subcommandName, commandDefinition, subcommandGroupName);
     const userRole = getUserRole(userId, guildId);
-    const override = getCommandOverrideForPath(userId, guildId, commandName, subcommandName);
+    const override = getCommandOverrideForPath(
+        userId,
+        guildId,
+        commandName,
+        subcommandGroupName && subcommandName ? `${subcommandGroupName}.${subcommandName}` : subcommandName
+    );
 
     if (override) {
         return {

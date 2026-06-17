@@ -113,11 +113,14 @@ module.exports = {
         }
 
         let subcommandName = null;
+        let subcommandGroupName = null;
 
         try {
+            subcommandGroupName = interaction.options.getSubcommandGroup(false);
             subcommandName = interaction.options.getSubcommand(false);
         } catch {
             subcommandName = null;
+            subcommandGroupName = null;
         }
 
         const commandAccess = canUseCommandPath({
@@ -125,12 +128,15 @@ module.exports = {
             guildId,
             commandName: command.data.name,
             subcommandName,
+            subcommandGroupName,
             commandDefinition: command
         });
 
         if (!commandAccess.allowed) {
             const commandPath = subcommandName
-                ? `${command.data.name}.${subcommandName}`
+                ? subcommandGroupName
+                    ? `${command.data.name}.${subcommandGroupName}.${subcommandName}`
+                    : `${command.data.name}.${subcommandName}`
                 : command.data.name;
             const blockedByOverride = commandAccess.override && commandAccess.override.allowed === false;
 

@@ -8,41 +8,73 @@ const {
     roleMeetsRequirement
 } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
+const config = require('../config.json');
 
-const HELP_COMMAND_ORDER = [
-    'help',
-    'ping',
-    'tree',
-    'resetmemory',
-    'profile',
-    'shots',
-    'serverstats',
-    'trigger',
-    'userinfo',
-    'manage',
-    'settings'
-];
+function getCommandDescription(command, pathKey) {
+    const parts = pathKey.split('.');
 
-function sortByHelpOrder(left, right) {
-    const leftIndex = HELP_COMMAND_ORDER.indexOf(left.data.name);
-    const rightIndex = HELP_COMMAND_ORDER.indexOf(right.data.name);
-
-    if (leftIndex === -1 && rightIndex === -1) {
-        return left.data.name.localeCompare(right.data.name);
+    if (parts.length === 1) {
+        return command?.data?.description || 'No description.';
     }
 
-    if (leftIndex === -1) {
-        return 1;
+    const commandJson = command?.data?.toJSON?.();
+    let options = commandJson?.options || [];
+
+    for (const part of parts.slice(1)) {
+        const match = options.find(option => option.name === part);
+
+        if (!match) {
+            return command?.data?.description || 'No description.';
+        }
+
+        if (part === parts[parts.length - 1]) {
+            return match.description || command?.data?.description || 'No description.';
+        }
+
+        options = match.options || [];
     }
 
-    if (rightIndex === -1) {
-        return -1;
-    }
+    return command?.data?.description || 'No description.';
+}
 
-    return leftIndex - rightIndex;
+function formatCommandPath(pathKey, command) {
+    return `/${pathKey.replace(/\./g, ' ')} - ${getCommandDescription(command, pathKey)}`;
+}
+
+function getConfiguredCommandRows(client) {
+    const commandPermissions = config.commandPermissions || {};
+    const commands = client.commands;
+    const configuredPaths = Object.keys(commandPermissions);
+
+    return Object.entries(commandPermissions)
+        .map(([pathKey, requiredRole]) => {
+            const isContainerOnly = !pathKey.includes('.') &&
+                configuredPaths.some(candidate => candidate.startsWith(`${pathKey}.`));
+
+            if (isContainerOnly) {
+                return null;
+            }
+
+            const commandName = pathKey.split('.')[0];
+            const command = commands.get(commandName);
+
+            if (!command) {
+                return null;
+            }
+
+            return {
+                pathKey,
+                command,
+                requiredRole,
+                label: formatCommandPath(pathKey, command)
+            };
+        })
+        .filter(Boolean);
 }
 
 module.exports = {
+    getConfiguredCommandRows,
+
     data: new SlashCommandBuilder()
         .setName('help')
         .setDescription('Show your available commands and role'),
@@ -68,21 +100,19 @@ module.exports = {
                 ? 'You can use public commands and manager-only commands.'
                 : 'You can only use public commands.';
 
-        const commands = Array.from(interaction.client.commands.values())
-            .sort(sortByHelpOrder);
+        const commandRows = getConfiguredCommandRows(interaction.client)
+            .map(row => ({
+                ...row,
+                requiredRole: getRequiredCommandRole(
+                    row.pathKey.split('.')[0],
+                    row.pathKey.split('.')[2] || row.pathKey.split('.')[1] || null,
+                    row.command,
+                    row.pathKey.split('.')[2] ? row.pathKey.split('.')[1] : null
+                )
+            }));
 
-        const commandRows = commands.map(command => {
-            const requiredRole = getRequiredCommandRole(command.data.name, null, command);
-
-            return {
-                command,
-                requiredRole,
-                label: `/${command.data.name} - ${command.data.description}`
-            };
-        });
-
-        const availableCommands = commandRows
-            .filter(row => roleMeetsRequirement(userRole, row.requiredRole))
+        const userCommands = commandRows
+            .filter(row => row.requiredRole === 'user')
             .map(row => row.label);
 
         const managerCommands = commandRows
@@ -99,10 +129,17 @@ module.exports = {
             .setDescription(`${availabilityNote}`)
             .addFields(
                 { name: 'Your Role', value: roleLabel, inline: true },
-                { name: 'Bot Status', value: botStatus, inline: true },
-                { name: 'Available Commands', value: availableCommands.join('\n') || 'No commands available.', inline: false }
+                { name: 'Bot Status', value: botStatus, inline: true }
             )
             .setFooter({ text: 'Blue = manager, red = developer, white = user' });
+
+        if (roleMeetsRequirement(userRole, 'user')) {
+            embed.addFields({
+                name: 'User Commands',
+                value: userCommands.join('\n') || 'No user commands.',
+                inline: false
+            });
+        }
 
         if (manager) {
             embed.addFields({

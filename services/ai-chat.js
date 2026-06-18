@@ -202,7 +202,7 @@ async function requestCompletion(cfg, model, messages) {
     });
 }
 
-function buildMessages(personality, history, userInput, memorySummary = '', userProfile = '') {
+function buildMessages(personality, history, userInput, memorySummary = '', userProfile = '', externalUserProfile = '') {
     const sanitizedHistory = Array.isArray(history)
         ? history
             .filter(item => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
@@ -224,15 +224,27 @@ function buildMessages(personality, history, userInput, memorySummary = '', user
         ? [{
             role: 'system',
             content: [
-                'Gebruikersprofiel voor deze user. Gebruik dit subtiel voor toon, voorkeuren en terugkerende context;',
+                'Intern geleerd gebruikersprofiel voor deze user. Gebruik dit subtiel voor toon, voorkeuren en terugkerende context;',
                 'maak er geen expliciet onderwerp van tenzij het relevant is:',
                 profileText
+            ].join('\n')
+        }]
+        : [];
+    const externalProfileText = String(externalUserProfile || '').trim();
+    const externalProfileMessage = externalProfileText
+        ? [{
+            role: 'system',
+            content: [
+                'Door de user zelf ingevuld profiel. Dit is explicieter/betrouwbaarder dan het interne geleerde profiel;',
+                'gebruik het subtiel als context:',
+                externalProfileText
             ].join('\n')
         }]
         : [];
 
     return [
         { role: 'system', content: personality },
+        ...externalProfileMessage,
         ...profileMessage,
         ...summaryMessage,
         ...sanitizedHistory,
@@ -425,7 +437,7 @@ async function tryModels({ cfg, models, messages }) {
     throw new AiChatError(lastError || 'No configured model returned a valid response.', 'REQUEST_FAILED');
 }
 
-async function generateAiReply({ userInput, history, memorySummary, userProfile }) {
+async function generateAiReply({ userInput, history, memorySummary, userProfile, externalUserProfile }) {
     const cfg = getAiConfig();
 
     if (!cfg.apiKey) {
@@ -435,7 +447,14 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile 
     const hasImages = hasImageContent(userInput);
     const models = hasImages ? buildVisionModelCandidates(cfg) : buildModelCandidates(cfg);
     const hasHistory = Array.isArray(history) && history.length > 0;
-    const messagesWithHistory = buildMessages(cfg.botPersonality, history, userInput, memorySummary, userProfile);
+    const messagesWithHistory = buildMessages(
+        cfg.botPersonality,
+        history,
+        userInput,
+        memorySummary,
+        userProfile,
+        externalUserProfile
+    );
 
     try {
         const reply = await tryModels({ cfg, models, messages: messagesWithHistory });
@@ -455,7 +474,14 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile 
             hasImages
         ) {
             const textOnlyInput = stripImageContent(userInput);
-            const textOnlyMessages = buildMessages(cfg.botPersonality, history, textOnlyInput, memorySummary, userProfile);
+            const textOnlyMessages = buildMessages(
+                cfg.botPersonality,
+                history,
+                textOnlyInput,
+                memorySummary,
+                userProfile,
+                externalUserProfile
+            );
 
             try {
                 const reply = await tryModels({

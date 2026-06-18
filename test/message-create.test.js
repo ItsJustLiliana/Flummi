@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    buildExternalUserProfileContext,
     buildImageFileAttachment,
     cleanImageSearchContext,
     extractDirectImageSearchQuery,
@@ -15,6 +16,29 @@ const {
     getImageExtensionFromUrl,
     ImageAttachmentError
 } = require('../events/messageCreate');
+
+test('buildExternalUserProfileContext formats user-filled profile fields for AI context', () => {
+    const context = buildExternalUserProfileContext({
+        nickname: 'Marij',
+        bio: 'Bot enjoyer',
+        pronouns: 'he/him',
+        birthday: null,
+        timezone: 'Europe/Amsterdam',
+        languages: [{ label: 'Dutch', flag: 'NL' }, { label: 'English', flag: 'GB' }],
+        socials: {
+            github: 'marij',
+            twitch: ''
+        }
+    });
+
+    assert.match(context, /Naam\/nickname: Marij/);
+    assert.match(context, /Bio: Bot enjoyer/);
+    assert.match(context, /Pronouns: he\/him/);
+    assert.match(context, /Timezone: Europe\/Amsterdam/);
+    assert.match(context, /Languages: .*Dutch.*English/);
+    assert.match(context, /Socials: github: marij/);
+    assert.doesNotMatch(context, /Birthday/);
+});
 
 test('extractDirectImageSearchQuery reads direct Dutch image requests', () => {
     assert.equal(extractDirectImageSearchQuery('katten foto'), 'katten');

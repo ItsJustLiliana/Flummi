@@ -10,6 +10,7 @@ const { incrementTriggerStat, getTriggers } = require('../stores/trigger-store')
 const { readSettings } = require('../stores/settings-store');
 const { appendPingRequest } = require('../stores/ping-request-store');
 const { getUserMemory, appendConversationTurn, clearUserHistory } = require('../stores/user-conversation-store');
+const { formatLanguages, getProfile } = require('../stores/profile-store');
 const { incrementMessageStats } = require('../stores/server-stats-store');
 const { AiChatError, generateAiReply, stringifyUserInput } = require('../services/ai-chat');
 const { ImageSearchError, searchImage } = require('../services/image-search');
@@ -507,6 +508,49 @@ function buildAiUserInput(userInput, message, referencedMessage, config) {
     ];
 }
 
+function buildExternalUserProfileContext(profile) {
+    if (!profile || typeof profile !== 'object') {
+        return '';
+    }
+
+    const lines = [];
+
+    if (profile.nickname) {
+        lines.push(`Naam/nickname: ${profile.nickname}`);
+    }
+
+    if (profile.bio) {
+        lines.push(`Bio: ${profile.bio}`);
+    }
+
+    if (profile.pronouns) {
+        lines.push(`Pronouns: ${profile.pronouns}`);
+    }
+
+    if (profile.birthday) {
+        lines.push(`Birthday: ${profile.birthday}`);
+    }
+
+    if (profile.timezone) {
+        lines.push(`Timezone: ${profile.timezone}`);
+    }
+
+    if (Array.isArray(profile.languages) && profile.languages.length > 0) {
+        lines.push(`Languages: ${formatLanguages(profile.languages)}`);
+    }
+
+    const socials = Object.entries(profile.socials || {})
+        .filter(([, handle]) => handle)
+        .map(([platform, handle]) => `${platform}: ${handle}`)
+        .slice(0, 5);
+
+    if (socials.length > 0) {
+        lines.push(`Socials: ${socials.join(', ')}`);
+    }
+
+    return lines.join('\n').slice(0, 900);
+}
+
 async function replyWithRandomPingResponse(message) {
     const response = randomItem(readPingResponses());
     const payload = buildPingResponsePayload(response);
@@ -570,6 +614,7 @@ async function buildAiReplyPayload(ai) {
 
 module.exports = {
     buildImageFileAttachment,
+    buildExternalUserProfileContext,
     cleanImageSearchContext,
     extractDirectImageSearchQuery,
     extractSimilarImageSearchQuery,
@@ -661,6 +706,7 @@ module.exports = {
                 try {
                     await message.channel.sendTyping();
                     const memory = getUserMemory(message.author.id);
+                    const externalUserProfile = buildExternalUserProfileContext(getProfile(message.author.id));
                     const history = memory.history;
                     const directImageSearchQuery = extractDirectImageSearchQuery(userInput);
                     const similarImageSearchContext = extractSimilarImageSearchContext(userInput, history, referencedMessage);
@@ -693,7 +739,8 @@ module.exports = {
                         userInput: aiInput,
                         history,
                         memorySummary: memory.summary,
-                        userProfile: memory.profile
+                        userProfile: memory.profile,
+                        externalUserProfile
                     });
                     const replyPayload = await buildAiReplyPayload(ai);
 

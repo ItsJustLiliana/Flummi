@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { EmbedBuilder } = require('discord.js');
 const {
     canSavePingRequests,
     canUseAiChat,
@@ -10,13 +9,28 @@ const {
 const { incrementTriggerStat, getTriggers } = require('../stores/trigger-store');
 const { readSettings } = require('../stores/settings-store');
 const { appendPingRequest } = require('../stores/ping-request-store');
-const { getUserHistory, appendConversationTurn, clearUserHistory } = require('../stores/user-conversation-store');
+const { getUserMemory, appendConversationTurn, clearUserHistory } = require('../stores/user-conversation-store');
 const { incrementMessageStats } = require('../stores/server-stats-store');
 const { AiChatError, generateAiReply, stringifyUserInput } = require('../services/ai-chat');
 const { ImageSearchError, searchImage } = require('../services/image-search');
 
 const pingResponsesPath = path.join(__dirname, '..', 'data', 'botPingResponses.json');
 const defaultPingRequestSaveCommands = ['zet dit op pornhub'];
+const imageContentTypeExtensions = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif'
+};
+
+class ImageAttachmentError extends Error {
+    constructor(message, code) {
+        super(message);
+        this.name = 'ImageAttachmentError';
+        this.code = code;
+    }
+}
 
 function getConfig() {
     const configPath = path.join(__dirname, '..', 'config.json');
@@ -55,6 +69,162 @@ function normalizeMentionCommand(input) {
         .trim()
         .toLowerCase()
         .replace(/\s+/g, ' ');
+}
+
+function extractDirectImageSearchQuery(input) {
+    const text = String(input || '')
+        .trim()
+        .replace(/\s+/g, ' ');
+
+    if (!text) {
+        return '';
+    }
+
+    const patterns = [
+        /^(?:geef\s+(?:mij|me)\s+)?(?:een\s+)?(?:foto|plaatje|afbeelding)\s+(?:van\s+)?(.+)$/i,
+        /^(?:zoek|stuur)\s+(?:een\s+)?(?:foto|plaatje|afbeelding)\s+(?:van\s+)?(.+)$/i,
+        /^(.+?)\s+(?:foto|plaatje|afbeelding)$/i
+    ];
+
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        const query = match?.[1]?.trim();
+
+        if (query) {
+            return query;
+        }
+    }
+
+    return '';
+}
+
+function cleanImageSearchContext(text) {
+    return String(text || '')
+        .replace(/\[{1,2}\s*image[\s_-]+search\s*:\s*([^\]\n]{1,160})(?:\]{1,2}|$)/gi, ' ')
+        .replace(/\[image result:\s*https?:\/\/[^\]\s]+\]/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function extractImageResultUrls(text) {
+    const value = String(text || '');
+    const matches = Array.from(value.matchAll(/\[image result:\s*(https?:\/\/[^\]\s]+)\]/gi));
+
+    return matches
+        .map(match => match[1])
+        .filter(Boolean);
+}
+
+function extractRememberedImageUrls(text) {
+    const value = String(text || '');
+    const patterns = [
+        /\[image(?: result)?:\s*(https?:\/\/[^\]\s]+)\]/gi,
+        /\battachments?:\s*(https?:\/\/\S+)/gi
+    ];
+    const urls = [];
+
+    for (const pattern of patterns) {
+        for (const match of value.matchAll(pattern)) {
+            if (match?.[1]) {
+                urls.push(match[1]);
+            }
+        }
+    }
+
+    return Array.from(new Set(urls));
+}
+
+function isSimilarImageRequest(input) {
+    const text = String(input || '').toLowerCase();
+
+    return (
+        /\b(?:soortgelijke|vergelijkbare|zelfde|similar|lijkt|lijken|erop|daarop)\b/.test(text) &&
+        /\b(?:foto|plaatje|afbeelding|image|zien|laten zien)\b/.test(text)
+    );
+}
+
+function findRecentVisualContext(history) {
+    const entries = Array.isArray(history) ? history : [];
+
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+        const entry = entries[index];
+
+        if (entry?.role !== 'assistant') {
+            continue;
+        }
+
+        const content = cleanImageSearchContext(entry.content);
+
+        if (
+            content &&
+            !/^ik vond geen bruikbare afbeelding hiervoor\.?$/i.test(content) &&
+            !/^image search is tijdelijk niet beschikbaar\.?$/i.test(content)
+        ) {
+            return content;
+        }
+    }
+
+    return '';
+}
+
+function findRecentImageResultUrls(history) {
+    const entries = Array.isArray(history) ? history : [];
+
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+        const entry = entries[index];
+
+        const urls = extractRememberedImageUrls(entry?.content);
+
+        if (urls.length > 0) {
+            return urls;
+        }
+    }
+
+    return [];
+}
+
+function getImageAttachmentUrls(message) {
+    if (!message?.attachments?.size) {
+        return [];
+    }
+
+    return Array.from(message.attachments.values())
+        .filter(attachment => attachment.url && isImageAttachment(attachment))
+        .map(attachment => attachment.url);
+}
+
+function getReferencedImageUrls(referencedMessage) {
+    return getImageAttachmentUrls(referencedMessage);
+}
+
+function extractSimilarImageSearchQuery(input, history, referencedMessage) {
+    if (!isSimilarImageRequest(input)) {
+        return '';
+    }
+
+    const referencedContent = cleanImageSearchContext(referencedMessage?.content);
+
+    if (referencedContent && referencedContent !== '[geen tekst]') {
+        return referencedContent;
+    }
+
+    return findRecentVisualContext(history);
+}
+
+function extractSimilarImageSearchContext(input, history, referencedMessage) {
+    const query = extractSimilarImageSearchQuery(input, history, referencedMessage);
+
+    if (!query) {
+        return null;
+    }
+
+    return {
+        query,
+        excludeUrls: Array.from(new Set([
+            ...getReferencedImageUrls(referencedMessage),
+            ...findRecentImageResultUrls(history)
+        ]))
+    };
 }
 
 function getPingRequestSaveCommands(config) {
@@ -116,6 +286,63 @@ function buildPingResponsePayload(response) {
     }
 
     return payload;
+}
+
+function getImageExtensionFromContentType(contentType) {
+    const cleanType = String(contentType || '').split(';')[0].trim().toLowerCase();
+    return imageContentTypeExtensions[cleanType] || '';
+}
+
+function getImageExtensionFromUrl(url) {
+    try {
+        const parsed = new URL(url);
+        const match = parsed.pathname.match(/\.([a-z0-9]{2,5})$/i);
+        const ext = match?.[1]?.toLowerCase() || '';
+
+        return ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)
+            ? (ext === 'jpeg' ? 'jpg' : ext)
+            : '';
+    } catch {
+        return '';
+    }
+}
+
+async function buildImageFileAttachment(imageUrl) {
+    const response = await fetch(imageUrl, {
+        headers: {
+            Accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif,image/*;q=0.8,*/*;q=0.5',
+            'User-Agent': 'AlcoholismBot/1.0'
+        }
+    });
+
+    if (!response.ok) {
+        throw new ImageAttachmentError(`Image download failed: ${response.status}`, 'DOWNLOAD_FAILED');
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    const contentLength = Number(response.headers.get('content-length')) || 0;
+
+    if (!String(contentType).toLowerCase().startsWith('image/')) {
+        throw new ImageAttachmentError(`Image download returned non-image content type: ${contentType || 'unknown'}`, 'INVALID_CONTENT_TYPE');
+    }
+
+    if (contentLength > 8 * 1024 * 1024) {
+        throw new ImageAttachmentError(`Image download is too large: ${contentLength} bytes`, 'IMAGE_TOO_LARGE');
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    if (buffer.length > 8 * 1024 * 1024) {
+        throw new ImageAttachmentError(`Image download is too large: ${buffer.length} bytes`, 'IMAGE_TOO_LARGE');
+    }
+
+    const ext = getImageExtensionFromContentType(contentType) || getImageExtensionFromUrl(imageUrl) || 'jpg';
+
+    return {
+        attachment: buffer,
+        name: `image-search.${ext}`
+    };
 }
 
 function randomItem(items) {
@@ -298,33 +525,10 @@ async function replyWithRandomPingResponse(message) {
     return false;
 }
 
-function truncateEmbedText(text, maxLength) {
-    const value = String(text || '').trim();
-
-    if (value.length <= maxLength) {
-        return value;
-    }
-
-    return `${value.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
-}
-
-function buildImageSearchEmbed(result, query) {
-    const embed = new EmbedBuilder()
-        .setColor(0x1E88E5)
-        .setTitle(truncateEmbedText(result.title || query || 'Image result', 256))
-        .setImage(result.imageUrl)
-        .setFooter({ text: truncateEmbedText(`Image search: ${query}`, 2048) });
-
-    if (result.sourceUrl && /^https?:\/\//i.test(result.sourceUrl)) {
-        embed.setURL(result.sourceUrl);
-    }
-
-    return embed;
-}
-
 async function buildAiReplyPayload(ai) {
+    const cleanText = String(ai.text || '').trim();
     const payload = {
-        content: ai.text || 'Hier.',
+        content: cleanText && !/^hier\.?$/i.test(cleanText) ? cleanText : '',
         allowedMentions: {
             repliedUser: false
         }
@@ -335,25 +539,49 @@ async function buildAiReplyPayload(ai) {
     }
 
     try {
-        const result = await searchImage(ai.imageSearch.query);
+        const result = await searchImage(ai.imageSearch.query, {
+            excludeUrls: ai.imageSearch.excludeUrls
+        });
 
         if (result?.imageUrl) {
-            payload.embeds = [buildImageSearchEmbed(result, ai.imageSearch.query)];
-        } else if (!ai.text || /^hier\.?$/i.test(ai.text.trim())) {
+            payload.files = [await buildImageFileAttachment(result.imageUrl)];
+            payload.imageResult = result;
+        } else if (!payload.content) {
             payload.content = 'Ik vond geen bruikbare afbeelding hiervoor.';
         }
     } catch (error) {
         if (error instanceof ImageSearchError && error.code === 'UNSUPPORTED_PROVIDER') {
             console.warn('Image search provider is not supported:', error.message);
+        } else if (error instanceof ImageSearchError && error.code === 'IMAGE_SEARCH_UNAVAILABLE') {
+            payload.content = 'Image search is tijdelijk niet beschikbaar.';
+        } else if (error instanceof ImageAttachmentError) {
+            console.warn(`Image search attachment failed: ${error.message}`);
         } else {
             console.error('Failed to search image for AI reply:', error);
         }
+    }
+
+    if (!payload.content && !payload.embeds?.length && !payload.files?.length) {
+        payload.content = 'Ik vond geen bruikbare afbeelding hiervoor.';
     }
 
     return payload;
 }
 
 module.exports = {
+    buildImageFileAttachment,
+    cleanImageSearchContext,
+    extractDirectImageSearchQuery,
+    extractSimilarImageSearchQuery,
+    extractSimilarImageSearchContext,
+    extractImageResultUrls,
+    extractRememberedImageUrls,
+    findRecentVisualContext,
+    findRecentImageResultUrls,
+    getImageAttachmentUrls,
+    getImageExtensionFromContentType,
+    getImageExtensionFromUrl,
+    ImageAttachmentError,
     name: 'messageCreate',
 
     async execute(message, client) {
@@ -432,9 +660,41 @@ module.exports = {
             } else {
                 try {
                     await message.channel.sendTyping();
-                    const history = getUserHistory(message.author.id);
+                    const memory = getUserMemory(message.author.id);
+                    const history = memory.history;
+                    const directImageSearchQuery = extractDirectImageSearchQuery(userInput);
+                    const similarImageSearchContext = extractSimilarImageSearchContext(userInput, history, referencedMessage);
+                    const imageSearchQuery = directImageSearchQuery || similarImageSearchContext?.query;
+
+                    if (imageSearchQuery) {
+                        const replyPayload = await buildAiReplyPayload({
+                            text: '',
+                            imageSearch: {
+                                query: imageSearchQuery,
+                                excludeUrls: directImageSearchQuery ? [] : similarImageSearchContext?.excludeUrls
+                            }
+                        });
+
+                        await message.reply(replyPayload);
+                        appendConversationTurn(
+                            message.author.id,
+                            userInput,
+                            [
+                                `[image search: ${imageSearchQuery}]`,
+                                replyPayload.imageResult?.imageUrl ? `[image result: ${replyPayload.imageResult.imageUrl}]` : ''
+                            ].filter(Boolean).join('\n'),
+                            config.ai?.maxHistoryTurns
+                        );
+                        return;
+                    }
+
                     const aiInput = buildAiUserInput(userInput, message, referencedMessage, config);
-                    const ai = await generateAiReply({ userInput: aiInput, history });
+                    const ai = await generateAiReply({
+                        userInput: aiInput,
+                        history,
+                        memorySummary: memory.summary,
+                        userProfile: memory.profile
+                    });
                     const replyPayload = await buildAiReplyPayload(ai);
 
                     await message.reply(replyPayload);
@@ -446,7 +706,11 @@ module.exports = {
                     appendConversationTurn(
                         message.author.id,
                         stringifyUserInput(aiInput),
-                        [ai.text, ai.imageSearch?.query ? `[image search: ${ai.imageSearch.query}]` : '']
+                        [
+                            ai.text,
+                            ai.imageSearch?.query ? `[image search: ${ai.imageSearch.query}]` : '',
+                            replyPayload.imageResult?.imageUrl ? `[image result: ${replyPayload.imageResult.imageUrl}]` : ''
+                        ]
                             .filter(Boolean)
                             .join('\n'),
                         ai.maxHistoryTurns

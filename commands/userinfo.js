@@ -106,6 +106,8 @@ module.exports = {
                 ].join('\n'), inline: true },
                 { name: 'AI Memory', value: [
                     `Turns saved: ${memory.turns}`,
+                    `Older context: ${memory.summaryChars} chars`,
+                    `User profile: ${memory.profileChars} chars`,
                     `Last updated: ${memory.updatedAt || 'Never'}`
                 ].join('\n'), inline: false }
             )

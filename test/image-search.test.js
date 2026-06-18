@@ -2,12 +2,22 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     extractDuckDuckGoVqd,
+    normalizeBraveImageResult,
+    normalizeBraveImageResults,
+    normalizeSerperImageResult,
+    normalizeSerperImageResults,
+    normalizeSerpApiImageResult,
+    normalizeSerpApiImageResults,
     normalizeDuckDuckGoImageResult,
     normalizeDuckDuckGoImageResults,
     normalizeOpenverseImageResult,
     normalizeOpenverseImageResults,
     normalizeWikimediaImageResult,
-    normalizeWikimediaImageResults
+    normalizeWikimediaImageResults,
+    normalizeComparableUrl,
+    pickBestImageResult,
+    rankImageResults,
+    searchImage
 } = require('../services/image-search');
 
 test('extractDuckDuckGoVqd reads image token from search HTML', () => {
@@ -44,6 +54,204 @@ test('normalizeDuckDuckGoImageResults drops empty image results', () => {
 
     assert.equal(results.length, 1);
     assert.equal(results[0].imageUrl, 'https://example.com/valid.webp');
+});
+
+test('normalizeBraveImageResult uses original image properties', () => {
+    const result = normalizeBraveImageResult({
+        title: 'Ludwig Ahgren streamer portrait',
+        url: 'https://example.com/page',
+        source: 'example.com',
+        thumbnail: {
+            src: 'https://imgs.search.brave.com/thumb.jpg',
+            width: 500,
+            height: 333
+        },
+        properties: {
+            url: 'https://example.com/ludwig.jpg',
+            width: 1200,
+            height: 800
+        }
+    });
+
+    assert.equal(result.title, 'Ludwig Ahgren streamer portrait');
+    assert.equal(result.imageUrl, 'https://example.com/ludwig.jpg');
+    assert.equal(result.originalUrl, 'https://example.com/ludwig.jpg');
+    assert.equal(result.sourceUrl, 'https://example.com/page');
+    assert.equal(result.provider, 'brave');
+});
+
+test('normalizeBraveImageResults drops missing image results', () => {
+    const results = normalizeBraveImageResults({
+        results: [
+            { title: 'missing' },
+            { title: 'valid', thumbnail: { src: 'https://example.com/valid.jpg' } }
+        ]
+    });
+
+    assert.equal(results.length, 1);
+    assert.equal(results[0].imageUrl, 'https://example.com/valid.jpg');
+});
+
+test('normalizeSerperImageResult reads image results', () => {
+    const result = normalizeSerperImageResult({
+        title: 'El Primo Brawl Stars',
+        imageUrl: 'https://example.com/el-primo.png',
+        link: 'https://example.com/el-primo',
+        source: 'example.com',
+        imageWidth: 800,
+        imageHeight: 600
+    });
+
+    assert.equal(result.title, 'El Primo Brawl Stars');
+    assert.equal(result.imageUrl, 'https://example.com/el-primo.png');
+    assert.equal(result.sourceUrl, 'https://example.com/el-primo');
+    assert.equal(result.provider, 'serper');
+});
+
+test('normalizeSerperImageResults drops missing image results', () => {
+    const results = normalizeSerperImageResults({
+        images: [
+            { title: 'missing' },
+            { title: 'valid', thumbnailUrl: 'https://example.com/valid.jpg' }
+        ]
+    });
+
+    assert.equal(results.length, 1);
+    assert.equal(results[0].imageUrl, 'https://example.com/valid.jpg');
+});
+
+test('searchImage stops with unavailable error when Serper credits are exhausted', async () => {
+    const originalFetch = global.fetch;
+    const originalConsoleLog = console.log;
+    const originalApiKey = process.env.SERPER_API_KEY;
+    const originalSerpApiKey = process.env.SERPAPI_API_KEY;
+
+    process.env.SERPER_API_KEY = 'test-serper-key';
+    delete process.env.SERPAPI_API_KEY;
+    console.log = () => {};
+    global.fetch = async () => ({
+        ok: false,
+        status: 429,
+        async text() {
+            return JSON.stringify({ message: 'Not enough credits' });
+        }
+    });
+
+    try {
+        await assert.rejects(
+            () => searchImage('el primo brawl stars'),
+            error => {
+                assert.equal(error.name, 'ImageSearchError');
+                assert.equal(error.code, 'IMAGE_SEARCH_UNAVAILABLE');
+                return true;
+            }
+        );
+    } finally {
+        global.fetch = originalFetch;
+        console.log = originalConsoleLog;
+
+        if (originalApiKey === undefined) {
+            delete process.env.SERPER_API_KEY;
+        } else {
+            process.env.SERPER_API_KEY = originalApiKey;
+        }
+
+        if (originalSerpApiKey === undefined) {
+            delete process.env.SERPAPI_API_KEY;
+        } else {
+            process.env.SERPAPI_API_KEY = originalSerpApiKey;
+        }
+    }
+});
+
+test('normalizeSerpApiImageResult reads google images fields', () => {
+    const result = normalizeSerpApiImageResult({
+        title: 'El Primo Brawl Stars',
+        original: 'https://example.com/el-primo.png',
+        link: 'https://example.com/el-primo',
+        source: 'example.com',
+        original_width: 800,
+        original_height: 600
+    });
+
+    assert.equal(result.title, 'El Primo Brawl Stars');
+    assert.equal(result.imageUrl, 'https://example.com/el-primo.png');
+    assert.equal(result.sourceUrl, 'https://example.com/el-primo');
+    assert.equal(result.provider, 'serpapi');
+});
+
+test('normalizeSerpApiImageResults drops missing image results', () => {
+    const results = normalizeSerpApiImageResults({
+        images_results: [
+            { title: 'missing' },
+            { title: 'valid', thumbnail: 'https://example.com/valid.jpg' }
+        ]
+    });
+
+    assert.equal(results.length, 1);
+    assert.equal(results[0].imageUrl, 'https://example.com/valid.jpg');
+});
+
+test('rankImageResults prefers stronger title and source matches over first result', () => {
+    const results = rankImageResults([
+        {
+            title: 'Random streamer photo',
+            imageUrl: 'https://example.com/random.jpg',
+            sourceUrl: 'https://example.com/random',
+            provider: 'duckduckgo'
+        },
+        {
+            title: 'Ludwig Ahgren portrait',
+            imageUrl: 'https://example.com/ludwig.jpg',
+            sourceUrl: 'https://example.com/ludwig-ahgren',
+            width: 1200,
+            height: 800,
+            provider: 'openverse'
+        }
+    ], 'Ludwig Ahgren streamer portrait');
+
+    assert.equal(results[0].title, 'Ludwig Ahgren portrait');
+});
+
+test('pickBestImageResult rejects weak unrelated commons matches', () => {
+    const result = pickBestImageResult([
+        {
+            title: 'Loreley - a romantic opera in three acts',
+            imageUrl: 'https://upload.wikimedia.org/book.jpg',
+            sourceUrl: 'https://commons.wikimedia.org/wiki/File:Loreleyromanticopera.pdf',
+            width: 900,
+            height: 1200,
+            provider: 'wikimedia'
+        }
+    ], 'el primo brawl stars');
+
+    assert.equal(result, null);
+});
+
+test('pickBestImageResult excludes previously used image urls', () => {
+    const result = pickBestImageResult([
+        {
+            title: 'Freddy Fazbear first',
+            imageUrl: 'https://example.com/freddy-a.jpg',
+            sourceUrl: 'https://example.com/a',
+            width: 800,
+            height: 600,
+            provider: 'serper'
+        },
+        {
+            title: 'Freddy Fazbear second',
+            imageUrl: 'https://example.com/freddy-b.jpg',
+            sourceUrl: 'https://example.com/b',
+            width: 800,
+            height: 600,
+            provider: 'serper'
+        }
+    ], 'freddy fazbear', {
+        excludeUrls: ['https://example.com/freddy-a.jpg']
+    });
+
+    assert.equal(result.imageUrl, 'https://example.com/freddy-b.jpg');
+    assert.equal(normalizeComparableUrl('https://example.com/freddy-a.jpg#preview'), 'https://example.com/freddy-a.jpg');
 });
 
 test('normalizeOpenverseImageResult prefers thumbnail for Discord embeds', () => {

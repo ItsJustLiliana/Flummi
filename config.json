@@ -25,7 +25,7 @@
         ],
         "aiConversationsEnabled": true,
         "aiAttachmentsEnabled": true,
-        "aiImageSearchEnabled": false
+        "aiImageSearchEnabled": true
     },
     "ai": {
         "openRouterApiKey": "",
@@ -43,9 +43,8 @@
         "imageSearch": {
             "enabled": true,
             "providers": [
-                "duckduckgo",
-                "openverse",
-                "wikimedia"
+                "serper",
+                "serpapi"
             ],
             "count": 5,
             "safeSearch": "strict",

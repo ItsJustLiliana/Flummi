@@ -4,8 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     appendConversationTurn,
+    clearUserHistory,
     getUserFilePath,
     getUserHistory,
+    getUserMemory,
     migrateLegacyUsers,
     usersDir
 } = require('../stores/user-conversation-store');
@@ -103,6 +105,90 @@ test('user conversation store can migrate all legacy users and remove legacy fol
         assert.equal(fs.existsSync(getUserFilePath(userId)), true);
         assert.equal(fs.existsSync(path.join(legacyUsersDir, `${userId}.json`)), false);
         assert.equal(fs.existsSync(legacyUsersDir), false);
+    } finally {
+        cleanupUser(userId);
+    }
+});
+
+test('user conversation store keeps trimmed turns in a compact summary', () => {
+    const userId = `904${process.pid}`;
+    cleanupUser(userId);
+
+    try {
+        appendConversationTurn(userId, 'eerste vraag over keukenrol', 'eerste antwoord', 2);
+        appendConversationTurn(userId, 'tweede vraag met https://example.com/foto.png', 'tweede antwoord', 2);
+        appendConversationTurn(userId, 'derde vraag', 'derde antwoord', 2);
+
+        const memory = getUserMemory(userId);
+
+        assert.equal(memory.history.length, 4);
+        assert.equal(memory.history[0].content, 'tweede vraag met https://example.com/foto.png');
+        assert.match(memory.summary, /eerste vraag over keukenrol/);
+        assert.match(memory.summary, /eerste antwoord/);
+        assert.doesNotMatch(memory.summary, /https:\/\/example\.com/);
+    } finally {
+        cleanupUser(userId);
+    }
+});
+
+test('clearUserHistory also clears compact summary', () => {
+    const userId = `905${process.pid}`;
+    cleanupUser(userId);
+
+    try {
+        appendConversationTurn(userId, 'oud 1', 'antwoord 1', 2);
+        appendConversationTurn(userId, 'oud 2', 'antwoord 2', 2);
+        appendConversationTurn(userId, 'oud 3', 'antwoord 3', 2);
+
+        assert.notEqual(getUserMemory(userId).summary, '');
+
+        clearUserHistory(userId);
+
+        const memory = getUserMemory(userId);
+
+        assert.equal(memory.history.length, 0);
+        assert.equal(memory.summary, '');
+        assert.equal(memory.profile, '');
+    } finally {
+        cleanupUser(userId);
+    }
+});
+
+test('user conversation store keeps a small per-user profile', () => {
+    const userId = `906${process.pid}`;
+    cleanupUser(userId);
+
+    try {
+        appendConversationTurn(userId, 'mijn favoriete game is Brawl Stars', 'ok', 4);
+        appendConversationTurn(userId, 'ik hou van korte antwoorden', 'snap ik', 4);
+        appendConversationTurn(userId, 'geef mij een foto van El Primo', '[image result: https://example.com/elprimo.png]', 4);
+
+        const memory = getUserMemory(userId);
+
+        assert.match(memory.profile, /Favoriete game: Brawl Stars/);
+        assert.match(memory.profile, /Voorkeur: korte antwoorden/);
+        assert.match(memory.profile, /Heeft eerder image search gebruikt/);
+        assert.ok(memory.profile.length <= 900);
+    } finally {
+        cleanupUser(userId);
+    }
+});
+
+test('user conversation store infers repeated topics and chat style', () => {
+    const userId = `907${process.pid}`;
+    cleanupUser(userId);
+
+    try {
+        appendConversationTurn(userId, 'foto van freddy fazbear', 'hier', 8);
+        appendConversationTurn(userId, 'nee geef freddy fazbear nog eens', 'ok', 8);
+        appendConversationTurn(userId, 'waarom doet dit raar haha?', 'geen idee', 8);
+        appendConversationTurn(userId, 'top fix dit lol', 'komt goed', 8);
+
+        const memory = getUserMemory(userId);
+
+        assert.match(memory.profile, /Terugkerend onderwerp: Five Nights at Freddy's/);
+        assert.match(memory.profile, /Chatstijl: kort en direct/);
+        assert.match(memory.profile, /Toon: informeel en droog mag/);
     } finally {
         cleanupUser(userId);
     }

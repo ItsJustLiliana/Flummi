@@ -31,6 +31,33 @@ test('buildMessages keeps text history and allows image content for the current 
     assert.equal(hasImageContent(messages[3].content), true);
 });
 
+test('buildMessages includes compact memory summary before recent history', () => {
+    const messages = buildMessages('kort antwoorden', [
+        { role: 'user', content: 'recente vraag' },
+        { role: 'assistant', content: 'recent antwoord' }
+    ], 'nieuwe vraag', '- User: oude vraag | Alcoholisme: oud antwoord');
+
+    assert.equal(messages.length, 5);
+    assert.equal(messages[0].content, 'kort antwoorden');
+    assert.equal(messages[1].role, 'system');
+    assert.match(messages[1].content, /Oudere gesprekscontext/);
+    assert.match(messages[1].content, /oude vraag/);
+    assert.equal(messages[2].content, 'recente vraag');
+    assert.equal(messages[4].content, 'nieuwe vraag');
+});
+
+test('buildMessages includes user profile before older summary', () => {
+    const messages = buildMessages('kort antwoorden', [
+        { role: 'user', content: 'recente vraag' }
+    ], 'nieuwe vraag', '- User: oude vraag', '- Favoriete game: Brawl Stars');
+
+    assert.equal(messages.length, 5);
+    assert.equal(messages[1].role, 'system');
+    assert.match(messages[1].content, /Gebruikersprofiel/);
+    assert.match(messages[1].content, /Brawl Stars/);
+    assert.match(messages[2].content, /Oudere gesprekscontext/);
+});
+
 test('extractImageSearchRequest removes marker and returns the image query', () => {
     const result = extractImageSearchRequest('Ja hoor, deze bedoel je. [[image_search: Ludwig Ahgren streamer portrait]]');
 
@@ -43,6 +70,20 @@ test('extractImageSearchRequest accepts single bracket model output', () => {
 
     assert.equal(result.text, '');
     assert.deepEqual(result.imageSearch, { query: 'iuno wuthering waves' });
+});
+
+test('extractImageSearchRequest accepts marker with a space', () => {
+    const result = extractImageSearchRequest('[image search: el primo brawl stars]');
+
+    assert.equal(result.text, '');
+    assert.deepEqual(result.imageSearch, { query: 'el primo brawl stars' });
+});
+
+test('extractImageSearchRequest accepts unfinished trailing marker', () => {
+    const result = extractImageSearchRequest('[[image_search: Freddy Fazbear');
+
+    assert.equal(result.text, '');
+    assert.deepEqual(result.imageSearch, { query: 'Freddy Fazbear' });
 });
 
 test('stripImageContent turns multimodal input back into text-only context', () => {

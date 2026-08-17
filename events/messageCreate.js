@@ -469,7 +469,7 @@ function buildAttachmentContext(label, message) {
     return lines;
 }
 
-function buildReferencedMessageContext(referencedMessage) {
+function buildReferencedMessageContext(referencedMessage, includeAttachments = true) {
     if (!referencedMessage) {
         return '';
     }
@@ -480,20 +480,25 @@ function buildReferencedMessageContext(referencedMessage) {
         `Bericht: ${referencedMessage.content || '[geen tekst]'}`
     ];
 
-    lines.push(...buildAttachmentContext('Gereplyde bericht', referencedMessage));
+    if (includeAttachments) {
+        lines.push(...buildAttachmentContext('Gereplyde bericht', referencedMessage));
+    }
 
     return lines.join('\n');
 }
 
 function buildAiUserInput(userInput, message, referencedMessage, config) {
-    const referencedContext = buildReferencedMessageContext(referencedMessage);
-    const currentAttachmentContext = buildAttachmentContext('Huidige bericht', message).join('\n');
+    const imageParts = getAiImageParts([referencedMessage, message], config);
+    const includeAttachmentUrls = imageParts.length === 0;
+    const referencedContext = buildReferencedMessageContext(referencedMessage, includeAttachmentUrls);
+    const currentAttachmentContext = includeAttachmentUrls
+        ? buildAttachmentContext('Huidige bericht', message).join('\n')
+        : '';
     const textInput = [
         referencedContext,
         currentAttachmentContext,
         `Gebruiker zegt tegen jou: ${userInput || '[geen tekst]'}`
     ].filter(Boolean).join('\n\n');
-    const imageParts = getAiImageParts([referencedMessage, message], config);
 
     if (imageParts.length === 0) {
         return textInput;
@@ -614,6 +619,7 @@ async function buildAiReplyPayload(ai) {
 
 module.exports = {
     buildImageFileAttachment,
+    buildAiUserInput,
     buildExternalUserProfileContext,
     cleanImageSearchContext,
     extractDirectImageSearchQuery,
@@ -740,7 +746,10 @@ module.exports = {
                         history,
                         memorySummary: memory.summary,
                         userProfile: memory.profile,
-                        externalUserProfile
+                        externalUserProfile,
+                        userId: message.author.id,
+                        guildId,
+                        channelId: message.channelId
                     });
                     const replyPayload = await buildAiReplyPayload(ai);
 

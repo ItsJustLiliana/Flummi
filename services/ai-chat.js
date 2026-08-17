@@ -16,6 +16,9 @@ const DEFAULT_VISION_MODELS = [
     'nex-agi/nex-n2-pro:free'
 ];
 const MODEL_RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 12000;
+const DEFAULT_PROVIDER_SORT = 'throughput';
+const MAX_OPENROUTER_ROUTED_MODELS = 3;
 const rateLimitedModels = new Map();
 
 class AiChatError extends Error {
@@ -58,32 +61,65 @@ function getAiConfig() {
         apiKey,
         baseUrl: process.env.OPENROUTER_BASE_URL || aiConfig.baseUrl || DEFAULT_BASE_URL,
         model: process.env.OPENROUTER_MODEL || aiConfig.model || DEFAULT_MODEL,
+        fastModel: process.env.OPENROUTER_FAST_MODEL || aiConfig.fastModel || 'meta-llama/llama-3.2-3b-instruct:free',
+        smartModel: process.env.OPENROUTER_SMART_MODEL || aiConfig.smartModel || aiConfig.model || DEFAULT_MODEL,
         fallbackModels,
         visionModels,
         botPersonality: `${basePersonality}\n\n${imageSearchInstructions}`,
         maxHistoryTurns: Number(aiConfig.maxHistoryTurns || 12),
-        maxOutputTokens: Number(aiConfig.maxOutputTokens || 220)
+        maxOutputTokens: Number(aiConfig.maxOutputTokens || 220),
+        requestTimeoutMs: Math.max(1000, Number(process.env.OPENROUTER_REQUEST_TIMEOUT_MS || aiConfig.requestTimeoutMs || DEFAULT_REQUEST_TIMEOUT_MS)),
+        providerSort: aiConfig.providerSort || DEFAULT_PROVIDER_SORT,
+        useOpenRouterModelRouting: aiConfig.useOpenRouterModelRouting !== false
     };
 }
 
 function buildModelCandidates(cfg) {
-    const candidates = [cfg.model, ...cfg.fallbackModels]
-        .filter(item => typeof item === 'string' && item.trim().length > 0)
-        .map(item => item.trim());
-
-    return Array.from(new Set(candidates));
+    return buildFreeModelList([cfg.model, ...cfg.fallbackModels], [DEFAULT_MODEL, ...DEFAULT_FALLBACK_MODELS]);
 }
 
 function buildVisionModelCandidates(cfg) {
-    const candidates = [
-        ...cfg.visionModels,
+    return buildFreeModelList(cfg.visionModels, DEFAULT_VISION_MODELS);
+}
+
+function isFreeModel(model) {
+    return typeof model === 'string' && /(?::free|\/free)(?:$|:)/i.test(model);
+}
+
+function buildFreeModelList(candidates, fallbackCandidates) {
+    const freeModels = candidates
+        .filter(item => typeof item === 'string' && item.trim().length > 0)
+        .map(item => item.trim())
+        .filter(isFreeModel);
+
+    if (freeModels.length > 0) {
+        return Array.from(new Set(freeModels));
+    }
+
+    return Array.from(new Set(
+        fallbackCandidates
+            .filter(item => typeof item === 'string' && item.trim().length > 0)
+            .map(item => item.trim())
+            .filter(isFreeModel)
+    ));
+}
+
+function buildTextModelCandidates(cfg, userInput, history = []) {
+    const inputText = stringifyUserInput(userInput);
+    const recentText = Array.isArray(history)
+        ? history.slice(-6).map(item => item?.content || '').join('\n')
+        : '';
+    const combinedText = `${recentText}\n${inputText}`.toLowerCase();
+    const wantsSmarterModel = (
+        inputText.length > 280 ||
+        /\b(?:leg uit|explain|analyseer|analyze|vergelijk|compare|plan|strategie|strategy|code|bug|fix|waarom|why|hoe werkt|how does)\b/i.test(combinedText)
+    );
+    const preferred = wantsSmarterModel ? cfg.smartModel : cfg.fastModel;
+    return buildFreeModelList([
+        preferred,
         cfg.model,
         ...cfg.fallbackModels
-    ]
-        .filter(item => typeof item === 'string' && item.trim().length > 0)
-        .map(item => item.trim());
-
-    return Array.from(new Set(candidates));
+    ], [DEFAULT_MODEL, ...DEFAULT_FALLBACK_MODELS]);
 }
 
 function isContentPolicyError(statusCode, errorText) {
@@ -182,24 +218,60 @@ function markModelRateLimited(model, retryAfterMs) {
     rateLimitedModels.set(model, Date.now() + Math.max(1000, retryAfterMs));
 }
 
-async function requestCompletion(cfg, model, messages) {
+function clearAiModelCooldowns() {
+    rateLimitedModels.clear();
+}
+
+async function requestCompletion(cfg, models, messages, options = {}) {
+    const modelList = Array.isArray(models) ? models : [models];
     const body = {
-        model,
         messages,
         temperature: 0.7,
         max_tokens: cfg.maxOutputTokens
     };
+    const activeModels = modelList
+        .filter(item => typeof item === 'string' && item.trim().length > 0)
+        .map(item => item.trim());
 
-    return fetch(`${cfg.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${cfg.apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://localhost/alcoholismbot',
-            'X-OpenRouter-Title': 'AlcoholismBot'
-        },
-        body: JSON.stringify(body)
-    });
+    if (activeModels.length === 1) {
+        body.model = activeModels[0];
+    } else {
+        body.models = activeModels;
+    }
+
+    if (cfg.providerSort) {
+        body.provider = {
+            sort: cfg.providerSort
+        };
+    }
+
+    if (options.sessionId) {
+        body.session_id = String(options.sessionId).slice(0, 256);
+    }
+
+    if (options.userId) {
+        body.user = String(options.userId).slice(0, 256);
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), cfg.requestTimeoutMs);
+
+    try {
+        return await fetch(`${cfg.baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${cfg.apiKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://localhost/alcoholismbot',
+                'X-OpenRouter-Title': 'AlcoholismBot',
+                'X-OpenRouter-Metadata': 'enabled'
+            },
+            body: JSON.stringify(body),
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 function buildMessages(personality, history, userInput, memorySummary = '', userProfile = '', externalUserProfile = '') {
@@ -332,6 +404,14 @@ function isRefusalReply(reply) {
     );
 }
 
+function isImageEchoReply(reply) {
+    const text = String(reply || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return /^\[image:\s*(?:https?:\/\/|attachment:\/\/|[^\]]+\.(?:png|jpe?g|webp|gif)(?:\?[^\]]*)?)\]$/i.test(text);
+}
+
 function buildNormalFallbackReply(userInput) {
     const text = String(userInput || '').toLowerCase();
 
@@ -344,6 +424,10 @@ function buildNormalFallbackReply(userInput) {
     }
 
     return 'Ik ben er gewoon. Wat is er?';
+}
+
+function buildImageEchoFallbackReply() {
+    return 'Ziet er goed uit.';
 }
 
 function buildImageUnavailableFallbackReply() {
@@ -380,12 +464,97 @@ function extractImageSearchRequest(reply) {
     };
 }
 
-async function tryModels({ cfg, models, messages }) {
+function getModelLabel(models) {
+    return Array.isArray(models) ? models.join(', ') : models;
+}
+
+function shouldUseRoutedModelRequest(cfg, models) {
+    return cfg.useOpenRouterModelRouting && Array.isArray(models) && models.length > 1;
+}
+
+async function tryModelRequest({ cfg, models, messages, sessionId, userId }) {
+    const modelLabel = getModelLabel(models);
+
+    try {
+        const response = await requestCompletion(cfg, models, messages, { sessionId, userId });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            const lastError = `AI API request failed for model ${modelLabel}: ${response.status} ${errorText}`;
+
+            if (isUnsupportedImageError(errorText)) {
+                throw new AiChatError(lastError, 'UNSUPPORTED_IMAGE_INPUT');
+            }
+
+            if (isContentPolicyError(response.status, errorText)) {
+                throw new AiChatError(lastError, 'CONTENT_BLOCKED');
+            }
+
+            if (isRateLimitError(response.status, errorText)) {
+                for (const model of Array.isArray(models) ? models : [models]) {
+                    markModelRateLimited(model, getRetryAfterMs(response));
+                }
+
+                throw new AiChatError(lastError, 'RATE_LIMITED');
+            }
+
+            throw new AiChatError(lastError, shouldTryNextModel(response.status, errorText) ? 'MODEL_UNAVAILABLE' : 'REQUEST_FAILED');
+        }
+
+        const data = await response.json();
+        const reply = data?.choices?.[0]?.message?.content;
+
+        if (!reply || typeof reply !== 'string') {
+            throw new AiChatError(`AI API returned an empty response for model ${modelLabel}.`, 'EMPTY_RESPONSE');
+        }
+
+        return reply.trim();
+    } catch (error) {
+        if (error?.name === 'AbortError') {
+            throw new AiChatError(`AI API request timed out for model ${modelLabel}.`, 'REQUEST_TIMEOUT');
+        }
+
+        throw error;
+    }
+}
+
+async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRoutedTimeout = false }) {
     let lastError = null;
     let attemptedModels = 0;
     let rateLimitedCount = 0;
+    const availableModels = models.filter(model => {
+        if (isModelTemporarilyUnavailable(model)) {
+            lastError = `AI model ${model} is temporarily rate limited.`;
+            rateLimitedCount += 1;
+            return false;
+        }
 
-    for (const model of models) {
+        return true;
+    });
+
+    if (shouldUseRoutedModelRequest(cfg, availableModels)) {
+        const routedModels = availableModels.slice(0, MAX_OPENROUTER_ROUTED_MODELS);
+        attemptedModels = routedModels.length;
+
+        try {
+            return await tryModelRequest({ cfg, models: routedModels, messages, sessionId, userId });
+        } catch (error) {
+            lastError = error.message;
+
+            if (error instanceof AiChatError && error.code === 'RATE_LIMITED') {
+                rateLimitedCount = attemptedModels;
+            } else if (error instanceof AiChatError && error.code === 'REQUEST_TIMEOUT' && stopAfterRoutedTimeout) {
+                throw error;
+            } else if (
+                !(error instanceof AiChatError) ||
+                !['MODEL_UNAVAILABLE', 'EMPTY_RESPONSE', 'REQUEST_TIMEOUT'].includes(error.code)
+            ) {
+                throw error;
+            }
+        }
+    }
+
+    for (const model of availableModels) {
         if (isModelTemporarilyUnavailable(model)) {
             lastError = `AI model ${model} is temporarily rate limited.`;
             rateLimitedCount += 1;
@@ -393,7 +562,21 @@ async function tryModels({ cfg, models, messages }) {
         }
 
         attemptedModels += 1;
-        const response = await requestCompletion(cfg, model, messages);
+        let response;
+
+        try {
+            response = await requestCompletion(cfg, model, messages, { sessionId, userId });
+        } catch (error) {
+            if (error?.name === 'AbortError') {
+                lastError = `AI API request timed out for model ${model}.`;
+                if (stopAfterRoutedTimeout) {
+                    throw new AiChatError(lastError, 'REQUEST_TIMEOUT');
+                }
+                continue;
+            }
+
+            throw error;
+        }
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -437,7 +620,25 @@ async function tryModels({ cfg, models, messages }) {
     throw new AiChatError(lastError || 'No configured model returned a valid response.', 'REQUEST_FAILED');
 }
 
-async function generateAiReply({ userInput, history, memorySummary, userProfile, externalUserProfile }) {
+function buildSessionId({ userId, guildId, channelId }) {
+    const parts = ['ai'];
+
+    if (guildId) {
+        parts.push(`g:${guildId}`);
+    }
+
+    if (channelId) {
+        parts.push(`c:${channelId}`);
+    }
+
+    if (userId) {
+        parts.push(`u:${userId}`);
+    }
+
+    return parts.join(':').slice(0, 256);
+}
+
+async function generateAiReply({ userInput, history, memorySummary, userProfile, externalUserProfile, userId, guildId, channelId }) {
     const cfg = getAiConfig();
 
     if (!cfg.apiKey) {
@@ -445,7 +646,8 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
     }
 
     const hasImages = hasImageContent(userInput);
-    const models = hasImages ? buildVisionModelCandidates(cfg) : buildModelCandidates(cfg);
+    const models = hasImages ? buildVisionModelCandidates(cfg) : buildTextModelCandidates(cfg, userInput, history);
+    const sessionId = buildSessionId({ userId, guildId, channelId });
     const hasHistory = Array.isArray(history) && history.length > 0;
     const messagesWithHistory = buildMessages(
         cfg.botPersonality,
@@ -457,22 +659,42 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
     );
 
     try {
-        const reply = await tryModels({ cfg, models, messages: messagesWithHistory });
+        const reply = await tryModels({
+            cfg,
+            models,
+            messages: messagesWithHistory,
+            sessionId,
+            userId,
+            stopAfterRoutedTimeout: hasImages
+        });
         const parsed = extractImageSearchRequest(reply);
-        const text = isRefusalReply(parsed.text) ? buildNormalFallbackReply(userInput) : parsed.text;
+        const text = isImageEchoReply(parsed.text)
+            ? buildImageEchoFallbackReply()
+            : isRefusalReply(parsed.text)
+                ? buildNormalFallbackReply(userInput)
+                : parsed.text;
 
         return {
             text,
-            imageSearch: parsed.imageSearch,
+            imageSearch: hasImages ? null : parsed.imageSearch,
             maxHistoryTurns: cfg.maxHistoryTurns,
-            resetHistory: isRefusalReply(parsed.text)
+            resetHistory: isRefusalReply(parsed.text) || isImageEchoReply(parsed.text)
         };
     } catch (error) {
         if (
             error instanceof AiChatError &&
-            (error.code === 'UNSUPPORTED_IMAGE_INPUT' || error.code === 'RATE_LIMITED') &&
+            (error.code === 'UNSUPPORTED_IMAGE_INPUT' || error.code === 'RATE_LIMITED' || error.code === 'REQUEST_TIMEOUT') &&
             hasImages
         ) {
+            if (error.code === 'REQUEST_TIMEOUT') {
+                return {
+                    text: buildImageUnavailableFallbackReply(),
+                    maxHistoryTurns: cfg.maxHistoryTurns,
+                    resetHistory: false,
+                    usedLocalFallback: true
+                };
+            }
+
             const textOnlyInput = stripImageContent(userInput);
             const textOnlyMessages = buildMessages(
                 cfg.botPersonality,
@@ -486,17 +708,23 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
             try {
                 const reply = await tryModels({
                     cfg,
-                    models: buildModelCandidates(cfg),
-                    messages: textOnlyMessages
+                    models: buildTextModelCandidates(cfg, textOnlyInput, history),
+                    messages: textOnlyMessages,
+                    sessionId,
+                    userId
                 });
                 const parsed = extractImageSearchRequest(reply);
-                const text = isRefusalReply(parsed.text) ? buildNormalFallbackReply(textOnlyInput) : parsed.text;
+                const text = isImageEchoReply(parsed.text)
+                    ? buildImageEchoFallbackReply()
+                    : isRefusalReply(parsed.text)
+                        ? buildNormalFallbackReply(textOnlyInput)
+                        : parsed.text;
 
                 return {
                     text,
-                    imageSearch: parsed.imageSearch,
+                    imageSearch: null,
                     maxHistoryTurns: cfg.maxHistoryTurns,
-                    resetHistory: isRefusalReply(parsed.text),
+                    resetHistory: isRefusalReply(parsed.text) || isImageEchoReply(parsed.text),
                     usedTextOnlyFallback: true
                 };
             } catch (fallbackError) {
@@ -527,13 +755,17 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
         }
 
         const messagesWithoutHistory = buildMessages(cfg.botPersonality, [], userInput);
-        const reply = await tryModels({ cfg, models, messages: messagesWithoutHistory });
+        const reply = await tryModels({ cfg, models, messages: messagesWithoutHistory, sessionId, userId });
         const parsed = extractImageSearchRequest(reply);
-        const text = isRefusalReply(parsed.text) ? buildNormalFallbackReply(userInput) : parsed.text;
+        const text = isImageEchoReply(parsed.text)
+            ? buildImageEchoFallbackReply()
+            : isRefusalReply(parsed.text)
+                ? buildNormalFallbackReply(userInput)
+                : parsed.text;
 
         return {
             text,
-            imageSearch: parsed.imageSearch,
+            imageSearch: hasImages ? null : parsed.imageSearch,
             maxHistoryTurns: cfg.maxHistoryTurns,
             resetHistory: true
         };
@@ -543,10 +775,14 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
 module.exports = {
     AiChatError,
     buildMessages,
+    buildSessionId,
+    buildTextModelCandidates,
     buildNormalFallbackReply,
+    buildImageEchoFallbackReply,
     buildImageUnavailableFallbackReply,
     buildRateLimitedFallbackReply,
     buildVisionModelCandidates,
+    clearAiModelCooldowns,
     extractImageSearchRequest,
     hasImageContent,
     stripImageContent,

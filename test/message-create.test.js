@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    buildAiUserInput,
     buildExternalUserProfileContext,
     buildImageFileAttachment,
     cleanImageSearchContext,
@@ -16,6 +17,15 @@ const {
     getImageExtensionFromUrl,
     ImageAttachmentError
 } = require('../events/messageCreate');
+
+function makeAttachment(url, contentType = 'image/jpeg') {
+    return {
+        name: 'image.jpg',
+        url,
+        contentType,
+        size: 1234
+    };
+}
 
 test('buildExternalUserProfileContext formats user-filled profile fields for AI context', () => {
     const context = buildExternalUserProfileContext({
@@ -38,6 +48,36 @@ test('buildExternalUserProfileContext formats user-filled profile fields for AI 
     assert.match(context, /Languages: .*Dutch.*English/);
     assert.match(context, /Socials: github: marij/);
     assert.doesNotMatch(context, /Birthday/);
+});
+
+test('buildAiUserInput omits attachment urls from text when sending image parts', () => {
+    const attachment = makeAttachment('https://cdn.discordapp.com/attachments/cat.jpg');
+    const input = buildAiUserInput(
+        'wat vind je hiervan',
+        {
+            attachments: new Map([['1', attachment]])
+        },
+        null,
+        {
+            features: {
+                aiAttachmentsEnabled: true
+            },
+            ai: {
+                maxImageAttachments: 4
+            }
+        }
+    );
+
+    assert.equal(Array.isArray(input), true);
+    assert.equal(input[0].type, 'text');
+    assert.doesNotMatch(input[0].text, /cdn\.discordapp\.com/);
+    assert.match(input[0].text, /Gebruiker zegt tegen jou: wat vind je hiervan/);
+    assert.deepEqual(input[1], {
+        type: 'image_url',
+        image_url: {
+            url: 'https://cdn.discordapp.com/attachments/cat.jpg'
+        }
+    });
 });
 
 test('extractDirectImageSearchQuery reads direct Dutch image requests', () => {

@@ -31,16 +31,44 @@ function formatPercent(value) {
     return `${value.toFixed(value >= 10 ? 1 : 2)}%`;
 }
 
-function formatOptional(value, fallback = 'Not set') {
-    return value || fallback;
+function formatFilledLine(label, value) {
+    return value ? `**${label}:** ${value}` : null;
+}
+
+function formatMissingFields(labels) {
+    return labels.length ? labels.join(', ') : '';
 }
 
 function formatSocials(socials) {
     const rows = Object.entries(socials || {})
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([platform, handle]) => `${platform}: ${handle}`);
+        .map(([platform, handle]) => `**${platform}:** ${handle}`);
 
-    return rows.length ? rows.join('\n') : 'No socials added.';
+    return rows.join('\n');
+}
+
+function buildFlatBannerUrl(url) {
+    try {
+        const parsed = new URL(url);
+
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+            return url;
+        }
+
+        const source = `${parsed.host}${parsed.pathname}${parsed.search}`;
+        const params = new URLSearchParams({
+            url: source,
+            w: '720',
+            h: '270',
+            fit: 'cover',
+            a: 'center',
+            output: 'jpg'
+        });
+
+        return `https://images.weserv.nl/?${params.toString()}`;
+    } catch {
+        return url;
+    }
 }
 
 function getAutomaticBadges({ targetUser, roleKey, messageStats, shots, profile }) {
@@ -55,7 +83,6 @@ function getAutomaticBadges({ targetUser, roleKey, messageStats, shots, profile 
     if (shots >= 25) badges.push('Shot Collector');
     if (profile.bio) badges.push('Bio Writer');
     if (Object.keys(profile.socials || {}).length >= 2) badges.push('Social');
-    if (profile.bannerUrl) badges.push('Banner Owner');
 
     return Array.from(new Set(badges)).slice(0, 8);
 }
@@ -69,51 +96,58 @@ async function buildProfileEmbed(interaction, targetUser) {
     const shots = getShots(targetUser.id, guildId);
     const badges = getAutomaticBadges({ targetUser, roleKey, messageStats, shots, profile });
     const displayName = profile.nickname || member?.displayName || targetUser.username;
+    const languages = formatLanguages(profile.languages);
+    const aboutRows = [
+        formatFilledLine('Pronouns', profile.pronouns),
+        formatFilledLine('Birthday', profile.birthday),
+        formatFilledLine('Timezone', profile.timezone),
+        languages !== 'Not set' ? formatFilledLine('Languages', languages) : null,
+        profile.website ? `**Website:** [Open link](${profile.website})` : null
+    ].filter(Boolean);
+    const missingFields = formatMissingFields([
+        profile.bio ? null : 'bio',
+        profile.pronouns ? null : 'pronouns',
+        profile.birthday ? null : 'birthday',
+        profile.timezone ? null : 'timezone',
+        languages !== 'Not set' ? null : 'languages',
+        profile.website ? null : 'website',
+        Object.keys(profile.socials || {}).length > 0 ? null : 'socials'
+    ].filter(Boolean));
+    const socials = formatSocials(profile.socials);
 
     const embed = new EmbedBuilder()
         .setTitle(displayName)
         .setColor(profile.color)
         .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
-        .setDescription(profile.bio || 'No bio yet. Use `/profile set bio:` to add one.')
+        .setDescription([
+            profile.bio || '*No bio set yet.*',
+            [
+                '__**About**__',
+                aboutRows.length ? aboutRows.join('\n') : 'No about fields set yet.'
+            ].join('\n')
+        ].join('\n\n'))
         .addFields(
             {
-                name: 'About',
+                name: '__Stats__',
                 value: [
-                    `Pronouns: ${formatOptional(profile.pronouns)}`,
-                    `Birthday: ${formatOptional(profile.birthday)}`,
-                    `Timezone: ${formatOptional(profile.timezone)}`,
-                    `Languages: ${formatLanguages(profile.languages)}`,
-                    `Website: ${profile.website || 'Not set'}`
-                ].join('\n'),
-                inline: false
-            },
-            {
-                name: 'Stats',
-                value: [
-                    `Messages: ${messageStats.count}`,
-                    `Server share: ${formatPercent(messageStats.percentage)}`,
-                    `Shots: ${shots}`,
-                    `Role: ${roleKey}`
+                    `**Messages:** ${messageStats.count}`,
+                    `**Server share:** ${formatPercent(messageStats.percentage)}`,
+                    `**Shots:** ${shots}`,
+                    `**Role:** ${roleKey}`
                 ].join('\n'),
                 inline: true
             },
             {
-                name: 'Style',
+                name: '__Style__',
                 value: [
-                    `Color: ${formatColor(profile.color)}`,
-                    `Banner: ${profile.bannerUrl ? 'Set' : 'Not set'}`
+                    `**Color:** ${formatColor(profile.color)}`
                 ].join('\n'),
                 inline: true
             },
             {
-                name: 'Badges',
+                name: '__Badges__',
                 value: badges.length ? badges.join('\n') : 'No badges yet.',
                 inline: true
-            },
-            {
-                name: 'Socials',
-                value: formatSocials(profile.socials),
-                inline: false
             }
         )
         .setFooter({
@@ -123,11 +157,27 @@ async function buildProfileEmbed(interaction, targetUser) {
         });
 
     if (profile.bannerUrl) {
-        embed.setImage(profile.bannerUrl);
+        embed.setImage(buildFlatBannerUrl(profile.bannerUrl));
     }
 
     if (profile.website) {
         embed.setURL(profile.website);
+    }
+
+    if (socials) {
+        embed.addFields({
+            name: 'Socials',
+            value: socials,
+            inline: false
+        });
+    }
+
+    if (missingFields) {
+        embed.addFields({
+            name: '\u200B',
+            value: `*Not set: ${missingFields}*`,
+            inline: false
+        });
     }
 
     return embed;
@@ -217,6 +267,8 @@ async function replyWithProfile(interaction, targetUser, content = null) {
 }
 
 module.exports = {
+    buildFlatBannerUrl,
+
     data: new SlashCommandBuilder()
         .setName('profile')
         .setDescription('View your profile')

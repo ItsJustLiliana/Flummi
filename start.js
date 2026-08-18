@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const { installTimestampedConsole } = require('./utils/logger');
 const config = require('./config.json');
 const deployCommands = require('./deploy-commands');
@@ -13,6 +14,41 @@ const maxRuntimeEntries = 50;
 
 function ensureRuntimeDir() {
     fs.mkdirSync(runtimeDir, { recursive: true });
+}
+
+let panelProcess = null;
+
+function startPanelProcess() {
+    if (config.panel?.enabledOnStart === false) {
+        console.log('Admin panel autostart disabled in config.');
+        return;
+    }
+
+    console.log('Starting admin panel...');
+
+    panelProcess = spawn(process.execPath, [path.join(__dirname, 'control-panel.js')], {
+        stdio: 'inherit'
+    });
+
+    panelProcess.on('exit', (code, signal) => {
+        panelProcess = null;
+        console.warn(`Admin panel exited (code ${code ?? 'null'}, signal ${signal ?? 'null'}).`);
+    });
+
+    panelProcess.on('error', error => {
+        panelProcess = null;
+        console.error(`Failed to start admin panel: ${error.message}`);
+    });
+}
+
+function stopPanelProcess() {
+    if (!panelProcess) {
+        return;
+    }
+
+    panelProcess.removeAllListeners('exit');
+    panelProcess.kill();
+    panelProcess = null;
 }
 
 function formatTimestamp(date) {
@@ -167,6 +203,7 @@ function registerCleanupHandlers() {
 
         cleanedUp = true;
         removeRuntimeFile();
+        stopPanelProcess();
 
         if (reason) {
             console.log(`Runtime marked stopped (${reason}).`);
@@ -224,6 +261,8 @@ async function start() {
     } else {
         console.log('Deploy step disabled. Skipping command deployment.');
     }
+
+    startPanelProcess();
 
     console.log('Starting bot...');
     require('./index');

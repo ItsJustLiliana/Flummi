@@ -1,5 +1,5 @@
 const { MessageFlags } = require('discord.js');
-const { canUseCommandPath, canUseTriggerCommands } = require('../stores/access-store');
+const { canUseCommandPath, canUseTriggerCommands, isManager } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
 
 async function handleRemoveTriggerButton(interaction) {
@@ -54,6 +54,55 @@ module.exports = {
 
     async execute(interaction) {
         if (interaction.isButton()) {
+            if (interaction.customId.startsWith('voicetime-channel-history:')) {
+                if (!interaction.guildId || !isManager(interaction.user.id, interaction.guildId)) {
+                    await interaction.reply({
+                        content: 'You need manager permissions to view voice history.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                    return;
+                }
+
+                const [, channelId, pageValue] = interaction.customId.split(':');
+                const { buildChannelMembersPage } = require('../commands/voicetime');
+                await interaction.update(buildChannelMembersPage(
+                    interaction.guildId,
+                    channelId,
+                    Number(pageValue)
+                ));
+                return;
+            }
+
+            if (interaction.customId.startsWith('voicetime-history:')) {
+                if (!interaction.guildId || !isManager(interaction.user.id, interaction.guildId)) {
+                    await interaction.reply({
+                        content: 'You need manager permissions to view voice history.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                    return;
+                }
+
+                const [, targetUserId, channelValue, pageValue] = interaction.customId.split(':');
+                const targetUser = await interaction.client.users.fetch(targetUserId).catch(() => null);
+
+                if (!targetUser) {
+                    await interaction.reply({
+                        content: 'That user could not be found.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                    return;
+                }
+
+                const { buildHistoryPage } = require('../commands/voicetime');
+                await interaction.update(buildHistoryPage(
+                    interaction.guildId,
+                    targetUser,
+                    Number(pageValue),
+                    channelValue === '-' ? null : channelValue
+                ));
+                return;
+            }
+
             if (
                 interaction.customId.startsWith('removetrigger:') &&
                 !canUseTriggerCommands(interaction.user.id)

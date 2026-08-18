@@ -39,7 +39,7 @@ test('buildMessages includes compact memory summary before recent history', () =
     const messages = buildMessages('kort antwoorden', [
         { role: 'user', content: 'recente vraag' },
         { role: 'assistant', content: 'recent antwoord' }
-    ], 'nieuwe vraag', '- User: oude vraag | Alcoholisme: oud antwoord');
+    ], 'nieuwe vraag', '- User: oude vraag | Flummi: oud antwoord');
 
     assert.equal(messages.length, 5);
     assert.equal(messages[0].content, 'kort antwoorden');

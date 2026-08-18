@@ -1,7 +1,8 @@
 const { EmbedBuilder, MessageFlags, SlashCommandBuilder } = require('discord.js');
-const { getUserRole } = require('../stores/access-store');
+const { getUserRole, isManager } = require('../stores/access-store');
 const { getShots } = require('../stores/shot-store');
 const { getUserMessageStats } = require('../stores/server-stats-store');
+const { getUserVoiceStats } = require('../stores/voice-store');
 const {
     clearProfileField,
     formatColor,
@@ -16,11 +17,13 @@ const {
 } = require('../stores/profile-store');
 
 function formatDiscordTimestamp(date, style = 'R') {
-    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    const parsedDate = date instanceof Date ? date : new Date(date);
+
+    if (!date || Number.isNaN(parsedDate.getTime())) {
         return 'Unknown';
     }
 
-    return `<t:${Math.floor(date.getTime() / 1000)}:${style}>`;
+    return `<t:${Math.floor(parsedDate.getTime() / 1000)}:${style}>`;
 }
 
 function formatPercent(value) {
@@ -94,6 +97,12 @@ async function buildProfileEmbed(interaction, targetUser) {
     const roleKey = getUserRole(targetUser.id, guildId);
     const messageStats = getUserMessageStats(guildId, targetUser.id);
     const shots = getShots(targetUser.id, guildId);
+    const canViewVoiceStats = isManager(interaction.user.id, guildId);
+    const voiceStats = canViewVoiceStats ? getUserVoiceStats(guildId, targetUser.id) : null;
+    const voiceChannelId = voiceStats?.currentChannelId || voiceStats?.lastChannelId;
+    const voiceChannelLabel = voiceChannelId
+        ? `<#${voiceChannelId}>${voiceStats.currentChannelId ? ' (in VC now)' : ''}`
+        : 'Never';
     const badges = getAutomaticBadges({ targetUser, roleKey, messageStats, shots, profile });
     const displayName = profile.nickname || member?.displayName || targetUser.username;
     const languages = formatLanguages(profile.languages);
@@ -126,7 +135,7 @@ async function buildProfileEmbed(interaction, targetUser) {
                 aboutRows.length ? aboutRows.join('\n') : 'No about fields set yet.'
             ].join('\n')
         ].join('\n\n'))
-        .addFields(
+        .addFields(...[
             {
                 name: '__Stats__',
                 value: [
@@ -144,12 +153,20 @@ async function buildProfileEmbed(interaction, targetUser) {
                 ].join('\n'),
                 inline: true
             },
+            canViewVoiceStats ? {
+                name: '__Voice__',
+                value: [
+                    `**Last VC:** ${voiceChannelLabel}`,
+                    `**Last joined:** ${formatDiscordTimestamp(voiceStats.lastJoinedAt)}`
+                ].join('\n'),
+                inline: true
+            } : null,
             {
                 name: '__Badges__',
                 value: badges.length ? badges.join('\n') : 'No badges yet.',
                 inline: true
             }
-        )
+        ].filter(Boolean))
         .setFooter({
             text: profile.updatedAt
                 ? `Last updated: ${profile.updatedAt}`

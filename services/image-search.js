@@ -498,7 +498,7 @@ async function searchOpenverseImages(query, cfg) {
     const response = await fetch(url, {
         headers: {
             Accept: 'application/json',
-            'User-Agent': 'AlcoholismBot/1.0'
+            'User-Agent': 'Flummi/1.0'
         }
     });
 
@@ -532,7 +532,7 @@ async function searchBraveImages(query, cfg) {
         headers: {
             Accept: 'application/json',
             'X-Subscription-Token': cfg.braveApiKey,
-            'User-Agent': 'AlcoholismBot/1.0'
+            'User-Agent': 'Flummi/1.0'
         }
     });
 
@@ -569,7 +569,7 @@ async function searchSerperImages(query, cfg) {
             Accept: 'application/json',
             'Content-Type': 'application/json',
             'X-API-KEY': cfg.serperApiKey,
-            'User-Agent': 'AlcoholismBot/1.0'
+            'User-Agent': 'Flummi/1.0'
         },
         body: JSON.stringify(body)
     });
@@ -605,7 +605,7 @@ async function searchSerpApiImages(query, cfg) {
     const response = await fetch(url, {
         headers: {
             Accept: 'application/json',
-            'User-Agent': 'AlcoholismBot/1.0'
+            'User-Agent': 'Flummi/1.0'
         }
     });
 
@@ -626,7 +626,7 @@ async function searchDuckDuckGoImages(query, cfg) {
     const tokenResponse = await fetch(tokenUrl, {
         headers: {
             Accept: 'text/html',
-            'User-Agent': 'Mozilla/5.0 AlcoholismBot/1.0'
+            'User-Agent': 'Mozilla/5.0 Flummi/1.0'
         }
     });
 
@@ -653,7 +653,7 @@ async function searchDuckDuckGoImages(query, cfg) {
         headers: {
             Accept: 'application/json',
             Referer: tokenUrl.toString(),
-            'User-Agent': 'Mozilla/5.0 AlcoholismBot/1.0'
+            'User-Agent': 'Mozilla/5.0 Flummi/1.0'
         }
     });
 
@@ -681,7 +681,7 @@ async function searchWikimediaImages(query, cfg) {
     const response = await fetch(url, {
         headers: {
             Accept: 'application/json',
-            'User-Agent': 'AlcoholismBot/1.0'
+            'User-Agent': 'Flummi/1.0'
         }
     });
 

@@ -394,6 +394,19 @@ function canUseTriggerCommands(userId) {
     return isDeveloper(userId) || isTriggerFeatureEnabled();
 }
 
+// Clears manager status and all stored feature/command overrides, returning the user to defaults.
+function resetUserPermissions(userId, guildId) {
+    const guildPaths = resolveGuildPaths(guildId);
+
+    if (guildPaths) {
+        const record = getPermissionRecord(guildId);
+        delete record[userId];
+        writeJson(guildPaths.userPermissions, record);
+    }
+
+    setManagerRole(userId, false, guildId);
+}
+
 module.exports = {
     getDeveloperUserIds,
     getManagerUserIds,
@@ -416,5 +429,6 @@ module.exports = {
     canUseAiChat,
     canUseBotMentions,
     canSavePingRequests,
-    canUseTriggerCommands
+    canUseTriggerCommands,
+    resetUserPermissions
 };

@@ -312,7 +312,7 @@ async function buildImageFileAttachment(imageUrl) {
     const response = await fetch(imageUrl, {
         headers: {
             Accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif,image/*;q=0.8,*/*;q=0.5',
-            'User-Agent': 'AlcoholismBot/1.0'
+            'User-Agent': 'Flummi/1.0'
         }
     });
 

@@ -304,7 +304,7 @@ function summarizeHistoryMessages(messages) {
             continue;
         }
 
-        lines.push(`- User: ${userText || '[leeg]'}${assistantText ? ` | Alcoholisme: ${assistantText}` : ''}`);
+        lines.push(`- User: ${userText || '[leeg]'}${assistantText ? ` | Flummi: ${assistantText}` : ''}`);
     }
 
     return lines.join('\n');

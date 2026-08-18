@@ -1,4 +1,4 @@
-# AlcoholismBot
+# Flummi
 
 ## Project structure
 
@@ -12,8 +12,8 @@
 
 ## Config
 
-* Status Options: online | idle | dnd | invisible
-* Activity Type Options: Playing | Streaming | Listening | Watching | Competing | None
-* Activity Enabled: true | false
+- Status Options: online | idle | dnd | invisible
+- Activity Type Options: Playing | Streaming | Listening | Watching | Competing | None
+- Activity Enabled: true | false
 
 @bot zet dit op pornhub    om een gereplyde message op te slaan in json

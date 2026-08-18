@@ -4,7 +4,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Alcoholism Bot Control Panel</title>
+    <title>Flummi Admin Panel</title>
+    <!--PANEL_CONFIG-->
     <style>
         :root {
             --bg: #0b1020;
@@ -17,34 +18,66 @@
             --danger: #ff4d6d;
             --ok: #40d981;
             --border: #243157;
+            --sidebar-width: 280px;
         }
 
         * {
             box-sizing: border-box;
         }
 
+        html,
         body {
             margin: 0;
+            height: 100%;
+        }
+
+        body {
             min-height: 100vh;
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             color: var(--text);
-            background:
-                radial-gradient(1200px 700px at 80% -20%, rgba(255, 123, 0, 0.22), transparent 60%),
-                radial-gradient(800px 600px at -10% 110%, rgba(64, 217, 129, 0.18), transparent 65%),
-                linear-gradient(180deg, #070b17 0%, var(--bg) 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
+            background: var(--bg);
         }
 
-        .app {
-            width: min(760px, 100%);
+        .layout {
+            display: flex;
+            min-height: 100vh;
+            align-items: stretch;
+        }
+
+        .content {
+            flex: 1;
+            min-width: 0;
+            padding: 28px clamp(16px, 3vw, 48px);
+            background:
+                radial-gradient(1200px 700px at 90% -10%, rgba(30, 136, 229, 0.18), transparent 60%),
+                radial-gradient(900px 700px at -10% 110%, rgba(64, 217, 129, 0.12), transparent 65%),
+                linear-gradient(180deg, #070b17 0%, var(--bg) 100%);
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            flex-shrink: 0;
+            order: -1;
             background: linear-gradient(180deg, var(--card), var(--card-alt));
-            border: 1px solid var(--border);
-            border-radius: 18px;
-            padding: 22px;
-            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+            border-right: 1px solid var(--border);
+            padding: 22px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 19px;
+            letter-spacing: 0.2px;
+        }
+
+        .brand .sub {
+            margin: 4px 0 0;
         }
 
         h1 {
@@ -53,17 +86,16 @@
             letter-spacing: 0.3px;
         }
 
+        h2 {
+            font-size: 16px;
+            margin: 0 0 10px;
+            color: var(--text);
+        }
+
         .sub {
             margin-top: 6px;
             color: var(--muted);
             font-size: 14px;
-        }
-
-        .grid {
-            margin-top: 18px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
         }
 
         .field {
@@ -80,28 +112,377 @@
         select,
         input,
         textarea,
-        button {
+        button,
+        .invite-btn {
             border-radius: 10px;
             border: 1px solid var(--border);
             background: #0a1328;
             color: var(--text);
-            padding: 10px 12px;
+            padding: 9px 12px;
             font-size: 14px;
+            font-family: inherit;
         }
 
         select:focus,
         input:focus,
         textarea:focus,
-        button:focus {
-            outline: 2px solid rgba(255, 176, 0, 0.45);
+        button:focus,
+        .invite-btn:focus {
+            outline: 2px solid rgba(30, 136, 229, 0.5);
             outline-offset: 1px;
         }
 
         textarea {
-            margin-top: 12px;
             width: 100%;
-            min-height: 140px;
+            min-height: 110px;
             resize: vertical;
+        }
+
+        button {
+            cursor: pointer;
+            transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        .invite-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .primary {
+            background: #ffffff;
+            border-color: transparent;
+            color: #10192f;
+            font-weight: 600;
+        }
+
+        .primary:hover {
+            background: #eef1f8;
+        }
+
+        .secondary {
+            background: #0b142a;
+            color: var(--muted);
+        }
+
+        .danger {
+            background: rgba(255, 77, 109, 0.15);
+            border-color: rgba(255, 77, 109, 0.4);
+            color: var(--danger);
+        }
+
+        .invite-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            flex: 1;
+            text-align: center;
+        }
+
+        .sidebar-actions {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+        }
+
+        .sidebar-actions button {
+            flex: 1;
+        }
+
+        .tabs {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 4px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--muted);
+            font-size: 13px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+        }
+
+        .tab-btn.active {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .tab-btn.active:hover {
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        .tab-divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 6px 4px;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: #0a1328;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .banner {
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            border: 1px solid;
+        }
+
+        .banner.warn {
+            background: rgba(255, 176, 0, 0.1);
+            border-color: rgba(255, 176, 0, 0.4);
+            color: var(--accent-2);
+        }
+
+        .banner.ok {
+            background: rgba(64, 217, 129, 0.1);
+            border-color: rgba(64, 217, 129, 0.35);
+            color: var(--ok);
+        }
+
+        .banner a {
+            color: inherit;
+            font-weight: 600;
+        }
+
+        .guild-header {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #16234a, #0b1328);
+            border: 1px solid var(--border);
+        }
+
+        .guild-header .guild-banner {
+            height: 130px;
+            width: 100%;
+            background-color: #0e1730;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .guild-header .guild-info {
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            padding: 0 20px 18px;
+            margin-top: -28px;
+        }
+
+        .guild-header .guild-meta {
+            padding-top: 40px;
+        }
+
+        .guild-header .guild-icon {
+            width: 84px;
+            height: 84px;
+            border-radius: 50%;
+            border: 4px solid #101a35;
+            background-color: #0a1328;
+            background-size: cover;
+            background-position: center;
+            flex-shrink: 0;
+        }
+
+        .guild-header .guild-meta h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #ffffff;
+        }
+
+        .guild-header .guild-meta p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .overview-summary-row {
+            display: grid;
+            grid-template-columns: 1fr 1.4fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .overview-quad {
+            grid-template-columns: 1fr 1fr;
+            margin-bottom: 0;
+        }
+
+        .overview-details .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .overview-details .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .overview-details .detail-label {
+            color: var(--muted);
+        }
+
+        .overview-details .detail-value {
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        @media (max-width: 860px) {
+            .overview-summary-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        th {
+            color: var(--muted);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th.sortable:hover {
+            color: var(--text);
+        }
+
+        .table-wrap {
+            max-height: 440px;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .table-toolbar {
+            position: sticky;
+            top: 0;
+            background: #0a1328;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            z-index: 1;
+        }
+
+        .table-toolbar input {
+            width: 100%;
+        }
+
+        .section {
+            background: #0a1328;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 1000px) {
+            .layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: static;
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+
+            .tabs {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+        }
+
+        @media (max-width: 860px) {
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
         .actions {
@@ -113,32 +494,32 @@
             flex-wrap: wrap;
         }
 
-        .left {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        button {
-            cursor: pointer;
-            transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
-        }
-
-        .primary {
-            background: linear-gradient(90deg, var(--accent), var(--accent-2));
-            border-color: transparent;
-            color: #1a1200;
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
             font-weight: 600;
-            min-width: 110px;
         }
 
-        .secondary {
-            background: #0b142a;
-            color: var(--muted);
+        .badge.on {
+            background: rgba(64, 217, 129, 0.18);
+            color: var(--ok);
         }
 
-        button:hover {
-            transform: translateY(-1px);
+        .badge.off {
+            background: rgba(255, 77, 109, 0.18);
+            color: var(--danger);
+        }
+
+        .badge.dev {
+            background: rgba(255, 23, 68, 0.18);
+            color: #ff5983;
+        }
+
+        .badge.manager {
+            background: rgba(30, 136, 229, 0.18);
+            color: #64b5f6;
         }
 
         .status {
@@ -155,193 +536,1013 @@
             color: var(--ok);
         }
 
-        @media (max-width: 760px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
+        .muted {
+            color: var(--muted);
+        }
 
-            .app {
-                padding: 16px;
-                border-radius: 14px;
-            }
+        code {
+            background: #0a1328;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1px 6px;
+            font-size: 12px;
+        }
 
-            .actions {
-                align-items: stretch;
-            }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-            .left {
-                width: 100%;
-                justify-content: flex-end;
-            }
+        .checkbox-row input {
+            width: auto;
+        }
+
+        .empty {
+            padding: 16px;
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
         }
     </style>
 </head>
 
 <body>
-    <main class="app">
-        <h1>Alcoholism Bot Messenger</h1>
-        <p class="sub">Select a guild and channel, then send a message as the bot.</p>
+    <div class="layout">
+        <main class="content">
+            <!-- Overview -->
+            <section id="tab-overview" class="tab-panel active">
+                <h2 style="font-size:20px;">Overview</h2>
+                <div id="guildHeader"></div>
+                <div class="overview-summary-row">
+                    <div class="card-grid overview-quad" id="overviewQuad"></div>
+                    <div class="section overview-details">
+                        <h2>Server Details</h2>
+                        <div id="overviewDetails"></div>
+                    </div>
+                </div>
+                <div class="card-grid" id="overviewCards"></div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Top Shot Totals</h2>
+                        <div id="overviewShots" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h2>Top Message Channels</h2>
+                        <div id="overviewChannels" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="overviewBanner"></div>
+            </section>
 
-        <section class="grid">
+            <!-- Messenger -->
+            <section id="tab-messenger" class="tab-panel">
+                <h2 style="font-size:20px;">Messenger</h2>
+                <div class="section">
+                    <h2>Send a message as the bot</h2>
+                    <div class="two-col">
+                        <div class="field">
+                            <label for="channel">Channel</label>
+                            <select id="channel"></select>
+                        </div>
+                        <div class="field">
+                            <label for="pingUserId">Ping user ID (optional)</label>
+                            <input id="pingUserId" type="text" placeholder="373492209363976193">
+                        </div>
+                    </div>
+
+                    <label for="message" style="margin-top: 12px; display: inline-block;">Message</label>
+                    <textarea id="message" placeholder="Type your bot message here..."></textarea>
+
+                    <label for="imageUrls" style="margin-top: 10px; display: inline-block;">Image URLs (one per
+                        line)</label>
+                    <textarea id="imageUrls" placeholder="https://..." style="min-height: 80px;"></textarea>
+
+                    <div class="checkbox-row" style="margin-top: 10px;">
+                        <input id="allowEveryone" type="checkbox" />
+                        <label for="allowEveryone" style="margin: 0;">Allow @everyone / @here mentions</label>
+                    </div>
+
+                    <section class="actions">
+                        <span id="counter" class="sub">0 / 2000</span>
+                        <button id="send" class="primary" type="button">Send</button>
+                    </section>
+
+                    <p id="sendStatus" class="status"></p>
+                </div>
+            </section>
+
+            <!-- Triggers -->
+            <section id="tab-triggers" class="tab-panel">
+                <h2 style="font-size:20px;">Triggers</h2>
+                <div class="card-grid" id="triggerCards"></div>
+                <div class="section">
+                    <h2>Configured Triggers</h2>
+                    <div id="triggerTable" class="table-wrap">
+                        <div class="empty">Loading...</div>
+                    </div>
+                </div>
+                <div class="section">
+                    <h2>Recent Trigger Audit Log</h2>
+                    <div id="triggerAudit" class="table-wrap">
+                        <div class="empty">Loading...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Shots -->
+            <section id="tab-shots" class="tab-panel">
+                <h2 style="font-size:20px;">Shots</h2>
+                <div class="card-grid" id="shotCards"></div>
+                <div class="section">
+                    <div class="row" style="justify-content: space-between;">
+                        <h2 style="margin:0;">Shot Leaderboard</h2>
+                        <div class="row">
+                            <label for="shotScope" style="margin:0;">Scope</label>
+                            <select id="shotScope">
+                                <option value="guild">Guild</option>
+                                <option value="global">Global</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="shotLeaderboard" class="table-wrap">
+                        <div class="empty">Loading...</div>
+                    </div>
+                </div>
+                <div class="section">
+                    <h2>Recent Shot Audit Log</h2>
+                    <div id="shotAudit" class="table-wrap">
+                        <div class="empty">Loading...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Voice -->
+            <section id="tab-voice" class="tab-panel">
+                <h2 style="font-size:20px;">Voice Time</h2>
+                <div class="card-grid" id="voiceCards"></div>
+                <div class="section">
+                    <h2>Currently in Voice</h2>
+                    <div id="voiceActive" class="table-wrap">
+                        <div class="empty">Loading...</div>
+                    </div>
+                </div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Voice Time Leaderboard</h2>
+                        <div id="voiceLeaderboard" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h2>Recent Sessions</h2>
+                        <div id="voiceHistory" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="row" style="justify-content: space-between;">
+                        <h2 style="margin:0;">Channel Lookup</h2>
+                        <div class="row">
+                            <label for="voiceChannelSelect" style="margin:0;">Channel</label>
+                            <select id="voiceChannelSelect"></select>
+                        </div>
+                    </div>
+                    <p class="sub">Shows everyone who has ever joined the selected voice/stage channel and how long ago
+                        that was.</p>
+                    <div id="voiceChannelMembers" class="table-wrap">
+                        <div class="empty">Select a channel above.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Server stats -->
+            <section id="tab-stats" class="tab-panel">
+                <h2 style="font-size:20px;">Server Stats</h2>
+                <div id="statsGuildHeader"></div>
+                <div class="card-grid" id="statsCards"></div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Messages by Channel</h2>
+                        <div id="statsChannels" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h2>Messages by User</h2>
+                        <div id="statsUsers" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Users & permissions -->
+            <section id="tab-users" class="tab-panel">
+                <h2 style="font-size:20px;">Users &amp; Permissions</h2>
+                <div class="section">
+                    <h2>Server Members</h2>
+                    <p class="sub">Every non-bot member of the selected server. Change their role or reset them back to
+                        defaults.</p>
+                    <div id="serverMembersTable" class="table-wrap">
+                        <div class="empty">Loading...</div>
+                    </div>
+                    <p id="memberActionStatus" class="status"></p>
+                </div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Managers</h2>
+                        <div id="managerTable" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                        <div class="row" style="margin-top: 12px;">
+                            <input id="managerUserId" type="text" placeholder="User ID" style="flex:1;">
+                            <button id="addManager" class="secondary" type="button">Add manager</button>
+                            <button id="removeManager" class="danger" type="button">Remove manager</button>
+                        </div>
+                        <p id="managerStatus" class="status"></p>
+                    </div>
+                    <div class="section">
+                        <h2>Developers (config.json, read-only)</h2>
+                        <div id="developerTable" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+                    <h2>Manage a User's Permissions</h2>
+                    <p class="sub">Load a user (or click "Manage" next to them above) to toggle their features and
+                        command blockades.</p>
+                    <div class="row">
+                        <input id="permUserId" type="text" placeholder="User ID" style="flex:1;">
+                        <button id="loadPermissions" class="secondary" type="button">Load</button>
+                    </div>
+                    <div id="permissionsEditor" style="margin-top: 12px;"></div>
+                    <p id="permissionsStatus" class="status"></p>
+                </div>
+                <div class="section">
+                    <h2>Command Permission Requirements</h2>
+                    <div id="commandPermissionsTable" class="table-wrap">
+                        <div class="empty">Loading...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings -->
+            <section id="tab-settings" class="tab-panel">
+                <h2 style="font-size:20px;">Settings</h2>
+                <div class="section">
+                    <h2>Guild Settings</h2>
+                    <div class="two-col">
+                        <div class="checkbox-row">
+                            <input id="setBotEnabled" type="checkbox" />
+                            <label for="setBotEnabled" style="margin:0;">Bot enabled</label>
+                        </div>
+                        <div class="checkbox-row">
+                            <input id="setTriggersEnabled" type="checkbox" />
+                            <label for="setTriggersEnabled" style="margin:0;">Triggers enabled</label>
+                        </div>
+                        <div class="checkbox-row">
+                            <input id="setCooldownEnabled" type="checkbox" />
+                            <label for="setCooldownEnabled" style="margin:0;">Trigger action cooldown enabled</label>
+                        </div>
+                        <div class="field">
+                            <label for="setCooldownSeconds">Cooldown seconds</label>
+                            <input id="setCooldownSeconds" type="number" min="0" max="3600">
+                        </div>
+                        <div class="checkbox-row">
+                            <input id="setExactMatch" type="checkbox" />
+                            <label for="setExactMatch" style="margin:0;">Require exact trigger match</label>
+                        </div>
+                        <div class="field">
+                            <label for="setMaxTriggerLength">Max trigger length</label>
+                            <input id="setMaxTriggerLength" type="number" min="1" max="500">
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <span class="sub">Changes apply immediately to the selected guild.</span>
+                        <button id="saveSettings" class="primary" type="button">Save settings</button>
+                    </div>
+                    <p id="settingsStatus" class="status"></p>
+                </div>
+            </section>
+
+            <!-- Ping requests -->
+            <section id="tab-pings" class="tab-panel">
+                <h2 style="font-size:20px;">Ping Requests</h2>
+                <div class="section">
+                    <h2>Saved Ping Requests</h2>
+                    <p class="sub">Messages saved via the configured @bot save phrase (e.g. "zet dit op pornhub").</p>
+                    <div id="pingRequestsTable" class="table-wrap">
+                        <div class="empty">Loading...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI & system -->
+            <section id="tab-ai" class="tab-panel">
+                <h2 style="font-size:20px;">AI &amp; System</h2>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>AI Memory Lookup</h2>
+                        <p class="sub">Global per-user conversation memory used by AI chat replies.</p>
+                        <div class="row">
+                            <input id="aiMemoryUserId" type="text" placeholder="User ID" style="flex:1;">
+                            <button id="lookupAiMemory" class="secondary" type="button">Look up</button>
+                        </div>
+                        <div id="aiMemoryResult" style="margin-top: 12px;"></div>
+                    </div>
+                    <div class="section">
+                        <h2>Serper Image Search Usage</h2>
+                        <div id="serperUsage" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+                    <h2>Bot Runtime Instances</h2>
+                    <div id="runtimeTable" class="table-wrap">
+                        <div class="empty">Loading...</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <aside class="sidebar">
+            <div class="brand">
+                <h1>Flummi</h1>
+                <p class="sub">Admin Panel</p>
+            </div>
+
             <div class="field">
                 <label for="guild">Guild</label>
                 <select id="guild"></select>
             </div>
-            <div class="field">
-                <label for="channel">Channel</label>
-                <select id="channel"></select>
+
+            <div class="sidebar-actions">
+                <button id="refreshAll" class="secondary" type="button"
+                    title="Manually refresh the current tab now (data also updates automatically)">Refresh</button>
+                <a id="inviteLink" class="secondary invite-btn" href="#" target="_blank" rel="noopener">Invite bot</a>
             </div>
-        </section>
 
-        <div class="field" style="margin-top: 10px;">
-            <label for="pingUserId">Ping user ID (optional)</label>
-            <input id="pingUserId" type="text" placeholder="373492209363976193">
-        </div>
-
-        <label for="message" style="margin-top: 12px; display: inline-block;">Message</label>
-        <textarea id="message" placeholder="Type your bot message here..."></textarea>
-
-        <label for="imageUrls" style="margin-top: 10px; display: inline-block;">Image URLs (one per line)</label>
-        <textarea id="imageUrls" placeholder="https://..." style="min-height: 90px;"></textarea>
-
-        <div class="field" style="margin-top: 10px;">
-            <label>
-                <input id="allowEveryone" type="checkbox" />
-                Allow @everyone / @here mentions
-            </label>
-        </div>
-
-        <section class="actions">
-            <button id="refresh" class="secondary" type="button">Refresh</button>
-            <div class="left">
-                <span id="counter" class="sub">0 / 2000</span>
-                <button id="send" class="primary" type="button">Send</button>
-            </div>
-        </section>
-
-        <p id="status" class="status"></p>
-    </main>
+            <nav class="tabs">
+                <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
+                <button class="tab-btn" data-tab="messenger" type="button">Messenger</button>
+                <button class="tab-btn" data-tab="triggers" type="button">Triggers</button>
+                <button class="tab-btn" data-tab="shots" type="button">Shots</button>
+                <button class="tab-btn" data-tab="voice" type="button">Voice Time</button>
+                <button class="tab-btn" data-tab="stats" type="button">Server Stats</button>
+                <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
+                <button class="tab-btn" data-tab="settings" type="button">Settings</button>
+                <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
+                <button class="tab-btn" data-tab="ai" type="button">AI &amp; System</button>
+            </nav>
+        </aside>
+    </div>
 
     <script>
+        const state = {
+            guildId: null,
+            channels: []
+        };
+
         const guildSelect = document.getElementById('guild');
+        const tableStates = new WeakMap();
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        // Wraps a username with a title tooltip showing their current server nickname, when known.
+        function withNicknameTitle(label, nickname) {
+            const safeLabel = escapeHtml(label);
+
+            if (!nickname) {
+                return safeLabel;
+            }
+
+            return `<span title="${escapeHtml(nickname)}">${safeLabel}</span>`;
+        }
+
+        function getColumnValue(column, row) {
+            if (column.sortValue) return column.sortValue(row);
+            if (column.key !== undefined) return row[column.key];
+            return null;
+        }
+
+        function isColumnSortable(column) {
+            return column.sortable !== false && (column.key !== undefined || Boolean(column.sortValue));
+        }
+
+        function renderTable(container, columns, rows, emptyText, defaultSort) {
+            let state = tableStates.get(container);
+
+            if (!state) {
+                state = { sortIndex: null, sortDir: 1, filter: '' };
+
+                if (defaultSort) {
+                    state.sortIndex = defaultSort.index;
+                    state.sortDir = defaultSort.dir || 1;
+                }
+
+                tableStates.set(container, state);
+            }
+
+            state.columns = columns;
+            state.allRows = rows || [];
+            state.emptyText = emptyText;
+            paintTable(container);
+        }
+
+        function paintTable(container) {
+            const state = tableStates.get(container);
+            if (!state) return;
+
+            const { columns, emptyText } = state;
+            let rows = state.allRows;
+
+            if (state.filter) {
+                const needle = state.filter.toLowerCase();
+                rows = rows.filter(row => JSON.stringify(row).toLowerCase().includes(needle));
+            }
+
+            if (state.sortIndex !== null && columns[state.sortIndex]) {
+                const column = columns[state.sortIndex];
+                const dir = state.sortDir;
+                rows = rows.slice().sort((a, b) => {
+                    const va = getColumnValue(column, a);
+                    const vb = getColumnValue(column, b);
+
+                    if (va == null && vb == null) return 0;
+                    if (va == null) return 1;
+                    if (vb == null) return -1;
+                    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+
+                    return String(va).localeCompare(String(vb), undefined, { numeric: true }) * dir;
+                });
+            }
+
+            const showSearch = state.allRows.length > 6;
+            const searchBar = showSearch
+                ? `<div class="table-toolbar"><input type="text" placeholder="Search..." value="${escapeHtml(state.filter || '')}" data-role="table-search" /></div>`
+                : '';
+
+            if (rows.length === 0) {
+                container.innerHTML = `${searchBar}<div class="empty">${escapeHtml(state.filter ? 'No matching rows.' : (emptyText || 'No data yet.'))}</div>`;
+            } else {
+                const head = columns.map((col, index) => {
+                    const sortable = isColumnSortable(col);
+                    const arrow = state.sortIndex === index ? (state.sortDir === 1 ? ' \u25b2' : ' \u25bc') : '';
+                    return `<th${sortable ? ` data-sort-index="${index}" class="sortable"` : ''}>${escapeHtml(col.label)}${arrow}</th>`;
+                }).join('');
+                const body = rows.map((row, index) => {
+                    const cells = columns.map(col => `<td>${col.render ? col.render(row, index) : escapeHtml(row[col.key])}</td>`).join('');
+                    return `<tr>${cells}</tr>`;
+                }).join('');
+
+                container.innerHTML = `${searchBar}<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+            }
+
+            const searchInput = container.querySelector('[data-role="table-search"]');
+
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    const caretPos = searchInput.selectionStart;
+                    state.filter = searchInput.value;
+                    paintTable(container);
+
+                    const newInput = container.querySelector('[data-role="table-search"]');
+                    if (newInput) {
+                        newInput.focus();
+                        newInput.setSelectionRange(caretPos, caretPos);
+                    }
+                });
+            }
+
+            container.querySelectorAll('th.sortable').forEach(th => {
+                th.addEventListener('click', () => {
+                    const index = Number(th.dataset.sortIndex);
+
+                    if (state.sortIndex === index) {
+                        if (state.sortDir === 1) {
+                            state.sortDir = -1;
+                        } else {
+                            state.sortIndex = null;
+                            state.sortDir = 1;
+                        }
+                    } else {
+                        state.sortIndex = index;
+                        state.sortDir = 1;
+                    }
+
+                    paintTable(container);
+                });
+            });
+        }
+
+        function statCard(label, value) {
+            return `<div class="stat-card"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value)}</div></div>`;
+        }
+
+        function formatAgo(isoString) {
+            if (!isoString) {
+                return 'Never';
+            }
+
+            const then = new Date(isoString).getTime();
+
+            if (Number.isNaN(then)) {
+                return 'Never';
+            }
+
+            const diffMs = Date.now() - then;
+
+            if (diffMs < 0) {
+                return 'Just now';
+            }
+
+            const totalSeconds = Math.floor(diffMs / 1000);
+            const days = Math.floor(totalSeconds / 86400);
+            const hours = Math.floor((totalSeconds % 86400) / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+            if (days > 0) {
+                return `${days}d ${hours}h ago`;
+            }
+
+            if (hours > 0) {
+                return `${hours}h ${minutes}m ago`;
+            }
+
+            if (minutes > 0) {
+                return `${minutes}m ago`;
+            }
+
+            return 'Just now';
+        }
+
+        // Mirrors control-panel.js's formatDuration() so active session durations can tick locally between refreshes.
+        function formatDuration(ms) {
+            const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            }
+
+            if (minutes > 0) {
+                return `${minutes}m ${seconds}s`;
+            }
+
+            return `${seconds}s`;
+        }
+
+        function formatDateTime(value) {
+            if (!value) {
+                return 'Never';
+            }
+
+            const date = new Date(value);
+
+            if (Number.isNaN(date.getTime())) {
+                return String(value);
+            }
+
+            return date.toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        async function api(pathAndQuery, options) {
+            const response = await fetch(pathAndQuery, options);
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.error || `Request failed (${response.status}).`);
+            }
+
+            return data;
+        }
+
+        function withGuild(path) {
+            return `${path}${path.includes('?') ? '&' : '?'}guildId=${encodeURIComponent(state.guildId || '')}`;
+        }
+
+        // ---------- Tabs ----------
+        const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+        const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
+        const tabLoaders = {
+            overview: loadOverview,
+            messenger: loadMessengerChannels,
+            triggers: loadTriggers,
+            shots: loadShots,
+            voice: loadVoice,
+            stats: loadStats,
+            users: loadUsers,
+            settings: loadSettings,
+            pings: loadPingRequests,
+            ai: loadAi
+        };
+
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabButtons.forEach(b => b.classList.remove('active'));
+                tabPanels.forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+                lastAutoRefreshAt = Date.now();
+
+                const loader = tabLoaders[btn.dataset.tab];
+                if (loader) {
+                    loader().catch(error => console.error(error));
+                }
+            });
+        });
+
+        function activeTab() {
+            const active = tabButtons.find(b => b.classList.contains('active'));
+            return active ? active.dataset.tab : 'overview';
+        }
+
+        async function refreshActiveTab() {
+            const loader = tabLoaders[activeTab()];
+            if (loader) {
+                await loader();
+            }
+        }
+
+        // Reorders the sidebar nav per config.panel.tabOrder (config.json); '---' entries render as divider lines.
+        function isDividerToken(value) {
+            return typeof value === 'string' && /^-{2,}$/.test(value.trim());
+        }
+
+        function createTabDivider() {
+            const hr = document.createElement('hr');
+            hr.className = 'tab-divider';
+            return hr;
+        }
+
+        function applyTabOrder(order) {
+            if (!Array.isArray(order) || order.length === 0) {
+                return;
+            }
+
+            const nav = document.querySelector('.tabs');
+            const seen = new Set();
+
+            nav.querySelectorAll('.tab-divider').forEach(el => el.remove());
+
+            for (const tabId of order) {
+                if (isDividerToken(tabId)) {
+                    nav.appendChild(createTabDivider());
+                    continue;
+                }
+
+                const btn = tabButtons.find(b => b.dataset.tab === tabId);
+
+                if (btn && !seen.has(tabId)) {
+                    nav.appendChild(btn);
+                    seen.add(tabId);
+                }
+            }
+
+            for (const btn of tabButtons) {
+                if (!seen.has(btn.dataset.tab)) {
+                    nav.appendChild(btn);
+                }
+            }
+        }
+
+        applyTabOrder(window.__PANEL_TAB_ORDER__);
+
+        // ---------- Invite link ----------
+        async function loadInviteLink() {
+            const link = document.getElementById('inviteLink');
+
+            try {
+                const data = await api('/api/invite-link');
+                link.href = data.url;
+            } catch {
+                link.href = '#';
+            }
+        }
+
+        // ---------- Guild loading ----------
+        function fillGuildSelect(rows) {
+            guildSelect.innerHTML = '';
+
+            if (!rows.length) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No guilds available';
+                guildSelect.appendChild(option);
+                guildSelect.disabled = true;
+                return;
+            }
+
+            guildSelect.disabled = false;
+            for (const row of rows) {
+                const option = document.createElement('option');
+                option.value = row.id;
+                option.textContent = row.name;
+                guildSelect.appendChild(option);
+            }
+        }
+
+        async function loadGuilds() {
+            const data = await api('/api/guilds');
+            fillGuildSelect(data.guilds || []);
+
+            const requestedGuildId = new URLSearchParams(window.location.search).get('guildId');
+
+            if (requestedGuildId && (data.guilds || []).some(guild => guild.id === requestedGuildId)) {
+                guildSelect.value = requestedGuildId;
+            }
+
+            state.guildId = guildSelect.value || null;
+            await refreshActiveTab();
+        }
+
+        guildSelect.addEventListener('change', () => {
+            state.guildId = guildSelect.value || null;
+            refreshActiveTab().catch(error => console.error(error));
+        });
+
+        document.getElementById('refreshAll').addEventListener('click', () => {
+            refreshActiveTab().catch(error => console.error(error));
+        });
+
+        // Tabs with editable form fields, or ones that hit rate-limited Discord APIs, are skipped from the poll.
+        // Voice activity changes constantly, so it gets a much faster refresh than the rest.
+        const AUTO_REFRESH_MS = 20000;
+        const TAB_REFRESH_OVERRIDES = { voice: 5000 };
+        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'settings', 'users']);
+        let autoRefreshBusy = false;
+        let lastAutoRefreshAt = 0;
+
+        setInterval(() => {
+            if (autoRefreshBusy || !state.guildId || document.visibilityState !== 'visible') {
+                return;
+            }
+
+            const tab = activeTab();
+
+            if (tabsExcludedFromAutoRefresh.has(tab)) {
+                return;
+            }
+
+            const interval = TAB_REFRESH_OVERRIDES[tab] || AUTO_REFRESH_MS;
+
+            if (Date.now() - lastAutoRefreshAt < interval) {
+                return;
+            }
+
+            lastAutoRefreshAt = Date.now();
+            autoRefreshBusy = true;
+            refreshActiveTab()
+                .catch(error => console.error(error))
+                .finally(() => {
+                    autoRefreshBusy = false;
+                });
+        }, 1000);
+
+        // Ticks the "Currently in Voice" and channel lookup durations every second between the periodic data
+        // refreshes above, recomputed straight from startedAt/lastJoinedAt each time so they never drift out of sync.
+        setInterval(() => {
+            if (activeTab() !== 'voice' || document.visibilityState !== 'visible') {
+                return;
+            }
+
+            for (const id of ['voiceActive', 'voiceChannelMembers']) {
+                const container = document.getElementById(id);
+
+                if (!container.querySelector('[data-role="table-search"]:focus')) {
+                    paintTable(container);
+                }
+            }
+        }, 1000);
+
+        // ---------- Overview ----------
+        function renderGuildHeader(containerId, guildInfo) {
+            const container = document.getElementById(containerId);
+
+            if (!guildInfo) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const bannerStyle = guildInfo.bannerUrl
+                ? `background-image: url('${guildInfo.bannerUrl.replace(/'/g, '%27')}');`
+                : '';
+            const iconStyle = guildInfo.iconUrl
+                ? `background-image: url('${guildInfo.iconUrl.replace(/'/g, '%27')}');`
+                : '';
+
+            container.innerHTML = `
+                <div class="guild-header">
+                    <div class="guild-banner" style="${bannerStyle}"></div>
+                    <div class="guild-info">
+                        <div class="guild-icon" style="${iconStyle}"></div>
+                        <div class="guild-meta">
+                            <h2>${escapeHtml(guildInfo.name)}</h2>
+                            <p>${guildInfo.description ? escapeHtml(guildInfo.description) : `${escapeHtml(guildInfo.memberCount)} members &middot; created ${escapeHtml(formatDateTime(guildInfo.createdAt))}`}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function guildInfoStatCards(guildInfo) {
+            if (!guildInfo) {
+                return '';
+            }
+
+            return [
+                statCard('Members', guildInfo.memberCount),
+                statCard('Channels', guildInfo.channelCount),
+                statCard('Roles', guildInfo.roleCount),
+                statCard('Boost Tier', guildInfo.boostTier === '0' ? 'None' : `Level ${guildInfo.boostTier} (${guildInfo.boostCount} boosts)`),
+                statCard('Verification Level', guildInfo.verificationLevel),
+                statCard('Server Created', formatDateTime(guildInfo.createdAt))
+            ].join('');
+        }
+
+        function renderOverviewQuad(containerId, guildInfo, totalMessages) {
+            const container = document.getElementById(containerId);
+
+            if (!guildInfo) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = [
+                statCard('Members', guildInfo.memberCount),
+                statCard('Channels', guildInfo.channelCount),
+                statCard('Roles', guildInfo.roleCount),
+                statCard('Total Messages Tracked', totalMessages)
+            ].join('');
+        }
+
+        function renderOverviewDetails(containerId, guildInfo) {
+            const container = document.getElementById(containerId);
+
+            if (!guildInfo) {
+                container.innerHTML = '<p class="sub">No server details available.</p>';
+                return;
+            }
+
+            const rows = [
+                ['Boost Tier', guildInfo.boostTier === '0' ? 'None' : `Level ${guildInfo.boostTier} (${guildInfo.boostCount} boosts)`],
+                ['Verification Level', guildInfo.verificationLevel],
+                ['Server Created', formatDateTime(guildInfo.createdAt)],
+                ['Server Owner', guildInfo.ownerTag || 'Unknown']
+            ];
+
+            container.innerHTML = rows.map(([label, value]) => `
+                <div class="detail-row">
+                    <span class="detail-label">${escapeHtml(label)}</span>
+                    <span class="detail-value">${escapeHtml(value)}</span>
+                </div>
+            `).join('');
+        }
+
+        async function loadOverview() {
+            if (!state.guildId) return;
+            const data = await api(withGuild('/api/overview'));
+            const overviewCards = document.getElementById('overviewCards');
+            const banner = document.getElementById('overviewBanner');
+
+            renderGuildHeader('guildHeader', data.guildInfo);
+            renderOverviewQuad('overviewQuad', data.guildInfo, data.totalMessages);
+            renderOverviewDetails('overviewDetails', data.guildInfo);
+
+            if (data.missingPermissions && data.missingPermissions.length > 0) {
+                banner.innerHTML = `<div class="banner warn">Bot is missing permissions in this server: <strong>${escapeHtml(data.missingPermissions.join(', '))}</strong>. <a href="${escapeHtml(data.inviteUrl)}" target="_blank" rel="noopener">Click here to reinvite with the correct permissions</a>.</div>`;
+            } else {
+                banner.innerHTML = '<div class="banner ok">The bot has all required permissions in this server.</div>';
+            }
+
+            overviewCards.innerHTML = [
+                statCard('Bot Enabled', data.settings.botEnabled ? 'Yes' : 'No'),
+                statCard('Triggers', `${data.triggerCount} / ${data.triggerLimit}`),
+                statCard('Members in Voice Now', data.activeVoiceCount),
+                statCard('Total Voice Time Tracked', data.totalVoiceFormatted),
+                statCard('Managers', data.managerCount),
+                statCard('Developers', data.developerCount)
+            ].join('');
+
+            renderTable(document.getElementById('overviewShots'),
+                [
+                    { label: 'User', render: r => withNicknameTitle(r.label, r.nickname) },
+                    { label: 'Shots', key: 'total' }
+                ],
+                data.shotLeaderboard, 'No shots tracked yet.');
+
+            renderTable(document.getElementById('overviewChannels'),
+                [
+                    { label: 'Channel', render: r => `#${escapeHtml(r.name)}`, sortValue: r => r.name },
+                    { label: 'Messages', key: 'count' }
+                ],
+                data.topChannels, 'No messages tracked yet.');
+        }
+
+        // ---------- Messenger ----------
         const channelSelect = document.getElementById('channel');
         const messageField = document.getElementById('message');
-        const statusField = document.getElementById('status');
+        const sendStatusField = document.getElementById('sendStatus');
         const counterField = document.getElementById('counter');
-        const sendButton = document.getElementById('send');
-        const refreshButton = document.getElementById('refresh');
         const imageUrlsField = document.getElementById('imageUrls');
         const allowEveryoneField = document.getElementById('allowEveryone');
         const pingUserIdField = document.getElementById('pingUserId');
 
-        function setStatus(text, kind) {
-            statusField.textContent = text || '';
-            statusField.className = 'status';
-            if (kind) {
-                statusField.classList.add(kind);
-            }
+        function setStatus(field, text, kind) {
+            field.textContent = text || '';
+            field.className = 'status';
+            if (kind) field.classList.add(kind);
         }
 
         function updateCounter() {
             counterField.textContent = `${messageField.value.length} / 2000`;
         }
 
-        function fillSelect(select, rows, placeholder) {
-            select.innerHTML = '';
+        messageField.addEventListener('input', updateCounter);
+        updateCounter();
 
-            if (!rows.length) {
+        async function loadMessengerChannels() {
+            if (!state.guildId) return;
+            setStatus(sendStatusField, 'Loading channels...');
+            const data = await api(withGuild('/api/channels'));
+            channelSelect.innerHTML = '';
+
+            if (!data.channels || data.channels.length === 0) {
                 const option = document.createElement('option');
                 option.value = '';
-                option.textContent = placeholder;
-                select.appendChild(option);
-                select.disabled = true;
-                return;
+                option.textContent = 'No sendable channels found';
+                channelSelect.appendChild(option);
+                channelSelect.disabled = true;
+            } else {
+                channelSelect.disabled = false;
+                for (const row of data.channels) {
+                    const option = document.createElement('option');
+                    option.value = row.id;
+                    option.textContent = `#${row.name}`;
+                    channelSelect.appendChild(option);
+                }
             }
 
-            select.disabled = false;
-            for (const row of rows) {
-                const option = document.createElement('option');
-                option.value = row.id;
-                option.textContent = row.name;
-                select.appendChild(option);
-            }
+            setStatus(sendStatusField, 'Channels loaded.', 'ok');
         }
 
-        async function loadGuilds() {
-            setStatus('Loading guilds...');
-
-            const response = await fetch('/api/guilds');
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to load guilds.');
-            }
-
-            fillSelect(guildSelect, data.guilds || [], 'No guilds available');
-            setStatus('Guilds loaded.', 'ok');
-
-            await loadChannels();
-        }
-
-        async function loadChannels() {
-            const guildId = guildSelect.value;
-
-            if (!guildId) {
-                fillSelect(channelSelect, [], 'No channels available');
-                return;
-            }
-
-            setStatus('Loading channels...');
-
-            const response = await fetch(`/api/channels?guildId=${encodeURIComponent(guildId)}`);
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to load channels.');
-            }
-
-            fillSelect(channelSelect, data.channels || [], 'No sendable channels found');
-            setStatus('Channels loaded.', 'ok');
-        }
+        document.getElementById('send').addEventListener('click', () => {
+            sendMessage().catch(error => setStatus(sendStatusField, error.message, 'error'));
+        });
 
         async function sendMessage() {
-            const guildId = guildSelect.value;
             const channelId = channelSelect.value;
             const content = messageField.value;
-            const imageUrls = imageUrlsField.value
-                .split('\n')
-                .map(line => line.trim())
-                .filter(Boolean);
+            const imageUrls = imageUrlsField.value.split('\n').map(l => l.trim()).filter(Boolean);
             const allowEveryoneMentions = allowEveryoneField.checked;
             const pingUserId = pingUserIdField.value.trim();
 
             if (pingUserId && !/^\d{15,21}$/.test(pingUserId)) {
-                setStatus('Ping user ID must be a valid Discord snowflake.', 'error');
+                setStatus(sendStatusField, 'Ping user ID must be a valid Discord snowflake.', 'error');
                 return;
             }
 
-            const mentionPrefix = pingUserId ? `<@${pingUserId}> ` : '';
-            const composedContent = `${mentionPrefix}${content}`;
+            const composedContent = `${pingUserId ? `<@${pingUserId}> ` : ''}${content}`;
 
-            if (!guildId || !channelId) {
-                setStatus('Select both guild and channel first.', 'error');
+            if (!state.guildId || !channelId) {
+                setStatus(sendStatusField, 'Select a guild and channel first.', 'error');
                 return;
             }
 
             if (!composedContent.trim() && imageUrls.length === 0) {
-                setStatus('Message cannot be empty unless you add image URLs.', 'error');
+                setStatus(sendStatusField, 'Message cannot be empty unless you add image URLs.', 'error');
                 return;
             }
 
-            sendButton.disabled = true;
-            setStatus('Sending...');
+            setStatus(sendStatusField, 'Sending...');
 
             try {
-                const response = await fetch('/api/send', {
+                const data = await api('/api/send', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        guildId,
+                        guildId: state.guildId,
                         channelId,
                         content: composedContent,
                         imageUrls,
@@ -349,39 +1550,618 @@
                     })
                 });
 
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Failed to send message.');
-                }
-
                 messageField.value = '';
                 imageUrlsField.value = '';
                 updateCounter();
-                setStatus('Sent. Message link: ' + data.message.url, 'ok');
+                setStatus(sendStatusField, `Sent. Message link: ${data.message.url}`, 'ok');
             } catch (error) {
-                setStatus(error.message || 'Failed to send message.', 'error');
-            } finally {
-                sendButton.disabled = false;
+                setStatus(sendStatusField, error.message, 'error');
             }
         }
 
-        guildSelect.addEventListener('change', () => {
-            loadChannels().catch(error => setStatus(error.message, 'error'));
+        // ---------- Triggers ----------
+        async function loadTriggers() {
+            if (!state.guildId) return;
+            const data = await api(withGuild('/api/triggers'));
+
+            document.getElementById('triggerCards').innerHTML = [
+                statCard('Triggers', `${data.triggers.length} / ${data.limit}`),
+                statCard('Total Uses Tracked', data.triggers.reduce((sum, t) => sum + (t.uses || 0), 0))
+            ].join('');
+
+            renderTable(document.getElementById('triggerTable'),
+                [
+                    { label: 'Phrase', key: 'trigger', render: r => `<strong>${escapeHtml(r.trigger)}</strong>` },
+                    { label: 'Response', key: 'response', render: r => r.response ? escapeHtml(r.response).slice(0, 120) : '<span class="muted">None</span>' },
+                    { label: 'Image', sortValue: r => r.image ? 1 : 0, render: r => r.image ? `<a href="${escapeHtml(r.image)}" target="_blank" rel="noopener">View</a>` : '<span class="muted">None</span>' },
+                    { label: 'Uses', key: 'uses' },
+                    { label: 'Added By', key: 'addedByLabel', render: r => withNicknameTitle(r.addedByLabel, r.addedByNickname) },
+                    { label: 'Added At', key: 'addedAt', render: r => escapeHtml(formatDateTime(r.addedAt)) }
+                ],
+                data.triggers, 'No triggers configured yet.');
+
+            renderTable(document.getElementById('triggerAudit'),
+                [
+                    { label: 'When', key: 'at', render: r => escapeHtml(formatDateTime(r.at)) },
+                    { label: 'Action', key: 'action', render: r => escapeHtml(r.action) },
+                    { label: 'Trigger', key: 'trigger', render: r => escapeHtml(r.trigger) },
+                    { label: 'By', sortValue: r => r.byTag || r.byId, render: r => withNicknameTitle(r.byTag || r.byId, r.byNickname) }
+                ],
+                data.audit, 'No audit entries yet.');
+        }
+
+        // ---------- Shots ----------
+        const shotScopeSelect = document.getElementById('shotScope');
+        shotScopeSelect.addEventListener('change', () => loadShots().catch(error => console.error(error)));
+
+        async function loadShots() {
+            if (!state.guildId) return;
+            const data = await api(withGuild(`/api/shots?scope=${shotScopeSelect.value}`));
+
+            document.getElementById('shotCards').innerHTML = [
+                statCard('Tracked Users', data.leaderboard.length),
+                statCard('Highest Total', data.leaderboard[0] ? `${data.leaderboard[0].total} (${data.leaderboard[0].label})` : 'N/A')
+            ].join('');
+
+            renderTable(document.getElementById('shotLeaderboard'),
+                [
+                    { label: '#', sortable: false, render: (r, i) => i + 1 },
+                    { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
+                    { label: 'Total', key: 'total' }
+                ],
+                data.leaderboard, 'No shot totals recorded yet.');
+
+            renderTable(document.getElementById('shotAudit'),
+                [
+                    { label: 'When', key: 'at', render: r => escapeHtml(formatDateTime(r.at)) },
+                    { label: 'Action', key: 'action', render: r => escapeHtml(r.action) },
+                    { label: 'By', key: 'byLabel', render: r => withNicknameTitle(r.byLabel, r.byNickname) },
+                    { label: 'Target', key: 'targetLabel', render: r => withNicknameTitle(r.targetLabel, r.targetNickname) },
+                    { label: 'Change', key: 'newTotal', render: r => `${escapeHtml(r.previousTotal)} \u2192 ${escapeHtml(r.newTotal)}` }
+                ],
+                data.audit, 'No shot audit entries yet.');
+        }
+
+        // ---------- Voice ----------
+        async function loadVoice() {
+            if (!state.guildId) return;
+            const data = await api(withGuild('/api/voice'));
+
+            document.getElementById('voiceCards').innerHTML = [
+                statCard('In Voice Now', data.activeSessions.length),
+                statCard('Tracked Users', data.leaderboard.length)
+            ].join('');
+
+            renderTable(document.getElementById('voiceActive'),
+                [
+                    { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
+                    { label: 'Channel', key: 'channelName', render: r => escapeHtml(r.channelName) },
+                    { label: 'Since', key: 'startedAt', render: r => escapeHtml(formatDateTime(r.startedAt)) },
+                    { label: 'Duration', key: 'durationMs', render: r => escapeHtml(formatDuration(Date.now() - new Date(r.startedAt).getTime())) }
+                ],
+                data.activeSessions, 'Nobody is in voice right now.');
+
+            renderTable(document.getElementById('voiceLeaderboard'),
+                [
+                    { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
+                    { label: 'Total Time', key: 'totalMs', render: r => escapeHtml(r.totalFormatted) },
+                    { label: 'In Voice', key: 'inVoice', render: r => r.inVoice ? '<span class="badge on">Now</span>' : '' }
+                ],
+                data.leaderboard, 'No voice activity tracked yet.');
+
+            renderTable(document.getElementById('voiceHistory'),
+                [
+                    { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
+                    { label: 'Channel', key: 'channelName', render: r => escapeHtml(r.channelName) },
+                    { label: 'Started', key: 'startedAt', render: r => escapeHtml(formatDateTime(r.startedAt)) },
+                    { label: 'Duration', key: 'durationMs', render: r => escapeHtml(r.durationFormatted) },
+                    { label: 'With', sortable: false, render: r => r.withLabels.length ? r.withLabels.map((label, i) => withNicknameTitle(label, r.withNicknames?.[i])).join(', ') : '<span class="muted">Alone</span>' }
+                ],
+                data.recentHistory, 'No voice sessions recorded yet.');
+
+            await loadVoiceChannelOptions();
+        }
+
+        const voiceChannelSelect = document.getElementById('voiceChannelSelect');
+
+        async function loadVoiceChannelOptions() {
+            const previousValue = voiceChannelSelect.value;
+            const data = await api(withGuild('/api/voice-channels'));
+
+            voiceChannelSelect.innerHTML = '';
+
+            if (!data.channels || data.channels.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No voice channels found';
+                voiceChannelSelect.appendChild(option);
+                voiceChannelSelect.disabled = true;
+                document.getElementById('voiceChannelMembers').innerHTML = '<div class="empty">No voice channels found.</div>';
+                return;
+            }
+
+            voiceChannelSelect.disabled = false;
+            for (const channel of data.channels) {
+                const option = document.createElement('option');
+                option.value = channel.id;
+                option.textContent = `#${channel.name}`;
+                voiceChannelSelect.appendChild(option);
+            }
+
+            if (previousValue && data.channels.some(channel => channel.id === previousValue)) {
+                voiceChannelSelect.value = previousValue;
+            }
+
+            await loadVoiceChannelMembers();
+        }
+
+        async function loadVoiceChannelMembers() {
+            const channelId = voiceChannelSelect.value;
+            const container = document.getElementById('voiceChannelMembers');
+
+            if (!state.guildId || !channelId) {
+                container.innerHTML = '<div class="empty">Select a channel above.</div>';
+                return;
+            }
+
+            const data = await api(withGuild(`/api/voice-channel-members?channelId=${encodeURIComponent(channelId)}`));
+
+            renderTable(container,
+                [
+                    { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
+                    { label: 'Last Joined', key: 'lastJoinedAt', render: r => `${escapeHtml(formatDateTime(r.lastJoinedAt))} (${escapeHtml(formatAgo(r.lastJoinedAt))})` },
+                    { label: 'Last Left', key: 'lastLeftAt', render: r => r.lastLeftAt ? `${escapeHtml(formatDateTime(r.lastLeftAt))} (${escapeHtml(formatAgo(r.lastLeftAt))})` : '<span class="muted">-</span>' },
+                    {
+                        label: 'Duration',
+                        key: 'lastSessionDurationMs',
+                        render: r => r.inVoice
+                            ? escapeHtml(formatDuration(Date.now() - new Date(r.lastJoinedAt).getTime()))
+                            : escapeHtml(formatDuration(r.lastSessionDurationMs || 0))
+                    },
+                    { label: 'Status', key: 'inVoice', render: r => r.inVoice ? '<span class="badge on">In VC now</span>' : '' }
+                ],
+                data.members, 'Nobody has joined this channel yet.');
+        }
+
+        voiceChannelSelect.addEventListener('change', () => {
+            loadVoiceChannelMembers().catch(error => console.error(error));
         });
 
-        sendButton.addEventListener('click', () => {
-            sendMessage().catch(error => setStatus(error.message, 'error'));
+        // ---------- Server stats ----------
+        async function loadStats() {
+            if (!state.guildId) return;
+            const data = await api(withGuild('/api/serverstats'));
+
+            renderGuildHeader('statsGuildHeader', data.guildInfo);
+
+            document.getElementById('statsCards').innerHTML = [
+                guildInfoStatCards(data.guildInfo),
+                statCard('Total Messages Tracked', data.totalMessages),
+                statCard('Server Owner', data.guildInfo?.ownerTag || 'Unknown')
+            ].join('');
+
+            renderTable(document.getElementById('statsChannels'),
+                [
+                    { label: 'Channel', key: 'name', render: r => `#${escapeHtml(r.name)}` },
+                    { label: 'Messages', key: 'count' }
+                ],
+                data.channels, 'No channel data yet.');
+
+            renderTable(document.getElementById('statsUsers'),
+                [
+                    { label: 'User', key: 'name', render: r => escapeHtml(r.name) },
+                    { label: 'Messages', key: 'count' }
+                ],
+                data.users, 'No user data yet.');
+        }
+
+        // ---------- Users & permissions ----------
+        const managerStatusField = document.getElementById('managerStatus');
+        const memberActionStatusField = document.getElementById('memberActionStatus');
+        const serverMembersContainer = document.getElementById('serverMembersTable');
+
+        function renderMemberRoleCell(member) {
+            if (member.isDeveloper) {
+                return '<span class="badge dev">Developer</span>';
+            }
+
+            return `<select data-role-select data-user-id="${escapeHtml(member.id)}">` +
+                `<option value="user"${member.role === 'user' ? ' selected' : ''}>User</option>` +
+                `<option value="manager"${member.role === 'manager' ? ' selected' : ''}>Manager</option>` +
+                '</select>';
+        }
+
+        function renderMemberActionsCell(member) {
+            if (member.isDeveloper) {
+                return '<span class="muted">-</span>';
+            }
+
+            return `<div class="row">` +
+                `<button type="button" class="secondary" data-manage-user="${escapeHtml(member.id)}">Manage</button>` +
+                `<button type="button" class="secondary" data-reset-user="${escapeHtml(member.id)}">Reset to default</button>` +
+                `</div>`;
+        }
+
+        async function loadServerMembers() {
+            if (!state.guildId) return;
+
+            let data;
+
+            try {
+                data = await api(withGuild('/api/members'));
+            } catch (error) {
+                serverMembersContainer.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
+                return;
+            }
+
+            renderTable(serverMembersContainer,
+                [
+                    { label: 'User', key: 'tag', render: r => withNicknameTitle(r.tag, r.nickname) },
+                    { label: 'Nickname', key: 'nickname', render: r => r.nickname ? escapeHtml(r.nickname) : '<span class="muted">-</span>' },
+                    { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
+                    { label: 'Role', sortValue: r => r.isDeveloper ? 2 : (r.role === 'manager' ? 1 : 0), render: renderMemberRoleCell },
+                    { label: 'Custom Permissions', sortValue: r => r.overrideCount + r.nonDefaultFeatureCount, render: r => (r.overrideCount + r.nonDefaultFeatureCount) > 0 ? `<span class="badge manager">${r.overrideCount + r.nonDefaultFeatureCount} custom</span>` : '<span class="muted">Default</span>' },
+                    { label: '', sortable: false, render: renderMemberActionsCell }
+                ],
+                data.members, 'No members found.');
+        }
+
+        serverMembersContainer.addEventListener('change', event => {
+            const select = event.target.closest('[data-role-select]');
+            if (!select) return;
+
+            const userId = select.dataset.userId;
+            const role = select.value;
+
+            api(withGuild('/api/members/role'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, role })
+            }).then(() => {
+                setStatus(memberActionStatusField, `Updated role for ${userId} to ${role}.`, 'ok');
+                loadServerMembers().catch(error => console.error(error));
+            }).catch(error => {
+                setStatus(memberActionStatusField, error.message, 'error');
+            });
         });
 
-        refreshButton.addEventListener('click', () => {
-            loadGuilds().catch(error => setStatus(error.message, 'error'));
+        serverMembersContainer.addEventListener('click', event => {
+            const manageButton = event.target.closest('[data-manage-user]');
+
+            if (manageButton) {
+                const userId = manageButton.dataset.manageUser;
+                document.getElementById('permUserId').value = userId;
+                loadPermissionsEditor(userId).catch(error => console.error(error));
+                document.getElementById('permissionsEditor').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            const button = event.target.closest('[data-reset-user]');
+            if (!button) return;
+
+            const userId = button.dataset.resetUser;
+
+            api(withGuild('/api/members/reset'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            }).then(() => {
+                setStatus(memberActionStatusField, `Reset ${userId} to default permissions.`, 'ok');
+                loadServerMembers().catch(error => console.error(error));
+            }).catch(error => {
+                setStatus(memberActionStatusField, error.message, 'error');
+            });
         });
 
-        messageField.addEventListener('input', updateCounter);
+        async function loadUsers() {
+            if (!state.guildId) return;
+            await loadServerMembers();
+            const data = await api(withGuild('/api/managers'));
 
-        updateCounter();
-        loadGuilds().catch(error => setStatus(error.message, 'error'));
+            renderTable(document.getElementById('managerTable'),
+                [{ label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` }],
+                data.managers, 'No managers configured yet.');
+
+            renderTable(document.getElementById('developerTable'),
+                [{ label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` }],
+                data.developers, 'No developers configured.');
+
+            const configData = await api('/api/config');
+            const rows = Object.entries(configData.commandPermissions || {}).map(([path, role]) => ({ path, role }));
+
+            renderTable(document.getElementById('commandPermissionsTable'),
+                [
+                    { label: 'Command', key: 'path', render: r => `<code>/${escapeHtml(r.path.replace(/\./g, ' '))}</code>` },
+                    { label: 'Required Role', key: 'role', render: r => `<span class="badge ${r.role === 'developer' ? 'dev' : r.role === 'manager' ? 'manager' : ''}">${escapeHtml(r.role)}</span>` }
+                ],
+                rows, 'No configured command permissions.');
+        }
+
+        document.getElementById('addManager').addEventListener('click', () => setManager(true));
+        document.getElementById('removeManager').addEventListener('click', () => setManager(false));
+
+        async function setManager(shouldBeManager) {
+            const userId = document.getElementById('managerUserId').value.trim();
+
+            if (!state.guildId || !userId) {
+                setStatus(managerStatusField, 'Select a guild and enter a user ID.', 'error');
+                return;
+            }
+
+            try {
+                await api(withGuild('/api/managers'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, shouldBeManager })
+                });
+                setStatus(managerStatusField, shouldBeManager ? 'Manager added.' : 'Manager removed.', 'ok');
+                await loadUsers();
+            } catch (error) {
+                setStatus(managerStatusField, error.message, 'error');
+            }
+        }
+
+        const FEATURE_DEFINITIONS = [
+            { key: 'useTriggers', label: 'Use triggers' },
+            { key: 'addTriggers', label: 'Add triggers' },
+            { key: 'useAiChat', label: 'AI chat' },
+            { key: 'useBotMentions', label: '@bot responses' },
+            { key: 'savePingRequests', label: 'Ping-save' }
+        ];
+        const permissionsEditor = document.getElementById('permissionsEditor');
+        const permissionsStatusField = document.getElementById('permissionsStatus');
+
+        function renderPermissionsEditor(userId, data) {
+            const perms = data.permissions;
+            const overrides = Object.entries(perms.commandOverrides || {});
+            const readOnly = data.role === 'developer';
+
+            const featureRows = FEATURE_DEFINITIONS.map(feature => `
+                <div class="checkbox-row">
+                    <input type="checkbox" data-feature-toggle data-feature-key="${escapeHtml(feature.key)}" ${perms[feature.key] ? 'checked' : ''} ${readOnly ? 'disabled' : ''}>
+                    <label style="margin:0;">${escapeHtml(feature.label)}</label>
+                </div>
+            `).join('');
+
+            const overrideRows = overrides.length
+                ? overrides.map(([path, allowed]) => `
+                    <tr>
+                        <td><code>/${escapeHtml(path.replace(/\./g, ' '))}</code></td>
+                        <td>${allowed ? '<span class="badge on">Allowed</span>' : '<span class="badge off">Blocked</span>'}</td>
+                        <td><button type="button" class="secondary" data-clear-override="${escapeHtml(path)}" ${readOnly ? 'disabled' : ''}>Clear</button></td>
+                    </tr>
+                `).join('')
+                : '<tr><td colspan="3" class="muted">No command overrides (blockades) set.</td></tr>';
+
+            permissionsEditor.dataset.userId = userId;
+            permissionsEditor.innerHTML = `
+                <p>
+                    <strong>${escapeHtml(userId)}</strong>
+                    <span class="badge ${data.role === 'developer' ? 'dev' : data.role === 'manager' ? 'manager' : ''}">${escapeHtml(data.role)}</span>
+                    ${readOnly ? '<span class="sub">Developers always have full access and cannot be edited here.</span>' : ''}
+                </p>
+                <div class="two-col">${featureRows}</div>
+                <h2 style="margin-top:16px; font-size:14px;">Command Overrides (Blockades)</h2>
+                <table>
+                    <thead><tr><th>Command</th><th>Status</th><th></th></tr></thead>
+                    <tbody>${overrideRows}</tbody>
+                </table>
+                <div class="row" style="margin-top:10px;">
+                    <input id="overrideCommandPath" type="text" placeholder="e.g. trigger.add" style="flex:1;" ${readOnly ? 'disabled' : ''}>
+                    <select id="overrideAccess" ${readOnly ? 'disabled' : ''}>
+                        <option value="allow">Allow</option>
+                        <option value="block">Block</option>
+                    </select>
+                    <button id="setOverride" type="button" class="secondary" ${readOnly ? 'disabled' : ''}>Set override</button>
+                </div>
+            `;
+        }
+
+        async function loadPermissionsEditor(userId) {
+            if (!state.guildId || !userId) {
+                setStatus(permissionsStatusField, 'Select a guild and enter a user ID.', 'error');
+                return;
+            }
+
+            try {
+                const data = await api(withGuild(`/api/permissions?userId=${encodeURIComponent(userId)}`));
+                renderPermissionsEditor(userId, data);
+                setStatus(permissionsStatusField, '');
+            } catch (error) {
+                setStatus(permissionsStatusField, error.message, 'error');
+            }
+        }
+
+        document.getElementById('loadPermissions').addEventListener('click', () => {
+            loadPermissionsEditor(document.getElementById('permUserId').value.trim()).catch(error => console.error(error));
+        });
+
+        permissionsEditor.addEventListener('change', event => {
+            const toggle = event.target.closest('[data-feature-toggle]');
+            if (!toggle) return;
+
+            const userId = permissionsEditor.dataset.userId;
+            const key = toggle.dataset.featureKey;
+
+            api(withGuild('/api/permissions'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, [key]: toggle.checked })
+            }).then(data => {
+                setStatus(permissionsStatusField, `Updated ${key} for ${userId}.`, 'ok');
+                renderPermissionsEditor(userId, data);
+            }).catch(error => {
+                setStatus(permissionsStatusField, error.message, 'error');
+            });
+        });
+
+        permissionsEditor.addEventListener('click', event => {
+            const clearButton = event.target.closest('[data-clear-override]');
+
+            if (clearButton) {
+                const userId = permissionsEditor.dataset.userId;
+                const commandPath = clearButton.dataset.clearOverride;
+
+                api(withGuild('/api/permissions'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, commandPath, commandAccess: 'inherit' })
+                }).then(data => {
+                    setStatus(permissionsStatusField, `Cleared override for ${commandPath}.`, 'ok');
+                    renderPermissionsEditor(userId, data);
+                }).catch(error => {
+                    setStatus(permissionsStatusField, error.message, 'error');
+                });
+                return;
+            }
+
+            if (event.target.id !== 'setOverride') return;
+
+            const userId = permissionsEditor.dataset.userId;
+            const commandPath = document.getElementById('overrideCommandPath').value.trim();
+            const commandAccess = document.getElementById('overrideAccess').value;
+
+            if (!commandPath) {
+                setStatus(permissionsStatusField, 'Enter a command path, e.g. trigger.add.', 'error');
+                return;
+            }
+
+            api(withGuild('/api/permissions'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, commandPath, commandAccess })
+            }).then(data => {
+                setStatus(permissionsStatusField, `Set ${commandPath} to ${commandAccess} for ${userId}.`, 'ok');
+                renderPermissionsEditor(userId, data);
+            }).catch(error => {
+                setStatus(permissionsStatusField, error.message, 'error');
+            });
+        });
+
+        // ---------- Settings ----------
+        async function loadSettings() {
+            if (!state.guildId) return;
+            const data = await api(withGuild('/api/settings'));
+            const s = data.settings;
+
+            document.getElementById('setBotEnabled').checked = s.botEnabled;
+            document.getElementById('setTriggersEnabled').checked = s.triggersEnabled;
+            document.getElementById('setCooldownEnabled').checked = s.triggerActionCooldownEnabled;
+            document.getElementById('setCooldownSeconds').value = s.triggerActionCooldownSeconds;
+            document.getElementById('setExactMatch').checked = s.exactTriggerMatch;
+            document.getElementById('setMaxTriggerLength').value = s.maxTriggerLength;
+        }
+
+        document.getElementById('saveSettings').addEventListener('click', () => {
+            saveSettings().catch(error => setStatus(document.getElementById('settingsStatus'), error.message, 'error'));
+        });
+
+        async function saveSettings() {
+            const statusField = document.getElementById('settingsStatus');
+
+            if (!state.guildId) {
+                setStatus(statusField, 'Select a guild first.', 'error');
+                return;
+            }
+
+            const payload = {
+                botEnabled: document.getElementById('setBotEnabled').checked,
+                triggersEnabled: document.getElementById('setTriggersEnabled').checked,
+                triggerActionCooldownEnabled: document.getElementById('setCooldownEnabled').checked,
+                triggerActionCooldownSeconds: Number(document.getElementById('setCooldownSeconds').value) || 0,
+                exactTriggerMatch: document.getElementById('setExactMatch').checked,
+                maxTriggerLength: Number(document.getElementById('setMaxTriggerLength').value) || 200
+            };
+
+            await api(withGuild('/api/settings'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            setStatus(statusField, 'Settings saved.', 'ok');
+        }
+
+        // ---------- Ping requests ----------
+        async function loadPingRequests() {
+            if (!state.guildId) return;
+            const data = await api(withGuild('/api/pingrequests'));
+
+            const rows = data.entries.flatMap(entry => (entry.content || []).map(item => ({
+                requestedBy: entry.byLabel,
+                requestedByNickname: entry.byNickname,
+                requestedAt: entry.at,
+                message: item.message,
+                attachments: item.attachments
+            })));
+
+            renderTable(document.getElementById('pingRequestsTable'),
+                [
+                    { label: 'Requested By', key: 'requestedBy', render: r => withNicknameTitle(r.requestedBy, r.requestedByNickname) },
+                    { label: 'Requested At', key: 'requestedAt', render: r => escapeHtml(formatDateTime(r.requestedAt)) },
+                    { label: 'Message', key: 'message', render: r => escapeHtml((r.message || '').slice(0, 160)) },
+                    { label: 'Attachments', sortValue: r => r.attachments ? 1 : 0, render: r => r.attachments ? `<a href="${escapeHtml(r.attachments)}" target="_blank" rel="noopener">View</a>` : '' }
+                ],
+                rows, 'No saved ping requests yet.');
+        }
+
+        // ---------- AI & system ----------
+        document.getElementById('lookupAiMemory').addEventListener('click', () => {
+            lookupAiMemory().catch(error => console.error(error));
+        });
+
+        async function lookupAiMemory() {
+            const userId = document.getElementById('aiMemoryUserId').value.trim();
+            const resultBox = document.getElementById('aiMemoryResult');
+
+            if (!userId) {
+                resultBox.innerHTML = '<p class="status error">Enter a user ID.</p>';
+                return;
+            }
+
+            const data = await api(`/api/ai-memory?userId=${encodeURIComponent(userId)}`);
+            resultBox.innerHTML = `
+                <ul>
+                    <li>Turns saved: ${escapeHtml(data.turns)}</li>
+                    <li>Older context: ${escapeHtml(data.summaryChars)} chars</li>
+                    <li>User profile: ${escapeHtml(data.profileChars)} chars</li>
+                    <li>Last updated: ${escapeHtml(data.updatedAt ? formatDateTime(data.updatedAt) : 'Never')}</li>
+                </ul>
+            `;
+        }
+
+        async function loadAi() {
+            const usage = await api('/api/serper-usage');
+
+            renderTable(document.getElementById('serperUsage'),
+                [
+                    { label: 'Metric', key: 'metric' },
+                    { label: 'Value', key: 'value' }
+                ],
+                [
+                    { metric: 'Total requests', value: usage.requests.total },
+                    { metric: 'Successful', value: usage.requests.successful },
+                    { metric: 'Failed', value: usage.requests.failed },
+                    { metric: 'Last request', value: usage.lastRequestAt ? formatDateTime(usage.lastRequestAt) : 'Never' },
+                    { metric: 'Last status code', value: usage.lastStatusCode ?? 'N/A' }
+                ], 'No usage data yet.');
+
+            const runtime = await api('/api/runtime');
+
+            renderTable(document.getElementById('runtimeTable'),
+                [
+                    { label: 'Entry Point', key: 'entry' },
+                    { label: 'PID', key: 'pid' },
+                    { label: 'Status', key: 'status', render: r => `<span class="badge ${r.status === 'running' ? 'on' : 'off'}">${escapeHtml(r.status)}</span>` },
+                    { label: 'Started', key: 'startedAt', render: r => escapeHtml(formatDateTime(r.startedAt)) },
+                    { label: 'Stopped', key: 'stoppedAt', render: r => escapeHtml(r.stoppedAt ? formatDateTime(r.stoppedAt) : '') }
+                ],
+                runtime.instances, 'No runtime history recorded yet.', { index: 3, dir: -1 });
+        }
+
+        // ---------- Init ----------
+        loadInviteLink().catch(error => console.error(error));
+        loadGuilds().catch(error => console.error(error));
     </script>
 </body>
 

@@ -130,17 +130,17 @@ function isContentPolicyError(statusCode, errorText) {
         statusCode === 403 ||
         statusCode === 422
     ) && (
-        text.includes('content policy') ||
-        text.includes('content_policy') ||
-        text.includes('content filter') ||
-        text.includes('content_filter') ||
-        text.includes('moderation') ||
-        text.includes('safety') ||
-        text.includes('unsafe') ||
-        text.includes('prohibited') ||
-        text.includes('flagged') ||
-        text.includes('blocked')
-    );
+            text.includes('content policy') ||
+            text.includes('content_policy') ||
+            text.includes('content filter') ||
+            text.includes('content_filter') ||
+            text.includes('moderation') ||
+            text.includes('safety') ||
+            text.includes('unsafe') ||
+            text.includes('prohibited') ||
+            text.includes('flagged') ||
+            text.includes('blocked')
+        );
 }
 
 function shouldTryNextModel(statusCode, errorText) {
@@ -262,8 +262,8 @@ async function requestCompletion(cfg, models, messages, options = {}) {
             headers: {
                 Authorization: `Bearer ${cfg.apiKey}`,
                 'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://localhost/alcoholismbot',
-                'X-OpenRouter-Title': 'AlcoholismBot',
+                'HTTP-Referer': 'https://localhost/flummi',
+                'X-OpenRouter-Title': 'Flummi',
                 'X-OpenRouter-Metadata': 'enabled'
             },
             body: JSON.stringify(body),
@@ -376,12 +376,12 @@ function isUnsupportedImageError(errorText) {
         text.includes('multi-modal') ||
         text.includes('multimodal')
     ) && (
-        text.includes('unsupported') ||
-        text.includes('not support') ||
-        text.includes('invalid') ||
-        text.includes('cannot') ||
-        text.includes('only supports')
-    );
+            text.includes('unsupported') ||
+            text.includes('not support') ||
+            text.includes('invalid') ||
+            text.includes('cannot') ||
+            text.includes('only supports')
+        );
 }
 
 function isRefusalReply(reply) {

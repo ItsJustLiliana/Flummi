@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const { recordActivity } = require('./activity-store');
 
 const dataDir = path.join(__dirname, '..', 'data');
 
@@ -168,6 +169,7 @@ function startVoiceSession({ guildId, userId, channelId, channelName, at, reason
     stats.users[String(userId)] = entry;
 
     saveVoiceStats(stats, guildId);
+    recordActivity('voice-join', `User ${normalizedUserId} joined ${channelName || normalizedChannelId}`, { guildId, userId: normalizedUserId, channelId: normalizedChannelId });
 }
 
 // Ends the active voice session for a user and adds the elapsed time to their totals.
@@ -212,6 +214,7 @@ function endVoiceSession({ guildId, userId, at, reason = 'leave', state = null }
     stats.users[String(userId)] = entry;
 
     saveVoiceStats(stats, guildId);
+    recordActivity('voice-leave', `User ${userId} left voice`, { guildId, userId: String(userId), channelId: session?.channelId || null });
 }
 
 function updateVoiceSession({ guildId, userId, at, state = {} }) {
@@ -356,6 +359,47 @@ function getVoiceStatsSummary(guildId, limit = 10) {
         .slice(0, safeLimit);
 }
 
+function getVoiceAnalytics(guildId, from = null, to = null) {
+    const stats = readVoiceStats(guildId);
+    const start = from ? new Date(from).getTime() : 0;
+    const end = to ? new Date(to).getTime() : Date.now();
+    const history = stats.history.filter(row => new Date(row.startedAt).getTime() <= end && new Date(row.endedAt || Date.now()).getTime() >= start);
+    const channels = new Map(), users = new Map(), daily = new Map();
+    for (const row of history) {
+        const rowStart = Math.max(start, new Date(row.startedAt).getTime());
+        const rowEnd = Math.min(end, new Date(row.endedAt || Date.now()).getTime());
+        const ms = Math.max(0, rowEnd - rowStart);
+        const channel = channels.get(row.channelId) || { channelId: row.channelId, channelName: row.channelName, totalMs: 0, sessions: 0 };
+        channel.totalMs += ms; channel.sessions++; channels.set(row.channelId, channel);
+        const user = users.get(row.userId) || { userId: row.userId, weeklyMs: 0, monthlyMs: 0, totalMs: 0 };
+        user.totalMs += ms;
+        if (Date.now() - rowEnd <= 7 * 86400000) user.weeklyMs += ms;
+        if (Date.now() - rowEnd <= 31 * 86400000) user.monthlyMs += ms;
+        users.set(row.userId, user);
+        const day = new Date(rowStart).toISOString().slice(0, 10);
+        daily.set(day, (daily.get(day) || 0) + 1);
+    }
+    // A group session runs from the first join until the last leave while at least one tracked user remains in a channel.
+    const events = history.flatMap(row => [{ at: new Date(row.startedAt).getTime(), kind: 'join', channelId: row.channelId, channelName: row.channelName, userId: row.userId }, { at: new Date(row.endedAt).getTime(), kind: 'leave', channelId: row.channelId, channelName: row.channelName, userId: row.userId }]).sort((a, b) => a.at - b.at || (a.kind === 'leave' ? -1 : 1));
+    const active = new Map(), sessions = [];
+    for (const event of events) {
+        let state = active.get(event.channelId) || { users: new Set(), startedAt: null, participants: new Set(), channelName: event.channelName };
+        if (event.kind === 'join') { if (!state.users.size) state.startedAt = event.at; state.users.add(event.userId); state.participants.add(event.userId); }
+        else { state.users.delete(event.userId); if (!state.users.size && state.startedAt) { sessions.push({ channelId: event.channelId, channelName: state.channelName, startedAt: new Date(state.startedAt).toISOString(), endedAt: new Date(event.at).toISOString(), durationMs: event.at - state.startedAt, userIds: [...state.participants] }); state = { users: new Set(), startedAt: null, participants: new Set(), channelName: event.channelName }; } }
+        active.set(event.channelId, state);
+    }
+    const activeByChannel = new Map();
+    for (const [userId, session] of Object.entries(stats.activeSessions)) {
+        const group = activeByChannel.get(session.channelId) || { channelId: session.channelId, channelName: session.channelName, startedAt: session.startedAt, endedAt: null, durationMs: 0, userIds: [], active: true };
+        if (new Date(session.startedAt) < new Date(group.startedAt)) group.startedAt = session.startedAt;
+        group.userIds.push(userId);
+        group.durationMs = Date.now() - new Date(group.startedAt).getTime();
+        activeByChannel.set(session.channelId, group);
+    }
+    sessions.push(...activeByChannel.values());
+    return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime: [...daily.entries()].map(([date, count]) => ({ date, count })).sort((a,b) => a.date.localeCompare(b.date)), groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100) };
+}
+
 module.exports = {
     emptyVoiceStats,
     endVoiceSession,
@@ -363,6 +407,7 @@ module.exports = {
     getUserVoiceStats,
     getVoiceHistory,
     getVoiceStatsSummary,
+    getVoiceAnalytics,
     readVoiceStats,
     saveVoiceStats,
     startVoiceSession,

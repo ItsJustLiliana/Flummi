@@ -9,7 +9,7 @@
         "status": "online",
         "activityEnabled": true,
         "activityType": "Watching",
-        "activityText": "Bonnie Blue mijn bae | /help"
+        "activityText": "wout my beloved | /help"
     },
     "deployCommandsOnStart": true,
     "panel": {
@@ -19,13 +19,14 @@
             "overview",
             "stats",
             "voice",
+            "users",
             "---",
             "triggers",
             "pings",
             "shots",
             "messenger",
             "---",
-            "users",
+            "profiles",
             "settings",
             "ai"
         ]
@@ -50,14 +51,14 @@
         "baseUrl": "https://openrouter.ai/api/v1",
         "model": "openai/gpt-oss-20b:free",
         "fastModel": "openai/gpt-oss-20b:free",
-        "smartModel": "openai/gpt-oss-120b:free",
+        "smartModel": "openai/gpt-oss-20b:free",
         "fallbackModels": [
             "openai/gpt-oss-20b:free",
-            "openai/gpt-oss-120b:free",
             "google/gemma-4-26b-a4b-it:free"
         ],
         "visionModels": [
-            "nvidia/nemotron-nano-12b-v2-vl:free"
+            "nvidia/nemotron-nano-12b-v2-vl:free",
+            "nex-agi/nex-n2-pro:free"
         ],
         "imageSearch": {
             "enabled": true,

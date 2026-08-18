@@ -161,7 +161,9 @@ function shouldTryNextModel(statusCode, errorText) {
         text.includes('no endpoints found') ||
         text.includes('not found') ||
         text.includes('not a valid model id') ||
-        text.includes('invalid model')
+        text.includes('invalid model') ||
+        text.includes('model is unavailable') ||
+        text.includes('unavailable for free')
     );
 }
 
@@ -647,6 +649,9 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
 
     const hasImages = hasImageContent(userInput);
     const models = hasImages ? buildVisionModelCandidates(cfg) : buildTextModelCandidates(cfg, userInput, history);
+    const requestConfig = hasImages
+        ? { ...cfg, useOpenRouterModelRouting: false }
+        : cfg;
     const sessionId = buildSessionId({ userId, guildId, channelId });
     const hasHistory = Array.isArray(history) && history.length > 0;
     const messagesWithHistory = buildMessages(
@@ -660,7 +665,7 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
 
     try {
         const reply = await tryModels({
-            cfg,
+            cfg: requestConfig,
             models,
             messages: messagesWithHistory,
             sessionId,
@@ -774,6 +779,7 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
 
 module.exports = {
     AiChatError,
+    getAiConfig,
     buildMessages,
     buildSessionId,
     buildTextModelCandidates,

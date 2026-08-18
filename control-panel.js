@@ -4,7 +4,8 @@ const path = require('path');
 const { URL } = require('url');
 const { exec } = require('child_process');
 const { Client, GatewayIntentBits, ChannelType, PermissionsBitField, GuildVerificationLevel } = require('discord.js');
-const { installTimestampedConsole } = require('./utils/logger');
+const { installTimestampedConsole, readRecentLogs } = require('./utils/logger');
+const { readActivity, recordActivity } = require('./stores/activity-store');
 const { loadEnv } = require('./utils/env-loader');
 const config = require('./config.json');
 const settingsStore = require('./stores/settings-store');
@@ -16,6 +17,8 @@ const serverStatsStore = require('./stores/server-stats-store');
 const pingRequestStore = require('./stores/ping-request-store');
 const serperUsageStore = require('./stores/serper-usage-store');
 const userConversationStore = require('./stores/user-conversation-store');
+const profileStore = require('./stores/profile-store');
+const { getAiConfig, buildTextModelCandidates, buildVisionModelCandidates } = require('./services/ai-chat');
 
 installTimestampedConsole();
 loadEnv();
@@ -26,7 +29,23 @@ const host = '127.0.0.1';
 const port = 3789;
 const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
+const brandingDir = path.join(__dirname, 'assets', 'branding');
 const runtimeFilePath = path.join(__dirname, 'data', 'runtime', 'runtime.json');
+const dataDir = path.join(__dirname, 'data');
+
+function saveConfig(updates) {
+    Object.assign(config, updates);
+    fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 4));
+    return config;
+}
+
+function fileDetails(folder) {
+    if (!fs.existsSync(folder)) return [];
+    return fs.readdirSync(folder).filter(name => name.endsWith('.json')).map(name => {
+        const file = path.join(folder, name); const stat = fs.statSync(file);
+        return { name, size: stat.size, modifiedAt: stat.mtime.toISOString() };
+    });
+}
 
 function createClient(includeMembersIntent) {
     const intents = [GatewayIntentBits.Guilds];
@@ -104,6 +123,18 @@ function sendJson(res, statusCode, payload) {
 function sendHtml(res, html) {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);
+}
+
+function sendAsset(res, filePath) {
+    const extension = path.extname(filePath).toLowerCase();
+    const contentType = extension === '.jpeg' || extension === '.jpg'
+        ? 'image/jpeg'
+        : extension === '.png'
+            ? 'image/png'
+            : 'application/octet-stream';
+
+    res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=3600' });
+    fs.createReadStream(filePath).pipe(res);
 }
 
 function openBrowser(url) {
@@ -431,6 +462,12 @@ function buildAllowedMentions(allowEveryoneMentions) {
     };
 }
 
+function formatTimestamp(date = new Date()) {
+    const pad = value => String(value).padStart(2, '0');
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 async function sendComposedMessage(guildId, channelId, content, imageUrls, allowEveryoneMentions) {
     const trimmed = typeof content === 'string' ? content.trim() : '';
     const files = normalizeImageUrls(imageUrls);
@@ -478,6 +515,19 @@ function createServer() {
                     `<script>window.__PANEL_TAB_ORDER__ = ${JSON.stringify(tabOrder)};</script>`
                 );
                 sendHtml(res, injected);
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname.startsWith('/assets/branding/')) {
+                const fileName = path.basename(requestUrl.pathname);
+                const filePath = path.join(brandingDir, fileName);
+
+                if (!fs.existsSync(filePath)) {
+                    sendJson(res, 404, { error: 'Asset not found.' });
+                    return;
+                }
+
+                sendAsset(res, filePath);
                 return;
             }
 
@@ -533,6 +583,95 @@ function createServer() {
                         byNickname: labels[entry.byId]?.nickname || null
                     }))
                 });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/triggers') {
+                const guildId = requestUrl.searchParams.get('guildId');
+                const rawBody = await readBody(req);
+                const parsed = JSON.parse(rawBody || '{}');
+
+                if (!guildId || !parsed.phrase || (!parsed.response && !parsed.image)) {
+                    sendJson(res, 400, { error: 'guildId, phrase, and a response or image are required.' });
+                    return;
+                }
+
+                const settings = settingsStore.readSettings(guildId);
+                const phrase = String(parsed.phrase).trim();
+
+                if (phrase.length > settings.maxTriggerLength) {
+                    sendJson(res, 400, { error: `Trigger phrase cannot exceed ${settings.maxTriggerLength} characters.` });
+                    return;
+                }
+
+                const result = triggerStore.addTrigger({
+                    trigger: phrase,
+                    response: String(parsed.response || '').trim() || null,
+                    image: String(parsed.image || '').trim() || null,
+                    addedById: 'panel',
+                    addedByTag: 'Admin Panel',
+                    addedAt: formatTimestamp()
+                }, guildId);
+
+                if (!result.ok) {
+                    sendJson(res, 400, { error: result.reason === 'duplicate' ? 'That trigger already exists.' : 'Trigger limit reached.' });
+                    return;
+                }
+
+                triggerStore.appendAuditEntry({ action: 'add', trigger: phrase, byId: 'panel', byTag: 'Admin Panel', at: formatTimestamp() }, guildId);
+                recordActivity('trigger-add', `Trigger "${phrase}" added`, { guildId });
+                sendJson(res, 200, { ok: true, trigger: result.trigger });
+                return;
+            }
+
+            if (req.method === 'PATCH' && requestUrl.pathname === '/api/triggers') {
+                const guildId = requestUrl.searchParams.get('guildId');
+                const rawBody = await readBody(req);
+                const parsed = JSON.parse(rawBody || '{}');
+                const phrase = String(parsed.phrase || '').trim();
+                const updates = {};
+
+                if (Object.prototype.hasOwnProperty.call(parsed, 'response')) updates.response = String(parsed.response || '').trim() || null;
+                if (Object.prototype.hasOwnProperty.call(parsed, 'image')) updates.image = String(parsed.image || '').trim() || null;
+                if (typeof parsed.enabled === 'boolean') updates.enabled = parsed.enabled;
+
+                if (!guildId || !phrase || Object.keys(updates).length === 0 || (!updates.response && !updates.image && Object.keys(updates).every(key => ['response', 'image'].includes(key)))) {
+                    sendJson(res, 400, { error: 'Provide a phrase and at least one response or image value.' });
+                    return;
+                }
+
+                const result = triggerStore.updateTrigger(phrase, updates, guildId);
+
+                if (!result.ok) {
+                    sendJson(res, 404, { error: 'Trigger not found.' });
+                    return;
+                }
+
+                triggerStore.appendAuditEntry({ action: 'edit', trigger: result.trigger.trigger, byId: 'panel', byTag: 'Admin Panel', at: formatTimestamp(), changes: updates }, guildId);
+                recordActivity('trigger-edit', `Trigger "${result.trigger.trigger}" updated`, { guildId });
+                sendJson(res, 200, { ok: true, trigger: result.trigger });
+                return;
+            }
+
+            if (req.method === 'DELETE' && requestUrl.pathname === '/api/triggers') {
+                const guildId = requestUrl.searchParams.get('guildId');
+                const phrase = requestUrl.searchParams.get('phrase');
+
+                if (!guildId || !phrase) {
+                    sendJson(res, 400, { error: 'guildId and phrase are required.' });
+                    return;
+                }
+
+                const result = triggerStore.removeTrigger(phrase, guildId);
+
+                if (!result.ok) {
+                    sendJson(res, 404, { error: 'Trigger not found.' });
+                    return;
+                }
+
+                triggerStore.appendAuditEntry({ action: 'remove', trigger: result.trigger.trigger, byId: 'panel', byTag: 'Admin Panel', at: formatTimestamp() }, guildId);
+                recordActivity('trigger-remove', `Trigger "${result.trigger.trigger}" removed`, { guildId });
+                sendJson(res, 200, { ok: true });
                 return;
             }
 
@@ -613,6 +752,18 @@ function createServer() {
                         durationFormatted: formatDuration(row.durationMs)
                     }))
                 });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/voice-analytics') {
+                const guildId = requireGuildId(requestUrl, res);
+                if (!guildId) return;
+                const analytics = voiceStore.getVoiceAnalytics(guildId, requestUrl.searchParams.get('from'), requestUrl.searchParams.get('to'));
+                const ids = [...analytics.userTotals.map(row => row.userId), ...analytics.groupSessions.flatMap(row => row.userIds)];
+                const labels = await resolveUserLabels(ids, guildId);
+                analytics.userTotals = analytics.userTotals.map(row => ({ ...row, label: labels[row.userId]?.tag || row.userId, nickname: labels[row.userId]?.nickname || null }));
+                analytics.groupSessions = analytics.groupSessions.map(row => ({ ...row, labels: row.userIds.map(id => labels[id]?.tag || id) }));
+                sendJson(res, 200, analytics);
                 return;
             }
 
@@ -928,8 +1079,126 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'GET' && requestUrl.pathname === '/api/profile') {
+                const userId = requestUrl.searchParams.get('userId');
+
+                if (!userId) {
+                    sendJson(res, 400, { error: 'userId is required.' });
+                    return;
+                }
+
+                const labels = await resolveUserLabels([userId], requestUrl.searchParams.get('guildId'));
+                const discordUser = await client.users.fetch(userId).catch(() => null);
+                const memory = userConversationStore.getUserMemory(userId);
+                const guildId = requestUrl.searchParams.get('guildId');
+                const messageStats = guildId ? serverStatsStore.getUserMessageStats(guildId, userId).count : 0;
+                const voice = guildId ? voiceStore.getUserVoiceStats(guildId, userId) : null;
+
+                sendJson(res, 200, {
+                    user: {
+                        id: userId,
+                        tag: labels[userId]?.tag || userId,
+                        nickname: labels[userId]?.nickname || null,
+                        avatarUrl: discordUser?.displayAvatarURL({ size: 256 }) || null,
+                        bannerUrl: discordUser?.bannerURL({ size: 1024, extension: 'png' }) || null
+                    },
+                    profile: profileStore.getProfile(userId),
+                    statistics: { messages: messageStats, voiceMs: voice?.totalMs || 0, shots: guildId ? shotStore.getShots(userId, guildId).total : 0, role: guildId ? accessStore.getUserRole(userId, guildId) : 'user' },
+                    aiMemory: {
+                        summary: memory.summary || '',
+                        profile: memory.profile || '',
+                        updatedAt: memory.updatedAt || null
+                    }
+                });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/profile') {
+                const rawBody = await readBody(req);
+                const parsed = JSON.parse(rawBody || '{}');
+
+                if (!parsed.userId) {
+                    sendJson(res, 400, { error: 'userId is required.' });
+                    return;
+                }
+
+                const editableFields = [
+                    'nickname', 'bio', 'pronouns', 'birthday', 'timezone',
+                    'languages', 'website', 'bannerUrl', 'color', 'socials'
+                ];
+                const updates = Object.fromEntries(
+                    editableFields
+                        .filter(field => Object.prototype.hasOwnProperty.call(parsed, field))
+                        .map(field => [field, parsed[field]])
+                );
+                const profile = profileStore.updateProfile(parsed.userId, parsed.guildId || null, updates);
+
+                sendJson(res, 200, { ok: true, profile });
+                return;
+            }
+
             if (req.method === 'GET' && requestUrl.pathname === '/api/serper-usage') {
                 sendJson(res, 200, serperUsageStore.readSerperUsage());
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/logs') {
+                sendJson(res, 200, { logs: readRecentLogs(requestUrl.searchParams.get('level'), requestUrl.searchParams.get('limit')) });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/activity') {
+                const guildId = requestUrl.searchParams.get('guildId');
+                sendJson(res, 200, { entries: readActivity().filter(row => !guildId || !row.guildId || row.guildId === guildId).slice(0, 100) });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/config') {
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                const allowed = ['ai', 'features', 'presence', 'commandPermissions'];
+                const updates = Object.fromEntries(allowed.filter(key => parsed[key] && typeof parsed[key] === 'object').map(key => [key, { ...(config[key] || {}), ...parsed[key] }]));
+                if (parsed.ai?.imageSearch) updates.ai = { ...(updates.ai || config.ai), imageSearch: { ...(config.ai?.imageSearch || {}), ...parsed.ai.imageSearch } };
+                saveConfig(updates);
+                recordActivity('config', 'Global configuration updated from the panel');
+                sendJson(res, 200, { ok: true, config: { ai: config.ai, features: config.features, presence: config.presence, commandPermissions: config.commandPermissions } });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/data-tools') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                sendJson(res, 200, { guildFiles: fileDetails(path.join(dataDir, 'guilds', guildId)), globalFiles: fileDetails(path.join(dataDir, 'global', 'users')) });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/backup') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                const folder = path.join(dataDir, 'guilds', guildId);
+                const backup = Object.fromEntries(fileDetails(folder).map(({ name }) => [name, JSON.parse(fs.readFileSync(path.join(folder, name), 'utf8'))]));
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Disposition': `attachment; filename="guild-${guildId}-backup.json"` }); res.end(JSON.stringify(backup, null, 2)); return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/data-tools/reset') {
+                const parsed = JSON.parse(await readBody(req) || '{}'); const guildId = requestUrl.searchParams.get('guildId');
+                if (!guildId || !parsed.userId || !['memory', 'profile', 'voice', 'shots', 'permissions'].includes(parsed.store) || parsed.confirmation !== 'RESET') { sendJson(res, 400, { error: 'guildId, userId, valid store, and confirmation RESET are required.' }); return; }
+                const userId = String(parsed.userId);
+                if (parsed.store === 'memory') userConversationStore.clearUserHistory(userId);
+                if (parsed.store === 'profile') profileStore.updateProfile(userId, guildId, { nickname: null, bio: null, pronouns: null, birthday: null, timezone: null, languages: [], website: null, bannerUrl: null, socials: {} });
+                if (parsed.store === 'voice') { const stats = voiceStore.readVoiceStats(guildId); delete stats.users[userId]; delete stats.activeSessions[userId]; stats.history = stats.history.filter(row => row.userId !== userId); voiceStore.saveVoiceStats(stats, guildId); }
+                if (parsed.store === 'shots') shotStore.setShots(userId, 0, guildId, 'panel', { action: 'reset' });
+                if (parsed.store === 'permissions') accessStore.resetUserPermissions(userId, guildId);
+                recordActivity('data-reset', `Reset ${parsed.store} for ${userId}`, { guildId, userId }); sendJson(res, 200, { ok: true }); return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/health') {
+                const ai = getAiConfig();
+                sendJson(res, 200, {
+                    discord: client.isReady() ? 'Connected' : 'Connecting',
+                    panel: 'Running',
+                    openRouter: ai.apiKey ? 'Configured' : 'Missing API key',
+                    textModels: buildTextModelCandidates(ai, '', []).length,
+                    visionModels: buildVisionModelCandidates(ai).length,
+                    imageSearch: config.features?.aiImageSearchEnabled !== false && config.ai?.imageSearch?.enabled !== false ? 'Enabled' : 'Disabled'
+                });
                 return;
             }
 
@@ -941,7 +1210,10 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/config') {
                 sendJson(res, 200, {
                     developerUserIds: accessStore.getDeveloperUserIds(),
-                    commandPermissions: config.commandPermissions || {}
+                    commandPermissions: config.commandPermissions || {},
+                    ai: config.ai || {},
+                    features: config.features || {},
+                    presence: config.presence || {}
                 });
                 return;
             }

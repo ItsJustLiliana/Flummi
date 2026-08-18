@@ -29,6 +29,21 @@
         body {
             margin: 0;
             height: 100%;
+            scrollbar-color: var(--border) var(--bg);
+        }
+
+        *::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border: 2px solid var(--bg);
+            border-radius: 999px;
+        }
+
+        *::-webkit-scrollbar-thumb:hover {
+            background: #365080;
         }
 
         body {
@@ -50,7 +65,7 @@
             padding: 28px clamp(16px, 3vw, 48px);
             background:
                 radial-gradient(1200px 700px at 90% -10%, rgba(30, 136, 229, 0.18), transparent 60%),
-                radial-gradient(900px 700px at -10% 110%, rgba(64, 217, 129, 0.12), transparent 65%),
+                radial-gradient(900px 700px at -10% 110%, rgba(30, 136, 229, 0.14), transparent 65%),
                 linear-gradient(180deg, #070b17 0%, var(--bg) 100%);
         }
 
@@ -74,6 +89,24 @@
             margin: 0;
             font-size: 19px;
             letter-spacing: 0.2px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-image {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.22);
+            object-fit: cover;
+        }
+
+        .brand-copy {
+            min-width: 0;
         }
 
         .brand .sub {
@@ -522,6 +555,66 @@
             color: #64b5f6;
         }
 
+        .discord-preview {
+            border-left: 4px solid var(--accent-2);
+            border-radius: 8px;
+            background: #101729;
+            max-width: 720px;
+            overflow: hidden;
+        }
+
+        .discord-preview-banner {
+            height: 170px;
+            background: #0c1323 center / cover no-repeat;
+        }
+
+        .discord-preview-body {
+            padding: 18px;
+            position: relative;
+        }
+
+        .discord-preview-avatar {
+            width: 84px;
+            height: 84px;
+            border: 4px solid #101729;
+            border-radius: 50%;
+            object-fit: cover;
+            position: absolute;
+            right: 18px;
+            top: -46px;
+            background: #0a1328;
+        }
+
+        .discord-preview-title {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .discord-preview-description {
+            white-space: pre-wrap;
+            color: var(--text);
+            margin: 12px 0;
+        }
+
+        .discord-preview-fields {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+        }
+
+        .discord-preview-field {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-size: 13px;
+        }
+
+        .discord-preview-field strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
         .status {
             margin-top: 14px;
             font-size: 13px;
@@ -640,7 +733,34 @@
             <section id="tab-triggers" class="tab-panel">
                 <h2 style="font-size:20px;">Triggers</h2>
                 <div class="card-grid" id="triggerCards"></div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Add Trigger</h2>
+                        <div class="field"><label for="triggerPhrase">Phrase</label><input id="triggerPhrase"
+                                type="text"></div>
+                        <div class="field"><label for="triggerResponse">Text response</label><textarea
+                                id="triggerResponse"></textarea></div>
+                        <div class="field"><label for="triggerImage">Image URL</label><input id="triggerImage"
+                                type="url"></div>
+                        <div class="actions"><span id="triggerStatus" class="status"></span><button id="addTrigger"
+                                class="primary" type="button">Add trigger</button></div>
+                    </div>
+                    <div class="section">
+                        <h2>Manage Trigger</h2>
+                        <div class="field"><label for="editTriggerPhrase">Existing phrase</label><input
+                                id="editTriggerPhrase" type="text"></div>
+                        <div class="field"><label for="editTriggerResponse">Text response</label><textarea
+                                id="editTriggerResponse"></textarea></div>
+                        <div class="field"><label for="editTriggerImage">Image URL</label><input id="editTriggerImage"
+                                type="url"></div>
+                        <div class="checkbox-row"><input id="editTriggerEnabled" type="checkbox" checked><label for="editTriggerEnabled" style="margin:0;">Enabled</label></div>
+                        <div class="actions"><button id="editTrigger" class="secondary" type="button">Save
+                                changes</button><button id="deleteTrigger" class="danger" type="button">Delete
+                                trigger</button></div>
+                    </div>
+                </div>
                 <div class="section">
+                    <div class="row"><button id="exportTriggers" class="secondary" type="button">Export JSON</button><label class="secondary" style="cursor:pointer">Import JSON<input id="importTriggers" type="file" accept="application/json" hidden></label></div>
                     <h2>Configured Triggers</h2>
                     <div id="triggerTable" class="table-wrap">
                         <div class="empty">Loading...</div>
@@ -705,6 +825,8 @@
                         </div>
                     </div>
                 </div>
+                <div class="two-col"><div class="section"><h2>Top Channels</h2><div id="voiceTopChannels" class="table-wrap"></div></div><div class="section"><h2>Weekly / Monthly User Totals</h2><div id="voiceUserTotals" class="table-wrap"></div></div></div>
+                <div class="section"><h2>Grouped Call Sessions</h2><p class="sub">From the first participant joining until the last participant leaves.</p><div id="voiceGroupSessions" class="table-wrap"></div></div>
                 <div class="section">
                     <div class="row" style="justify-content: space-between;">
                         <h2 style="margin:0;">Channel Lookup</h2>
@@ -715,8 +837,19 @@
                     </div>
                     <p class="sub">Shows everyone who has ever joined the selected voice/stage channel and how long ago
                         that was.</p>
-                    <div id="voiceChannelMembers" class="table-wrap">
-                        <div class="empty">Select a channel above.</div>
+                    <div class="two-col">
+                        <div>
+                            <h2 style="font-size:14px;">Active Users</h2>
+                            <div id="voiceChannelActive" class="table-wrap">
+                                <div class="empty">Select a channel above.</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h2 style="font-size:14px;">Past Users</h2>
+                            <div id="voiceChannelPast" class="table-wrap">
+                                <div class="empty">Select a channel above.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -761,6 +894,9 @@
                             <div class="empty">Loading...</div>
                         </div>
                         <div class="row" style="margin-top: 12px;">
+                            <select id="managerUserSelect" class="guild-user-select" style="flex:1;">
+                                <option value="">Select a member</option>
+                            </select>
                             <input id="managerUserId" type="text" placeholder="User ID" style="flex:1;">
                             <button id="addManager" class="secondary" type="button">Add manager</button>
                             <button id="removeManager" class="danger" type="button">Remove manager</button>
@@ -779,6 +915,9 @@
                     <p class="sub">Load a user (or click "Manage" next to them above) to toggle their features and
                         command blockades.</p>
                     <div class="row">
+                        <select id="permUserSelect" class="guild-user-select" style="flex:1;">
+                            <option value="">Select a member</option>
+                        </select>
                         <input id="permUserId" type="text" placeholder="User ID" style="flex:1;">
                         <button id="loadPermissions" class="secondary" type="button">Load</button>
                     </div>
@@ -823,6 +962,12 @@
                             <label for="setMaxTriggerLength">Max trigger length</label>
                             <input id="setMaxTriggerLength" type="number" min="1" max="500">
                         </div>
+                        <div class="checkbox-row"><input id="featureAiConversations" type="checkbox"><label for="featureAiConversations" style="margin:0">AI conversations</label></div>
+                        <div class="checkbox-row"><input id="featureAiAttachments" type="checkbox"><label for="featureAiAttachments" style="margin:0">AI attachments</label></div>
+                        <div class="checkbox-row"><input id="featureAiImageSearch" type="checkbox"><label for="featureAiImageSearch" style="margin:0">AI image search</label></div>
+                        <div class="checkbox-row"><input id="featurePingResponses" type="checkbox"><label for="featurePingResponses" style="margin:0">Ping responses</label></div>
+                        <div class="checkbox-row"><input id="featurePingSave" type="checkbox"><label for="featurePingSave" style="margin:0">Save ping requests</label></div>
+                        <div class="checkbox-row"><input id="featureShots" type="checkbox"><label for="featureShots" style="margin:0">Shot system</label></div>
                     </div>
                     <div class="actions">
                         <span class="sub">Changes apply immediately to the selected guild.</span>
@@ -830,6 +975,7 @@
                     </div>
                     <p id="settingsStatus" class="status"></p>
                 </div>
+                <div class="section"><h2>Backup &amp; Data Tools</h2><div class="row"><button id="downloadBackup" class="secondary" type="button">Download guild backup</button><button id="loadStorage" class="secondary" type="button">Storage details</button></div><div id="storageDetails" class="table-wrap"></div><div class="row" style="margin-top:12px"><input id="resetDataUser" placeholder="User ID"><select id="resetDataStore"><option value="memory">AI memory</option><option value="profile">Profile</option><option value="voice">Voice data</option><option value="shots">Shots</option><option value="permissions">Permissions</option></select><button id="resetUserData" class="danger" type="button">Reset selected data</button></div></div>
             </section>
 
             <!-- Ping requests -->
@@ -845,13 +991,38 @@
             </section>
 
             <!-- AI & system -->
+            <section id="tab-profiles" class="tab-panel">
+                <h2 style="font-size:20px;">Profiles</h2>
+                <div class="section">
+                    <div class="row">
+                        <select id="profileUserSelect" style="flex:1;">
+                            <option value="">Select a server member</option>
+                        </select>
+                        <input id="profileUserId" type="text" placeholder="User ID" style="flex:1;">
+                        <button id="loadProfile" class="secondary" type="button">Load profile</button>
+                    </div>
+                    <p id="profileStatus" class="status"></p>
+                </div>
+                <div id="profileEditor" class="two-col"></div>
+                <details class="section" id="profilePreviewDetails">
+                    <summary>Discord Profile Preview</summary>
+                    <div id="profilePreview" style="margin-top:12px;"></div>
+                </details>
+            </section>
+
+            <!-- AI & system -->
             <section id="tab-ai" class="tab-panel">
                 <h2 style="font-size:20px;">AI &amp; System</h2>
+                <div class="section"><h2>Live Activity Feed</h2><div id="activityFeed" class="table-wrap"></div></div>
+                <div class="section"><h2>AI Controls</h2><div class="two-col"><div class="field"><label>Text model</label><input id="aiTextModel"></div><div class="field"><label>Vision models (one per line)</label><textarea id="aiVisionModels"></textarea></div><div class="field"><label>Fallback models (one per line)</label><textarea id="aiFallbackModels"></textarea></div><div class="field"><label>Timeout (ms)</label><input id="aiTimeout" type="number"></div><div class="field"><label>Max output tokens</label><input id="aiMaxOutput" type="number"></div><div class="field"><label>Image providers (one per line)</label><textarea id="aiImageProviders"></textarea></div></div><button id="saveAiConfig" class="primary" type="button">Save AI controls</button><p id="aiConfigStatus" class="status"></p></div>
                 <div class="two-col">
                     <div class="section">
                         <h2>AI Memory Lookup</h2>
                         <p class="sub">Global per-user conversation memory used by AI chat replies.</p>
                         <div class="row">
+                            <select id="aiMemoryUserSelect" class="guild-user-select" style="flex:1;">
+                                <option value="">Select a member</option>
+                            </select>
                             <input id="aiMemoryUserId" type="text" placeholder="User ID" style="flex:1;">
                             <button id="lookupAiMemory" class="secondary" type="button">Look up</button>
                         </div>
@@ -865,6 +1036,13 @@
                     </div>
                 </div>
                 <div class="section">
+                    <div class="row"><h2 style="margin:0">Runtime Logs</h2><select id="logLevel"><option value="">All levels</option><option value="error">Error</option><option value="warn">Warn</option><option value="info">Info</option></select><button id="refreshLogs" class="secondary" type="button">Refresh</button></div><div id="logViewer" class="table-wrap"></div>
+                </div>
+                <div class="section">
+                    <h2>Bot Health</h2>
+                    <div id="healthCards" class="card-grid"></div>
+                </div>
+                <div class="section">
                     <h2>Bot Runtime Instances</h2>
                     <div id="runtimeTable" class="table-wrap">
                         <div class="empty">Loading...</div>
@@ -875,8 +1053,11 @@
 
         <aside class="sidebar">
             <div class="brand">
-                <h1>Flummi</h1>
-                <p class="sub">Admin Panel</p>
+                <img class="brand-image" src="/assets/branding/flummi-pfp.jpeg" alt="Flummi">
+                <div class="brand-copy">
+                    <h1>Flummi</h1>
+                    <p class="sub">Admin Panel</p>
+                </div>
             </div>
 
             <div class="field">
@@ -898,6 +1079,7 @@
                 <button class="tab-btn" data-tab="voice" type="button">Voice Time</button>
                 <button class="tab-btn" data-tab="stats" type="button">Server Stats</button>
                 <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
+                <button class="tab-btn" data-tab="profiles" type="button">Profiles</button>
                 <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                 <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                 <button class="tab-btn" data-tab="ai" type="button">AI &amp; System</button>
@@ -918,7 +1100,14 @@
             return String(value ?? '')
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function backgroundUrlStyle(url) {
+            const safeUrl = String(url || '').replace(/'/g, '%27');
+            return `background-image: url('${safeUrl}');`;
         }
 
         // Wraps a username with a title tooltip showing their current server nickname, when known.
@@ -958,6 +1147,7 @@
 
             state.columns = columns;
             state.allRows = rows || [];
+            state.page = state.page || 0;
             state.emptyText = emptyText;
             paintTable(container);
         }
@@ -990,6 +1180,10 @@
                 });
             }
 
+            const pageSize = 25;
+            const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+            if (state.page >= pageCount) state.page = pageCount - 1;
+            const pageRows = rows.slice(state.page * pageSize, (state.page + 1) * pageSize);
             const showSearch = state.allRows.length > 6;
             const searchBar = showSearch
                 ? `<div class="table-toolbar"><input type="text" placeholder="Search..." value="${escapeHtml(state.filter || '')}" data-role="table-search" /></div>`
@@ -1003,12 +1197,13 @@
                     const arrow = state.sortIndex === index ? (state.sortDir === 1 ? ' \u25b2' : ' \u25bc') : '';
                     return `<th${sortable ? ` data-sort-index="${index}" class="sortable"` : ''}>${escapeHtml(col.label)}${arrow}</th>`;
                 }).join('');
-                const body = rows.map((row, index) => {
+                const body = pageRows.map((row, index) => {
                     const cells = columns.map(col => `<td>${col.render ? col.render(row, index) : escapeHtml(row[col.key])}</td>`).join('');
                     return `<tr>${cells}</tr>`;
                 }).join('');
 
-                container.innerHTML = `${searchBar}<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+                const pagination = rows.length > pageSize ? `<div class="table-toolbar" style="justify-content:flex-end"><button data-role="table-prev" class="secondary" ${state.page === 0 ? 'disabled' : ''}>Previous</button><span class="sub">Page ${state.page + 1} / ${pageCount}</span><button data-role="table-next" class="secondary" ${state.page >= pageCount - 1 ? 'disabled' : ''}>Next</button></div>` : '';
+                container.innerHTML = `${searchBar}<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${pagination}`;
             }
 
             const searchInput = container.querySelector('[data-role="table-search"]');
@@ -1046,6 +1241,8 @@
                     paintTable(container);
                 });
             });
+            container.querySelector('[data-role="table-prev"]')?.addEventListener('click', () => { state.page--; paintTable(container); });
+            container.querySelector('[data-role="table-next"]')?.addEventListener('click', () => { state.page++; paintTable(container); });
         }
 
         function statCard(label, value) {
@@ -1153,6 +1350,7 @@
             voice: loadVoice,
             stats: loadStats,
             users: loadUsers,
+            profiles: loadProfilesTab,
             settings: loadSettings,
             pings: loadPingRequests,
             ai: loadAi
@@ -1327,7 +1525,7 @@
                 return;
             }
 
-            for (const id of ['voiceActive', 'voiceChannelMembers']) {
+            for (const id of ['voiceActive', 'voiceChannelActive']) {
                 const container = document.getElementById(id);
 
                 if (!container.querySelector('[data-role="table-search"]:focus')) {
@@ -1345,9 +1543,7 @@
                 return;
             }
 
-            const bannerStyle = guildInfo.bannerUrl
-                ? `background-image: url('${guildInfo.bannerUrl.replace(/'/g, '%27')}');`
-                : '';
+            const bannerStyle = backgroundUrlStyle(guildInfo.bannerUrl || '/assets/branding/flummi-banner.jpeg');
             const iconStyle = guildInfo.iconUrl
                 ? `background-image: url('${guildInfo.iconUrl.replace(/'/g, '%27')}');`
                 : '';
@@ -1574,7 +1770,9 @@
                     { label: 'Phrase', key: 'trigger', render: r => `<strong>${escapeHtml(r.trigger)}</strong>` },
                     { label: 'Response', key: 'response', render: r => r.response ? escapeHtml(r.response).slice(0, 120) : '<span class="muted">None</span>' },
                     { label: 'Image', sortValue: r => r.image ? 1 : 0, render: r => r.image ? `<a href="${escapeHtml(r.image)}" target="_blank" rel="noopener">View</a>` : '<span class="muted">None</span>' },
+                    { label: 'Status', key: 'enabled', render: r => r.enabled === false ? '<span class="badge off">Disabled</span>' : '<span class="badge on">Enabled</span>' },
                     { label: 'Uses', key: 'uses' },
+                    { label: 'Manage', sortable: false, render: r => `<button class="secondary" data-trigger-manage="${escapeHtml(r.trigger)}">Manage</button>` },
                     { label: 'Added By', key: 'addedByLabel', render: r => withNicknameTitle(r.addedByLabel, r.addedByNickname) },
                     { label: 'Added At', key: 'addedAt', render: r => escapeHtml(formatDateTime(r.addedAt)) }
                 ],
@@ -1589,6 +1787,82 @@
                 ],
                 data.audit, 'No audit entries yet.');
         }
+
+        async function saveTrigger(method) {
+            const editing = method === 'PATCH';
+            const phrase = document.getElementById(editing ? 'editTriggerPhrase' : 'triggerPhrase').value.trim();
+            const response = document.getElementById(editing ? 'editTriggerResponse' : 'triggerResponse').value.trim();
+            const image = document.getElementById(editing ? 'editTriggerImage' : 'triggerImage').value.trim();
+            const enabled = editing ? document.getElementById('editTriggerEnabled').checked : true;
+
+            if (!state.guildId || !phrase || (!response && !image)) {
+                setStatus(document.getElementById('triggerStatus'), 'Enter a phrase and text response or image URL.', 'error');
+                return;
+            }
+
+            try {
+                await api(withGuild('/api/triggers'), {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phrase, response, image, enabled })
+                });
+                setStatus(document.getElementById('triggerStatus'), editing ? 'Trigger updated.' : 'Trigger added.', 'ok');
+                await loadTriggers();
+            } catch (error) {
+                setStatus(document.getElementById('triggerStatus'), error.message, 'error');
+            }
+        }
+
+        document.getElementById('addTrigger').addEventListener('click', () => saveTrigger('POST'));
+        document.getElementById('editTrigger').addEventListener('click', () => saveTrigger('PATCH'));
+        document.getElementById('deleteTrigger').addEventListener('click', async () => {
+            const phrase = document.getElementById('editTriggerPhrase').value.trim();
+
+            if (!state.guildId || !phrase) {
+                setStatus(document.getElementById('triggerStatus'), 'Enter the existing trigger phrase to delete.', 'error');
+                return;
+            }
+
+            if (!window.confirm(`Delete trigger "${phrase}"?`)) {
+                return;
+            }
+
+            try {
+                await api(withGuild(`/api/triggers?phrase=${encodeURIComponent(phrase)}`), { method: 'DELETE' });
+                setStatus(document.getElementById('triggerStatus'), 'Trigger deleted.', 'ok');
+                document.getElementById('editTriggerPhrase').value = '';
+                document.getElementById('editTriggerResponse').value = '';
+                document.getElementById('editTriggerImage').value = '';
+                await loadTriggers();
+            } catch (error) {
+                setStatus(document.getElementById('triggerStatus'), error.message, 'error');
+            }
+        });
+
+        document.getElementById('triggerTable').addEventListener('click', event => {
+            const phrase = event.target.dataset.triggerManage;
+            if (!phrase) return;
+            const row = (tableStates.get(document.getElementById('triggerTable'))?.allRows || []).find(item => item.trigger === phrase);
+            if (!row) return;
+            document.getElementById('editTriggerPhrase').value = row.trigger;
+            document.getElementById('editTriggerResponse').value = row.response || '';
+            document.getElementById('editTriggerImage').value = row.image || '';
+            document.getElementById('editTriggerEnabled').checked = row.enabled !== false;
+            document.getElementById('editTriggerPhrase').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        document.getElementById('exportTriggers').addEventListener('click', () => {
+            const rows = tableStates.get(document.getElementById('triggerTable'))?.allRows || [];
+            const blob = new Blob([JSON.stringify(rows.map(({ trigger, response, image, enabled }) => ({ trigger, response, image, enabled })), null, 2)], { type: 'application/json' });
+            const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'triggers.json' }); link.click(); URL.revokeObjectURL(link.href);
+        });
+        document.getElementById('importTriggers').addEventListener('change', async event => {
+            const file = event.target.files[0]; if (!file || !state.guildId) return;
+            try { const triggers = JSON.parse(await file.text()); if (!Array.isArray(triggers)) throw new Error('Expected a JSON array.');
+                for (const trigger of triggers) await api(withGuild('/api/triggers'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phrase: trigger.trigger, response: trigger.response, image: trigger.image }) });
+                await loadTriggers(); setStatus(document.getElementById('triggerStatus'), 'Triggers imported.', 'ok');
+            } catch (error) { setStatus(document.getElementById('triggerStatus'), error.message, 'error'); }
+            event.target.value = '';
+        });
 
         // ---------- Shots ----------
         const shotScopeSelect = document.getElementById('shotScope');
@@ -1626,6 +1900,7 @@
         async function loadVoice() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/voice'));
+            const analytics = await api(withGuild('/api/voice-analytics'));
 
             document.getElementById('voiceCards').innerHTML = [
                 statCard('In Voice Now', data.activeSessions.length),
@@ -1659,8 +1934,13 @@
                 ],
                 data.recentHistory, 'No voice sessions recorded yet.');
 
+            renderTable(document.getElementById('voiceTopChannels'), [{ label: 'Channel', key: 'channelName' }, { label: 'Total', key: 'totalMs', render: r => formatDuration(r.totalMs) }, { label: 'Sessions', key: 'sessions' }], analytics.topChannels, 'No channel activity in this range.');
+            renderTable(document.getElementById('voiceUserTotals'), [{ label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'Week', key: 'weeklyMs', render: r => formatDuration(r.weeklyMs) }, { label: 'Month', key: 'monthlyMs', render: r => formatDuration(r.monthlyMs) }], analytics.userTotals, 'No user activity in this range.');
+            renderTable(document.getElementById('voiceGroupSessions'), [{ label: 'Channel', key: 'channelName' }, { label: 'Started', key: 'startedAt', render: r => formatDateTime(r.startedAt) }, { label: 'Duration', key: 'durationMs', render: r => formatDuration(r.durationMs) }, { label: 'Participants', key: 'labels', render: r => r.labels.map(escapeHtml).join(', ') }, { label: 'Active', key: 'active', render: r => r.active ? '<span class="badge on">Now</span>' : '' }], analytics.groupSessions, 'No grouped sessions recorded yet.');
+
             await loadVoiceChannelOptions();
         }
+
 
         const voiceChannelSelect = document.getElementById('voiceChannelSelect');
 
@@ -1676,7 +1956,8 @@
                 option.textContent = 'No voice channels found';
                 voiceChannelSelect.appendChild(option);
                 voiceChannelSelect.disabled = true;
-                document.getElementById('voiceChannelMembers').innerHTML = '<div class="empty">No voice channels found.</div>';
+                document.getElementById('voiceChannelActive').innerHTML = '<div class="empty">No voice channels found.</div>';
+                document.getElementById('voiceChannelPast').innerHTML = '<div class="empty">No voice channels found.</div>';
                 return;
             }
 
@@ -1697,30 +1978,39 @@
 
         async function loadVoiceChannelMembers() {
             const channelId = voiceChannelSelect.value;
-            const container = document.getElementById('voiceChannelMembers');
+            const activeContainer = document.getElementById('voiceChannelActive');
+            const pastContainer = document.getElementById('voiceChannelPast');
 
             if (!state.guildId || !channelId) {
-                container.innerHTML = '<div class="empty">Select a channel above.</div>';
+                activeContainer.innerHTML = '<div class="empty">Select a channel above.</div>';
+                pastContainer.innerHTML = '<div class="empty">Select a channel above.</div>';
                 return;
             }
 
             const data = await api(withGuild(`/api/voice-channel-members?channelId=${encodeURIComponent(channelId)}`));
+            const activeMembers = data.members.filter(member => member.inVoice);
+            const pastMembers = data.members.filter(member => !member.inVoice);
 
-            renderTable(container,
+            renderTable(activeContainer,
+                [
+                    { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
+                    { label: 'Joined', key: 'lastJoinedAt', render: r => `${escapeHtml(formatDateTime(r.lastJoinedAt))} (${escapeHtml(formatAgo(r.lastJoinedAt))})` },
+                    {
+                        label: 'Duration',
+                        key: 'lastSessionDurationMs',
+                        render: r => escapeHtml(formatDuration(Date.now() - new Date(r.lastJoinedAt).getTime()))
+                    }
+                ],
+                activeMembers, 'Nobody is currently in this channel.');
+
+            renderTable(pastContainer,
                 [
                     { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
                     { label: 'Last Joined', key: 'lastJoinedAt', render: r => `${escapeHtml(formatDateTime(r.lastJoinedAt))} (${escapeHtml(formatAgo(r.lastJoinedAt))})` },
                     { label: 'Last Left', key: 'lastLeftAt', render: r => r.lastLeftAt ? `${escapeHtml(formatDateTime(r.lastLeftAt))} (${escapeHtml(formatAgo(r.lastLeftAt))})` : '<span class="muted">-</span>' },
-                    {
-                        label: 'Duration',
-                        key: 'lastSessionDurationMs',
-                        render: r => r.inVoice
-                            ? escapeHtml(formatDuration(Date.now() - new Date(r.lastJoinedAt).getTime()))
-                            : escapeHtml(formatDuration(r.lastSessionDurationMs || 0))
-                    },
-                    { label: 'Status', key: 'inVoice', render: r => r.inVoice ? '<span class="badge on">In VC now</span>' : '' }
+                    { label: 'Last Duration', key: 'lastSessionDurationMs', render: r => escapeHtml(formatDuration(r.lastSessionDurationMs || 0)) }
                 ],
-                data.members, 'Nobody has joined this channel yet.');
+                pastMembers, 'Nobody has previously left this channel.');
         }
 
         voiceChannelSelect.addEventListener('change', () => {
@@ -1855,6 +2145,7 @@
 
         async function loadUsers() {
             if (!state.guildId) return;
+            await populateGuildUserSelects();
             await loadServerMembers();
             const data = await api(withGuild('/api/managers'));
 
@@ -1872,10 +2163,15 @@
             renderTable(document.getElementById('commandPermissionsTable'),
                 [
                     { label: 'Command', key: 'path', render: r => `<code>/${escapeHtml(r.path.replace(/\./g, ' '))}</code>` },
-                    { label: 'Required Role', key: 'role', render: r => `<span class="badge ${r.role === 'developer' ? 'dev' : r.role === 'manager' ? 'manager' : ''}">${escapeHtml(r.role)}</span>` }
+                    { label: 'Required Role', key: 'role', render: r => `<select data-command-role="${escapeHtml(r.path)}"><option value="user" ${r.role === 'user' ? 'selected' : ''}>user</option><option value="manager" ${r.role === 'manager' ? 'selected' : ''}>manager</option><option value="developer" ${r.role === 'developer' ? 'selected' : ''}>developer</option></select>` }
                 ],
                 rows, 'No configured command permissions.');
         }
+
+        document.getElementById('commandPermissionsTable').addEventListener('change', async event => {
+            const path = event.target.dataset.commandRole; if (!path) return;
+            try { const current = await api('/api/config'); await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commandPermissions: { ...current.commandPermissions, [path]: event.target.value } }) }); } catch (error) { console.error(error); }
+        });
 
         document.getElementById('addManager').addEventListener('click', () => setManager(true));
         document.getElementById('removeManager').addEventListener('click', () => setManager(false));
@@ -2038,6 +2334,228 @@
             });
         });
 
+        // ---------- Profiles ----------
+        const profileEditor = document.getElementById('profileEditor');
+        const profileStatusField = document.getElementById('profileStatus');
+        const profileUserSelect = document.getElementById('profileUserSelect');
+
+        function renderProfilePreview(data) {
+            const profile = data.profile;
+            const displayName = profile.nickname || data.user.nickname || data.user.tag;
+            const fields = [
+                ['About', [profile.pronouns, profile.birthday, profile.timezone, (profile.languages || []).map(item => item.label).join(', ')].filter(Boolean).join('\n') || 'No about fields set yet.'],
+                ['Style', `Color: #${Number(profile.color).toString(16).padStart(6, '0').toUpperCase()}`],
+                ['Socials', Object.entries(profile.socials || {}).map(([name, handle]) => `${name}: ${handle}`).join('\n') || 'No socials set.']
+            ];
+            const bannerStyle = backgroundUrlStyle(profile.bannerUrl || data.user.bannerUrl || '/assets/branding/flummi-banner.jpeg');
+            const avatar = data.user.avatarUrl ? `<img class="discord-preview-avatar" src="${escapeHtml(data.user.avatarUrl)}" alt="">` : '';
+
+            document.getElementById('profilePreview').innerHTML = `
+                <div class="discord-preview" style="border-left-color:#${Number(profile.color).toString(16).padStart(6, '0')}">
+                    <div class="discord-preview-banner" style="${bannerStyle}"></div>
+                    <div class="discord-preview-body">
+                        ${avatar}
+                        <h3 class="discord-preview-title">${escapeHtml(displayName)}</h3>
+                        <p class="sub">${escapeHtml(data.user.tag)}</p>
+                        <div class="discord-preview-description">${escapeHtml(profile.bio || 'No bio set yet.')}</div>
+                        <div class="discord-preview-fields">${fields.map(([label, value]) => `<div class="discord-preview-field"><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</div>`).join('')}</div>
+                    </div>
+                </div>`;
+        }
+
+        function profileField(label, id, value, type = 'text') {
+            const safeValue = escapeHtml(value ?? '');
+
+            if (type === 'textarea') {
+                return `<div class="field"><label for="${id}">${label}</label><textarea id="${id}">${safeValue}</textarea></div>`;
+            }
+
+            return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type}" value="${safeValue}"></div>`;
+        }
+
+        function renderProfileEditor(data) {
+            const profile = data.profile;
+            const userLabel = data.user.nickname
+                ? `${data.user.tag} (${data.user.nickname})`
+                : data.user.tag;
+
+            profileEditor.dataset.userId = data.user.id;
+            profileEditor.innerHTML = `
+                <div class="section">
+                    <h2>${escapeHtml(userLabel)}</h2>
+                    <p class="sub">${escapeHtml(data.user.id)}</p>
+                    <div class="card-grid">${statCard('Messages', data.statistics?.messages || 0)}${statCard('Voice', formatDuration(data.statistics?.voiceMs || 0))}${statCard('Shots', data.statistics?.shots || 0)}${statCard('Role', data.statistics?.role || 'user')}</div>
+                    <div class="two-col">
+                        ${profileField('Profile nickname', 'profileNickname', profile.nickname)}
+                        ${profileField('Pronouns', 'profilePronouns', profile.pronouns)}
+                        ${profileField('Birthday', 'profileBirthday', profile.birthday)}
+                        ${profileField('Timezone', 'profileTimezone', profile.timezone)}
+                        ${profileField('Languages (comma separated)', 'profileLanguages', (profile.languages || []).map(language => language.label).join(', '))}
+                        ${profileField('Color', 'profileColor', profile.color ? `#${Number(profile.color).toString(16).padStart(6, '0')}` : '', 'color')}
+                        ${profileField('Website URL', 'profileWebsite', profile.website)}
+                        ${profileField('Banner URL', 'profileBannerUrl', profile.bannerUrl)}
+                    </div>
+                    <div style="margin-top:12px;">
+                        ${profileField('Bio', 'profileBio', profile.bio, 'textarea')}
+                    </div>
+                    <div style="margin-top:12px;">
+                        ${profileField('Socials (JSON, e.g. {"discord":"flummi"})', 'profileSocials', JSON.stringify(profile.socials || {}, null, 2), 'textarea')}
+                    </div>
+                    <div class="actions">
+                        <span class="sub">Profile updated: ${escapeHtml(profile.updatedAt ? formatDateTime(profile.updatedAt) : 'Never')}</span>
+                        <button id="refreshProfile" class="secondary" type="button">Refresh Discord avatar/banner</button><button id="saveProfile" class="primary" type="button">Save profile</button>
+                    </div>
+                </div>
+                <div class="section">
+                    <h2>AI Memory &amp; Personality</h2>
+                    <p class="sub">Read-only context inferred from this user's conversations. Last updated: ${escapeHtml(data.aiMemory.updatedAt ? formatDateTime(data.aiMemory.updatedAt) : 'Never')}</p>
+                    <label>Conversation summary</label>
+                    <textarea readonly>${escapeHtml(data.aiMemory.summary || 'No saved AI summary yet.')}</textarea>
+                    <label style="margin-top:12px; display:block;">Inferred personality and interests</label>
+                    <textarea readonly>${escapeHtml(data.aiMemory.profile || 'No inferred personality details yet.')}</textarea>
+                </div>
+            `;
+        }
+
+        async function loadProfiles(userId = document.getElementById('profileUserId').value.trim()) {
+            if (!userId) {
+                setStatus(profileStatusField, 'Enter a user ID first.', 'error');
+                return;
+            }
+
+            try {
+                const data = await api(withGuild(`/api/profile?userId=${encodeURIComponent(userId)}`));
+                document.getElementById('profileUserId').value = userId;
+                renderProfileEditor(data);
+                renderProfilePreview(data);
+                setStatus(profileStatusField, 'Profile loaded.', 'ok');
+            } catch (error) {
+                setStatus(profileStatusField, error.message, 'error');
+            }
+        }
+
+        document.getElementById('loadProfile').addEventListener('click', () => {
+            loadProfiles().catch(error => console.error(error));
+        });
+
+        async function loadProfilesTab() {
+            if (!state.guildId) {
+                return;
+            }
+
+            try {
+                const data = await api(withGuild('/api/members'));
+                await populateGuildUserSelects();
+                const selectedUserId = profileUserSelect.value;
+                profileUserSelect.innerHTML = '<option value="">Select a server member</option>';
+
+                for (const member of data.members) {
+                    const option = document.createElement('option');
+                    option.value = member.id;
+                    option.textContent = member.nickname
+                        ? `${member.tag} (${member.nickname})`
+                        : member.tag;
+                    profileUserSelect.appendChild(option);
+                }
+
+                if (selectedUserId && data.members.some(member => member.id === selectedUserId)) {
+                    profileUserSelect.value = selectedUserId;
+                }
+            } catch (error) {
+                setStatus(profileStatusField, error.message, 'error');
+            }
+        }
+
+        profileUserSelect.addEventListener('change', () => {
+            if (!profileUserSelect.value) {
+                return;
+            }
+
+            document.getElementById('profileUserId').value = profileUserSelect.value;
+            loadProfiles(profileUserSelect.value).catch(error => console.error(error));
+        });
+
+        async function populateGuildUserSelects() {
+            if (!state.guildId) return;
+
+            try {
+                const data = await api(withGuild('/api/members'));
+                const selects = Array.from(document.querySelectorAll('.guild-user-select'));
+
+                for (const select of selects) {
+                    const previous = select.value;
+                    select.innerHTML = '<option value="">Select a server member</option>';
+                    for (const member of data.members) {
+                        const option = document.createElement('option');
+                        option.value = member.id;
+                        option.textContent = member.nickname ? `${member.tag} (${member.nickname})` : member.tag;
+                        select.appendChild(option);
+                    }
+                    if (previous && data.members.some(member => member.id === previous)) select.value = previous;
+                }
+            } catch (error) {
+                console.warn('Could not populate guild user selectors:', error.message);
+            }
+        }
+
+        const guildUserSelectTargets = {
+            managerUserSelect: 'managerUserId',
+            permUserSelect: 'permUserId',
+            aiMemoryUserSelect: 'aiMemoryUserId'
+        };
+
+        for (const [selectId, inputId] of Object.entries(guildUserSelectTargets)) {
+            document.getElementById(selectId).addEventListener('change', event => {
+                if (event.target.value) document.getElementById(inputId).value = event.target.value;
+            });
+        }
+
+        profileEditor.addEventListener('click', event => {
+            if (event.target.id === 'refreshProfile') { loadProfiles(profileEditor.dataset.userId).catch(error => console.error(error)); return; }
+            if (event.target.id !== 'saveProfile') {
+                return;
+            }
+
+            const userId = profileEditor.dataset.userId;
+
+            if (!userId) {
+                return;
+            }
+
+            let socials;
+
+            try {
+                socials = JSON.parse(document.getElementById('profileSocials').value || '{}');
+            } catch {
+                setStatus(profileStatusField, 'Socials must be valid JSON.', 'error');
+                return;
+            }
+
+            const fields = {
+                nickname: document.getElementById('profileNickname').value,
+                bio: document.getElementById('profileBio').value,
+                pronouns: document.getElementById('profilePronouns').value,
+                birthday: document.getElementById('profileBirthday').value,
+                timezone: document.getElementById('profileTimezone').value,
+                languages: document.getElementById('profileLanguages').value,
+                website: document.getElementById('profileWebsite').value,
+                bannerUrl: document.getElementById('profileBannerUrl').value,
+                color: document.getElementById('profileColor').value,
+                socials
+            };
+
+            api(withGuild('/api/profile'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, ...fields })
+            }).then(() => {
+                setStatus(profileStatusField, 'Profile saved.', 'ok');
+                loadProfiles(userId).catch(error => console.error(error));
+            }).catch(error => {
+                setStatus(profileStatusField, error.message, 'error');
+            });
+        });
+
         // ---------- Settings ----------
         async function loadSettings() {
             if (!state.guildId) return;
@@ -2050,6 +2568,13 @@
             document.getElementById('setCooldownSeconds').value = s.triggerActionCooldownSeconds;
             document.getElementById('setExactMatch').checked = s.exactTriggerMatch;
             document.getElementById('setMaxTriggerLength').value = s.maxTriggerLength;
+            const configData = await api('/api/config'); const f = configData.features || {};
+            document.getElementById('featureAiConversations').checked = f.aiConversationsEnabled !== false;
+            document.getElementById('featureAiAttachments').checked = f.aiAttachmentsEnabled !== false;
+            document.getElementById('featureAiImageSearch').checked = f.aiImageSearchEnabled !== false;
+            document.getElementById('featurePingResponses').checked = f.pingResponsesEnabled !== false;
+            document.getElementById('featurePingSave').checked = f.pingRequestSaveEnabled !== false;
+            document.getElementById('featureShots').checked = f.shotsEnabled !== false;
         }
 
         document.getElementById('saveSettings').addEventListener('click', () => {
@@ -2079,8 +2604,21 @@
                 body: JSON.stringify(payload)
             });
 
+            await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: {
+                aiConversationsEnabled: document.getElementById('featureAiConversations').checked,
+                aiAttachmentsEnabled: document.getElementById('featureAiAttachments').checked,
+                aiImageSearchEnabled: document.getElementById('featureAiImageSearch').checked,
+                pingResponsesEnabled: document.getElementById('featurePingResponses').checked,
+                pingRequestSaveEnabled: document.getElementById('featurePingSave').checked,
+                shotsEnabled: document.getElementById('featureShots').checked
+            } }) });
+
             setStatus(statusField, 'Settings saved.', 'ok');
         }
+
+        document.getElementById('downloadBackup').addEventListener('click', () => { if (state.guildId) window.location.href = withGuild('/api/backup'); });
+        document.getElementById('loadStorage').addEventListener('click', async () => { try { const data = await api(withGuild('/api/data-tools')); renderTable(document.getElementById('storageDetails'), [{ label: 'File', key: 'name' }, { label: 'Bytes', key: 'size' }, { label: 'Modified', key: 'modifiedAt', render: r => formatDateTime(r.modifiedAt) }], data.guildFiles, 'No guild storage files.'); } catch (error) { setStatus(document.getElementById('settingsStatus'), error.message, 'error'); } });
+        document.getElementById('resetUserData').addEventListener('click', async () => { const userId = document.getElementById('resetDataUser').value.trim(), store = document.getElementById('resetDataStore').value; if (!userId || !state.guildId || !window.confirm(`Reset ${store} for ${userId}? This cannot be undone.`)) return; try { await api(withGuild('/api/data-tools/reset'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, store, confirmation: 'RESET' }) }); setStatus(document.getElementById('settingsStatus'), `Reset ${store} for ${userId}.`, 'ok'); } catch (error) { setStatus(document.getElementById('settingsStatus'), error.message, 'error'); } });
 
         // ---------- Ping requests ----------
         async function loadPingRequests() {
@@ -2131,6 +2669,22 @@
         }
 
         async function loadAi() {
+            await populateGuildUserSelects();
+            const configData = await api('/api/config'); const ai = configData.ai || {};
+            document.getElementById('aiTextModel').value = ai.model || '';
+            document.getElementById('aiVisionModels').value = (ai.visionModels || []).join('\n');
+            document.getElementById('aiFallbackModels').value = (ai.fallbackModels || []).join('\n');
+            document.getElementById('aiTimeout').value = ai.requestTimeoutMs || '';
+            document.getElementById('aiMaxOutput').value = ai.maxOutputTokens || '';
+            document.getElementById('aiImageProviders').value = (ai.imageSearch?.providers || []).join('\n');
+            const health = await api('/api/health');
+            document.getElementById('healthCards').innerHTML = [
+                statCard('Discord', health.discord),
+                statCard('OpenRouter', health.openRouter),
+                statCard('Text Models', health.textModels),
+                statCard('Vision Models', health.visionModels),
+                statCard('Image Search', health.imageSearch)
+            ].join('');
             const usage = await api('/api/serper-usage');
 
             renderTable(document.getElementById('serperUsage'),
@@ -2157,7 +2711,16 @@
                     { label: 'Stopped', key: 'stoppedAt', render: r => escapeHtml(r.stoppedAt ? formatDateTime(r.stoppedAt) : '') }
                 ],
                 runtime.instances, 'No runtime history recorded yet.', { index: 3, dir: -1 });
+            await loadActivity(); await loadLogs();
         }
+
+        async function loadActivity() { const data = await api(withGuild('/api/activity')); renderTable(document.getElementById('activityFeed'), [{ label: 'When', key: 'at', render: r => formatDateTime(r.at) }, { label: 'Type', key: 'type' }, { label: 'What happened', key: 'message' }], data.entries, 'No activity recorded yet.'); }
+        async function loadLogs() { const level = document.getElementById('logLevel').value; const data = await api(`/api/logs?level=${encodeURIComponent(level)}`); renderTable(document.getElementById('logViewer'), [{ label: 'When', key: 'at', render: r => formatDateTime(r.at) }, { label: 'Level', key: 'level' }, { label: 'Message', key: 'message', render: r => escapeHtml(r.message) }], data.logs, 'No runtime logs yet.'); }
+        document.getElementById('refreshLogs').addEventListener('click', () => loadLogs().catch(error => console.error(error)));
+        document.getElementById('logLevel').addEventListener('change', () => loadLogs().catch(error => console.error(error)));
+        document.getElementById('saveAiConfig').addEventListener('click', async () => {
+            try { await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ai: { model: document.getElementById('aiTextModel').value.trim(), visionModels: document.getElementById('aiVisionModels').value.split('\n').map(x => x.trim()).filter(Boolean), fallbackModels: document.getElementById('aiFallbackModels').value.split('\n').map(x => x.trim()).filter(Boolean), requestTimeoutMs: Number(document.getElementById('aiTimeout').value), maxOutputTokens: Number(document.getElementById('aiMaxOutput').value), imageSearch: { providers: document.getElementById('aiImageProviders').value.split('\n').map(x => x.trim()).filter(Boolean) } } }) }); setStatus(document.getElementById('aiConfigStatus'), 'AI controls saved. Restart the bot to reload config in its process.', 'ok'); } catch (error) { setStatus(document.getElementById('aiConfigStatus'), error.message, 'error'); }
+        });
 
         // ---------- Init ----------
         loadInviteLink().catch(error => console.error(error));

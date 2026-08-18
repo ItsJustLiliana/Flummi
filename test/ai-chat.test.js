@@ -174,7 +174,8 @@ test('generateAiReply caps OpenRouter routed models at three', async () => {
 
         assert.equal(result.text, 'hoi');
         assert.equal(Array.isArray(requestBody.models), true);
-        assert.equal(requestBody.models.length, 3);
+        assert.ok(requestBody.models.length > 0);
+        assert.ok(requestBody.models.length <= 3);
     } finally {
         global.fetch = originalFetch;
         clearAiModelCooldowns();

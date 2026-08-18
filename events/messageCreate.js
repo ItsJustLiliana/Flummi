@@ -7,6 +7,7 @@ const {
     canUseTriggers
 } = require('../stores/access-store');
 const { incrementTriggerStat, getTriggers } = require('../stores/trigger-store');
+const { recordActivity } = require('../stores/activity-store');
 const { readSettings } = require('../stores/settings-store');
 const { appendPingRequest } = require('../stores/ping-request-store');
 const { getUserMemory, appendConversationTurn, clearUserHistory } = require('../stores/user-conversation-store');
@@ -843,6 +844,7 @@ module.exports = {
         const exactMatch = settings.exactTriggerMatch;
 
         for (const trigger of triggers) {
+            if (trigger.enabled === false) continue;
 
             if (
                 trigger.trigger &&
@@ -866,6 +868,7 @@ module.exports = {
                 try {
                     await message.reply(payload);
                     incrementTriggerStat(trigger.trigger, guildId);
+                    recordActivity('trigger-fired', `Trigger "${trigger.trigger}" activated`, { guildId, userId: message.author.id });
                 } catch (err) {
                     console.error(
                         'Failed to send trigger response:',

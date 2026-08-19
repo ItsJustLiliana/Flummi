@@ -1,27 +1,10 @@
 const http = require('http');
-const { exec } = require('child_process');
 const { MessageFlags, SlashCommandBuilder } = require('discord.js');
 const { isDeveloper } = require('../stores/access-store');
 
 const panelHost = '100.111.62.126';
 const panelPort = 3789;
 const panelUrl = `http://${panelHost}:${panelPort}`;
-
-function openBrowser(url) {
-    const escapedUrl = `"${url}"`;
-
-    if (process.platform === 'win32') {
-        exec(`start "" ${escapedUrl}`);
-        return;
-    }
-
-    if (process.platform === 'darwin') {
-        exec(`open ${escapedUrl}`);
-        return;
-    }
-
-    exec(`xdg-open ${escapedUrl}`);
-}
 
 function isPanelRunning() {
     return new Promise(resolve => {
@@ -67,10 +50,8 @@ module.exports = {
             ? `${panelUrl}/?guildId=${interaction.guildId}`
             : panelUrl;
 
-        openBrowser(targetUrl);
-
         return interaction.reply({
-            content: `Opened the admin dashboard at ${targetUrl} on this machine.`,
+            content: `Admin dashboard: ${targetUrl}`,
             flags: MessageFlags.Ephemeral
         });
     }

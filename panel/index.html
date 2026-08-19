@@ -1045,6 +1045,12 @@
             color: #64b5f6;
         }
 
+        .badge.user {
+            background: rgba(165, 177, 216, .12);
+            color: var(--muted);
+            border-color: rgba(165, 177, 216, .22);
+        }
+
         .badge.owner {
             background: rgba(255, 191, 91, .16);
             color: var(--warning);
@@ -1639,8 +1645,7 @@
                     </div>
                 </div>
                 <div class="section">
-                    <div class="row"><button id="exportTriggers" class="secondary" type="button">Export
-                            JSON</button><label class="secondary" data-trigger-manager-only
+                    <div class="row"><label class="secondary" data-trigger-manager-only
                             style="cursor:pointer">Import JSON<input id="importTriggers" type="file"
                                 accept="application/json" hidden></label></div>
                     <h2>Configured Triggers</h2>
@@ -1825,32 +1830,7 @@
                     </div>
                     <p id="memberActionStatus" class="status"></p>
                 </div>
-                <div class="two-col">
-                    <div class="section">
-                        <h2>Managers</h2>
-                        <p class="sub">The server owner is always Owner. Only the Owner can grant or remove the Manager
-                            role.</p>
-                        <div id="managerTable" class="table-wrap">
-                            <div class="empty">Loading...</div>
-                        </div>
-                        <div class="row" style="margin-top: 12px;">
-                            <select id="managerUserSelect" class="guild-user-select" style="flex:1;">
-                                <option value="">Select a member</option>
-                            </select>
-                            <input id="managerUserId" type="text" placeholder="User ID" style="flex:1;">
-                            <button id="addManager" class="secondary" type="button">Add manager</button>
-                            <button id="removeManager" class="danger" type="button">Remove manager</button>
-                        </div>
-                        <p id="managerStatus" class="status"></p>
-                    </div>
-                    <div class="section">
-                        <h2>Developers (config.json, read-only)</h2>
-                        <div id="developerTable" class="table-wrap">
-                            <div class="empty">Loading...</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="section">
+                <div id="memberPermissionsSection" class="section">
                     <h2>Manage a User's Permissions</h2>
                     <p class="sub">Load a user (or click "Manage" next to them above) to toggle their features and
                         command blockades.</p>
@@ -1979,7 +1959,8 @@
                     <h2>Backup &amp; Data Tools</h2>
                     <div class="row"><button id="downloadBackup" class="secondary" type="button">Download guild
                             backup</button><button id="loadStorage" class="secondary" type="button">Storage
-                            details</button></div>
+                            details</button><button id="exportTriggers" class="secondary" type="button">Export triggers JSON</button></div>
+                    <p id="triggerExportStatus" class="status"></p>
                     <div id="storageDetails" class="table-wrap"></div>
                     <div class="row" style="margin-top:12px"><input id="resetDataUser" placeholder="User ID"><select
                             id="resetDataStore">
@@ -3010,6 +2991,7 @@
             if (settingsButton) settingsButton.hidden = !canAccessSettings;
             document.getElementById('tab-settings').hidden = !canAccessSettings;
             document.querySelectorAll('[data-trigger-manager-only]').forEach(element => { element.hidden = !canManageTriggers; });
+            document.getElementById('memberPermissionsSection').hidden = state.role === 'user';
 
             organizeDeveloperNav();
 
@@ -3654,10 +3636,23 @@
             document.getElementById('editTriggerEnabled').checked = row.enabled !== false;
             document.getElementById('editTriggerPhrase').scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
-        document.getElementById('exportTriggers').addEventListener('click', () => {
-            const rows = tableStates.get(document.getElementById('triggerTable'))?.allRows || [];
-            const blob = new Blob([JSON.stringify(rows.map(({ trigger, response, image, enabled }) => ({ trigger, response, image, enabled })), null, 2)], { type: 'application/json' });
-            const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'triggers.json' }); link.click(); URL.revokeObjectURL(link.href);
+        document.getElementById('exportTriggers').addEventListener('click', async () => {
+            const status = document.getElementById('triggerExportStatus');
+            if (!state.guildId) {
+                setStatus(status, 'Select a server first.', 'error');
+                return;
+            }
+            try {
+                const data = await api(withGuild('/api/triggers'));
+                const exported = (data.triggers || []).map(({ trigger, response, image, enabled }) => ({ trigger, response, image, enabled }));
+                const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' });
+                const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `triggers-${state.guildId}.json` });
+                link.click();
+                URL.revokeObjectURL(link.href);
+                setStatus(status, `Exported ${exported.length} triggers.`, 'ok');
+            } catch (error) {
+                setStatus(status, error.message, 'error');
+            }
         });
         document.getElementById('importTriggers').addEventListener('change', async event => {
             const file = event.target.files[0]; if (!file || !state.guildId) return;
@@ -3914,7 +3909,6 @@
         document.getElementById('overviewVoiceType').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
 
         // ---------- Users & permissions ----------
-        const managerStatusField = document.getElementById('managerStatus');
         const memberActionStatusField = document.getElementById('memberActionStatus');
         const serverMembersContainer = document.getElementById('serverMembersTable');
 
@@ -3930,7 +3924,7 @@
             if (!state.canManageManagers) {
                 return member.role === 'manager'
                     ? '<span class="badge manager">Manager</span>'
-                    : '<span class="badge">User</span>';
+                    : '<span class="badge user">User</span>';
             }
 
             return `<select data-role-select data-user-id="${escapeHtml(member.id)}">` +
@@ -3942,6 +3936,13 @@
         function renderMemberActionsCell(member) {
             if (member.isDeveloper) {
                 return '<span class="muted">-</span>';
+            }
+
+            const canEditMember = state.role === 'developer'
+                || state.role === 'owner'
+                || (state.role === 'manager' && member.role === 'user');
+            if (!canEditMember) {
+                return '<span class="muted">Read-only</span>';
             }
 
             if (member.isOwner) {
@@ -4034,32 +4035,6 @@
             if (!state.guildId) return;
             await populateGuildUserSelects();
             await loadServerMembers();
-            const data = await api(withGuild('/api/managers'));
-            state.canManageManagers = data.canManageManagers === true;
-
-            renderTable(document.getElementById('managerTable'),
-                [
-                    { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
-                    { label: 'Role', key: 'role', render: r => `<span class="badge ${r.role === 'owner' ? 'owner' : 'manager'}">${r.role === 'owner' ? 'Owner' : 'Manager'}</span>` },
-                    { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` }
-                ],
-                data.managers, 'No managers configured yet.');
-
-            const managerControls = ['managerUserSelect', 'managerUserId', 'addManager', 'removeManager'];
-            for (const id of managerControls) {
-                const control = document.getElementById(id);
-                control.disabled = !state.canManageManagers;
-                control.title = state.canManageManagers ? '' : 'Only the server owner can grant or remove the Manager role.';
-            }
-            if (!state.canManageManagers) {
-                setStatus(managerStatusField, 'Manager roles are read-only. Only the server owner can change them.');
-            } else if (!managerStatusField.classList.contains('error')) {
-                setStatus(managerStatusField, '');
-            }
-
-            renderTable(document.getElementById('developerTable'),
-                [{ label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` }],
-                data.developers, 'No developers configured.');
 
             if (state.role === 'developer') {
                 const configData = await api('/api/config');
@@ -4076,42 +4051,6 @@
             const path = event.target.dataset.commandRole; if (!path) return;
             try { const current = await api('/api/config'); await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commandPermissions: { ...current.commandPermissions, [path]: event.target.value } }) }); } catch (error) { console.error(error); }
         });
-
-        document.getElementById('addManager').addEventListener('click', () => setManager(true));
-        document.getElementById('removeManager').addEventListener('click', () => setManager(false));
-
-        async function setManager(shouldBeManager) {
-            if (!state.canManageManagers) {
-                setStatus(managerStatusField, 'Only the server owner can change Manager roles.', 'error');
-                return;
-            }
-
-            const userId = document.getElementById('managerUserId').value.trim();
-
-            if (!state.guildId || !userId) {
-                setStatus(managerStatusField, 'Select a guild and enter a user ID.', 'error');
-                return;
-            }
-
-            const confirmed = await confirmAction({
-                title: shouldBeManager ? 'Add manager?' : 'Remove manager?',
-                message: `${shouldBeManager ? 'Grant' : 'Remove'} manager access for ${userId} on this server?`,
-                confirmLabel: shouldBeManager ? 'Add manager' : 'Remove manager'
-            });
-            if (!confirmed) return;
-
-            try {
-                await api(withGuild('/api/managers'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId, shouldBeManager })
-                });
-                setStatus(managerStatusField, shouldBeManager ? 'Manager added.' : 'Manager removed.', 'ok');
-                await loadUsers();
-            } catch (error) {
-                setStatus(managerStatusField, error.message, 'error');
-            }
-        }
 
         const FEATURE_DEFINITIONS = [
             { key: 'useTriggers', label: 'Use triggers' },
@@ -4135,7 +4074,7 @@
         function renderPermissionsEditor(userId, data) {
             const perms = data.permissions;
             const overrides = Object.entries(perms.commandOverrides || {});
-            const readOnly = data.role === 'developer';
+            const readOnly = data.canEdit !== true;
 
             const featureRows = FEATURE_DEFINITIONS.map(feature => `
                 <div class="checkbox-row">
@@ -4159,8 +4098,8 @@
                 ${memberIdentityCard(userId)}
                 <p class="sub">
                     Member ID: ${escapeHtml(userId)}
-                    <span class="badge ${data.role === 'developer' ? 'dev' : data.role === 'owner' ? 'owner' : data.role === 'manager' ? 'manager' : ''}">${escapeHtml(data.role)}</span>
-                    ${readOnly ? '<span class="sub">Developers always have full access and cannot be edited here.</span>' : ''}
+                    <span class="badge ${data.role === 'developer' ? 'dev' : data.role === 'owner' ? 'owner' : data.role === 'manager' ? 'manager' : 'user'}">${escapeHtml(data.role)}</span>
+                    ${readOnly ? '<span class="sub">You can view these permissions, but your role cannot edit this member.</span>' : ''}
                 </p>
                 <div class="two-col">${featureRows}</div>
                 <h2 style="margin-top:16px; font-size:14px;">Command Overrides (Blockades)</h2>
@@ -4433,7 +4372,6 @@
         }
 
         const guildUserSelectTargets = {
-            managerUserSelect: 'managerUserId',
             permUserSelect: 'permUserId',
             aiMemoryUserSelect: 'aiMemoryUserId'
         };

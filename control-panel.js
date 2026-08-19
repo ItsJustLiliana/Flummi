@@ -201,6 +201,26 @@ async function requireSettingsAccess(session, guildId, res) {
     return requireGuildManagerAccess(session, guildId, res, 'Settings can only be changed by the server owner or a manager.');
 }
 
+async function canEditMemberPermissions(session, guildId, targetUserId) {
+    if (hasDeveloperView(session)) return !accessStore.isConfiguredDeveloper(targetUserId);
+    try {
+        const guild = await client.guilds.fetch(String(guildId));
+        accessStore.setGuildOwner(guild.id, guild.ownerId);
+    } catch {
+        return false;
+    }
+    const actorRole = getPanelGuildRole(session, guildId);
+    const targetRole = accessStore.getUserRole(targetUserId, guildId);
+    if (actorRole === 'owner') return targetRole !== 'developer';
+    return actorRole === 'manager' && targetRole === 'user';
+}
+
+async function requireMemberPermissionAccess(session, guildId, targetUserId, res) {
+    if (await canEditMemberPermissions(session, guildId, targetUserId)) return true;
+    sendJson(res, 403, { error: 'Managers can only edit users, not other managers, the owner, or developers.' });
+    return false;
+}
+
 function auditPanelAction(session, type, message, details = {}) {
     recordActivity(type, message, {
         ...details,
@@ -1492,6 +1512,8 @@ function createServer() {
                     return;
                 }
 
+                if (!await requireMemberPermissionAccess(panelSession, guildId, parsed.userId, res)) return;
+
                 if (accessStore.isGuildOwner(parsed.userId, guildId)) {
                     sendJson(res, 400, { error: 'The server owner role and permissions cannot be reset.' });
                     return;
@@ -1521,7 +1543,8 @@ function createServer() {
 
                 sendJson(res, 200, {
                     role: accessStore.getUserRole(userId, guildId),
-                    permissions: accessStore.getUserPermissions(userId, guildId)
+                    permissions: accessStore.getUserPermissions(userId, guildId),
+                    canEdit: await canEditMemberPermissions(panelSession, guildId, userId)
                 });
                 return;
             }
@@ -1542,6 +1565,8 @@ function createServer() {
                     sendJson(res, 400, { error: 'userId is required.' });
                     return;
                 }
+
+                if (!await requireMemberPermissionAccess(panelSession, guildId, userId, res)) return;
 
                 if (accessStore.isConfiguredDeveloper(userId)) {
                     sendJson(res, 400, { error: 'Developers always have full access and cannot be edited here.' });

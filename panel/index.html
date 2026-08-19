@@ -752,7 +752,7 @@
             background: rgba(117, 207, 255, .03);
         }
 
-        .analytics-chart { display:block; height:180px; padding:12px 0 26px; border-bottom:1px solid var(--border); overflow-x:auto; }
+        .analytics-chart { display:block; height:210px; padding:16px 18px 30px; border-bottom:1px solid var(--border); overflow:hidden; }
         .analytics-bar { min-width:18px; flex:1; max-width:42px; background:linear-gradient(180deg, #83d9ff, #4e6bff); border-radius:5px 5px 0 0; position:relative; }
         .analytics-bar span { position:absolute; top:calc(100% + 5px); left:50%; transform:translateX(-50%) rotate(-45deg); white-space:nowrap; font-size:10px; color:var(--muted); }
         .analytics-svg { display:block; height:100%; min-height:142px; overflow:visible; }
@@ -766,7 +766,7 @@
         .analytics-point { fill:#8be0ff; stroke:#18213f; stroke-width:2; cursor:crosshair; }
         .chart-tooltip { position:fixed; z-index:20; pointer-events:none; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:#111a35; color:var(--text); box-shadow:0 8px 24px rgba(0,0,0,.28); font-size:12px; opacity:0; transition:opacity .12s; }
         .chart-tooltip.visible { opacity:1; }
-        .analytics-chart.compact { height:74px; padding:4px 0; gap:3px; border:0; overflow:hidden; }
+        .analytics-chart.compact { height:74px; padding:4px 8px; gap:3px; border:0; overflow:hidden; }
         .analytics-chart.compact .analytics-bar { min-width:4px; border-radius:3px 3px 0 0; }
         .analytics-chart.compact .analytics-bar span { display:none; }
         .chart-caption { display:flex; justify-content:space-between; margin-top:8px; color:var(--muted); font-size:12px; }
@@ -1828,7 +1828,9 @@
                 return;
             }
             const compact = container.classList.contains('compact');
-            const width = Math.max(compact ? 220 : 320, Math.floor(container.getBoundingClientRect().width || container.clientWidth || 640));
+            const containerStyle = window.getComputedStyle(container);
+            const horizontalPadding = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
+            const width = Math.max(compact ? 220 : 320, Math.floor((container.clientWidth || 640) - horizontalPadding));
             const height = compact ? 76 : 160;
             const maxPoints = Math.max(compact ? 6 : 7, Math.floor(width / (compact ? 34 : 68)));
             const values = [];

@@ -30,4 +30,5 @@ Thumbs.db
 .vscode/
 
 update-flummi.bat
+scripts/*.bat
 docs/

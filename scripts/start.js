@@ -1,14 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { installTimestampedConsole } = require('./utils/logger');
-const { readConfig } = require('./utils/config');
+const projectRoot = path.join(__dirname, '..');
+const { installTimestampedConsole } = require('../utils/logger');
+const { readConfig } = require('../utils/config');
 const config = readConfig();
 const deployCommands = require('./deploy-commands');
 
 installTimestampedConsole();
 
-const runtimeDir = path.join(__dirname, 'data', 'runtime');
+const runtimeDir = path.join(projectRoot, 'data', 'runtime');
 const runtimeFile = path.join(runtimeDir, 'runtime.json');
 const legacyRuntimeFile = path.join(runtimeDir, 'bots.json');
 const maxRuntimeEntries = 50;
@@ -27,7 +28,7 @@ function startPanelProcess() {
 
     console.log('Starting admin panel...');
 
-    panelProcess = spawn(process.execPath, [path.join(__dirname, 'control-panel.js')], {
+    panelProcess = spawn(process.execPath, [path.join(projectRoot, 'control-panel.js')], {
         stdio: 'inherit'
     });
 
@@ -159,7 +160,7 @@ function writeRuntimeFile() {
 
     instances.push({
         pid: process.pid,
-        entry: 'start.js',
+        entry: 'scripts/start.js',
         status: 'running',
         startedAt: formatTimestamp(now),
         startedAtMs: now.getTime()
@@ -266,7 +267,7 @@ async function start() {
     startPanelProcess();
 
     console.log('Starting bot...');
-    require('./index');
+    require(path.join(projectRoot, 'index'));
 }
 
 start().catch(error => {

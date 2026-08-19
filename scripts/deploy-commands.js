@@ -1,20 +1,23 @@
 const { REST, Routes } = require('discord.js');
 const fs = require('fs');
-const { installTimestampedConsole } = require('./utils/logger');
-const { loadEnv } = require('./utils/env-loader');
-const config = require('./config.json');
+const path = require('path');
+const { installTimestampedConsole } = require('../utils/logger');
+const { loadEnv } = require('../utils/env-loader');
+const { readConfig } = require('../utils/config');
+const config = readConfig();
 
 installTimestampedConsole();
 loadEnv();
 
 const commands = [];
 
+const commandsDir = path.join(__dirname, '..', 'commands');
 const commandFiles = fs
-    .readdirSync('./commands')
+    .readdirSync(commandsDir)
     .filter(file => file.endsWith('.js'));
 
 for (const file of commandFiles) {
-    const command = require(`./commands/${file}`);
+    const command = require(path.join(commandsDir, file));
     commands.push(command);
 }
 

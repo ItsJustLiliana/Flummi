@@ -1,11 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { installTimestampedConsole } = require('./utils/logger');
+const { installTimestampedConsole } = require('../utils/logger');
 
 installTimestampedConsole();
 
-const workspaceRoot = __dirname;
+const workspaceRoot = path.join(__dirname, '..');
 const runtimeDir = path.join(workspaceRoot, 'data', 'runtime');
 const runtimeFile = path.join(runtimeDir, 'runtime.json');
 const legacyRuntimeFile = path.join(runtimeDir, 'bots.json');

@@ -4,11 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node start.js",
+    "start": "node scripts/start.js",
     "start:bot": "node index.js",
     "panel": "node control-panel.js",
-    "stop": "node stop.js",
-    "deploy": "node deploy-commands.js",
+    "stop": "node scripts/stop.js",
+    "deploy": "node scripts/deploy-commands.js",
     "test": "node --test"
   },
   "keywords": [],

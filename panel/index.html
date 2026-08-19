@@ -1886,17 +1886,22 @@
             fillGuildSelect(data.guilds || []);
 
             const requestedGuildId = new URLSearchParams(window.location.search).get('guildId');
+            const rememberedGuildId = localStorage.getItem('flummi.guildId');
 
             if (requestedGuildId && (data.guilds || []).some(guild => guild.id === requestedGuildId)) {
                 guildSelect.value = requestedGuildId;
+            } else if (rememberedGuildId && (data.guilds || []).some(guild => guild.id === rememberedGuildId)) {
+                guildSelect.value = rememberedGuildId;
             }
 
             state.guildId = guildSelect.value || null;
+            if (state.guildId) localStorage.setItem('flummi.guildId', state.guildId);
             await refreshActiveTab();
         }
 
         guildSelect.addEventListener('change', () => {
             state.guildId = guildSelect.value || null;
+            if (state.guildId) localStorage.setItem('flummi.guildId', state.guildId);
             refreshActiveTab().catch(error => console.error(error));
         });
 

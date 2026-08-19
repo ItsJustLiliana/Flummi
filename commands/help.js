@@ -1,5 +1,6 @@
 const { MessageFlags } = require('discord.js');
-const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
+const { createCommandEmbed } = require('../utils/command-ui');
 const {
     getRequiredCommandRole,
     getUserRole,
@@ -73,6 +74,52 @@ function getConfiguredCommandRows(client) {
         .filter(Boolean);
 }
 
+const COMMAND_CATALOG = [
+    { path: 'help', label: '/help', description: 'Shows the commands available to you.' },
+    { path: 'ping', label: '/ping', description: 'Checks whether Flummi is online.' },
+    { path: 'profile.view', label: '/profile view [user]', description: 'View your own or another member’s profile and stats.' },
+    { path: 'profile.set', label: '/profile set', description: 'Edit your profile, bio, socials, colour, and other fields.' },
+    { path: 'profile.clear', label: '/profile clear', description: 'Clear selected fields from your profile.' },
+    { path: 'leaderboard', label: '/leaderboard category:messages|voice [limit]', description: 'View this server’s message or voice-time ranking.' },
+    { path: 'shots', label: '/shots', description: 'Check, gamble, manage your own shots, or view the leaderboard.' },
+    { path: 'trigger', label: '/trigger', description: 'Use and manage trigger responses available in this server.' },
+    { path: 'resetmemory', label: '/resetmemory', description: 'Delete your own saved AI conversation memory.' },
+    { path: 'tree', label: '/tree', description: 'Open this community’s family tree.' },
+    { path: 'serverstats', label: '/serverstats [limit]', description: 'View server message, channel, user, and trigger activity.', minimumRole: 'manager' },
+    { path: 'voicetime', label: '/voicetime', description: 'View server voice activity, history, channels, and rankings.', minimumRole: 'manager' },
+    { path: 'userinfo', label: '/userinfo user', description: 'View a member’s bot permissions and role.', minimumRole: 'manager' },
+    { path: 'settings', label: '/settings', description: 'View or change selected guild bot settings.', minimumRole: 'manager' },
+    { path: 'manage.permissions', label: '/manage permissions', description: 'Set feature and command access for a member.', minimumRole: 'manager' },
+    { path: 'manage.role', label: '/manage role', description: 'Assign or remove the Flummi manager role.', minimumRole: 'developer' },
+    { path: 'shots.audit', label: '/shots audit [limit]', description: 'View the developer audit log for shot changes.', minimumRole: 'developer' },
+    { path: 'dashboard', label: '/dashboard', description: 'Open the local panel address for the selected guild.', minimumRole: 'developer' }
+];
+
+const ROLE_RANK = { user: 0, manager: 1, developer: 2 };
+
+function getCatalogCommandRows(client, guildId) {
+    return COMMAND_CATALOG
+        .filter(entry => {
+            const command = client.commands.get(entry.path.split('.')[0]);
+            return command && (!Array.isArray(command.allowedGuildIds) || command.allowedGuildIds.includes(guildId));
+        })
+        .map(entry => {
+            const [commandName, subcommandName] = entry.path.split('.');
+            const command = client.commands.get(commandName);
+            const configuredRole = getRequiredCommandRole(commandName, subcommandName || null, command);
+            const minimumRole = entry.minimumRole || 'user';
+            const requiredRole = ROLE_RANK[configuredRole] >= ROLE_RANK[minimumRole]
+                ? configuredRole
+                : minimumRole;
+
+            return {
+                ...entry,
+                requiredRole,
+                label: `\`${entry.label}\` — ${entry.description}`
+            };
+        });
+}
+
 module.exports = {
     getConfiguredCommandRows,
 
@@ -101,16 +148,7 @@ module.exports = {
                 ? 'You can use public commands and manager-only commands.'
                 : 'You can only use public commands.';
 
-        const commandRows = getConfiguredCommandRows(interaction.client)
-            .map(row => ({
-                ...row,
-                requiredRole: getRequiredCommandRole(
-                    row.pathKey.split('.')[0],
-                    row.pathKey.split('.')[2] || row.pathKey.split('.')[1] || null,
-                    row.command,
-                    row.pathKey.split('.')[2] ? row.pathKey.split('.')[1] : null
-                )
-            }));
+        const commandRows = getCatalogCommandRows(interaction.client, guildId);
 
         const userCommands = commandRows
             .filter(row => row.requiredRole === 'user')
@@ -124,19 +162,21 @@ module.exports = {
             .filter(row => row.requiredRole === 'developer')
             .map(row => row.label);
 
-        const embed = new EmbedBuilder()
-            .setColor(roleColor)
-            .setTitle('Bot Help')
-            .setDescription(`${availabilityNote}`)
+        const embed = createCommandEmbed(interaction, {
+            title: 'Command Guide',
+            description: availabilityNote,
+            tone: developer ? 'danger' : manager ? 'staff' : 'primary',
+            footer: 'Flummi • Commands update with your access level'
+        })
             .addFields(
                 { name: 'Your Role', value: roleLabel, inline: true },
                 { name: 'Bot Status', value: botStatus, inline: true }
             )
-            .setFooter({ text: 'Blue = manager, red = developer, white = user' });
+            .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }));
 
         if (roleMeetsRequirement(userRole, 'user')) {
             embed.addFields({
-                name: 'User Commands',
+                name: 'Member Commands',
                 value: userCommands.join('\n') || 'No user commands.',
                 inline: false
             });

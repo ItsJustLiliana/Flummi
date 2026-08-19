@@ -1,4 +1,5 @@
-const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
+const { createCommandEmbed } = require('../utils/command-ui');
 const { getServerStatsSummary } = require('../stores/server-stats-store');
 const { getVoiceStatsSummary } = require('../stores/voice-store');
 
@@ -67,11 +68,12 @@ module.exports = {
         });
 
         return interaction.reply({
-            embeds: [new EmbedBuilder()
-                .setTitle(leaderboard.title)
-                .setColor(0x5865F2)
-                .setDescription(leaderboard.rows.join('\n') || leaderboard.empty)
-                .setFooter({ text: `Top ${Math.max(1, Math.min(25, Number(interaction.options.getInteger('limit')) || 10))} in this server` })]
+            embeds: [createCommandEmbed(interaction, {
+                title: leaderboard.title,
+                description: leaderboard.rows.join('\n') || leaderboard.empty,
+                tone: 'primary',
+                footer: `Top ${Math.max(1, Math.min(25, Number(interaction.options.getInteger('limit')) || 10))} in ${interaction.guild.name}`
+            }).setThumbnail(interaction.guild.iconURL({ size: 256 }))]
         });
     }
 };

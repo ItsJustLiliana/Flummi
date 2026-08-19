@@ -137,6 +137,7 @@ module.exports = {
         const allowedWhenDisabled = new Set([
             'help',
             'ping',
+            'status',
             'settings'
         ]);
 

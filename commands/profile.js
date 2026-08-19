@@ -1,6 +1,6 @@
 const { MessageFlags, SlashCommandBuilder } = require('discord.js');
 const { createCommandEmbed } = require('../utils/command-ui');
-const { getUserRole, isManager } = require('../stores/access-store');
+const { getUserRole } = require('../stores/access-store');
 const { getShots } = require('../stores/shot-store');
 const { getUserMessageStats } = require('../stores/server-stats-store');
 const { getUserVoiceStats } = require('../stores/voice-store');
@@ -16,16 +16,6 @@ const {
     setProfileSocial,
     updateProfile
 } = require('../stores/profile-store');
-
-function formatDiscordTimestamp(date, style = 'R') {
-    const parsedDate = date instanceof Date ? date : new Date(date);
-
-    if (!date || Number.isNaN(parsedDate.getTime())) {
-        return 'Unknown';
-    }
-
-    return `<t:${Math.floor(parsedDate.getTime() / 1000)}:${style}>`;
-}
 
 function formatPercent(value) {
     if (!Number.isFinite(value) || value <= 0) {
@@ -106,12 +96,7 @@ async function buildProfileEmbed(interaction, targetUser) {
     const roleKey = getUserRole(targetUser.id, guildId);
     const messageStats = getUserMessageStats(guildId, targetUser.id);
     const shots = getShots(targetUser.id, guildId);
-    const canViewVoiceActivity = isManager(interaction.user.id, guildId);
     const voiceStats = getUserVoiceStats(guildId, targetUser.id);
-    const voiceChannelId = voiceStats?.currentChannelId || voiceStats?.lastChannelId;
-    const voiceChannelLabel = voiceChannelId
-        ? `<#${voiceChannelId}>${voiceStats.currentChannelId ? ' (in VC now)' : ''}`
-        : 'Never';
     const badges = getAutomaticBadges({ targetUser, roleKey, messageStats, shots, profile });
     const displayName = profile.nickname || member?.displayName || targetUser.username;
     const languages = formatLanguages(profile.languages);
@@ -132,6 +117,52 @@ async function buildProfileEmbed(interaction, targetUser) {
         Object.keys(profile.socials || {}).length > 0 ? null : 'socials'
     ].filter(Boolean));
     const socials = formatSocials(profile.socials);
+    const divider = { name: '\u200B', value: '────────────────────', inline: false };
+    const profileFields = [
+        {
+            name: '👤 About',
+            value: [
+                profile.bio || '*No bio set yet.*',
+                aboutRows.length ? aboutRows.join('\n') : 'No about fields set yet.'
+            ].join('\n\n'),
+            inline: false
+        },
+        divider,
+        {
+            name: '📊 Stats',
+            value: [
+                `**Messages:** ${messageStats.count}`,
+                `**Voice time:** ${formatDuration(voiceStats.totalMs)}`,
+                `**Server share:** ${formatPercent(messageStats.percentage)}`,
+                `**Shots:** ${shots}`,
+                `**Role:** ${roleKey}`
+            ].join('\n'),
+            inline: true
+        },
+        {
+            name: '🎨 Style',
+            value: `**Color:** ${formatColor(profile.color)}`,
+            inline: true
+        },
+        divider,
+        {
+            name: '🏅 Badges',
+            value: badges.length ? badges.join('\n') : 'No badges yet.',
+            inline: false
+        }
+    ];
+
+    if (socials) {
+        profileFields.push({ name: '🔗 Socials', value: socials, inline: false });
+    }
+
+    if (missingFields) {
+        profileFields.push(divider, {
+            name: 'Complete your profile',
+            value: `*Not set: ${missingFields}*`,
+            inline: false
+        });
+    }
 
     const embed = createCommandEmbed(interaction, {
         title: displayName,
@@ -146,46 +177,7 @@ async function buildProfileEmbed(interaction, targetUser) {
             iconURL: interaction.client.user.displayAvatarURL({ size: 128 })
         })
         .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
-        .setDescription([
-            profile.bio || '*No bio set yet.*',
-            [
-                '__**About**__',
-                aboutRows.length ? aboutRows.join('\n') : 'No about fields set yet.'
-            ].join('\n')
-        ].join('\n\n'))
-        .addFields(...[
-            {
-                name: '📊 Stats',
-                value: [
-                    `**Messages:** ${messageStats.count}`,
-                    `**Server share:** ${formatPercent(messageStats.percentage)}`,
-                    `**Voice time:** ${formatDuration(voiceStats.totalMs)}`,
-                    `**Shots:** ${shots}`,
-                    `**Role:** ${roleKey}`
-                ].join('\n'),
-                inline: true
-            },
-            {
-                name: '🎨 Style',
-                value: [
-                    `**Color:** ${formatColor(profile.color)}`
-                ].join('\n'),
-                inline: true
-            },
-            canViewVoiceActivity ? {
-                name: '🎙 Voice',
-                value: [
-                    `**Last VC:** ${voiceChannelLabel}`,
-                    `**Last joined:** ${formatDiscordTimestamp(voiceStats.lastJoinedAt)}`
-                ].join('\n'),
-                inline: true
-            } : null,
-            {
-                name: '🏅 Badges',
-                value: badges.length ? badges.join('\n') : 'No badges yet.',
-                inline: true
-            }
-        ].filter(Boolean));
+        .addFields(...profileFields);
 
     if (profile.bannerUrl) {
         embed.setImage(buildFlatBannerUrl(profile.bannerUrl));
@@ -193,22 +185,6 @@ async function buildProfileEmbed(interaction, targetUser) {
 
     if (profile.website) {
         embed.setURL(profile.website);
-    }
-
-    if (socials) {
-        embed.addFields({
-            name: '🔗 Socials',
-            value: socials,
-            inline: false
-        });
-    }
-
-    if (missingFields) {
-        embed.addFields({
-            name: 'Complete your profile',
-            value: `*Not set: ${missingFields}*`,
-            inline: false
-        });
     }
 
     return embed;

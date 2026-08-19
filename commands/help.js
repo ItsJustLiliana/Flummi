@@ -77,6 +77,7 @@ function getConfiguredCommandRows(client) {
 const COMMAND_CATALOG = [
     { path: 'help', label: '/help', description: 'Shows the commands available to you.' },
     { path: 'ping', label: '/ping', description: 'Checks whether Flummi is online.' },
+    { path: 'status', label: '/status', description: 'Shows the features and services available to you.' },
     { path: 'profile.view', label: '/profile view [user]', description: 'View your own or another member’s profile and stats.' },
     { path: 'profile.set', label: '/profile set', description: 'Edit your profile, bio, socials, colour, and other fields.' },
     { path: 'profile.clear', label: '/profile clear', description: 'Clear selected fields from your profile.' },

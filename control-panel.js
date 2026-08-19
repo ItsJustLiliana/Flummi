@@ -326,7 +326,12 @@ async function listGuildMembers(guildId) {
         .map(member => ({
             id: member.id,
             tag: member.user.tag,
-            nickname: member.nickname || null
+            username: member.user.username,
+            globalName: member.user.globalName || null,
+            displayName: member.displayName || member.nickname || member.user.globalName || member.user.username,
+            nickname: member.nickname || null,
+            avatarUrl: member.displayAvatarURL({ size: 128 }),
+            bannerUrl: typeof member.bannerURL === 'function' ? member.bannerURL({ size: 1024 }) : null
         }))
         .sort((a, b) => a.tag.localeCompare(b.tag));
 

@@ -428,6 +428,27 @@
             font-size: 13px;
         }
 
+        .member-identity {
+            position: relative;
+            min-height: 122px;
+            overflow: hidden;
+            margin: 14px 0;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: #0d1730;
+        }
+        .member-identity-banner { position: absolute; inset: 0 0 auto; height: 74px; background: linear-gradient(120deg, #243b7a, #13234b 52%, #182b5f); background-position: center; background-size: cover; opacity: .82; }
+        .member-identity-content { position: relative; display: flex; align-items: flex-end; gap: 12px; padding: 42px 15px 14px; }
+        .member-identity-avatar { width: 62px; height: 62px; border: 3px solid #101a35; border-radius: 50%; background: #172445; object-fit: cover; flex: 0 0 auto; }
+        .member-identity-name { min-width: 0; }
+        .member-identity-name strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-size: 16px; }
+        .member-identity-name span { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
+        @media (max-width: 600px) {
+            .member-identity-content { padding: 38px 12px 12px; }
+            .member-identity-avatar { width: 54px; height: 54px; }
+        }
+
         .overview-summary-row {
             display: grid;
             grid-template-columns: 1fr 1.4fr;
@@ -1331,6 +1352,8 @@
                         <div class="checkbox-row"><input id="featureShots" type="checkbox"><label for="featureShots" style="margin:0">Shot system</label></div>
                         <div class="field"><label for="analyticsRetentionDays">Analytics retention (days) <span class="help-tip" tabindex="0" data-tooltip="How long raw message, voice, moderation, and soundboard analytics are kept before older records are automatically deleted. Lower values reduce storage and retention.">?</span></label><input id="analyticsRetentionDays" type="number" min="1" max="3650" value="365"></div>
                     </div>
+                    <div class="actions"><button id="saveGlobalFeatures" class="primary" type="button">Save global features</button></div>
+                    <p id="globalFeatureStatus" class="status"></p>
                 </div>
                 <div class="section">
                     <h2>Panel Tab Order</h2>
@@ -1404,9 +1427,6 @@
                     </div>
                 </div>
                 <div class="section">
-                    <div class="row"><h2 style="margin:0">Runtime Logs</h2><select id="logLevel"><option value="">All levels</option><option value="error">Error</option><option value="warn">Warn</option><option value="info">Info</option></select><button id="refreshLogs" class="secondary" type="button">Refresh</button></div><div id="logViewer" class="table-wrap"></div>
-                </div>
-                <div class="section">
                     <h2>Bot Health</h2>
                     <div id="healthCards" class="card-grid"></div>
                 </div>
@@ -1416,6 +1436,14 @@
                     <div id="runtimeTable" class="table-wrap">
                         <div class="empty">Loading...</div>
                     </div>
+                </div>
+            </section>
+
+            <section id="tab-logs" class="tab-panel">
+                <h2 style="font-size:20px;">Bot Logs</h2>
+                <p class="sub">Recent bot-console messages. Use Errors first when diagnosing failed AI replies, time-outs, or Discord API problems. Newest entries are shown first and refresh automatically.</p>
+                <div class="section">
+                    <div class="row"><h2 style="margin:0">Runtime Console</h2><select id="logLevel"><option value="">All levels</option><option value="error">Errors only</option><option value="warn">Warnings only</option><option value="info">Info only</option></select><button id="refreshLogs" class="secondary" type="button">Refresh now</button></div><div id="logViewer" class="table-wrap"></div>
                 </div>
             </section>
 
@@ -1468,6 +1496,7 @@
                 <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                 <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                 <button class="tab-btn" data-tab="ai" type="button">AI &amp; System</button>
+                <button class="tab-btn" data-tab="logs" type="button">Bot Logs</button>
                 <button class="tab-btn" data-tab="reliability" type="button">Reliability</button>
                 <button class="tab-btn" data-tab="soundboard" type="button">Soundboard</button>
             </nav>
@@ -1481,7 +1510,8 @@
     <script>
         const state = {
             guildId: null,
-            channels: []
+            channels: [],
+            guildMembers: new Map()
         };
 
         const guildSelect = document.getElementById('guild');
@@ -1748,6 +1778,7 @@
             settings: loadSettings,
             pings: loadPingRequests,
             ai: loadAi,
+            logs: loadLogs,
             reliability: loadReliability,
             soundboard: loadSoundboard
         };
@@ -2848,6 +2879,15 @@
         const permissionsEditor = document.getElementById('permissionsEditor');
         const permissionsStatusField = document.getElementById('permissionsStatus');
 
+        function memberIdentityCard(userId) {
+            const member = state.guildMembers.get(String(userId));
+            const displayName = member?.nickname || member?.displayName || member?.globalName || member?.username || `Member ${userId}`;
+            const username = member?.username ? `@${member.username}` : (member?.tag || `ID ${userId}`);
+            const bannerStyle = member?.bannerUrl ? ` style="background-image:url('${escapeHtml(member.bannerUrl)}')"` : '';
+            const avatar = member?.avatarUrl ? `<img class="member-identity-avatar" src="${escapeHtml(member.avatarUrl)}" alt="">` : '<div class="member-identity-avatar"></div>';
+            return `<div class="member-identity"><div class="member-identity-banner"${bannerStyle}></div><div class="member-identity-content">${avatar}<div class="member-identity-name"><strong>${escapeHtml(displayName)}</strong><span>${escapeHtml(username)}</span></div></div></div>`;
+        }
+
         function renderPermissionsEditor(userId, data) {
             const perms = data.permissions;
             const overrides = Object.entries(perms.commandOverrides || {});
@@ -2872,8 +2912,9 @@
 
             permissionsEditor.dataset.userId = userId;
             permissionsEditor.innerHTML = `
-                <p>
-                    <strong>${escapeHtml(userId)}</strong>
+                ${memberIdentityCard(userId)}
+                <p class="sub">
+                    Member ID: ${escapeHtml(userId)}
                     <span class="badge ${data.role === 'developer' ? 'dev' : data.role === 'manager' ? 'manager' : ''}">${escapeHtml(data.role)}</span>
                     ${readOnly ? '<span class="sub">Developers always have full access and cannot be edited here.</span>' : ''}
                 </p>
@@ -3121,6 +3162,7 @@
 
             try {
                 const data = await api(withGuild('/api/members'));
+                state.guildMembers = new Map(data.members.map(member => [String(member.id), member]));
                 const selects = Array.from(document.querySelectorAll('.guild-user-select'));
 
                 for (const select of selects) {
@@ -3332,7 +3374,13 @@
                 body: JSON.stringify(payload)
             });
 
-            await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: {
+            setStatus(statusField, 'Guild settings saved.', 'ok');
+        }
+
+        document.getElementById('saveGlobalFeatures').addEventListener('click', async () => {
+            const statusField = document.getElementById('globalFeatureStatus');
+            try {
+                await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: {
                 triggersEnabled: document.getElementById('featureTriggers').checked,
                 aiConversationsEnabled: document.getElementById('featureAiConversations').checked,
                 aiAttachmentsEnabled: document.getElementById('featureAiAttachments').checked,
@@ -3341,9 +3389,12 @@
                 pingRequestSaveEnabled: document.getElementById('featurePingSave').checked,
                 shotsEnabled: document.getElementById('featureShots').checked
             }, analytics: { retentionDays: Math.max(1, Math.min(3650, Number(document.getElementById('analyticsRetentionDays').value) || 365)) } }) });
-
-            setStatus(statusField, 'Settings saved.', 'ok');
-        }
+                syncGlobalFeatureState();
+                setStatus(statusField, 'Global features saved.', 'ok');
+            } catch (error) {
+                setStatus(statusField, error.message, 'error');
+            }
+        });
 
         document.getElementById('downloadBackup').addEventListener('click', () => { if (state.guildId) window.location.href = withGuild('/api/backup'); });
         document.getElementById('loadStorage').addEventListener('click', async () => { try { const data = await api(withGuild('/api/data-tools')); renderTable(document.getElementById('storageDetails'), [{ label: 'File', key: 'name' }, { label: 'Bytes', key: 'size' }, { label: 'Modified', key: 'modifiedAt', render: r => formatDateTime(r.modifiedAt) }], data.guildFiles, 'No guild storage files.'); } catch (error) { setStatus(document.getElementById('settingsStatus'), error.message, 'error'); } });
@@ -3504,7 +3555,7 @@
                     { label: 'Stopped', key: 'stoppedAt', render: r => escapeHtml(r.stoppedAt ? formatDateTime(r.stoppedAt) : '') }
                 ],
                 runtime.instances, 'No runtime history recorded yet.', { index: 3, dir: -1 });
-            await loadActivity(); await loadLogs();
+            await loadActivity();
         }
 
         async function loadActivity() { const data = await api(withGuild('/api/activity')); renderTable(document.getElementById('activityFeed'), [{ label: 'When', key: 'at', render: r => formatDateTime(r.at) }, { label: 'Type', key: 'type' }, { label: 'What happened', key: 'message' }], data.entries, 'No activity recorded yet.'); }

@@ -669,7 +669,11 @@ module.exports = {
             globalFeatures[key] === false ? false : (guildFeatureOverrides[key] ?? globalFeatures[key])
         ]));
         const conversationEnabled = features.aiConversationsEnabled !== false;
-        const isMentioningBot = Boolean(client?.user) && message.mentions.has(client.user);
+        // A role shared by Flummi can be mentioned too. That must not be treated as a direct bot ping.
+        const isMentioningBot = Boolean(client?.user) && message.mentions.has(client.user, {
+            ignoreRoles: true,
+            ignoreEveryone: true
+        });
         const mentionInput = stripBotMentions(content);
         const canUseAi = canUseAiChat(message.author.id, guildId);
         const canUseMentionResponses = canUseBotMentions(message.author.id, guildId);
@@ -836,7 +840,7 @@ module.exports = {
                     : lowerContent.includes(triggerText);
             });
 
-            if (!message.mentions.has(client?.user) && !hasTriggerMatch) {
+            if (!message.mentions.has(client?.user, { ignoreRoles: true, ignoreEveryone: true }) && !hasTriggerMatch) {
                 return;
             }
         }

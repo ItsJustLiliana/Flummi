@@ -7,7 +7,7 @@
         "enabledOnStart": true,
         "openBrowserOnStart": false,
         "publicUrl": "https://panel.example.com",
-        "tabOrder": ["overview", "analytics", "---", "stats", "voice", "soundboard", "users", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "settings", "ai", "reliability"]
+        "tabOrder": ["overview", "analytics", "---", "stats", "voice", "soundboard", "users", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "settings", "ai", "logs", "reliability"]
     },
     "features": {
         "triggersEnabled": true,

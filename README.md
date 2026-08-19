@@ -11,7 +11,8 @@ The built-in panel manages Flummi per guild and keeps operational data separate 
 - **Messenger and triggers:** send messages through the bot, manage trigger replies, images, cooldowns, imports/exports, and trigger audit data.
 - **Shots, users, profiles, and permissions:** review shot activity, manage managers/developers, command and feature overrides, and user profile data.
 - **Settings:** per-guild bot/trigger options, global and guild feature switches, configurable panel tab names/order/dividers, analytics retention, storage inspection, backups, and targeted data-reset tools.
-- **AI & system:** AI model and image-search configuration, AI memory lookup, usage information, activity feed, runtime logs, health, and GitHub update status.
+- **AI & system:** AI model and image-search configuration, AI memory lookup, usage information, activity feed, health, and GitHub update status.
+- **Bot logs:** a filterable, auto-refreshing console view for recent info, warnings, and errors—useful for AI time-outs and Discord API failures.
 - **Reliability:** storage usage and forecast, latest local backup, loaded event handlers, manual backup creation, and a manual voice-session reconciliation action.
 
 ### Analytics and privacy

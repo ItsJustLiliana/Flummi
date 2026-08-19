@@ -405,7 +405,16 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
         activeByChannel.set(session.channelId, group);
     }
     sessions.push(...activeByChannel.values());
-    return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime: [...daily.entries()].map(([date, count]) => ({ date, count })).sort((a,b) => a.date.localeCompare(b.date)), groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100) };
+    const activeOverTime = [];
+    const firstDay = new Date(start || Date.now());
+    firstDay.setUTCHours(0, 0, 0, 0);
+    const lastDay = new Date(end);
+    lastDay.setUTCHours(0, 0, 0, 0);
+    for (let day = firstDay.getTime(); day <= lastDay.getTime(); day += 86400000) {
+        const date = new Date(day).toISOString().slice(0, 10);
+        activeOverTime.push({ date, count: daily.get(date) || 0 });
+    }
+    return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime, groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100) };
 }
 
 module.exports = {

@@ -757,6 +757,8 @@
         .analytics-bar span { position:absolute; top:calc(100% + 5px); left:50%; transform:translateX(-50%) rotate(-45deg); white-space:nowrap; font-size:10px; color:var(--muted); }
         .analytics-svg { display:block; height:100%; min-height:142px; overflow:visible; }
         .analytics-chart.compact .analytics-svg { min-height:66px; }
+        .analytics-canvas { display:block; width:100%; height:100%; min-height:142px; }
+        .analytics-chart.compact .analytics-canvas { min-height:66px; }
         .analytics-grid { stroke:var(--border); stroke-width:1; stroke-dasharray:3 4; }
         .analytics-axis-label { fill:var(--muted); font-size:11px; }
         .analytics-bar-rect { fill:url(#analyticsBarGradient); cursor:crosshair; }
@@ -1642,6 +1644,14 @@
             refreshActiveTab().catch(error => console.error(error));
         });
 
+        let chartResizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(chartResizeTimer);
+            chartResizeTimer = setTimeout(() => {
+                if (state.guildId) refreshActiveTab().catch(error => console.error(error));
+            }, 120);
+        });
+
         // Tabs with editable form fields, or ones that hit rate-limited Discord APIs, are skipped from the poll.
         // Voice activity changes constantly, so it gets a much faster refresh than the rest.
         const AUTO_REFRESH_MS = 20000;
@@ -1812,20 +1822,28 @@
 
         function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar', metricLabel = 'Events') {
             const container = document.getElementById(containerId);
-            const values = Array.isArray(rows) ? rows : [];
-            const maximum = Math.max(1, ...values.map(row => Number(row.count) || 0));
-            if (!values.length) {
+            const sourceValues = Array.isArray(rows) ? rows : [];
+            if (!sourceValues.length) {
                 container.innerHTML = `<div class="empty">${escapeHtml(emptyMessage)}</div>`;
                 return;
             }
-
             const compact = container.classList.contains('compact');
-            const width = compact ? Math.max(240, values.length * 34) : Math.max(540, values.length * 54);
+            const width = Math.max(compact ? 220 : 320, Math.floor(container.getBoundingClientRect().width || container.clientWidth || 640));
             const height = compact ? 76 : 160;
-            const left = compact ? 4 : 40;
+            const maxPoints = Math.max(compact ? 6 : 7, Math.floor(width / (compact ? 34 : 68)));
+            const values = [];
+            for (let index = 0; index < sourceValues.length; index += Math.ceil(sourceValues.length / maxPoints)) {
+                const group = sourceValues.slice(index, index + Math.ceil(sourceValues.length / maxPoints));
+                values.push({
+                    date: group.length === 1 ? group[0].date : `${group[0].date} – ${group[group.length - 1].date}`,
+                    count: group.reduce((total, row) => total + (Number(row.count) || 0), 0)
+                });
+            }
+            const maximum = Math.max(1, ...values.map(row => Number(row.count) || 0));
+            const left = compact ? 4 : 42;
             const right = 12;
-            const top = 10;
-            const bottom = compact ? 8 : 28;
+            const top = 12;
+            const bottom = compact ? 8 : 29;
             const plotWidth = width - left - right;
             const plotHeight = height - top - bottom;
             const points = values.map((row, index) => {
@@ -1833,19 +1851,49 @@
                 const y = top + (1 - ((Number(row.count) || 0) / maximum)) * plotHeight;
                 return { x, y };
             });
-            const grid = compact ? '' : [maximum, Math.ceil(maximum / 2), 0].map(value => {
-                const y = top + (1 - value / maximum) * plotHeight;
-                return `<line class="analytics-grid" x1="${left}" x2="${width - right}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"></line><text class="analytics-axis-label" x="${left - 7}" y="${(y + 4).toFixed(1)}" text-anchor="end">${value}</text>`;
-            }).join('');
-            const dates = compact ? '' : points.map((point, index) => `<text class="analytics-axis-label" x="${point.x.toFixed(1)}" y="${height - 7}" text-anchor="middle">${escapeHtml(String(values[index].date).slice(5))}</text>`).join('');
-            const marks = chartType === 'line'
-                ? `<path class="analytics-line-path" d="M ${points.map(point => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')}"></path>${points.map((point, index) => `<circle class="analytics-point" data-chart-index="${index}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="5"></circle>`).join('')}`
-                : points.map((point, index) => {
-                    const barWidth = Math.min(30, Math.max(6, plotWidth / values.length * .62));
-                    return `<rect class="analytics-bar-rect" data-chart-index="${index}" x="${(point.x - barWidth / 2).toFixed(1)}" y="${point.y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(2, top + plotHeight - point.y).toFixed(1)}" rx="4"></rect>`;
-                }).join('');
-            container.innerHTML = `<svg class="analytics-svg" width="${width}" height="${height}" style="width:${width}px;min-width:100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(metricLabel)} over time"><defs><linearGradient id="analyticsBarGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#83d9ff"></stop><stop offset="100%" stop-color="#4e6bff"></stop></linearGradient></defs>${grid}${marks}${dates}</svg>`;
-            bindChartHover(container, values, metricLabel);
+            const canvas = document.createElement('canvas');
+            const scale = window.devicePixelRatio || 1;
+            canvas.className = 'analytics-canvas';
+            canvas.width = Math.round(width * scale);
+            canvas.height = Math.round(height * scale);
+            canvas.style.height = `${height}px`;
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', `${metricLabel} over time`);
+            container.replaceChildren(canvas);
+            const context = canvas.getContext('2d');
+            context.scale(scale, scale);
+            context.font = '11px Segoe UI, sans-serif';
+            context.textBaseline = 'middle';
+            if (!compact) {
+                for (const value of [maximum, Math.ceil(maximum / 2), 0]) {
+                    const y = top + (1 - value / maximum) * plotHeight;
+                    context.strokeStyle = '#243157'; context.setLineDash([3, 4]);
+                    context.beginPath(); context.moveTo(left, y); context.lineTo(width - right, y); context.stroke();
+                    context.setLineDash([]); context.fillStyle = '#a5b1d8'; context.textAlign = 'right'; context.fillText(String(value), left - 7, y);
+                }
+                context.textAlign = 'center'; context.textBaseline = 'alphabetic'; context.fillStyle = '#a5b1d8';
+                points.forEach((point, index) => context.fillText(String(values[index].date).slice(5, 10), point.x, height - 7));
+            }
+            if (chartType === 'line') {
+                context.strokeStyle = '#75cfff'; context.lineWidth = 3; context.lineJoin = 'round'; context.lineCap = 'round'; context.beginPath();
+                points.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y)); context.stroke();
+                context.fillStyle = '#8be0ff';
+                points.forEach(point => { context.beginPath(); context.arc(point.x, point.y, 4, 0, Math.PI * 2); context.fill(); });
+            } else {
+                const barWidth = Math.min(34, Math.max(5, plotWidth / values.length * .62));
+                points.forEach(point => {
+                    const gradient = context.createLinearGradient(0, point.y, 0, top + plotHeight);
+                    gradient.addColorStop(0, '#83d9ff'); gradient.addColorStop(1, '#4e6bff'); context.fillStyle = gradient;
+                    context.beginPath(); context.roundRect(point.x - barWidth / 2, point.y, barWidth, Math.max(2, top + plotHeight - point.y), 4); context.fill();
+                });
+            }
+            canvas.addEventListener('pointermove', event => {
+                const bounds = canvas.getBoundingClientRect();
+                const relativeX = event.clientX - bounds.left;
+                const index = values.length === 1 ? 0 : Math.max(0, Math.min(values.length - 1, Math.round((relativeX - left) / plotWidth * (values.length - 1))));
+                showChartTooltip(event, values[index], metricLabel);
+            });
+            canvas.addEventListener('pointerleave', hideChartTooltip);
         }
 
         async function loadOverview() {

@@ -1857,7 +1857,9 @@
             }
             const maximum = Math.max(1, ...values.map(row => Number(row.count) || 0));
             const left = compact ? 4 : 42;
-            const right = compact ? 12 : 36;
+            // Reserve enough space for the final bar/point and its label on every chart,
+            // including the compact Overview graphs.
+            const right = 36;
             const top = 12;
             const bottom = compact ? 8 : 29;
             const plotWidth = width - left - right;

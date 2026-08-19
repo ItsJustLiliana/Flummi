@@ -1,5 +1,23 @@
 # Flummi
 
+## Control panel features
+
+The built-in panel manages Flummi per guild and keeps operational data separate from the tracked Discord metadata.
+
+- **Overview:** guild summary, member/role counts, bot status, shots, active channels, and compact message/voice trends.
+- **Analytics:** selectable periods, bar or line charts, hover details, responsive graphs, channel/member drill-down, period-over-period message comparison, busiest day/hour, message engagement metadata, activity heatmaps, and moderation totals.
+- **Message analytics:** message history by channel, author, period, and selected text channel.
+- **Voice analytics:** active sessions, live durations, leaderboards, recent/grouped calls, channel member lookup, voice-session and voice-minutes charts, heatmaps, totals, and average session length.
+- **Messenger and triggers:** send messages through the bot, manage trigger replies, images, cooldowns, imports/exports, and trigger audit data.
+- **Shots, users, profiles, and permissions:** review shot activity, manage managers/developers, command and feature overrides, and user profile data.
+- **Settings:** per-guild bot/trigger options, global and guild feature switches, configurable panel tab names/order/dividers, analytics retention, storage inspection, backups, and targeted data-reset tools.
+- **AI & system:** AI model and image-search configuration, AI memory lookup, usage information, activity feed, runtime logs, health, and GitHub update status.
+- **Reliability:** storage usage and forecast, latest local backup, loaded event handlers, manual backup creation, and a manual voice-session reconciliation action.
+
+### Analytics and privacy
+
+Analytics store activity metadata rather than message contents. New moderation tracking records member joins/leaves, deleted-message counts, role changes, and invite uses when the bot can read guild invites. Message contents are never written to analytics storage. Analytics data is stored per guild in rotated NDJSON shards, with a configurable retention period and a seamless panel view across shards.
+
 ## Project structure
 
 - `commands/` - Discord slash commands.

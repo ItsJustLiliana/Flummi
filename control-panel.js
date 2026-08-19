@@ -1200,11 +1200,14 @@ function createServer() {
                 const parsed = JSON.parse(await readBody(req) || '{}');
                 const allowed = ['ai', 'features', 'presence', 'commandPermissions', 'panel', 'analytics'];
                 const updates = Object.fromEntries(allowed.filter(key => parsed[key] && typeof parsed[key] === 'object').map(key => [key, { ...(config[key] || {}), ...parsed[key] }]));
+                if (typeof parsed.deployCommandsOnStart === 'boolean') {
+                    updates.deployCommandsOnStart = parsed.deployCommandsOnStart;
+                }
                 if (parsed.ai?.imageSearch) updates.ai = { ...(updates.ai || config.ai), imageSearch: { ...(config.ai?.imageSearch || {}), ...parsed.ai.imageSearch } };
                 Object.assign(config, updates);
                 saveConfig(config);
                 recordActivity('config', 'Global configuration updated from the panel');
-                sendJson(res, 200, { ok: true, config: { ai: config.ai, features: config.features, presence: config.presence, commandPermissions: config.commandPermissions, panel: config.panel, analytics: config.analytics } });
+                sendJson(res, 200, { ok: true, config: { ai: config.ai, features: config.features, presence: config.presence, commandPermissions: config.commandPermissions, panel: config.panel, analytics: config.analytics, deployCommandsOnStart: config.deployCommandsOnStart } });
                 return;
             }
 
@@ -1288,7 +1291,8 @@ function createServer() {
                     features: config.features || {},
                     presence: config.presence || {},
                     panel: config.panel || {},
-                    analytics: config.analytics || {}
+                    analytics: config.analytics || {},
+                    deployCommandsOnStart: config.deployCommandsOnStart !== false
                 });
                 return;
             }

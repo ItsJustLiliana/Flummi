@@ -3,7 +3,8 @@ const path = require('path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const { installTimestampedConsole } = require('./utils/logger');
 const { loadEnv } = require('./utils/env-loader');
-const { readConfig } = require('./utils/config');
+const { localPath, readConfig } = require('./utils/config');
+const { applyConfiguredPresence } = require('./utils/presence');
 const config = readConfig();
 
 installTimestampedConsole();
@@ -22,6 +23,17 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+
+let presenceReloadTimer = null;
+fs.watch(path.dirname(localPath), (_eventType, filename) => {
+    if (filename !== path.basename(localPath)) return;
+
+    clearTimeout(presenceReloadTimer);
+    presenceReloadTimer = setTimeout(() => {
+        applyConfiguredPresence(client);
+        console.log('Updated Discord presence from panel configuration.');
+    }, 150);
+});
 
 const commandFiles = fs
     .readdirSync('./commands')

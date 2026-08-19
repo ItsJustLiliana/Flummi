@@ -1,6 +1,5 @@
 const { ActivityType } = require('discord.js');
 const { readConfig } = require('./config');
-const config = readConfig();
 
 const activityTypeMap = {
     Playing: ActivityType.Playing,
@@ -11,6 +10,7 @@ const activityTypeMap = {
 };
 
 function getConfiguredPresence() {
+    const config = readConfig();
     const presenceConfig = config.presence || {};
     const rawActivityType =
         typeof presenceConfig.activityType === 'string'

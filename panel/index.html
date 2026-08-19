@@ -742,6 +742,57 @@
             opacity: .5;
         }
 
+        .help-tip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 17px;
+            height: 17px;
+            margin-left: 4px;
+            border: 1px solid rgba(117, 207, 255, .6);
+            border-radius: 50%;
+            color: var(--accent);
+            cursor: help;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1;
+            position: relative;
+            vertical-align: middle;
+        }
+
+        .help-tip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            z-index: 20;
+            left: 50%;
+            bottom: calc(100% + 8px);
+            width: min(260px, 60vw);
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #091126;
+            color: var(--text);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 1.4;
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, 4px);
+            transition: opacity .14s ease, transform .14s ease;
+        }
+
+        .help-tip:hover::after,
+        .help-tip:focus-visible::after {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+
+        .help-tip:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
         .empty {
             padding: 22px 16px;
             color: var(--muted);
@@ -1112,7 +1163,7 @@
                     <p id="settingsStatus" class="status"></p>
                 </div>
                 <div class="section">
-                    <h2>Global Feature Settings</h2>
+                    <h2>Global Feature Settings <span class="help-tip" tabindex="0" data-tooltip="A global switch overrides every guild. When it is off, the corresponding guild switch becomes unavailable because no guild can turn it back on.">?</span></h2>
                     <p class="sub">These switches apply to every guild. When a global feature is off, its guild-level control is disabled.</p>
                     <div class="two-col">
                         <div class="checkbox-row"><input id="featureTriggers" type="checkbox"><label for="featureTriggers" style="margin:0">Triggers</label></div>
@@ -1122,7 +1173,7 @@
                         <div class="checkbox-row"><input id="featurePingResponses" type="checkbox"><label for="featurePingResponses" style="margin:0">Ping responses</label></div>
                         <div class="checkbox-row"><input id="featurePingSave" type="checkbox"><label for="featurePingSave" style="margin:0">Save ping requests</label></div>
                         <div class="checkbox-row"><input id="featureShots" type="checkbox"><label for="featureShots" style="margin:0">Shot system</label></div>
-                        <div class="field"><label for="analyticsRetentionDays">Analytics retention (days)</label><input id="analyticsRetentionDays" type="number" min="1" max="3650" value="365"></div>
+                        <div class="field"><label for="analyticsRetentionDays">Analytics retention (days) <span class="help-tip" tabindex="0" data-tooltip="How long raw message, voice, moderation, and soundboard analytics are kept before older records are automatically deleted. Lower values reduce storage and retention.">?</span></label><input id="analyticsRetentionDays" type="number" min="1" max="3650" value="365"></div>
                     </div>
                 </div>
                 <div class="section">
@@ -1171,7 +1222,9 @@
             <section id="tab-ai" class="tab-panel">
                 <h2 style="font-size:20px;">AI &amp; System</h2>
                 <div class="section"><h2>Live Activity Feed</h2><div id="activityFeed" class="table-wrap"></div></div>
-                <div class="section"><h2>AI Controls</h2><div class="two-col"><div class="field"><label>Text model</label><input id="aiTextModel"></div><div class="field"><label>Vision models (one per line)</label><textarea id="aiVisionModels"></textarea></div><div class="field"><label>Fallback models (one per line)</label><textarea id="aiFallbackModels"></textarea></div><div class="field"><label>Timeout (ms)</label><input id="aiTimeout" type="number"></div><div class="field"><label>Max output tokens</label><input id="aiMaxOutput" type="number"></div><div class="field"><label>Image providers (one per line)</label><textarea id="aiImageProviders"></textarea></div></div><button id="saveAiConfig" class="primary" type="button">Save AI controls</button><p id="aiConfigStatus" class="status"></p></div>
+                <div class="section"><h2>Discord Presence</h2><p class="sub">Applied live to the bot after saving.</p><div class="two-col"><div class="field"><label>Status <span class="help-tip" tabindex="0" data-tooltip="The status dot shown beside Flummi in Discord. Invisible keeps the bot online but hides the dot.">?</span></label><select id="presenceStatus"><option value="online">Online</option><option value="idle">Idle</option><option value="dnd">Do not disturb</option><option value="invisible">Invisible</option></select></div><div class="field"><label>Activity type <span class="help-tip" tabindex="0" data-tooltip="The verb Discord puts before the activity text, for example ‘Watching for /help’.">?</span></label><select id="presenceActivityType"><option value="Playing">Playing</option><option value="Streaming">Streaming</option><option value="Listening">Listening</option><option value="Watching">Watching</option><option value="Competing">Competing</option></select></div><div class="field"><label>Activity text <span class="help-tip" tabindex="0" data-tooltip="The short custom status line shown on the bot profile. Keep it clear and under Discord’s 128-character limit.">?</span></label><input id="presenceActivityText" maxlength="128" placeholder="for /help"></div><div class="checkbox-row"><input id="presenceActivityEnabled" type="checkbox"><label for="presenceActivityEnabled" style="margin:0">Show activity <span class="help-tip" tabindex="0" data-tooltip="Turns the custom activity line on or off. The bot’s online status is unaffected.">?</span></label></div></div><button id="savePresenceConfig" class="primary" type="button">Save presence</button><p id="presenceConfigStatus" class="status"></p></div>
+                <div class="section"><h2>AI Controls <span class="help-tip" tabindex="0" data-tooltip="Use exact OpenRouter model IDs. Vision models are for image messages; fallback models are tried in order after a model error or rate limit. More history and output tokens use more AI context.">?</span></h2><div class="two-col"><div class="field"><label>Text model</label><input id="aiTextModel"></div><div class="field"><label>OpenRouter base URL</label><input id="aiBaseUrl" type="url"></div><div class="field"><label>Vision models (one per line)</label><textarea id="aiVisionModels"></textarea></div><div class="field"><label>Fallback models (one per line)</label><textarea id="aiFallbackModels"></textarea></div><div class="field"><label>Timeout (ms)</label><input id="aiTimeout" type="number" min="1000"></div><div class="field"><label>Max output tokens</label><input id="aiMaxOutput" type="number" min="1"></div><div class="field"><label>History turns</label><input id="aiMaxHistoryTurns" type="number" min="1" max="100"></div><div class="field"><label>Image providers (one per line)</label><textarea id="aiImageProviders"></textarea></div></div><button id="saveAiConfig" class="primary" type="button">Save AI controls</button><p id="aiConfigStatus" class="status"></p></div>
+                <div class="section"><h2>Start-up Behaviour <span class="help-tip" tabindex="0" data-tooltip="These only affect the next service restart. Keep ‘Start admin panel’ on unless you intentionally want to disable remote panel access. Browser auto-open is normally off on Linux.">?</span></h2><p class="sub">These options take effect the next time the service starts. Secrets and bot identity stay server-only.</p><div class="two-col"><div class="checkbox-row"><input id="deployCommandsOnStart" type="checkbox"><label for="deployCommandsOnStart" style="margin:0">Deploy slash commands on start</label></div><div class="checkbox-row"><input id="panelEnabledOnStart" type="checkbox"><label for="panelEnabledOnStart" style="margin:0">Start admin panel with bot</label></div><div class="checkbox-row"><input id="panelOpenBrowserOnStart" type="checkbox"><label for="panelOpenBrowserOnStart" style="margin:0">Open panel browser on start</label></div></div><button id="saveStartupConfig" class="primary" type="button">Save start-up settings</button><p id="startupConfigStatus" class="status"></p></div>
                 <div class="two-col">
                     <div class="section">
                         <h2>AI Memory Lookup</h2>
@@ -3177,11 +3230,21 @@
             await populateGuildUserSelects();
             const configData = await api('/api/config'); const ai = configData.ai || {};
             document.getElementById('aiTextModel').value = ai.model || '';
+            document.getElementById('aiBaseUrl').value = ai.baseUrl || '';
             document.getElementById('aiVisionModels').value = (ai.visionModels || []).join('\n');
             document.getElementById('aiFallbackModels').value = (ai.fallbackModels || []).join('\n');
             document.getElementById('aiTimeout').value = ai.requestTimeoutMs || '';
             document.getElementById('aiMaxOutput').value = ai.maxOutputTokens || '';
+            document.getElementById('aiMaxHistoryTurns').value = ai.maxHistoryTurns || '';
             document.getElementById('aiImageProviders').value = (ai.imageSearch?.providers || []).join('\n');
+            const presence = configData.presence || {};
+            document.getElementById('presenceStatus').value = presence.status || 'online';
+            document.getElementById('presenceActivityType').value = presence.activityType || 'Playing';
+            document.getElementById('presenceActivityText').value = presence.activityText || '';
+            document.getElementById('presenceActivityEnabled').checked = presence.activityEnabled !== false;
+            document.getElementById('deployCommandsOnStart').checked = configData.deployCommandsOnStart !== false;
+            document.getElementById('panelEnabledOnStart').checked = configData.panel?.enabledOnStart !== false;
+            document.getElementById('panelOpenBrowserOnStart').checked = configData.panel?.openBrowserOnStart === true;
             const health = await api('/api/health');
             document.getElementById('healthCards').innerHTML = [
                 statCard('Discord', health.discord),
@@ -3230,7 +3293,19 @@
         document.getElementById('refreshLogs').addEventListener('click', () => loadLogs().catch(error => console.error(error)));
         document.getElementById('logLevel').addEventListener('change', () => loadLogs().catch(error => console.error(error)));
         document.getElementById('saveAiConfig').addEventListener('click', async () => {
-            try { await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ai: { model: document.getElementById('aiTextModel').value.trim(), visionModels: document.getElementById('aiVisionModels').value.split('\n').map(x => x.trim()).filter(Boolean), fallbackModels: document.getElementById('aiFallbackModels').value.split('\n').map(x => x.trim()).filter(Boolean), requestTimeoutMs: Number(document.getElementById('aiTimeout').value), maxOutputTokens: Number(document.getElementById('aiMaxOutput').value), imageSearch: { providers: document.getElementById('aiImageProviders').value.split('\n').map(x => x.trim()).filter(Boolean) } } }) }); setStatus(document.getElementById('aiConfigStatus'), 'AI controls saved. Restart the bot to reload config in its process.', 'ok'); } catch (error) { setStatus(document.getElementById('aiConfigStatus'), error.message, 'error'); }
+            try { await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ai: { model: document.getElementById('aiTextModel').value.trim(), baseUrl: document.getElementById('aiBaseUrl').value.trim(), visionModels: document.getElementById('aiVisionModels').value.split('\n').map(x => x.trim()).filter(Boolean), fallbackModels: document.getElementById('aiFallbackModels').value.split('\n').map(x => x.trim()).filter(Boolean), requestTimeoutMs: Number(document.getElementById('aiTimeout').value), maxOutputTokens: Number(document.getElementById('aiMaxOutput').value), maxHistoryTurns: Number(document.getElementById('aiMaxHistoryTurns').value), imageSearch: { providers: document.getElementById('aiImageProviders').value.split('\n').map(x => x.trim()).filter(Boolean) } } }) }); setStatus(document.getElementById('aiConfigStatus'), 'AI controls saved and will be used for new AI replies.', 'ok'); } catch (error) { setStatus(document.getElementById('aiConfigStatus'), error.message, 'error'); }
+        });
+        document.getElementById('savePresenceConfig').addEventListener('click', async () => {
+            try {
+                await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ presence: { status: document.getElementById('presenceStatus').value, activityType: document.getElementById('presenceActivityType').value, activityText: document.getElementById('presenceActivityText').value.trim(), activityEnabled: document.getElementById('presenceActivityEnabled').checked } }) });
+                setStatus(document.getElementById('presenceConfigStatus'), 'Presence saved and applied live.', 'ok');
+            } catch (error) { setStatus(document.getElementById('presenceConfigStatus'), error.message, 'error'); }
+        });
+        document.getElementById('saveStartupConfig').addEventListener('click', async () => {
+            try {
+                await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deployCommandsOnStart: document.getElementById('deployCommandsOnStart').checked, panel: { enabledOnStart: document.getElementById('panelEnabledOnStart').checked, openBrowserOnStart: document.getElementById('panelOpenBrowserOnStart').checked } }) });
+                setStatus(document.getElementById('startupConfigStatus'), 'Start-up settings saved for the next restart.', 'ok');
+            } catch (error) { setStatus(document.getElementById('startupConfigStatus'), error.message, 'error'); }
         });
 
         // ---------- Init ----------

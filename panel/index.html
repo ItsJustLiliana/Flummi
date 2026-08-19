@@ -770,6 +770,9 @@
         .analytics-chart.compact .analytics-bar { min-width:4px; border-radius:3px 3px 0 0; }
         .analytics-chart.compact .analytics-bar span { display:none; }
         .chart-caption { display:flex; justify-content:space-between; margin-top:8px; color:var(--muted); font-size:12px; }
+        .heatmap { display:grid; grid-template-columns:38px repeat(24, minmax(8px, 1fr)); gap:3px; align-items:center; overflow:hidden; }
+        .heatmap-label { color:var(--muted); font-size:10px; text-align:right; padding-right:4px; }
+        .heatmap-cell { aspect-ratio:1; min-height:8px; border-radius:3px; background:#17233f; }
     </style>
 </head>
 
@@ -813,10 +816,12 @@
             <section id="tab-analytics" class="tab-panel">
                 <h2 style="font-size:20px;">Analytics</h2>
                 <p class="sub">Privacy-friendly event analytics. Message contents are never stored—only activity metadata.</p>
-                <div class="row"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="analyticsGraphType" aria-label="Analytics graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div>
+                <div class="row"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="analyticsChannel" aria-label="Analytics channel"><option value="">All channels</option></select><select id="analyticsMember" aria-label="Analytics member"><option value="">All members</option></select><select id="analyticsGraphType" aria-label="Analytics graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div>
                 <div class="card-grid" id="analyticsCards"></div>
                 <div class="section"><h2>Messages over time</h2><div id="analyticsChart" class="analytics-chart"></div></div>
+                <div class="section"><h2>Message activity by day and hour</h2><p class="sub">Darker/brighter cells show when messages are most active (UTC).</p><div id="messageHeatmap" class="heatmap"></div></div>
                 <div class="two-col"><div class="section"><h2>Most active channels</h2><div id="analyticsChannels" class="table-wrap"></div></div><div class="section"><h2>Most active members</h2><div id="analyticsUsers" class="table-wrap"></div></div></div>
+                <div class="section"><h2>Moderation insights</h2><p class="sub">Metadata only. New events are collected from this update onward.</p><div id="moderationCards" class="card-grid"></div></div>
             </section>
 
             <!-- Messenger -->
@@ -933,6 +938,8 @@
                 <h2 style="font-size:20px;">Voice Time</h2>
                 <div class="card-grid" id="voiceCards"></div>
                 <div class="section"><div class="row"><h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="voiceGraphChannel" aria-label="Voice channel"><option value="">All channels</option></select><select id="voiceGraphType" aria-label="Voice graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><p class="sub">Completed voice sessions per day.</p><div id="voiceActivityChart" class="analytics-chart"></div></div>
+                <div class="section"><h2>Voice minutes over time</h2><div id="voiceMinutesChart" class="analytics-chart"></div></div>
+                <div class="section"><h2>Voice activity by day and hour</h2><p class="sub">Session starts by hour (UTC).</p><div id="voiceHeatmap" class="heatmap"></div></div>
                 <div class="section">
                     <h2>Currently in Voice</h2>
                     <div id="voiceActive" class="table-wrap">
@@ -1114,6 +1121,7 @@
                         <div class="checkbox-row"><input id="featurePingResponses" type="checkbox"><label for="featurePingResponses" style="margin:0">Ping responses</label></div>
                         <div class="checkbox-row"><input id="featurePingSave" type="checkbox"><label for="featurePingSave" style="margin:0">Save ping requests</label></div>
                         <div class="checkbox-row"><input id="featureShots" type="checkbox"><label for="featureShots" style="margin:0">Shot system</label></div>
+                        <div class="field"><label for="analyticsRetentionDays">Analytics retention (days)</label><input id="analyticsRetentionDays" type="number" min="1" max="3650" value="365"></div>
                     </div>
                 </div>
                 <div class="section">
@@ -1198,6 +1206,13 @@
                     </div>
                 </div>
             </section>
+
+            <section id="tab-reliability" class="tab-panel">
+                <h2 style="font-size:20px;">Reliability</h2>
+                <div id="reliabilityCards" class="card-grid"></div>
+                <div class="section"><h2>Actions</h2><div class="row"><button id="createBackup" class="secondary" type="button">Create backup now</button><button id="reconcileVoice" class="primary" type="button">Reconcile voice now</button></div><p id="reliabilityStatus" class="status"></p></div>
+                <div class="section"><h2>Event handler health</h2><div id="handlerHealth" class="table-wrap"></div></div>
+            </section>
         </main>
 
         <aside class="sidebar">
@@ -1233,6 +1248,7 @@
                 <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                 <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                 <button class="tab-btn" data-tab="ai" type="button">AI &amp; System</button>
+                <button class="tab-btn" data-tab="reliability" type="button">Reliability</button>
             </nav>
         </aside>
     </div>
@@ -1505,7 +1521,8 @@
             profiles: loadProfilesTab,
             settings: loadSettings,
             pings: loadPingRequests,
-            ai: loadAi
+            ai: loadAi,
+            reliability: loadReliability
         };
 
         tabButtons.forEach(btn => {
@@ -1686,21 +1703,18 @@
                 });
         }, 1000);
 
-        // Ticks the "Currently in Voice" and channel lookup durations every second between the periodic data
-        // refreshes above, recomputed straight from startedAt/lastJoinedAt each time so they never drift out of sync.
+        function updateLiveDurations() {
+            document.querySelectorAll('[data-live-duration]').forEach(element => {
+                const startedAt = new Date(element.dataset.liveDuration).getTime();
+                element.textContent = Number.isNaN(startedAt) ? '-' : formatDuration(Date.now() - startedAt);
+            });
+        }
+
+        // Live durations update independently of API refreshes, so they keep moving even
+        // while a table is being searched, sorted, or another panel request is in progress.
         setInterval(() => {
-            if (activeTab() !== 'voice' || document.visibilityState !== 'visible') {
-                return;
-            }
-
-            for (const id of ['voiceActive', 'voiceChannelActive']) {
-                const container = document.getElementById(id);
-
-                if (!container.querySelector('[data-role="table-search"]:focus')) {
-                    paintTable(container);
-                }
-            }
-        }, 1000);
+            if (document.visibilityState === 'visible') updateLiveDurations();
+        }, 2000);
 
         // ---------- Overview ----------
         function renderGuildHeader(containerId, guildInfo) {
@@ -1896,6 +1910,14 @@
                 showChartTooltip(event, values[index], metricLabel);
             });
             canvas.addEventListener('pointerleave', hideChartTooltip);
+        }
+
+        function renderHeatmap(containerId, rows) {
+            const container = document.getElementById(containerId);
+            const values = Array.isArray(rows) ? rows : Array.from({ length: 7 }, () => Array(24).fill(0));
+            const maximum = Math.max(1, ...values.flat().map(Number));
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            container.innerHTML = values.map((day, dayIndex) => `<span class="heatmap-label">${days[dayIndex]}</span>${day.map((count, hour) => `<span class="heatmap-cell" title="${days[dayIndex]} ${String(hour).padStart(2, '0')}:00 UTC: ${Number(count) || 0}" style="background:rgba(117,207,255,${0.08 + (Number(count) || 0) / maximum * .88})"></span>`).join('')}`).join('');
         }
 
         async function loadOverview() {
@@ -2199,16 +2221,20 @@
 
             document.getElementById('voiceCards').innerHTML = [
                 statCard('In Voice Now', data.activeSessions.length),
-                statCard('Tracked Users', data.leaderboard.length)
+                statCard('Tracked Users', data.leaderboard.length),
+                statCard('Voice Time in Range', formatDuration(analytics.totalMs)),
+                statCard('Average Session', formatDuration(analytics.averageSessionMs))
             ].join('');
             renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.', document.getElementById('voiceGraphType').value, 'Voice sessions');
+            renderActivityChart('voiceMinutesChart', analytics.minutesOverTime, 'No voice time in this range.', document.getElementById('voiceGraphType').value, 'Voice minutes');
+            renderHeatmap('voiceHeatmap', analytics.heatmap);
 
             renderTable(document.getElementById('voiceActive'),
                 [
                     { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
                     { label: 'Channel', key: 'channelName', render: r => escapeHtml(r.channelName) },
                     { label: 'Since', key: 'startedAt', render: r => escapeHtml(formatDateTime(r.startedAt)) },
-                    { label: 'Duration', key: 'durationMs', render: r => escapeHtml(formatDuration(Date.now() - new Date(r.startedAt).getTime())) }
+                    { label: 'Duration', key: 'durationMs', render: r => `<span data-live-duration="${escapeHtml(r.startedAt)}"></span>` }
                 ],
                 data.activeSessions, 'Nobody is in voice right now.');
 
@@ -2232,7 +2258,7 @@
 
             renderTable(document.getElementById('voiceTopChannels'), [{ label: 'Channel', key: 'channelName' }, { label: 'Total', key: 'totalMs', render: r => formatDuration(r.totalMs) }, { label: 'Sessions', key: 'sessions' }], analytics.topChannels, 'No channel activity in this range.');
             renderTable(document.getElementById('voiceUserTotals'), [{ label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'Week', key: 'weeklyMs', render: r => formatDuration(r.weeklyMs) }, { label: 'Month', key: 'monthlyMs', render: r => formatDuration(r.monthlyMs) }], analytics.userTotals, 'No user activity in this range.');
-            renderTable(document.getElementById('voiceGroupSessions'), [{ label: 'Channel', key: 'channelName' }, { label: 'Started', key: 'startedAt', render: r => formatDateTime(r.startedAt) }, { label: 'Duration', key: 'durationMs', render: r => formatDuration(r.durationMs) }, { label: 'Participants', key: 'labels', render: r => r.labels.map(escapeHtml).join(', ') }, { label: 'Active', key: 'active', render: r => r.active ? '<span class="badge on">Now</span>' : '' }], analytics.groupSessions, 'No grouped sessions recorded yet.');
+            renderTable(document.getElementById('voiceGroupSessions'), [{ label: 'Channel', key: 'channelName' }, { label: 'Started', key: 'startedAt', render: r => formatDateTime(r.startedAt) }, { label: 'Duration', key: 'durationMs', render: r => r.active ? `<span data-live-duration="${escapeHtml(r.startedAt)}"></span>` : formatDuration(r.durationMs) }, { label: 'Participants', key: 'labels', render: r => r.labels.map(escapeHtml).join(', ') }, { label: 'Active', key: 'active', render: r => r.active ? '<span class="badge on">Now</span>' : '' }], analytics.groupSessions, 'No grouped sessions recorded yet.');
 
             await loadVoiceChannelOptions();
         }
@@ -2294,7 +2320,7 @@
                     {
                         label: 'Duration',
                         key: 'lastSessionDurationMs',
-                        render: r => escapeHtml(formatDuration(Date.now() - new Date(r.lastJoinedAt).getTime()))
+                        render: r => `<span data-live-duration="${escapeHtml(r.lastJoinedAt)}"></span>`
                     }
                 ],
                 activeMembers, 'Nobody is currently in this channel.');
@@ -2348,18 +2374,41 @@
         // ---------- Analytics ----------
         async function loadAnalytics() {
             if (!state.guildId) return;
+            await ensureAnalyticsChannelFilter('analyticsChannel', '/api/channels');
             const days = document.getElementById('analyticsDays').value;
-            const data = await api(withGuild(`/api/analytics?days=${encodeURIComponent(days)}`));
+            const channelId = document.getElementById('analyticsChannel').value;
+            const memberId = document.getElementById('analyticsMember').value;
+            const filters = `${channelId ? `&channelId=${encodeURIComponent(channelId)}` : ''}${memberId ? `&userId=${encodeURIComponent(memberId)}` : ''}`;
+            const data = await api(withGuild(`/api/analytics?days=${encodeURIComponent(days)}${filters}`));
+            const memberSelect = document.getElementById('analyticsMember');
+            const previousMember = memberSelect.value;
+            memberSelect.innerHTML = '<option value="">All members</option>';
+            for (const user of data.topUsers) {
+                const option = document.createElement('option'); option.value = user.id; option.textContent = user.name; memberSelect.appendChild(option);
+            }
+            if (previousMember && data.topUsers.some(user => user.id === previousMember)) memberSelect.value = previousMember;
+            const comparison = data.comparison || {};
+            const busiestHour = Number.isInteger(comparison.busiestHour) ? `${String(comparison.busiestHour).padStart(2, '0')}:00 UTC` : '-';
             document.getElementById('analyticsCards').innerHTML = [
                 statCard('Messages', data.messageCount), statCard('Unique Authors', data.uniqueAuthors),
-                statCard('Voice Events', data.voiceEvents), statCard('Period', `${data.periodDays} days`)
+                statCard('Attachments', data.engagement?.attachments || 0), statCard('Replies', data.engagement?.replies || 0),
+                statCard('Change vs previous', `${comparison.changePercent > 0 ? '+' : ''}${comparison.changePercent || 0}%`),
+                statCard('Busiest hour', busiestHour), statCard('Busiest day', comparison.busiestDay?.date || '-')
             ].join('');
             renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.', document.getElementById('analyticsGraphType').value, 'Messages');
+            renderHeatmap('messageHeatmap', data.heatmap);
+            const moderation = data.moderation || {};
+            document.getElementById('moderationCards').innerHTML = [
+                statCard('Member joins', moderation.joins || 0), statCard('Member leaves', moderation.leaves || 0),
+                statCard('Deleted messages', moderation.deletedMessages || 0), statCard('Role changes', moderation.roleChanges || 0), statCard('Invite uses', moderation.inviteUses || 0)
+            ].join('');
             renderTable(document.getElementById('analyticsChannels'), [{ label: 'Channel', key: 'name', render: r => `#${escapeHtml(r.name)}` }, { label: 'Messages', key: 'count' }], data.topChannels, 'No channel activity yet.');
             renderTable(document.getElementById('analyticsUsers'), [{ label: 'Member', key: 'name', render: r => escapeHtml(r.name) }, { label: 'Messages', key: 'count' }], data.topUsers, 'No member activity yet.');
         }
 
         document.getElementById('analyticsDays').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
+        document.getElementById('analyticsChannel').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
+        document.getElementById('analyticsMember').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
         document.getElementById('analyticsGraphType').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
         document.getElementById('messageGraphRange').addEventListener('change', () => loadStats().catch(error => console.error(error)));
         document.getElementById('messageGraphChannel').addEventListener('change', () => loadStats().catch(error => console.error(error)));
@@ -2919,6 +2968,7 @@
             document.getElementById('setExactMatch').checked = s.exactTriggerMatch;
             document.getElementById('setMaxTriggerLength').value = s.maxTriggerLength;
             const configData = await api('/api/config'); const f = configData.features || {};
+            document.getElementById('analyticsRetentionDays').value = configData.analytics?.retentionDays || 365;
             document.getElementById('featureTriggers').checked = f.triggersEnabled !== false;
             document.getElementById('featureAiConversations').checked = f.aiConversationsEnabled !== false;
             document.getElementById('featureAiAttachments').checked = f.aiAttachmentsEnabled !== false;
@@ -3016,7 +3066,7 @@
                 pingResponsesEnabled: document.getElementById('featurePingResponses').checked,
                 pingRequestSaveEnabled: document.getElementById('featurePingSave').checked,
                 shotsEnabled: document.getElementById('featureShots').checked
-            } }) });
+            }, analytics: { retentionDays: Math.max(1, Math.min(3650, Number(document.getElementById('analyticsRetentionDays').value) || 365)) } }) });
 
             setStatus(statusField, 'Settings saved.', 'ok');
         }
@@ -3072,6 +3122,22 @@
                 </ul>
             `;
         }
+
+        async function loadReliability() {
+            if (!state.guildId) return;
+            const data = await api(withGuild('/api/reliability'));
+            const storage = data.storage || {};
+            const megabytes = bytes => `${(Number(bytes || 0) / 1024 / 1024).toFixed(2)} MB`;
+            document.getElementById('reliabilityCards').innerHTML = [
+                statCard('Guild storage', megabytes(storage.bytes)), statCard('30-day forecast', megabytes(storage.forecast30DaysBytes)),
+                statCard('Last backup', data.lastBackup ? formatDateTime(data.lastBackup.createdAt) : 'Never'),
+                statCard('Handlers loaded', Object.keys(data.handlerHealth || {}).length)
+            ].join('');
+            renderTable(document.getElementById('handlerHealth'), [{ label: 'Handler', key: 'name' }, { label: 'Status', key: 'status', render: r => '<span class="badge on">Loaded</span>' }], Object.entries(data.handlerHealth || {}).map(([name, status]) => ({ name, status })), 'No event handlers found.');
+        }
+
+        document.getElementById('createBackup').addEventListener('click', async () => { try { const result = await api(withGuild('/api/reliability/backup'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), `Backup created: ${result.backup}`, 'ok'); await loadReliability(); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
+        document.getElementById('reconcileVoice').addEventListener('click', async () => { try { await api(withGuild('/api/reliability/reconcile-voice'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), 'Voice sessions reconciled with Discord.', 'ok'); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
 
         async function loadAi() {
             await populateGuildUserSelects();

@@ -43,11 +43,13 @@ function recordMessageEvent({ guildId, channelId, channelName, userId, userTag, 
         type: 'message', channelId: String(channelId || ''), channelName: channelName || String(channelId || ''),
         userId: String(userId || ''), userTag: userTag || String(userId || ''),
         characters: String(message?.content || '').length, attachments: message?.attachments?.size || 0,
-        embeds: message?.embeds?.length || 0, hasReply: Boolean(message?.reference?.messageId)
+        embeds: message?.embeds?.length || 0, reactions: message?.reactions?.cache?.size || 0,
+        hasReply: Boolean(message?.reference?.messageId), isThread: Boolean(message?.channel?.isThread?.())
     });
 }
 
 function recordVoiceEvent(guildId, event) { return appendEvent(guildId, 'voice', { type: 'voice', ...event }); }
+function recordModerationEvent(guildId, event) { return appendEvent(guildId, 'moderation', { type: 'moderation', ...event }); }
 
 function listFiles(folder) {
     if (!fs.existsSync(folder)) return [];
@@ -71,29 +73,49 @@ function readEvents(guildId, category, from = 0, to = Date.now()) {
     return rows;
 }
 
-function getAnalyticsSummary(guildId, days = 30, channelId = null) {
+function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null) {
     const safeDays = Math.max(1, Number(days) || 30);
     const from = Date.now() - safeDays * 86400000;
     const normalizedChannelId = channelId ? String(channelId) : null;
-    const messages = readEvents(guildId, 'messages', from).filter(row => !normalizedChannelId || row.channelId === normalizedChannelId);
+    const normalizedUserId = userId ? String(userId) : null;
+    const messages = readEvents(guildId, 'messages', from).filter(row => (!normalizedChannelId || row.channelId === normalizedChannelId) && (!normalizedUserId || row.userId === normalizedUserId));
     const voice = readEvents(guildId, 'voice', from);
-    const byDay = new Map(), channels = new Map(), users = new Map();
+    const moderationRows = readEvents(guildId, 'moderation', from);
+    const previousMessages = readEvents(guildId, 'messages', from - safeDays * 86400000, from - 1).filter(row => (!normalizedChannelId || row.channelId === normalizedChannelId) && (!normalizedUserId || row.userId === normalizedUserId));
+    const byDay = new Map(), channels = new Map(), users = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
+    const engagement = { attachments: 0, embeds: 0, reactions: 0, replies: 0, threads: 0 };
     for (const row of messages) {
         const day = row.at.slice(0, 10); byDay.set(day, (byDay.get(day) || 0) + 1);
         const channel = channels.get(row.channelId) || { id: row.channelId, name: row.channelName, count: 0 };
         channel.count++; channels.set(row.channelId, channel);
         const user = users.get(row.userId) || { id: row.userId, name: row.userTag, count: 0 };
         user.count++; users.set(row.userId, user);
+        const date = new Date(row.at); heatmap[date.getUTCDay()][date.getUTCHours()]++;
+        engagement.attachments += Number(row.attachments) || 0; engagement.embeds += Number(row.embeds) || 0;
+        engagement.reactions += Number(row.reactions) || 0; engagement.replies += row.hasReply ? 1 : 0; engagement.threads += row.isThread ? 1 : 0;
     }
     const dailyMessages = [];
     for (let offset = safeDays - 1; offset >= 0; offset--) {
         const date = new Date(Date.now() - offset * 86400000).toISOString().slice(0, 10);
         dailyMessages.push({ date, count: byDay.get(date) || 0 });
     }
+    const moderation = { joins: 0, leaves: 0, deletedMessages: 0, roleChanges: 0, inviteUses: 0 };
+    for (const row of moderationRows) {
+        if (row.action === 'member-join') moderation.joins++;
+        if (row.action === 'member-leave') moderation.leaves++;
+        if (row.action === 'message-delete') moderation.deletedMessages++;
+        if (row.action === 'role-change') moderation.roleChanges++;
+        if (row.action === 'invite-use') moderation.inviteUses++;
+    }
+    const busiestDay = dailyMessages.reduce((best, row) => row.count > best.count ? row : best, { date: null, count: 0 });
+    const hourlyTotals = heatmap.reduce((totals, day) => day.map((count, hour) => totals[hour] + count), Array(24).fill(0));
+    const busiestHour = hourlyTotals.indexOf(Math.max(...hourlyTotals));
+    const changePercent = previousMessages.length ? Math.round((messages.length - previousMessages.length) / previousMessages.length * 100) : (messages.length ? 100 : 0);
     return {
         periodDays: safeDays, messageCount: messages.length,
         voiceEvents: voice.length, uniqueAuthors: users.size,
-        dailyMessages,
+        dailyMessages, engagement, heatmap, moderation,
+        comparison: { previousMessageCount: previousMessages.length, changePercent, busiestDay, busiestHour },
         topChannels: [...channels.values()].sort((a, b) => b.count - a.count).slice(0, 10),
         topUsers: [...users.values()].sort((a, b) => b.count - a.count).slice(0, 10)
     };
@@ -104,4 +126,18 @@ function getStorageDetails(guildId) {
     return listFiles(base).map(file => ({ name: path.relative(base, file).replace(/\\/g, '/'), size: fs.statSync(file).size }));
 }
 
-module.exports = { MAX_SHARD_BYTES, appendEvent, getAnalyticsSummary, getStorageDetails, readEvents, recordMessageEvent, recordVoiceEvent };
+function pruneAnalytics(guildId, retentionDays = 365) {
+    const cutoff = Date.now() - Math.max(1, Number(retentionDays) || 365) * 86400000;
+    let removed = 0;
+    for (const category of ['messages', 'voice', 'moderation']) {
+        for (const file of listFiles(analyticsDir(guildId, category))) {
+            const kept = fs.readFileSync(file, 'utf8').split('\n').filter(line => {
+                try { const row = JSON.parse(line); if (new Date(row.at).getTime() >= cutoff) return true; removed++; return false; } catch { return false; }
+            });
+            if (kept.length) fs.writeFileSync(file, `${kept.join('\n')}\n`); else fs.rmSync(file, { force: true });
+        }
+    }
+    return removed;
+}
+
+module.exports = { MAX_SHARD_BYTES, appendEvent, getAnalyticsSummary, getStorageDetails, pruneAnalytics, readEvents, recordMessageEvent, recordModerationEvent, recordVoiceEvent };

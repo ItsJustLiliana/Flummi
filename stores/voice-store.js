@@ -372,11 +372,13 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     const end = to ? new Date(to).getTime() : Date.now();
     const normalizedChannelId = channelId ? String(channelId) : null;
     const history = readEvents(guildId, 'voice').filter(row => row.action === 'session-ended' && (!normalizedChannelId || row.channelId === normalizedChannelId) && new Date(row.startedAt).getTime() <= end && new Date(row.endedAt || Date.now()).getTime() >= start);
-    const channels = new Map(), users = new Map(), daily = new Map();
+    const channels = new Map(), users = new Map(), daily = new Map(), dailyMinutes = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
+    let totalMs = 0;
     for (const row of history) {
         const rowStart = Math.max(start, new Date(row.startedAt).getTime());
         const rowEnd = Math.min(end, new Date(row.endedAt || Date.now()).getTime());
         const ms = Math.max(0, rowEnd - rowStart);
+        totalMs += ms;
         const channel = channels.get(row.channelId) || { channelId: row.channelId, channelName: row.channelName, totalMs: 0, sessions: 0 };
         channel.totalMs += ms; channel.sessions++; channels.set(row.channelId, channel);
         const user = users.get(row.userId) || { userId: row.userId, weeklyMs: 0, monthlyMs: 0, totalMs: 0 };
@@ -386,6 +388,8 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
         users.set(row.userId, user);
         const day = new Date(rowStart).toISOString().slice(0, 10);
         daily.set(day, (daily.get(day) || 0) + 1);
+        dailyMinutes.set(day, (dailyMinutes.get(day) || 0) + Math.round(ms / 60000));
+        const started = new Date(rowStart); heatmap[started.getUTCDay()][started.getUTCHours()]++;
     }
     // A group session runs from the first join until the last leave while at least one tracked user remains in a channel.
     const events = history.flatMap(row => [{ at: new Date(row.startedAt).getTime(), kind: 'join', channelId: row.channelId, channelName: row.channelName, userId: row.userId }, { at: new Date(row.endedAt).getTime(), kind: 'leave', channelId: row.channelId, channelName: row.channelName, userId: row.userId }]).sort((a, b) => a.at - b.at || (a.kind === 'leave' ? -1 : 1));
@@ -406,6 +410,7 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     }
     sessions.push(...activeByChannel.values());
     const activeOverTime = [];
+    const minutesOverTime = [];
     const firstDay = new Date(start || Date.now());
     firstDay.setUTCHours(0, 0, 0, 0);
     const lastDay = new Date(end);
@@ -413,8 +418,9 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     for (let day = firstDay.getTime(); day <= lastDay.getTime(); day += 86400000) {
         const date = new Date(day).toISOString().slice(0, 10);
         activeOverTime.push({ date, count: daily.get(date) || 0 });
+        minutesOverTime.push({ date, count: dailyMinutes.get(date) || 0 });
     }
-    return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime, groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100) };
+    return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime, minutesOverTime, heatmap, totalMs, averageSessionMs: history.length ? Math.round(totalMs / history.length) : 0, groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100) };
 }
 
 module.exports = {

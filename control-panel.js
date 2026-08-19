@@ -21,6 +21,7 @@ const serperUsageStore = require('./stores/serper-usage-store');
 const userConversationStore = require('./stores/user-conversation-store');
 const profileStore = require('./stores/profile-store');
 const { getAiConfig, buildTextModelCandidates, buildVisionModelCandidates } = require('./services/ai-chat');
+const readyEvent = require('./events/ready');
 
 installTimestampedConsole();
 loadEnv();
@@ -49,8 +50,26 @@ function fileDetails(folder) {
     });
 }
 
+function folderStats(folder) {
+    if (!fs.existsSync(folder)) return { bytes: 0, oldestAt: null };
+    const entries = fs.readdirSync(folder, { withFileTypes: true });
+    return entries.reduce((total, entry) => {
+        const target = path.join(folder, entry.name);
+        if (entry.isDirectory()) { const nested = folderStats(target); total.bytes += nested.bytes; total.oldestAt = !total.oldestAt || (nested.oldestAt && nested.oldestAt < total.oldestAt) ? nested.oldestAt : total.oldestAt; }
+        else { const stat = fs.statSync(target); total.bytes += stat.size; const at = stat.mtime.toISOString(); total.oldestAt = !total.oldestAt || at < total.oldestAt ? at : total.oldestAt; }
+        return total;
+    }, { bytes: 0, oldestAt: null });
+}
+
+function backupRoot(guildId) { return path.join(dataDir, 'global', 'backups', String(guildId)); }
+function latestBackup(guildId) {
+    const root = backupRoot(guildId); if (!fs.existsSync(root)) return null;
+    const name = fs.readdirSync(root).filter(name => name.endsWith('.snapshot')).sort().at(-1);
+    return name ? { name, createdAt: fs.statSync(path.join(root, name)).mtime.toISOString() } : null;
+}
+
 function createClient(includeMembersIntent) {
-    const intents = [GatewayIntentBits.Guilds];
+    const intents = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates];
 
     if (includeMembersIntent) {
         intents.push(GatewayIntentBits.GuildMembers);
@@ -822,7 +841,7 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
                 const days = Math.min(90, Math.max(1, Number(requestUrl.searchParams.get('days')) || 30));
-                sendJson(res, 200, analyticsStore.getAnalyticsSummary(guildId, days, requestUrl.searchParams.get('channelId')));
+                sendJson(res, 200, analyticsStore.getAnalyticsSummary(guildId, days, requestUrl.searchParams.get('channelId'), requestUrl.searchParams.get('userId')));
                 return;
             }
 
@@ -1169,12 +1188,13 @@ function createServer() {
 
             if (req.method === 'POST' && requestUrl.pathname === '/api/config') {
                 const parsed = JSON.parse(await readBody(req) || '{}');
-                const allowed = ['ai', 'features', 'presence', 'commandPermissions', 'panel'];
+                const allowed = ['ai', 'features', 'presence', 'commandPermissions', 'panel', 'analytics'];
                 const updates = Object.fromEntries(allowed.filter(key => parsed[key] && typeof parsed[key] === 'object').map(key => [key, { ...(config[key] || {}), ...parsed[key] }]));
                 if (parsed.ai?.imageSearch) updates.ai = { ...(updates.ai || config.ai), imageSearch: { ...(config.ai?.imageSearch || {}), ...parsed.ai.imageSearch } };
-                saveConfig(updates);
+                Object.assign(config, updates);
+                saveConfig(config);
                 recordActivity('config', 'Global configuration updated from the panel');
-                sendJson(res, 200, { ok: true, config: { ai: config.ai, features: config.features, presence: config.presence, commandPermissions: config.commandPermissions, panel: config.panel } });
+                sendJson(res, 200, { ok: true, config: { ai: config.ai, features: config.features, presence: config.presence, commandPermissions: config.commandPermissions, panel: config.panel, analytics: config.analytics } });
                 return;
             }
 
@@ -1201,6 +1221,28 @@ function createServer() {
                 if (parsed.store === 'shots') shotStore.setShots(userId, 0, guildId, 'panel', { action: 'reset' });
                 if (parsed.store === 'permissions') accessStore.resetUserPermissions(userId, guildId);
                 recordActivity('data-reset', `Reset ${parsed.store} for ${userId}`, { guildId, userId }); sendJson(res, 200, { ok: true }); return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/reliability') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                const storage = folderStats(path.join(dataDir, 'guilds', guildId));
+                const ageDays = storage.oldestAt ? Math.max(1, (Date.now() - new Date(storage.oldestAt).getTime()) / 86400000) : 1;
+                const health = Object.fromEntries(fs.readdirSync(path.join(__dirname, 'events')).filter(name => name.endsWith('.js')).map(name => [name.replace('.js', ''), 'Loaded']));
+                sendJson(res, 200, { storage: { ...storage, forecast30DaysBytes: Math.round(storage.bytes / ageDays * 30) }, lastBackup: latestBackup(guildId), handlerHealth: health });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/reliability/backup') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                const source = path.join(dataDir, 'guilds', guildId); const name = `${new Date().toISOString().replace(/[:.]/g, '-')}.snapshot`; const destination = path.join(backupRoot(guildId), name);
+                fs.mkdirSync(path.dirname(destination), { recursive: true }); fs.cpSync(source, destination, { recursive: true });
+                recordActivity('backup', `Created guild backup ${name}`, { guildId }); sendJson(res, 200, { ok: true, backup: name }); return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/reliability/reconcile-voice') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                const guild = client.guilds.cache.get(guildId); if (!guild) { sendJson(res, 404, { error: 'Guild is not available to the panel client.' }); return; }
+                readyEvent.reconcileVoiceSessions(guild); recordActivity('voice-reconcile', 'Manual voice session reconciliation completed', { guildId }); sendJson(res, 200, { ok: true }); return;
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/health') {
@@ -1235,7 +1277,8 @@ function createServer() {
                     ai: config.ai || {},
                     features: config.features || {},
                     presence: config.presence || {},
-                    panel: config.panel || {}
+                    panel: config.panel || {},
+                    analytics: config.analytics || {}
                 });
                 return;
             }

@@ -504,7 +504,7 @@ function buildAiUserInput(userInput, message, referencedMessage, config) {
     return [
         {
             type: 'text',
-            text: textInput
+            text: `${textInput}\n\nEr is minstens één afbeelding meegestuurd. Bekijk de afbeelding daadwerkelijk en beschrijf of beantwoord concreet wat je ziet. Doe niet alsof je de afbeelding niet kunt zien tenzij de afbeelding zelf onleesbaar is.`
         },
         ...imageParts
     ];

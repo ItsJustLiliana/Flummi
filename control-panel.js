@@ -33,6 +33,7 @@ const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
 const brandingDir = path.join(__dirname, 'assets', 'branding');
 const runtimeFilePath = path.join(__dirname, 'data', 'runtime', 'runtime.json');
+const updateStatusFilePath = path.join(__dirname, 'data', 'runtime', 'update-status.json');
 const dataDir = path.join(__dirname, 'data');
 
 function saveConfig(updates) {
@@ -330,6 +331,7 @@ async function buildOverview(guildId) {
     const voiceSummary = voiceStore.getVoiceStatsSummary(guildId, 5);
     const voiceStats = voiceStore.readVoiceStats(guildId);
     const statsSummary = serverStatsStore.getServerStatsSummary(guildId, 3);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
     const managers = accessStore.getManagerUserIds(guildId);
     const developerIds = accessStore.getDeveloperUserIds();
     const activeVoiceCount = voiceSummary.filter(row => row.inVoice).length;
@@ -357,6 +359,8 @@ async function buildOverview(guildId) {
         activeVoiceCount,
         totalVoiceFormatted: formatDuration(totalVoiceMs),
         totalMessages: statsSummary.totalMessages,
+        analytics: analyticsStore.getAnalyticsSummary(guildId, 7),
+        voiceAnalytics: voiceStore.getVoiceAnalytics(guildId, sevenDaysAgo),
         topChannels: statsSummary.channels,
         managerCount: managers.length,
         developerCount: developerIds.length,
@@ -511,9 +515,10 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/') {
                 const html = fs.readFileSync(indexPath, 'utf8');
                 const tabOrder = Array.isArray(config.panel?.tabOrder) ? config.panel.tabOrder : [];
+                const tabNames = config.panel?.tabNames && typeof config.panel.tabNames === 'object' ? config.panel.tabNames : {};
                 const injected = html.replace(
                     '<!--PANEL_CONFIG-->',
-                    `<script>window.__PANEL_TAB_ORDER__ = ${JSON.stringify(tabOrder)};</script>`
+                    `<script>window.__PANEL_TAB_ORDER__ = ${JSON.stringify(tabOrder)}; window.__PANEL_TAB_NAMES__ = ${JSON.stringify(tabNames)};</script>`
                 );
                 sendHtml(res, injected);
                 return;
@@ -1164,12 +1169,12 @@ function createServer() {
 
             if (req.method === 'POST' && requestUrl.pathname === '/api/config') {
                 const parsed = JSON.parse(await readBody(req) || '{}');
-                const allowed = ['ai', 'features', 'presence', 'commandPermissions'];
+                const allowed = ['ai', 'features', 'presence', 'commandPermissions', 'panel'];
                 const updates = Object.fromEntries(allowed.filter(key => parsed[key] && typeof parsed[key] === 'object').map(key => [key, { ...(config[key] || {}), ...parsed[key] }]));
                 if (parsed.ai?.imageSearch) updates.ai = { ...(updates.ai || config.ai), imageSearch: { ...(config.ai?.imageSearch || {}), ...parsed.ai.imageSearch } };
                 saveConfig(updates);
                 recordActivity('config', 'Global configuration updated from the panel');
-                sendJson(res, 200, { ok: true, config: { ai: config.ai, features: config.features, presence: config.presence, commandPermissions: config.commandPermissions } });
+                sendJson(res, 200, { ok: true, config: { ai: config.ai, features: config.features, presence: config.presence, commandPermissions: config.commandPermissions, panel: config.panel } });
                 return;
             }
 
@@ -1216,13 +1221,21 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'GET' && requestUrl.pathname === '/api/update-status') {
+                let status = {};
+                try { status = JSON.parse(fs.readFileSync(updateStatusFilePath, 'utf8')); } catch { /* updater has not run yet */ }
+                sendJson(res, 200, status);
+                return;
+            }
+
             if (req.method === 'GET' && requestUrl.pathname === '/api/config') {
                 sendJson(res, 200, {
                     developerUserIds: accessStore.getDeveloperUserIds(),
                     commandPermissions: config.commandPermissions || {},
                     ai: config.ai || {},
                     features: config.features || {},
-                    presence: config.presence || {}
+                    presence: config.presence || {},
+                    panel: config.panel || {}
                 });
                 return;
             }

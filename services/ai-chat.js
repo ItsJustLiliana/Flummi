@@ -45,6 +45,12 @@ function getAiConfig() {
         ? aiConfig.visionModels.filter(item => typeof item === 'string' && item.trim().length > 0)
         : DEFAULT_VISION_MODELS;
     const basePersonality = aiConfig.personality || 'You are a friendly but direct Discord community bot. Keep responses concise, helpful, and playful. Avoid spammy repetition and avoid roleplay that pretends to be human.';
+    const conversationQualityInstructions = [
+        'Reageer als een echte gesprekspartner, niet als een bevestigingsknop.',
+        'Antwoord nooit alleen met “ok”, “oke”, “ja”, “prima”, “lol” of een andere kale bevestiging.',
+        'Bij een losse begroeting of korte boodschap zoals “jo”, reageer je natuurlijk terug en voeg je hooguit een korte vraag of opmerking toe.',
+        'Blijf kort, maar geef altijd een antwoord met inhoud dat past bij de toon van de gebruiker.'
+    ].join(' ');
     const imageSearchInstructions = [
         'Als iemand expliciet vraagt om een foto, plaatje, afbeelding, screenshot of visuele referentie die jij online moet zoeken,',
         'zet dan aan het einde van je antwoord exact deze marker: [[image_search: korte zoekopdracht]].',
@@ -60,7 +66,7 @@ function getAiConfig() {
         smartModel: process.env.OPENROUTER_SMART_MODEL || aiConfig.smartModel || aiConfig.model || DEFAULT_MODEL,
         fallbackModels,
         visionModels,
-        botPersonality: `${basePersonality}\n\n${imageSearchInstructions}`,
+        botPersonality: `${basePersonality}\n\n${conversationQualityInstructions}\n\n${imageSearchInstructions}`,
         maxHistoryTurns: Number(aiConfig.maxHistoryTurns || 12),
         maxOutputTokens: Number(aiConfig.maxOutputTokens || 220),
         requestTimeoutMs: Math.max(1000, Number(process.env.OPENROUTER_REQUEST_TIMEOUT_MS || aiConfig.requestTimeoutMs || DEFAULT_REQUEST_TIMEOUT_MS)),
@@ -519,6 +525,7 @@ async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRo
     let lastError = null;
     let attemptedModels = 0;
     let rateLimitedCount = 0;
+    let timeoutCount = 0;
     const availableModels = models.filter(model => {
         if (isModelTemporarilyUnavailable(model)) {
             lastError = `AI model ${model} is temporarily rate limited.`;
@@ -540,6 +547,8 @@ async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRo
 
             if (error instanceof AiChatError && error.code === 'RATE_LIMITED') {
                 rateLimitedCount = attemptedModels;
+            } else if (error instanceof AiChatError && error.code === 'REQUEST_TIMEOUT') {
+                timeoutCount += 1;
             } else if (error instanceof AiChatError && error.code === 'REQUEST_TIMEOUT' && stopAfterRoutedTimeout) {
                 throw error;
             } else if (
@@ -566,6 +575,7 @@ async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRo
         } catch (error) {
             if (error?.name === 'AbortError') {
                 lastError = `AI API request timed out for model ${model}.`;
+                timeoutCount += 1;
                 if (stopAfterRoutedTimeout) {
                     throw new AiChatError(lastError, 'REQUEST_TIMEOUT');
                 }
@@ -612,6 +622,10 @@ async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRo
 
     if (rateLimitedCount > 0 && rateLimitedCount >= attemptedModels) {
         throw new AiChatError(lastError || 'All configured AI models are temporarily rate limited.', 'RATE_LIMITED');
+    }
+
+    if (timeoutCount > 0 && timeoutCount >= attemptedModels) {
+        throw new AiChatError(lastError || 'All configured AI models timed out.', 'REQUEST_TIMEOUT');
     }
 
     throw new AiChatError(lastError || 'No configured model returned a valid response.', 'REQUEST_FAILED');
@@ -665,7 +679,9 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
             messages: messagesWithHistory,
             sessionId,
             userId,
-            stopAfterRoutedTimeout: hasImages
+            // Vision providers are independent. A timeout from one must not
+            // prevent the next configured vision model from receiving the image.
+            stopAfterRoutedTimeout: false
         });
         const parsed = extractImageSearchRequest(reply);
         const text = isImageEchoReply(parsed.text)

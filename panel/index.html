@@ -661,6 +661,10 @@
         .analytics-chart { display:flex; align-items:end; gap:5px; height:180px; padding:12px 0 26px; border-bottom:1px solid var(--border); overflow-x:auto; }
         .analytics-bar { min-width:18px; flex:1; max-width:42px; background:linear-gradient(180deg, #83d9ff, #4e6bff); border-radius:5px 5px 0 0; position:relative; }
         .analytics-bar span { position:absolute; top:calc(100% + 5px); left:50%; transform:translateX(-50%) rotate(-45deg); white-space:nowrap; font-size:10px; color:var(--muted); }
+        .analytics-chart.compact { height:74px; padding:4px 0; gap:3px; border:0; overflow:hidden; }
+        .analytics-chart.compact .analytics-bar { min-width:4px; border-radius:3px 3px 0 0; }
+        .analytics-chart.compact .analytics-bar span { display:none; }
+        .chart-caption { display:flex; justify-content:space-between; margin-top:8px; color:var(--muted); font-size:12px; }
     </style>
 </head>
 
@@ -679,6 +683,10 @@
                     </div>
                 </div>
                 <div class="card-grid" id="overviewCards"></div>
+                <div class="two-col">
+                    <div class="section"><h2>Messages · last 7 days</h2><div id="overviewMessageChart" class="analytics-chart compact"></div><div class="chart-caption"><span>7 days ago</span><span>Today</span></div></div>
+                    <div class="section"><h2>Voice sessions · last 7 days</h2><div id="overviewVoiceChart" class="analytics-chart compact"></div><div class="chart-caption"><span>7 days ago</span><span>Today</span></div></div>
+                </div>
                 <div class="two-col">
                     <div class="section">
                         <h2>Top Shot Totals</h2>
@@ -819,6 +827,7 @@
             <section id="tab-voice" class="tab-panel">
                 <h2 style="font-size:20px;">Voice Time</h2>
                 <div class="card-grid" id="voiceCards"></div>
+                <div class="section"><h2>Voice sessions over time</h2><p class="sub">Completed voice sessions per day.</p><div id="voiceActivityChart" class="analytics-chart"></div></div>
                 <div class="section">
                     <h2>Currently in Voice</h2>
                     <div id="voiceActive" class="table-wrap">
@@ -976,6 +985,18 @@
                             <label for="setMaxTriggerLength">Max trigger length</label>
                             <input id="setMaxTriggerLength" type="number" min="1" max="500">
                         </div>
+                    </div>
+                    <div class="actions">
+                        <span class="sub">Changes apply immediately to the selected guild.</span>
+                        <button id="saveSettings" class="primary" type="button">Save settings</button>
+                    </div>
+                    <p id="settingsStatus" class="status"></p>
+                </div>
+                <div class="section">
+                    <h2>Global Feature Settings</h2>
+                    <p class="sub">These switches apply to every guild. When a global feature is off, its guild-level control is disabled.</p>
+                    <div class="two-col">
+                        <div class="checkbox-row"><input id="featureTriggers" type="checkbox"><label for="featureTriggers" style="margin:0">Triggers</label></div>
                         <div class="checkbox-row"><input id="featureAiConversations" type="checkbox"><label for="featureAiConversations" style="margin:0">AI conversations</label></div>
                         <div class="checkbox-row"><input id="featureAiAttachments" type="checkbox"><label for="featureAiAttachments" style="margin:0">AI attachments</label></div>
                         <div class="checkbox-row"><input id="featureAiImageSearch" type="checkbox"><label for="featureAiImageSearch" style="margin:0">AI image search</label></div>
@@ -983,11 +1004,13 @@
                         <div class="checkbox-row"><input id="featurePingSave" type="checkbox"><label for="featurePingSave" style="margin:0">Save ping requests</label></div>
                         <div class="checkbox-row"><input id="featureShots" type="checkbox"><label for="featureShots" style="margin:0">Shot system</label></div>
                     </div>
-                    <div class="actions">
-                        <span class="sub">Changes apply immediately to the selected guild.</span>
-                        <button id="saveSettings" class="primary" type="button">Save settings</button>
-                    </div>
-                    <p id="settingsStatus" class="status"></p>
+                </div>
+                <div class="section">
+                    <h2>Panel Tab Order</h2>
+                    <p class="sub">Move tabs with the arrows. Divider lines group related tabs in the sidebar.</p>
+                    <div id="tabOrderEditor" class="table-wrap"></div>
+                    <div class="actions"><button id="addTabDivider" class="secondary" type="button">Add divider</button><button id="saveTabOrder" class="primary" type="button">Save tab order</button></div>
+                    <p id="tabOrderStatus" class="status"></p>
                 </div>
                 <div class="section"><h2>Backup &amp; Data Tools</h2><div class="row"><button id="downloadBackup" class="secondary" type="button">Download guild backup</button><button id="loadStorage" class="secondary" type="button">Storage details</button></div><div id="storageDetails" class="table-wrap"></div><div class="row" style="margin-top:12px"><input id="resetDataUser" placeholder="User ID"><select id="resetDataStore"><option value="memory">AI memory</option><option value="profile">Profile</option><option value="voice">Voice data</option><option value="shots">Shots</option><option value="permissions">Permissions</option></select><button id="resetUserData" class="danger" type="button">Reset selected data</button></div></div>
             </section>
@@ -1056,6 +1079,7 @@
                     <h2>Bot Health</h2>
                     <div id="healthCards" class="card-grid"></div>
                 </div>
+                <div class="section"><h2>GitHub Update Status</h2><div id="updateStatusCards" class="card-grid"></div></div>
                 <div class="section">
                     <h2>Bot Runtime Instances</h2>
                     <div id="runtimeTable" class="table-wrap">
@@ -1357,6 +1381,7 @@
         // ---------- Tabs ----------
         const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
         const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
+        const defaultTabLabels = Object.fromEntries(tabButtons.map(button => [button.dataset.tab, button.textContent.trim()]));
         const tabLoaders = {
             overview: loadOverview,
             analytics: loadAnalytics,
@@ -1441,7 +1466,15 @@
             }
         }
 
+        function applyTabNames(names) {
+            for (const button of tabButtons) {
+                const name = typeof names?.[button.dataset.tab] === 'string' ? names[button.dataset.tab].trim() : '';
+                button.textContent = name || defaultTabLabels[button.dataset.tab];
+            }
+        }
+
         applyTabOrder(window.__PANEL_TAB_ORDER__);
+        applyTabNames(window.__PANEL_TAB_NAMES__);
 
         // ---------- Invite link ----------
         async function loadInviteLink() {
@@ -1632,6 +1665,16 @@
             `).join('');
         }
 
+        function renderActivityChart(containerId, rows, emptyMessage) {
+            const container = document.getElementById(containerId);
+            const values = Array.isArray(rows) ? rows : [];
+            const maximum = Math.max(1, ...values.map(row => Number(row.count) || 0));
+            const height = container.classList.contains('compact') ? 66 : 140;
+            container.innerHTML = values.length
+                ? values.map(row => `<div class="analytics-bar" title="${escapeHtml(row.date)}: ${Number(row.count) || 0}" style="height:${Math.max(4, Math.round((Number(row.count) || 0) / maximum * height))}px"><span>${escapeHtml(String(row.date).slice(5))}</span></div>`).join('')
+                : `<div class="empty">${escapeHtml(emptyMessage)}</div>`;
+        }
+
         async function loadOverview() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/overview'));
@@ -1656,6 +1699,9 @@
                 statCard('Managers', data.managerCount),
                 statCard('Developers', data.developerCount)
             ].join('');
+
+            renderActivityChart('overviewMessageChart', data.analytics?.dailyMessages, 'No messages tracked yet.');
+            renderActivityChart('overviewVoiceChart', data.voiceAnalytics?.activeOverTime, 'No voice sessions tracked yet.');
 
             renderTable(document.getElementById('overviewShots'),
                 [
@@ -1922,6 +1968,7 @@
                 statCard('In Voice Now', data.activeSessions.length),
                 statCard('Tracked Users', data.leaderboard.length)
             ].join('');
+            renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.');
 
             renderTable(document.getElementById('voiceActive'),
                 [
@@ -2070,10 +2117,7 @@
                 statCard('Messages', data.messageCount), statCard('Unique Authors', data.uniqueAuthors),
                 statCard('Voice Events', data.voiceEvents), statCard('Period', `${data.periodDays} days`)
             ].join('');
-            const maximum = Math.max(1, ...data.dailyMessages.map(row => row.count));
-            document.getElementById('analyticsChart').innerHTML = data.dailyMessages.length
-                ? data.dailyMessages.map(row => `<div class="analytics-bar" title="${escapeHtml(row.date)}: ${row.count} messages" style="height:${Math.max(4, Math.round(row.count / maximum * 140))}px"><span>${escapeHtml(row.date.slice(5))}</span></div>`).join('')
-                : '<div class="empty">No events in this period yet.</div>';
+            renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.');
             renderTable(document.getElementById('analyticsChannels'), [{ label: 'Channel', key: 'name', render: r => `#${escapeHtml(r.name)}` }, { label: 'Messages', key: 'count' }], data.topChannels, 'No channel activity yet.');
             renderTable(document.getElementById('analyticsUsers'), [{ label: 'Member', key: 'name', render: r => escapeHtml(r.name) }, { label: 'Messages', key: 'count' }], data.topUsers, 'No member activity yet.');
         }
@@ -2592,6 +2636,29 @@
         });
 
         // ---------- Settings ----------
+        let editableTabOrder = [];
+        let editableTabNames = {};
+
+        function tabLabel(tabId) {
+            return tabButtons.find(button => button.dataset.tab === tabId)?.textContent.trim() || tabId;
+        }
+
+        function renderTabOrderEditor() {
+            const container = document.getElementById('tabOrderEditor');
+            container.innerHTML = editableTabOrder.length ? `<table><tbody>${editableTabOrder.map((entry, index) => {
+                const divider = isDividerToken(entry);
+                return `<tr><td>${divider ? '<span class="muted">──────── Divider ────────</span>' : `<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name">`}</td><td style="width:1%;white-space:nowrap"><button class="secondary" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> <button class="danger" data-tab-order="remove" data-index="${index}">Remove</button></td></tr>`;
+            }).join('')}</tbody></table>` : '<div class="empty">No tabs configured.</div>';
+            container.querySelectorAll('[data-tab-order]').forEach(button => button.addEventListener('click', () => {
+                const index = Number(button.dataset.index); const action = button.dataset.tabOrder;
+                if (action === 'remove') editableTabOrder.splice(index, 1);
+                if (action === 'up' && index > 0) [editableTabOrder[index - 1], editableTabOrder[index]] = [editableTabOrder[index], editableTabOrder[index - 1]];
+                if (action === 'down' && index < editableTabOrder.length - 1) [editableTabOrder[index + 1], editableTabOrder[index]] = [editableTabOrder[index], editableTabOrder[index + 1]];
+                renderTabOrderEditor();
+            }));
+            container.querySelectorAll('[data-tab-name]').forEach(input => input.addEventListener('input', () => { editableTabNames[input.dataset.tabName] = input.value; }));
+        }
+
         async function loadSettings() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/settings'));
@@ -2604,13 +2671,42 @@
             document.getElementById('setExactMatch').checked = s.exactTriggerMatch;
             document.getElementById('setMaxTriggerLength').value = s.maxTriggerLength;
             const configData = await api('/api/config'); const f = configData.features || {};
+            document.getElementById('featureTriggers').checked = f.triggersEnabled !== false;
             document.getElementById('featureAiConversations').checked = f.aiConversationsEnabled !== false;
             document.getElementById('featureAiAttachments').checked = f.aiAttachmentsEnabled !== false;
             document.getElementById('featureAiImageSearch').checked = f.aiImageSearchEnabled !== false;
             document.getElementById('featurePingResponses').checked = f.pingResponsesEnabled !== false;
             document.getElementById('featurePingSave').checked = f.pingRequestSaveEnabled !== false;
             document.getElementById('featureShots').checked = f.shotsEnabled !== false;
+            syncGlobalFeatureState();
+            editableTabOrder = Array.isArray(configData.panel?.tabOrder) && configData.panel.tabOrder.length
+                ? [...configData.panel.tabOrder]
+                : tabButtons.map(button => button.dataset.tab);
+            editableTabNames = { ...(configData.panel?.tabNames || {}) };
+            renderTabOrderEditor();
         }
+
+        function syncGlobalFeatureState() {
+            const guildTriggers = document.getElementById('setTriggersEnabled');
+            const globalTriggersOn = document.getElementById('featureTriggers').checked;
+            guildTriggers.disabled = !globalTriggersOn;
+            guildTriggers.closest('.checkbox-row').style.opacity = globalTriggersOn ? '1' : '.45';
+            guildTriggers.closest('.checkbox-row').title = globalTriggersOn ? '' : 'Disabled globally in Global Feature Settings.';
+        }
+
+        document.getElementById('featureTriggers').addEventListener('change', syncGlobalFeatureState);
+
+        document.getElementById('addTabDivider').addEventListener('click', () => { editableTabOrder.push('---'); renderTabOrderEditor(); });
+        document.getElementById('saveTabOrder').addEventListener('click', async () => {
+            const status = document.getElementById('tabOrderStatus');
+            try {
+                const tabNames = Object.fromEntries(Object.entries(editableTabNames).map(([id, name]) => [id, String(name).trim()]).filter(([, name]) => name));
+                const result = await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ panel: { tabOrder: editableTabOrder, tabNames } }) });
+                applyTabOrder(result.config?.panel?.tabOrder || editableTabOrder);
+                applyTabNames(result.config?.panel?.tabNames || tabNames);
+                setStatus(status, 'Tab order saved.', 'ok');
+            } catch (error) { setStatus(status, error.message, 'error'); }
+        });
 
         document.getElementById('saveSettings').addEventListener('click', () => {
             saveSettings().catch(error => setStatus(document.getElementById('settingsStatus'), error.message, 'error'));
@@ -2640,6 +2736,7 @@
             });
 
             await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: {
+                triggersEnabled: document.getElementById('featureTriggers').checked,
                 aiConversationsEnabled: document.getElementById('featureAiConversations').checked,
                 aiAttachmentsEnabled: document.getElementById('featureAiAttachments').checked,
                 aiImageSearchEnabled: document.getElementById('featureAiImageSearch').checked,
@@ -2736,6 +2833,12 @@
                 ], 'No usage data yet.');
 
             const runtime = await api('/api/runtime');
+            const updateStatus = await api('/api/update-status');
+            document.getElementById('updateStatusCards').innerHTML = [
+                statCard('Last update check', updateStatus.lastCheckedAt ? formatDateTime(updateStatus.lastCheckedAt) : 'Never'),
+                statCard('Last GitHub pull', updateStatus.lastUpdatedAt ? formatDateTime(updateStatus.lastUpdatedAt) : 'Never'),
+                statCard('Pulled commit', updateStatus.lastUpdatedCommit || '—')
+            ].join('');
 
             renderTable(document.getElementById('runtimeTable'),
                 [

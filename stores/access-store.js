@@ -4,6 +4,8 @@ const { readConfig } = require('../utils/config');
 const config = readConfig();
 
 const dataDir = path.join(__dirname, '..', 'data');
+const roleSimulationPath = path.join(dataDir, 'runtime', 'developer-role-simulations.json');
+const guildOwnerCache = new Map();
 
 function readJson(filePath, fallbackValue) {
     try {
@@ -27,8 +29,41 @@ function resolveGuildPaths(guildId) {
 
     return {
         managers: path.join(base, 'managers.json'),
-        userPermissions: path.join(base, 'userPermissions.json')
+        userPermissions: path.join(base, 'userPermissions.json'),
+        owner: path.join(base, 'owner.json')
     };
+}
+
+function getGuildOwnerUserId(guildId) {
+    const guildPaths = resolveGuildPaths(guildId);
+    if (!guildPaths) return null;
+    const cacheKey = String(guildId);
+    if (guildOwnerCache.has(cacheKey)) return guildOwnerCache.get(cacheKey);
+    const record = readJson(guildPaths.owner, null);
+    const ownerId = typeof record === 'string' ? record : (record?.userId ? String(record.userId) : null);
+    guildOwnerCache.set(cacheKey, ownerId);
+    return ownerId;
+}
+
+function setGuildOwner(guildId, userId) {
+    const guildPaths = resolveGuildPaths(guildId);
+    if (!guildPaths || !userId) return null;
+    const normalizedUserId = String(userId);
+    const cacheKey = String(guildId);
+    if (getGuildOwnerUserId(guildId) !== normalizedUserId) {
+        writeJson(guildPaths.owner, { userId: normalizedUserId, updatedAt: new Date().toISOString() });
+    }
+    guildOwnerCache.set(cacheKey, normalizedUserId);
+    const managers = readJson(guildPaths.managers, []);
+    if (Array.isArray(managers) && managers.some(id => String(id) === normalizedUserId)) {
+        writeJson(guildPaths.managers, managers.filter(id => String(id) !== normalizedUserId));
+    }
+    return normalizedUserId;
+}
+
+function isGuildOwner(userId, guildId) {
+    const ownerId = getGuildOwnerUserId(guildId);
+    return Boolean(ownerId && ownerId === String(userId));
 }
 
 function getDeveloperUserIds() {
@@ -44,21 +79,66 @@ function getManagerUserIds(guildId) {
         ? readJson(guildPaths.managers, [])
         : [];
 
+    const ownerId = getGuildOwnerUserId(guildId);
     return Array.from(new Set([
         ...(Array.isArray(config.managerUserIds) ? config.managerUserIds : []),
         ...(Array.isArray(fileManagers) ? fileManagers : [])
-    ].map(String)));
+    ].map(String))).filter(id => id !== ownerId);
 }
 
-function isDeveloper(userId) {
+function isConfiguredDeveloper(userId) {
     return getDeveloperUserIds().includes(String(userId));
 }
 
+function readDeveloperRoleSimulations() {
+    const simulations = readJson(roleSimulationPath, {});
+    return simulations && typeof simulations === 'object' && !Array.isArray(simulations) ? simulations : {};
+}
+
+function getDeveloperRoleSimulation(userId) {
+    if (!isConfiguredDeveloper(userId)) return null;
+    const simulations = readDeveloperRoleSimulations();
+    const simulation = simulations[String(userId)];
+    if (!simulation || !['manager', 'user'].includes(simulation.role)) return null;
+    if (!simulation.expiresAt || new Date(simulation.expiresAt).getTime() <= Date.now()) {
+        delete simulations[String(userId)];
+        writeJson(roleSimulationPath, simulations);
+        return null;
+    }
+    return simulation;
+}
+
+function setDeveloperRoleSimulation(userId, role, durationMs = 2 * 60 * 60 * 1000) {
+    if (!isConfiguredDeveloper(userId)) throw new Error('Only configured developers can simulate a Discord role.');
+    const simulations = readDeveloperRoleSimulations();
+    const normalizedRole = String(role || '').toLowerCase();
+    if (normalizedRole === 'developer') {
+        delete simulations[String(userId)];
+        writeJson(roleSimulationPath, simulations);
+        return null;
+    }
+    if (!['manager', 'user'].includes(normalizedRole)) throw new Error('Role must be developer, manager, or user.');
+    const simulation = { role: normalizedRole, expiresAt: new Date(Date.now() + durationMs).toISOString() };
+    simulations[String(userId)] = simulation;
+    writeJson(roleSimulationPath, simulations);
+    return simulation;
+}
+
+function isDeveloper(userId) {
+    return isConfiguredDeveloper(userId) && !getDeveloperRoleSimulation(userId);
+}
+
 function isManager(userId, guildId) {
+    if (isGuildOwner(userId, guildId)) return true;
+    const simulation = getDeveloperRoleSimulation(userId);
+    if (simulation) return simulation.role === 'manager';
     return isDeveloper(userId) || getManagerUserIds(guildId).includes(String(userId));
 }
 
 function getUserRole(userId, guildId) {
+    if (isGuildOwner(userId, guildId)) return 'owner';
+    const simulation = getDeveloperRoleSimulation(userId);
+    if (simulation) return simulation.role;
     if (isDeveloper(userId)) {
         return 'developer';
     }
@@ -73,7 +153,7 @@ function getUserRole(userId, guildId) {
 function normalizeRole(role, fallbackRole = 'user') {
     const normalized = String(role || '').trim().toLowerCase();
 
-    if (['user', 'manager', 'developer'].includes(normalized)) {
+    if (['user', 'manager', 'owner', 'developer'].includes(normalized)) {
         return normalized;
     }
 
@@ -98,6 +178,7 @@ function roleMeetsRequirement(userRole, requiredRole) {
     const ranks = {
         user: 0,
         manager: 1,
+        owner: 1,
         developer: 2
     };
 
@@ -342,6 +423,8 @@ function setManagerRole(userId, shouldBeManager, guildId) {
         return [];
     }
 
+    if (isGuildOwner(userId, guildId)) return getManagerUserIds(guildId);
+
     const managers = readJson(guildPaths.managers, []);
 
     const normalized = Array.isArray(managers) ? managers : [];
@@ -372,10 +455,7 @@ function canAddTriggers(userId, guildId) {
         return true;
     }
 
-    if (isManager(userId, guildId)) {
-        return getUserPermissions(userId, guildId).addTriggers;
-    }
-
+    if (!isManager(userId, guildId)) return false;
     return getUserPermissions(userId, guildId).addTriggers;
 }
 
@@ -409,6 +489,9 @@ function resetUserPermissions(userId, guildId) {
 }
 
 module.exports = {
+    getGuildOwnerUserId,
+    setGuildOwner,
+    isGuildOwner,
     getDeveloperUserIds,
     getManagerUserIds,
     getUserRole,
@@ -417,6 +500,7 @@ module.exports = {
     getUserCommandOverrides,
     normalizeCommandPath,
     roleMeetsRequirement,
+    isConfiguredDeveloper,
     isDeveloper,
     isManager,
     canUseCommandPath,
@@ -431,5 +515,7 @@ module.exports = {
     canUseBotMentions,
     canSavePingRequests,
     canUseTriggerCommands,
-    resetUserPermissions
+    resetUserPermissions,
+    getDeveloperRoleSimulation,
+    setDeveloperRoleSimulation
 };

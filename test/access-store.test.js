@@ -4,13 +4,19 @@ const path = require('path');
 const assert = require('node:assert/strict');
 const {
     canSavePingRequests,
+    canAddTriggers,
     canUseAiChat,
     canUseBotMentions,
     canUseCommandPath,
     canUseTriggers,
     getRequiredCommandRole,
+    getManagerUserIds,
+    getUserRole,
     getUserPermissions,
+    isManager,
     roleMeetsRequirement,
+    setGuildOwner,
+    setManagerRole,
     setUserCommandPermission,
     setUserPermission
 } = require('../stores/access-store');
@@ -22,6 +28,7 @@ function cleanupGuild(guildId) {
 
 test('command permissions resolve top-level and subcommand roles from config', () => {
     assert.equal(getRequiredCommandRole('trigger', null, null), 'user');
+    assert.equal(getRequiredCommandRole('trigger', 'add', null), 'manager');
     assert.equal(getRequiredCommandRole('trigger', 'remove', null), 'manager');
     assert.equal(getRequiredCommandRole('trigger', 'audit', null), 'developer');
     assert.equal(getRequiredCommandRole('manage', 'role', null), 'developer');
@@ -35,6 +42,33 @@ test('role requirements follow user manager developer order', () => {
     assert.equal(roleMeetsRequirement('manager', 'user'), true);
     assert.equal(roleMeetsRequirement('manager', 'developer'), false);
     assert.equal(roleMeetsRequirement('developer', 'manager'), true);
+    assert.equal(roleMeetsRequirement('owner', 'manager'), true);
+    assert.equal(roleMeetsRequirement('owner', 'developer'), false);
+});
+
+test('server owner is an immutable manager and other members default to user', () => {
+    const guildId = `test-owner-access-${process.pid}`;
+    const ownerId = '999010';
+    cleanupGuild(guildId);
+
+    try {
+        setGuildOwner(guildId, ownerId);
+
+        assert.equal(getUserRole(ownerId, guildId), 'owner');
+        assert.equal(isManager(ownerId, guildId), true);
+        assert.equal(getUserRole('999011', guildId), 'user');
+        assert.equal(canAddTriggers('999011', guildId), false);
+
+        setManagerRole(ownerId, false, guildId);
+        assert.equal(getUserRole(ownerId, guildId), 'owner');
+        assert.equal(getManagerUserIds(guildId).includes(ownerId), false);
+
+        setManagerRole('999011', true, guildId);
+        assert.equal(getUserRole('999011', guildId), 'manager');
+        assert.equal(canAddTriggers('999011', guildId), true);
+    } finally {
+        cleanupGuild(guildId);
+    }
 });
 
 test('user command overrides can block, allow, and inherit command paths', () => {

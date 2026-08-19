@@ -15,6 +15,11 @@ const defaultSettings = {
 
 const featureKeys = ['triggersEnabled', 'aiConversationsEnabled', 'aiAttachmentsEnabled', 'aiImageSearchEnabled', 'pingResponsesEnabled', 'pingRequestSaveEnabled', 'shotsEnabled'];
 
+function boundedInteger(value, minimum, maximum, fallback) {
+    if (!Number.isFinite(value)) return fallback;
+    return Math.min(maximum, Math.max(minimum, Math.floor(value)));
+}
+
 function normalizeFeatures(value) {
     const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     return Object.fromEntries(featureKeys.filter(key => typeof source[key] === 'boolean').map(key => [key, source[key]]));
@@ -62,14 +67,11 @@ function normalizeSettings(source) {
                     : true,
         triggerActionCooldownSeconds:
             Number.isFinite(safeSource.triggerActionCooldownSeconds)
-                ? safeSource.triggerActionCooldownSeconds
+                ? boundedInteger(safeSource.triggerActionCooldownSeconds, 0, 3600, defaultSettings.triggerActionCooldownSeconds)
                 : Number.isFinite(safeSource.commandCooldownSeconds)
-                    ? safeSource.commandCooldownSeconds
-                    : 10,
-        maxTriggerLength:
-            Number.isFinite(safeSource.maxTriggerLength) && safeSource.maxTriggerLength > 0
-                ? Math.floor(safeSource.maxTriggerLength)
-                : defaultSettings.maxTriggerLength,
+                    ? boundedInteger(safeSource.commandCooldownSeconds, 0, 3600, defaultSettings.triggerActionCooldownSeconds)
+                    : defaultSettings.triggerActionCooldownSeconds,
+        maxTriggerLength: boundedInteger(safeSource.maxTriggerLength, 1, 200, defaultSettings.maxTriggerLength),
         exactTriggerMatch:
             typeof safeSource.exactTriggerMatch === 'boolean'
                 ? safeSource.exactTriggerMatch
@@ -116,13 +118,8 @@ function writeSettings(settings, guildId) {
                 ? settings.triggerActionCooldownEnabled
                 : defaultSettings.triggerActionCooldownEnabled,
         triggerActionCooldownSeconds:
-            Number.isFinite(settings.triggerActionCooldownSeconds)
-                ? settings.triggerActionCooldownSeconds
-                : defaultSettings.triggerActionCooldownSeconds,
-        maxTriggerLength:
-            Number.isFinite(settings.maxTriggerLength) && settings.maxTriggerLength > 0
-                ? Math.floor(settings.maxTriggerLength)
-                : defaultSettings.maxTriggerLength,
+            boundedInteger(settings.triggerActionCooldownSeconds, 0, 3600, defaultSettings.triggerActionCooldownSeconds),
+        maxTriggerLength: boundedInteger(settings.maxTriggerLength, 1, 200, defaultSettings.maxTriggerLength),
         exactTriggerMatch:
             typeof settings.exactTriggerMatch === 'boolean'
                 ? settings.exactTriggerMatch

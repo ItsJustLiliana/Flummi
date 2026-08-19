@@ -108,18 +108,35 @@ function requirePanelAccess(req, res) {
 }
 
 function isDeveloperSession(session) {
-    return Boolean(session && (session.isDeveloper || accessStore.isDeveloper(session.userId)));
+    return Boolean(session && (session.isDeveloper || accessStore.isConfiguredDeveloper(session.userId)));
+}
+
+function getPreviewPanelRole(session) {
+    if (!isDeveloperSession(session)) return null;
+    if (['manager', 'user'].includes(session.previewPanelRole)) return session.previewPanelRole;
+    return session.previewAdminView === true ? 'manager' : null;
+}
+
+function hasDeveloperView(session) {
+    return isDeveloperSession(session) && !getPreviewPanelRole(session);
+}
+
+function getPanelGuildRole(session, guildId) {
+    if (hasDeveloperView(session)) return 'developer';
+    const previewRole = getPreviewPanelRole(session);
+    if (previewRole) return previewRole;
+    return accessStore.getUserRole(session?.userId, guildId);
 }
 
 function canAccessGuild(session, guildId) {
     if (!session || !guildId) return false;
-    if (isDeveloperSession(session)) return true;
+    if (hasDeveloperView(session)) return true;
     return Array.isArray(session.adminGuildIds) && session.adminGuildIds.includes(String(guildId));
 }
 
 async function hasCurrentGuildAccess(session, guildId) {
     if (!canAccessGuild(session, guildId)) return false;
-    if (isDeveloperSession(session)) return true;
+    if (hasDeveloperView(session)) return true;
     try {
         const guild = await client.guilds.fetch(String(guildId));
         const member = await guild.members.fetch(String(session.userId));
@@ -131,19 +148,71 @@ async function hasCurrentGuildAccess(session, guildId) {
 
 async function requireGuildAccess(session, guildId, res) {
     if (await hasCurrentGuildAccess(session, guildId)) return true;
+    const previouslyAllowed = Array.isArray(session?.adminGuildIds) && session.adminGuildIds.includes(String(guildId));
+    if (!isDeveloperSession(session) && previouslyAllowed) {
+        panelSessions.delete(session.key);
+        persistPanelSessions();
+        sendJson(res, 401, { error: 'Your Discord Administrator access changed. Sign in again to refresh access.' });
+        return false;
+    }
     sendJson(res, 403, { error: 'You do not have administrator access to this server.' });
     return false;
 }
 
 function requireDeveloperAccess(session, res) {
-    if (isDeveloperSession(session)) return true;
+    if (hasDeveloperView(session)) return true;
     sendJson(res, 403, { error: 'This feature is only available to Flummi developers.' });
     return false;
 }
 
+async function canManageGuildManagers(session, guildId) {
+    if (hasDeveloperView(session)) return true;
+    try {
+        const guild = await client.guilds.fetch(String(guildId));
+        accessStore.setGuildOwner(guild.id, guild.ownerId);
+        return String(guild.ownerId) === String(session?.userId);
+    } catch {
+        return false;
+    }
+}
+
+async function requireManagerManagementAccess(session, guildId, res) {
+    if (await canManageGuildManagers(session, guildId)) return true;
+    sendJson(res, 403, { error: 'Only the server owner can add or remove managers.' });
+    return false;
+}
+
+async function requireGuildManagerAccess(session, guildId, res, errorMessage) {
+    if (hasDeveloperView(session)) return true;
+    try {
+        const guild = await client.guilds.fetch(String(guildId));
+        accessStore.setGuildOwner(guild.id, guild.ownerId);
+    } catch {
+        sendJson(res, 403, { error: 'Could not verify your settings role for this server.' });
+        return false;
+    }
+    const role = getPanelGuildRole(session, guildId);
+    if (role === 'owner' || role === 'manager') return true;
+    sendJson(res, 403, { error: errorMessage || 'This feature requires the server owner or a manager.' });
+    return false;
+}
+
+async function requireSettingsAccess(session, guildId, res) {
+    return requireGuildManagerAccess(session, guildId, res, 'Settings can only be changed by the server owner or a manager.');
+}
+
+function auditPanelAction(session, type, message, details = {}) {
+    recordActivity(type, message, {
+        ...details,
+        actorId: session?.userId || 'unknown',
+        actorName: session?.username || 'Unknown panel user',
+        source: 'panel'
+    });
+}
+
 function loginPage(message = '') {
     const safeMessage = String(message).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]));
-    return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flummi Panel</title><style>body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px;background:#0b1020;color:#edf2ff;font:16px Segoe UI,sans-serif;box-sizing:border-box}.card{width:min(420px,100%);padding:32px;border:1px solid #243157;border-radius:16px;background:#111a33;box-shadow:0 16px 50px #0006;box-sizing:border-box}h1{margin:0 0 8px}.sub{color:#a5b1d8;line-height:1.5}a{display:block;margin-top:24px;padding:12px 16px;border-radius:9px;background:#5865f2;color:white;text-align:center;text-decoration:none;font-weight:700}.error{margin-top:14px;color:#ffbf5b}</style><main class="card"><h1>Flummi Admin Panel</h1><p class="sub">Sign in with Discord to manage servers where you have Administrator permission.</p>${safeMessage ? `<p class="error">${safeMessage}</p>` : ''}<a href="/auth/login">Continue with Discord</a></main></html>`;
+    return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flummi Panel</title><style>body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px;background:#0b1020;color:#edf2ff;font:16px Segoe UI,sans-serif;box-sizing:border-box}.card{width:min(420px,100%);padding:32px;border:1px solid #243157;border-radius:16px;background:#111a33;box-shadow:0 16px 50px #0006;box-sizing:border-box}h1{margin:0 0 8px}.sub{color:#a5b1d8;line-height:1.5}a{display:block;margin-top:24px;padding:12px 16px;border-radius:9px;background:#5865f2;color:white;text-align:center;text-decoration:none;font-weight:700}.error{margin-top:14px;color:#ffbf5b}</style><main class="card"><h1>Flummi Dashboard</h1><p class="sub">Sign in with Discord to manage servers where you have Administrator permission.</p>${safeMessage ? `<p class="error">${safeMessage}</p>` : ''}<a href="/auth/login">Continue with Discord</a></main></html>`;
 }
 
 function cleanupAuthRecords() {
@@ -329,14 +398,15 @@ async function listGuilds(session) {
     await client.guilds.fetch();
 
     const guilds = Array.from(client.guilds.cache.values());
-    const permitted = isDeveloperSession(session)
+    for (const guild of guilds) accessStore.setGuildOwner(guild.id, guild.ownerId);
+    const permitted = hasDeveloperView(session)
         ? guilds
         : (await Promise.all(guilds.map(async guild => ({ guild, allowed: await hasCurrentGuildAccess(session, guild.id) }))))
             .filter(result => result.allowed)
             .map(result => result.guild);
 
     return permitted
-        .map(guild => ({ id: guild.id, name: guild.name }))
+        .map(guild => ({ id: guild.id, name: guild.name, role: getPanelGuildRole(session, guild.id) }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -352,6 +422,7 @@ async function listGuildMembers(guildId) {
     }
 
     const guild = await client.guilds.fetch(guildId);
+    accessStore.setGuildOwner(guild.id, guild.ownerId);
 
     let fetched;
 
@@ -456,6 +527,7 @@ const verificationLevelLabels = {
 async function buildGuildInfo(guildId) {
     const guild = await client.guilds.fetch(guildId);
     await guild.fetch();
+    accessStore.setGuildOwner(guild.id, guild.ownerId);
 
     const owner = await guild.fetchOwner().catch(() => null);
 
@@ -734,9 +806,10 @@ function createServer() {
                 cleanupAuthRecords();
                 const state = crypto.randomBytes(32).toString('hex');
                 const redirectUri = `${panelPublicUrl(req)}/auth/callback`;
-                oauthStates.set(state, { redirectUri, expiresAt: Date.now() + 10 * 60 * 1000 });
+                const previousSession = requestUrl.searchParams.get('refresh') === '1' ? sessionFor(req) : null;
+                oauthStates.set(state, { redirectUri, previousSessionKey: previousSession?.key || null, expiresAt: Date.now() + 10 * 60 * 1000 });
                 const authorize = new URL('https://discord.com/oauth2/authorize');
-                authorize.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: redirectUri, response_type: 'code', scope: 'identify guilds', state }).toString();
+                authorize.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: redirectUri, response_type: 'code', scope: 'identify guilds', state, ...(previousSession ? { prompt: 'consent' } : {}) }).toString();
                 sendRedirect(res, authorize.toString());
                 return;
             }
@@ -766,17 +839,14 @@ function createServer() {
                     const user = await userResponse.json();
                     if (!userResponse.ok || !user?.id) throw new Error('Discord user lookup failed.');
 
-                    const isDeveloper = accessStore.isDeveloper(user.id);
-                    let adminGuildIds = [];
-                    if (!isDeveloper) {
-                        const guildResponse = await fetch('https://discord.com/api/users/@me/guilds', { headers: { Authorization: `Bearer ${token.access_token}` } });
-                        const userGuilds = await guildResponse.json();
-                        if (!guildResponse.ok || !Array.isArray(userGuilds)) throw new Error('Discord server lookup failed.');
-                        const administratorPermission = PermissionsBitField.Flags.Administrator;
-                        adminGuildIds = userGuilds
-                            .filter(guild => guild.owner || (BigInt(guild.permissions || '0') & administratorPermission) === administratorPermission)
-                            .map(guild => String(guild.id));
-                    }
+                    const isDeveloper = accessStore.isConfiguredDeveloper(user.id);
+                    const guildResponse = await fetch('https://discord.com/api/users/@me/guilds', { headers: { Authorization: `Bearer ${token.access_token}` } });
+                    const userGuilds = await guildResponse.json();
+                    if (!guildResponse.ok || !Array.isArray(userGuilds)) throw new Error('Discord server lookup failed.');
+                    const administratorPermission = PermissionsBitField.Flags.Administrator;
+                    let adminGuildIds = userGuilds
+                        .filter(guild => guild.owner || (BigInt(guild.permissions || '0') & administratorPermission) === administratorPermission)
+                        .map(guild => String(guild.id));
 
                     await client.guilds.fetch();
                     const availableGuildIds = new Set(client.guilds.cache.keys());
@@ -788,6 +858,7 @@ function createServer() {
 
                     const sessionToken = crypto.randomBytes(32).toString('hex');
                     panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, isDeveloper, adminGuildIds, expiresAt: Date.now() + sessionDurationMs });
+                    if (record.previousSessionKey) panelSessions.delete(record.previousSessionKey);
                     persistPanelSessions();
                     const secure = record.redirectUri.startsWith('https://') ? '; Secure' : '';
                     res.writeHead(302, { Location: '/', 'Set-Cookie': `flummi_panel_session=${sessionToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(sessionDurationMs / 1000)}${secure}` });
@@ -803,7 +874,14 @@ function createServer() {
                 const session = requirePanelAccess(req, res);
                 if (!session) return;
                 const avatarUrl = session.avatar ? `https://cdn.discordapp.com/avatars/${session.userId}/${session.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${Number(session.userId) % 5}.png`;
-                sendJson(res, 200, { user: { id: session.userId, username: session.username, avatarUrl }, role: isDeveloperSession(session) ? 'developer' : 'admin' });
+                sendJson(res, 200, {
+                    user: { id: session.userId, username: session.username, avatarUrl },
+                    role: hasDeveloperView(session) ? 'developer' : (getPreviewPanelRole(session) || 'user'),
+                    actualRole: isDeveloperSession(session) ? 'developer' : 'admin',
+                    previewAdminView: Boolean(getPreviewPanelRole(session)),
+                    previewPanelRole: getPreviewPanelRole(session),
+                    discordRoleSimulation: accessStore.getDeveloperRoleSimulation(session.userId)
+                });
                 return;
             }
 
@@ -848,17 +926,24 @@ function createServer() {
                 panelSession = requirePanelAccess(req, res);
                 if (!panelSession) return;
 
+                if (requestUrl.pathname === '/api/experiments' && !isDeveloperSession(panelSession)) {
+                    sendJson(res, 403, { error: 'Experiments are only available to configured developers.' });
+                    return;
+                }
+
                 const developerPaths = new Set([
                     '/api/ai-memory', '/api/profile', '/api/serper-usage', '/api/logs', '/api/activity',
                     '/api/bot-profile', '/api/bot-profile/application', '/api/bot-profile/guild', '/api/config',
                     '/api/data-tools', '/api/backup', '/api/data-tools/reset', '/api/reliability',
                     '/api/ai-health', '/api/reliability/backup', '/api/reliability/reconcile-voice',
-                    '/api/health', '/api/runtime', '/api/update-status'
+                    '/api/health', '/api/runtime', '/api/update-status', '/api/send'
                 ]);
                 if (developerPaths.has(requestUrl.pathname) && !requireDeveloperAccess(panelSession, res)) return;
 
                 const requestedGuildId = requestUrl.searchParams.get('guildId');
                 if (requestedGuildId && !await requireGuildAccess(panelSession, requestedGuildId, res)) return;
+                if (requestedGuildId && requestUrl.pathname === '/api/triggers' && req.method !== 'GET'
+                    && !await requireGuildManagerAccess(panelSession, requestedGuildId, res, 'Triggers can only be managed by the server owner or a manager.')) return;
             }
 
             if (req.method === 'GET' && requestUrl.pathname.startsWith('/assets/branding/')) {
@@ -876,7 +961,64 @@ function createServer() {
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/guilds') {
                 const guilds = await listGuilds(panelSession);
+                if (!isDeveloperSession(panelSession) && guilds.length === 0) {
+                    panelSessions.delete(panelSession.key);
+                    persistPanelSessions();
+                    sendJson(res, 401, { error: 'Your Discord Administrator access changed. Sign in again to refresh access.' });
+                    return;
+                }
                 sendJson(res, 200, { guilds });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/experiments') {
+                sendJson(res, 200, {
+                    previewAdminView: Boolean(getPreviewPanelRole(panelSession)),
+                    previewPanelRole: getPreviewPanelRole(panelSession) || 'manager',
+                    discordRole: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.role || 'developer',
+                    expiresAt: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.expiresAt || null
+                });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/experiments') {
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                if (typeof parsed.previewAdminView === 'boolean') {
+                    if (parsed.previewAdminView && (!Array.isArray(panelSession.adminGuildIds) || panelSession.adminGuildIds.length === 0)) {
+                        sendJson(res, 409, { error: 'Refresh Discord access before enabling admin view so the preview has a current server list.' });
+                        return;
+                    }
+                    const stored = panelSessions.get(panelSession.key);
+                    stored.previewAdminView = parsed.previewAdminView;
+                    stored.previewPanelRole = parsed.previewAdminView
+                        ? (['manager', 'user'].includes(parsed.previewPanelRole) ? parsed.previewPanelRole : 'manager')
+                        : null;
+                    persistPanelSessions();
+                    auditPanelAction(panelSession, 'experiment-admin-view', parsed.previewAdminView
+                        ? `Enabled ${stored.previewPanelRole} panel preview`
+                        : 'Disabled panel role preview');
+                }
+                if (parsed.discordRole !== undefined) {
+                    const simulation = accessStore.setDeveloperRoleSimulation(panelSession.userId, parsed.discordRole);
+                    auditPanelAction(panelSession, 'experiment-discord-role', `Changed Discord role simulation to ${simulation?.role || 'developer'}`);
+                }
+                sendJson(res, 200, {
+                    ok: true,
+                    previewAdminView: Boolean(getPreviewPanelRole(panelSessions.get(panelSession.key))),
+                    previewPanelRole: getPreviewPanelRole(panelSessions.get(panelSession.key)) || 'manager',
+                    discordRole: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.role || 'developer',
+                    expiresAt: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.expiresAt || null
+                });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/audit') {
+                const guildId = requireGuildId(requestUrl, res);
+                if (!guildId) return;
+                const entries = readActivity()
+                    .filter(entry => String(entry.guildId || '') === String(guildId) && entry.source === 'panel')
+                    .slice(0, 100);
+                sendJson(res, 200, { entries });
                 return;
             }
 
@@ -952,7 +1094,7 @@ function createServer() {
                     response: String(parsed.response || '').trim() || null,
                     image: String(parsed.image || '').trim() || null,
                     addedById: 'panel',
-                    addedByTag: 'Admin Panel',
+                    addedByTag: 'Dashboard',
                     addedAt: formatTimestamp()
                 }, guildId);
 
@@ -961,8 +1103,8 @@ function createServer() {
                     return;
                 }
 
-                triggerStore.appendAuditEntry({ action: 'add', trigger: phrase, byId: 'panel', byTag: 'Admin Panel', at: formatTimestamp() }, guildId);
-                recordActivity('trigger-add', `Trigger "${phrase}" added`, { guildId });
+                triggerStore.appendAuditEntry({ action: 'add', trigger: phrase, byId: 'panel', byTag: 'Dashboard', at: formatTimestamp() }, guildId);
+                auditPanelAction(panelSession, 'trigger-add', `Trigger "${phrase}" added`, { guildId });
                 sendJson(res, 200, { ok: true, trigger: result.trigger });
                 return;
             }
@@ -990,8 +1132,8 @@ function createServer() {
                     return;
                 }
 
-                triggerStore.appendAuditEntry({ action: 'edit', trigger: result.trigger.trigger, byId: 'panel', byTag: 'Admin Panel', at: formatTimestamp(), changes: updates }, guildId);
-                recordActivity('trigger-edit', `Trigger "${result.trigger.trigger}" updated`, { guildId });
+                triggerStore.appendAuditEntry({ action: 'edit', trigger: result.trigger.trigger, byId: 'panel', byTag: 'Dashboard', at: formatTimestamp(), changes: updates }, guildId);
+                auditPanelAction(panelSession, 'trigger-edit', `Trigger "${result.trigger.trigger}" updated`, { guildId });
                 sendJson(res, 200, { ok: true, trigger: result.trigger });
                 return;
             }
@@ -1012,8 +1154,8 @@ function createServer() {
                     return;
                 }
 
-                triggerStore.appendAuditEntry({ action: 'remove', trigger: result.trigger.trigger, byId: 'panel', byTag: 'Admin Panel', at: formatTimestamp() }, guildId);
-                recordActivity('trigger-remove', `Trigger "${result.trigger.trigger}" removed`, { guildId });
+                triggerStore.appendAuditEntry({ action: 'remove', trigger: result.trigger.trigger, byId: 'panel', byTag: 'Dashboard', at: formatTimestamp() }, guildId);
+                auditPanelAction(panelSession, 'trigger-remove', `Trigger "${result.trigger.trigger}" removed`, { guildId });
                 sendJson(res, 200, { ok: true });
                 return;
             }
@@ -1176,6 +1318,7 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/settings') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
+                if (!await requireSettingsAccess(panelSession, guildId, res)) return;
 
                 sendJson(res, 200, {
                     settings: settingsStore.readSettings(guildId),
@@ -1192,11 +1335,14 @@ function createServer() {
                     return;
                 }
 
+                if (!await requireSettingsAccess(panelSession, guildId, res)) return;
+
                 const rawBody = await readBody(req);
                 const parsed = JSON.parse(rawBody || '{}');
                 const current = settingsStore.readSettings(guildId);
                 const next = { ...current, ...parsed };
                 const saved = settingsStore.writeSettings(next, guildId);
+                auditPanelAction(panelSession, 'settings-update', 'Updated server settings', { guildId });
 
                 sendJson(res, 200, { ok: true, settings: saved });
                 return;
@@ -1206,13 +1352,20 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
 
+                const guild = await client.guilds.fetch(guildId);
+                accessStore.setGuildOwner(guild.id, guild.ownerId);
+                const ownerId = String(guild.ownerId);
                 const managers = accessStore.getManagerUserIds(guildId);
                 const developerIds = accessStore.getDeveloperUserIds();
-                const labels = await resolveUserLabels([...managers, ...developerIds], guildId);
+                const labels = await resolveUserLabels([ownerId, ...managers, ...developerIds], guildId);
 
                 sendJson(res, 200, {
-                    managers: managers.map(id => ({ id, label: labels[id]?.tag || id, nickname: labels[id]?.nickname || null })),
-                    developers: developerIds.map(id => ({ id, label: labels[id]?.tag || id, nickname: labels[id]?.nickname || null }))
+                    managers: [
+                        { id: ownerId, label: labels[ownerId]?.tag || ownerId, nickname: labels[ownerId]?.nickname || null, role: 'owner', immutable: true },
+                        ...managers.map(id => ({ id, label: labels[id]?.tag || id, nickname: labels[id]?.nickname || null, role: 'manager', immutable: false }))
+                    ],
+                    developers: developerIds.map(id => ({ id, label: labels[id]?.tag || id, nickname: labels[id]?.nickname || null })),
+                    canManageManagers: await canManageGuildManagers(panelSession, guildId)
                 });
                 return;
             }
@@ -1225,6 +1378,8 @@ function createServer() {
                     return;
                 }
 
+                if (!await requireManagerManagementAccess(panelSession, guildId, res)) return;
+
                 const rawBody = await readBody(req);
                 const parsed = JSON.parse(rawBody || '{}');
 
@@ -1233,7 +1388,13 @@ function createServer() {
                     return;
                 }
 
+                if (accessStore.isGuildOwner(parsed.userId, guildId)) {
+                    sendJson(res, 400, { error: 'The server owner always has the Owner role and cannot be changed.' });
+                    return;
+                }
+
                 const managers = accessStore.setManagerRole(String(parsed.userId), parsed.shouldBeManager, guildId);
+                auditPanelAction(panelSession, 'manager-role', `${parsed.shouldBeManager ? 'Granted' : 'Removed'} manager role for ${parsed.userId}`, { guildId, userId: String(parsed.userId) });
                 sendJson(res, 200, { ok: true, managers });
                 return;
             }
@@ -1270,13 +1431,14 @@ function createServer() {
                     return {
                         ...member,
                         role: accessStore.getUserRole(member.id, guildId),
-                        isDeveloper: accessStore.isDeveloper(member.id),
+                        isOwner: accessStore.isGuildOwner(member.id, guildId),
+                        isDeveloper: accessStore.isConfiguredDeveloper(member.id),
                         overrideCount: Object.keys(permissions.commandOverrides || {}).length,
                         nonDefaultFeatureCount: featureKeys.filter(key => permissions[key] === false).length
                     };
                 });
 
-                sendJson(res, 200, { members: rows });
+                sendJson(res, 200, { members: rows, canManageManagers: await canManageGuildManagers(panelSession, guildId) });
                 return;
             }
 
@@ -1288,6 +1450,8 @@ function createServer() {
                     return;
                 }
 
+                if (!await requireManagerManagementAccess(panelSession, guildId, res)) return;
+
                 const rawBody = await readBody(req);
                 const parsed = JSON.parse(rawBody || '{}');
 
@@ -1296,12 +1460,18 @@ function createServer() {
                     return;
                 }
 
-                if (accessStore.isDeveloper(parsed.userId)) {
+                if (accessStore.isGuildOwner(parsed.userId, guildId)) {
+                    sendJson(res, 400, { error: 'The server owner always has the Owner role and cannot be changed.' });
+                    return;
+                }
+
+                if (accessStore.isConfiguredDeveloper(parsed.userId)) {
                     sendJson(res, 400, { error: 'Developers are managed through config.json, not this panel.' });
                     return;
                 }
 
                 accessStore.setManagerRole(String(parsed.userId), parsed.role === 'manager', guildId);
+                auditPanelAction(panelSession, 'member-role', `Changed ${parsed.userId} to ${parsed.role}`, { guildId, userId: String(parsed.userId) });
                 sendJson(res, 200, { ok: true, role: accessStore.getUserRole(parsed.userId, guildId) });
                 return;
             }
@@ -1322,12 +1492,18 @@ function createServer() {
                     return;
                 }
 
-                if (accessStore.isDeveloper(parsed.userId)) {
+                if (accessStore.isGuildOwner(parsed.userId, guildId)) {
+                    sendJson(res, 400, { error: 'The server owner role and permissions cannot be reset.' });
+                    return;
+                }
+
+                if (accessStore.isConfiguredDeveloper(parsed.userId)) {
                     sendJson(res, 400, { error: 'Developers cannot be reset from this panel.' });
                     return;
                 }
 
                 accessStore.resetUserPermissions(String(parsed.userId), guildId);
+                auditPanelAction(panelSession, 'member-reset', `Reset permissions for ${parsed.userId}`, { guildId, userId: String(parsed.userId) });
                 sendJson(res, 200, { ok: true });
                 return;
             }
@@ -1367,7 +1543,7 @@ function createServer() {
                     return;
                 }
 
-                if (accessStore.isDeveloper(userId)) {
+                if (accessStore.isConfiguredDeveloper(userId)) {
                     sendJson(res, 400, { error: 'Developers always have full access and cannot be edited here.' });
                     return;
                 }
@@ -1403,6 +1579,8 @@ function createServer() {
 
                     accessStore.setUserCommandPermission(userId, normalizedPath, accessValue, guildId);
                 }
+
+                auditPanelAction(panelSession, 'permissions-update', `Updated permissions for ${userId}`, { guildId, userId: String(userId) });
 
                 sendJson(res, 200, {
                     role: accessStore.getUserRole(userId, guildId),
@@ -1557,7 +1735,7 @@ function createServer() {
                 if (icon !== undefined) payload.icon = icon;
                 if (coverImage !== undefined) payload.cover_image = coverImage;
                 const application = await discordBotApi('/applications/@me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                recordActivity('bot-profile', 'Updated global Discord application profile');
+                auditPanelAction(panelSession, 'bot-profile', 'Updated global Discord application profile');
                 sendJson(res, 200, { ok: true, application });
                 return;
             }
@@ -1577,7 +1755,7 @@ function createServer() {
                 if (avatar !== undefined) payload.avatar = avatar;
                 if (banner !== undefined) payload.banner = banner;
                 const member = await discordBotApi(`/guilds/${encodeURIComponent(guildId)}/members/@me`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                recordActivity('bot-profile', `Updated Flummi's profile in guild ${guildId}`, { guildId });
+                auditPanelAction(panelSession, 'bot-profile', `Updated Flummi's profile in guild ${guildId}`, { guildId });
                 sendJson(res, 200, { ok: true, member });
                 return;
             }
@@ -1592,7 +1770,7 @@ function createServer() {
                 if (parsed.ai?.imageSearch) updates.ai = { ...(updates.ai || config.ai), imageSearch: { ...(config.ai?.imageSearch || {}), ...parsed.ai.imageSearch } };
                 Object.assign(config, updates);
                 saveConfig(config);
-                recordActivity('config', 'Global configuration updated from the panel');
+                auditPanelAction(panelSession, 'config', 'Global configuration updated from the panel');
                 sendJson(res, 200, { ok: true, config: { ai: config.ai, features: config.features, presence: config.presence, commandPermissions: config.commandPermissions, panel: config.panel, analytics: config.analytics, deployCommandsOnStart: config.deployCommandsOnStart } });
                 return;
             }
@@ -1619,7 +1797,7 @@ function createServer() {
                 if (parsed.store === 'voice') { const stats = voiceStore.readVoiceStats(guildId); delete stats.users[userId]; delete stats.activeSessions[userId]; voiceStore.saveVoiceStats(stats, guildId); }
                 if (parsed.store === 'shots') shotStore.setShots(userId, 0, guildId, 'panel', { action: 'reset' });
                 if (parsed.store === 'permissions') accessStore.resetUserPermissions(userId, guildId);
-                recordActivity('data-reset', `Reset ${parsed.store} for ${userId}`, { guildId, userId }); sendJson(res, 200, { ok: true }); return;
+                auditPanelAction(panelSession, 'data-reset', `Reset ${parsed.store} for ${userId}`, { guildId, userId }); sendJson(res, 200, { ok: true }); return;
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/reliability') {
@@ -1650,13 +1828,13 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
                 const source = path.join(dataDir, 'guilds', guildId); const name = `${new Date().toISOString().replace(/[:.]/g, '-')}.snapshot`; const destination = path.join(backupRoot(guildId), name);
                 fs.mkdirSync(path.dirname(destination), { recursive: true }); fs.cpSync(source, destination, { recursive: true });
-                recordActivity('backup', `Created guild backup ${name}`, { guildId }); sendJson(res, 200, { ok: true, backup: name }); return;
+                auditPanelAction(panelSession, 'backup', `Created guild backup ${name}`, { guildId }); sendJson(res, 200, { ok: true, backup: name }); return;
             }
 
             if (req.method === 'POST' && requestUrl.pathname === '/api/reliability/reconcile-voice') {
                 const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
                 const guild = client.guilds.cache.get(guildId); if (!guild) { sendJson(res, 404, { error: 'Guild is not available to the panel client.' }); return; }
-                readyEvent.reconcileVoiceSessions(guild); recordActivity('voice-reconcile', 'Manual voice session reconciliation completed', { guildId }); sendJson(res, 200, { ok: true }); return;
+                readyEvent.reconcileVoiceSessions(guild); auditPanelAction(panelSession, 'voice-reconcile', 'Manual voice session reconciliation completed', { guildId }); sendJson(res, 200, { ok: true }); return;
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/health') {

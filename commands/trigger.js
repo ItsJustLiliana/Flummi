@@ -6,7 +6,7 @@ const {
     MessageFlags,
     SlashCommandBuilder
 } = require('discord.js');
-const { canAddTriggers } = require('../stores/access-store');
+const { canAddTriggers, isManager } = require('../stores/access-store');
 const { checkCooldown } = require('../utils/cooldowns');
 const { readSettings } = require('../stores/settings-store');
 const {
@@ -123,6 +123,12 @@ async function executeAdd(interaction) {
 
 async function executeEdit(interaction) {
     const guildId = interaction.guildId;
+    if (!isManager(interaction.user.id, guildId)) {
+        return interaction.reply({
+            content: 'You need manager permissions to edit triggers.',
+            flags: MessageFlags.Ephemeral
+        });
+    }
     const phrase = interaction.options.getString('phrase').trim();
     const response = interaction.options.getString('response');
     const image = interaction.options.getAttachment('image');
@@ -179,6 +185,12 @@ async function executeEdit(interaction) {
 
 async function executeRemove(interaction) {
     const guildId = interaction.guildId;
+    if (!isManager(interaction.user.id, guildId)) {
+        return interaction.reply({
+            content: 'You need manager permissions to remove triggers.',
+            flags: MessageFlags.Ephemeral
+        });
+    }
     const phrase = interaction.options.getString('phrase').trim();
     const triggers = getTriggers(guildId);
     const index = findTriggerIndex(triggers, phrase);

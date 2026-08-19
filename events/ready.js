@@ -4,6 +4,7 @@ const { endVoiceSession, getUserVoiceStats, readVoiceStats, startVoiceSession, u
 const { pruneAnalytics } = require('../stores/analytics-store');
 const { readConfig } = require('../utils/config');
 const { snapshotGuildInvites } = require('../services/invite-tracker');
+const { setGuildOwner } = require('../stores/access-store');
 
 function getVoiceStateData(voiceState) {
     return {
@@ -83,6 +84,7 @@ module.exports = {
 
         for (const guild of client.guilds.cache.values()) {
             ensureGuildStorage(guild.id);
+            setGuildOwner(guild.id, guild.ownerId);
             reconcileVoiceSessions(guild);
             pruneAnalytics(guild.id, readConfig().analytics?.retentionDays || 365);
             snapshotGuildInvites(guild);

@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Flummi Admin Panel</title>
+    <title>Flummi Dashboard</title>
     <link rel="icon" type="image/png" href="/favicon.png">
     <!--PANEL_CONFIG-->
     <style>
@@ -158,11 +158,26 @@
         }
 
         .account-name {
+            display: flex;
+            align-items: baseline;
+            gap: 9px;
+            min-width: 0;
+            overflow: hidden;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .account-username {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            font-size: 13px;
-            font-weight: 700;
+        }
+
+        .account-role {
+            flex-shrink: 0;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
         }
 
         h1 {
@@ -412,6 +427,52 @@
             font-weight: 600;
         }
 
+        .page-notice {
+            position: sticky;
+            top: 12px;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 191, 91, .48);
+            border-radius: 12px;
+            background: #251d12;
+            color: #ffe0a6;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+        }
+
+        .page-notice.error {
+            border-color: rgba(255, 77, 109, .48);
+            background: #29131d;
+            color: #ffb3c1;
+        }
+
+        .confirm-dialog {
+            width: min(440px, calc(100vw - 24px));
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--card);
+            color: var(--text);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, .6);
+        }
+
+        .confirm-dialog::backdrop {
+            background: rgba(3, 7, 18, .72);
+            backdrop-filter: blur(3px);
+        }
+
+        .confirm-dialog-body {
+            padding: 20px;
+        }
+
+        .confirm-dialog .actions {
+            justify-content: flex-end;
+        }
+
         .guild-header {
             position: relative;
             border-radius: 16px;
@@ -543,7 +604,9 @@
             margin-bottom: 16px;
         }
 
-        #tab-analytics > .row { margin-bottom: 14px; }
+        #tab-analytics>.row {
+            margin-bottom: 14px;
+        }
 
         .overview-quad {
             grid-template-columns: 1fr 1fr;
@@ -982,6 +1045,12 @@
             color: #64b5f6;
         }
 
+        .badge.owner {
+            background: rgba(255, 191, 91, .16);
+            color: var(--warning);
+            border-color: rgba(255, 191, 91, .32);
+        }
+
         .discord-preview {
             border-left: 4px solid var(--accent);
             border-radius: 8px;
@@ -1049,6 +1118,10 @@
             padding: 8px 10px;
             border-radius: 8px;
             background: rgba(255, 255, 255, .025);
+        }
+
+        .status:empty {
+            display: none;
         }
 
         .status.error {
@@ -1125,6 +1198,16 @@
         .checkbox-row input:disabled {
             cursor: not-allowed;
             opacity: .5;
+        }
+
+        .tooltip-surface[data-tooltip] {
+            border-radius: 8px;
+            cursor: help;
+        }
+
+        .tooltip-surface[data-disabled-by-global="true"] {
+            outline: 1px dashed rgba(255, 191, 91, .36);
+            outline-offset: 4px;
         }
 
         .help-tip {
@@ -1375,6 +1458,10 @@
 <body>
     <div class="layout">
         <main class="content">
+            <div id="pageNotice" class="page-notice" hidden>
+                <span id="pageNoticeMessage"></span>
+                <button id="pageNoticeAction" class="secondary" type="button" hidden>Try again</button>
+            </div>
             <!-- Overview -->
             <section id="tab-overview" class="tab-panel active">
                 <h2 style="font-size:20px;">Overview <span class="help-tip" tabindex="0"
@@ -1484,7 +1571,7 @@
             </section>
 
             <!-- Messenger -->
-            <section id="tab-messenger" class="tab-panel">
+            <section id="tab-messenger" class="tab-panel" data-developer-only>
                 <h2 style="font-size:20px;">Messenger</h2>
                 <div class="section">
                     <h2>Send a message as the bot</h2>
@@ -1524,7 +1611,7 @@
             <section id="tab-triggers" class="tab-panel">
                 <h2 style="font-size:20px;">Triggers</h2>
                 <div class="card-grid" id="triggerCards"></div>
-                <div class="two-col">
+                <div class="two-col" data-trigger-manager-only>
                     <div class="section">
                         <h2>Add Trigger</h2>
                         <div class="field"><label for="triggerPhrase">Phrase</label><input id="triggerPhrase"
@@ -1553,8 +1640,9 @@
                 </div>
                 <div class="section">
                     <div class="row"><button id="exportTriggers" class="secondary" type="button">Export
-                            JSON</button><label class="secondary" style="cursor:pointer">Import JSON<input
-                                id="importTriggers" type="file" accept="application/json" hidden></label></div>
+                            JSON</button><label class="secondary" data-trigger-manager-only
+                            style="cursor:pointer">Import JSON<input id="importTriggers" type="file"
+                                accept="application/json" hidden></label></div>
                     <h2>Configured Triggers</h2>
                     <div id="triggerTable" class="table-wrap">
                         <div class="empty">Loading...</div>
@@ -1740,6 +1828,8 @@
                 <div class="two-col">
                     <div class="section">
                         <h2>Managers</h2>
+                        <p class="sub">The server owner is always Owner. Only the Owner can grant or remove the Manager
+                            role.</p>
                         <div id="managerTable" class="table-wrap">
                             <div class="empty">Loading...</div>
                         </div>
@@ -1774,7 +1864,7 @@
                     <div id="permissionsEditor" style="margin-top: 12px;"></div>
                     <p id="permissionsStatus" class="status"></p>
                 </div>
-                <div class="section">
+                <div class="section" data-developer-only>
                     <h2>Command Permission Requirements</h2>
                     <div id="commandPermissionsTable" class="table-wrap">
                         <div class="empty">Loading...</div>
@@ -1810,7 +1900,7 @@
                         </div>
                         <div class="field">
                             <label for="setMaxTriggerLength">Max trigger length</label>
-                            <input id="setMaxTriggerLength" type="number" min="1" max="500">
+                            <input id="setMaxTriggerLength" type="number" min="1" max="200">
                         </div>
                         <div class="checkbox-row guild-feature"><input id="guildFeatureAiConversations"
                                 type="checkbox"><label for="guildFeatureAiConversations" style="margin:0">AI
@@ -1867,10 +1957,21 @@
                 </div>
                 <div id="developerTabOrder" class="section">
                     <h2>Panel Tab Order</h2>
-                    <p class="sub">Move tabs with the arrows. Divider lines group related tabs in the sidebar.</p>
+                    <p class="sub">Move tabs with the arrows. Add divider lines or your own category titles. Developer
+                        tools always stay together in their protected group.</p>
                     <div id="tabOrderEditor" class="table-wrap"></div>
-                    <div class="actions"><button id="addTabDivider" class="secondary" type="button">Add
-                            divider</button><button id="saveTabOrder" class="primary" type="button">Save tab
+                    <div class="row" style="margin-top:12px"><input id="tabTitleInput" type="text" maxlength="60"
+                            placeholder="Category title, e.g. Moderation" style="flex:1"><button id="addTabTitle"
+                            class="secondary" type="button">Add title</button><button id="addTabDivider"
+                            class="secondary" type="button">Add divider</button></div>
+                    <div class="section" style="margin-top:16px">
+                        <h2>Developer tools</h2>
+                        <p class="sub">These tabs can be reordered inside this protected group, but cannot be moved into
+                            the public navigation.</p>
+                        <div id="developerTabOrderEditor" class="table-wrap"></div>
+                    </div>
+                    <div class="actions"><span class="sub">The Developer tools group itself always stays together at the
+                            bottom.</span><button id="saveTabOrder" class="primary" type="button">Save tab
                             order</button></div>
                     <p id="tabOrderStatus" class="status"></p>
                 </div>
@@ -2157,6 +2258,51 @@
                     </div>
                 </div>
             </section>
+
+            <section id="tab-audit" class="tab-panel">
+                <h2 style="font-size:20px;">Audit Log</h2>
+                <p class="sub">Confirmed panel changes for the selected server, including who performed them.</p>
+                <div class="section">
+                    <div id="auditTable" class="table-wrap">
+                        <div class="empty">Loading audit entries…</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-experiments" class="tab-panel">
+                <h2 style="font-size:20px;">Experiments</h2>
+                <div class="banner warn">Experiments affect only your developer account. Admin view changes this panel
+                    session; Discord role simulation changes how Flummi treats your account for up to two hours.</div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Panel view</h2>
+                        <p class="sub">Preview the navigation and API restrictions for a Manager or User. Managers can
+                            change Settings; Users cannot. Experiments remains visible so you can switch back.</p>
+                        <div class="checkbox-row"><input id="experimentAdminView" type="checkbox"><label
+                                for="experimentAdminView" style="margin:0">Enable admin view</label></div>
+                        <div class="field"><label for="experimentPanelRole">Preview role</label><select
+                                id="experimentPanelRole">
+                                <option value="manager">Manager</option>
+                                <option value="user">User</option>
+                            </select></div>
+                    </div>
+                    <div class="section">
+                        <h2>Discord bot role</h2>
+                        <p class="sub">Temporarily test bot commands and permissions as another application role. This
+                            does not edit Discord server roles.</p>
+                        <div class="field"><label for="experimentDiscordRole">Simulated role</label><select
+                                id="experimentDiscordRole">
+                                <option value="developer">Developer (normal)</option>
+                                <option value="manager">Manager</option>
+                                <option value="user">User</option>
+                            </select></div>
+                        <p id="experimentExpiry" class="sub"></p>
+                    </div>
+                </div>
+                <div class="actions"><span class="sub">Changes are logged and require confirmation.</span><button
+                        id="saveExperiments" class="primary" type="button">Apply experiment</button></div>
+                <p id="experimentsStatus" class="status"></p>
+            </section>
         </main>
 
         <aside class="sidebar">
@@ -2164,7 +2310,7 @@
                 <img class="brand-image" src="/assets/branding/flummi-pfp.jpeg" alt="Flummi">
                 <div class="brand-copy">
                     <h1>Flummi</h1>
-                    <p class="sub">Admin Panel</p>
+                    <p class="sub">Dashboard</p>
                 </div>
             </div>
 
@@ -2188,7 +2334,7 @@
                 <nav class="tabs">
                     <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
                     <button class="tab-btn" data-tab="analytics" type="button">Analytics</button>
-                    <button class="tab-btn" data-tab="messenger" type="button">Messenger</button>
+                    <button class="tab-btn" data-tab="messenger" data-developer-only type="button">Messenger</button>
                     <button class="tab-btn" data-tab="triggers" type="button">Triggers</button>
                     <button class="tab-btn" data-tab="shots" type="button">Shots</button>
                     <button class="tab-btn" data-tab="voice" type="button">Voice Analytics</button>
@@ -2197,17 +2343,23 @@
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                     <button class="tab-btn" data-tab="soundboard" type="button">Soundboard</button>
+                    <button class="tab-btn" data-tab="audit" type="button">Audit Log</button>
                     <hr class="tab-divider developer-nav" data-developer-only>
                     <div class="tab-group-label developer-nav" data-developer-only>Developer tools</div>
                     <button class="tab-btn" data-tab="profiles" data-developer-only type="button">Profiles</button>
                     <button class="tab-btn" data-tab="ai" data-developer-only type="button">AI &amp; System</button>
-                    <button class="tab-btn" data-tab="reliability" data-developer-only type="button">Reliability</button>
+                    <button class="tab-btn" data-tab="reliability" data-developer-only
+                        type="button">Reliability</button>
                     <button class="tab-btn" data-tab="logs" data-developer-only type="button">Bot Logs</button>
+                    <button class="tab-btn" data-tab="experiments" data-actual-developer-only
+                        type="button">Experiments</button>
                 </nav>
                 <div id="panelAccount" class="sidebar-account" hidden>
                     <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" alt=""><span
                             id="panelAccountName" class="account-name">Signed in</span></div>
                     <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
+                    <button id="refreshDiscordAccess" class="secondary" type="button"
+                        style="width:100%;margin-top:8px">Refresh Discord access</button>
                 </div>
             </div>
         </aside>
@@ -2220,7 +2372,11 @@
             guildId: null,
             channels: [],
             guildMembers: new Map(),
-            role: 'admin'
+            role: 'admin',
+            actualRole: 'admin',
+            accountUsername: '',
+            guildRoles: new Map(),
+            canManageManagers: false
         };
 
         const guildSelect = document.getElementById('guild');
@@ -2461,10 +2617,52 @@
             const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                throw new Error(data.error || `Request failed (${response.status}).`);
+                const error = new Error(data.error || `Request failed (${response.status}).`);
+                error.status = response.status;
+                throw error;
             }
 
             return data;
+        }
+
+        function showPageNotice(message, { type = 'error', actionLabel = '', action = null } = {}) {
+            const notice = document.getElementById('pageNotice');
+            notice.className = `page-notice ${type}`;
+            document.getElementById('pageNoticeMessage').textContent = message;
+            const button = document.getElementById('pageNoticeAction');
+            button.hidden = !actionLabel;
+            button.textContent = actionLabel || 'Try again';
+            button.onclick = action;
+            notice.hidden = false;
+        }
+
+        function clearPageNotice() {
+            document.getElementById('pageNotice').hidden = true;
+        }
+
+        function handleUiError(error, retry = null) {
+            const signedOut = error?.status === 401;
+            showPageNotice(error?.message || 'Something went wrong. Please try again.', {
+                actionLabel: signedOut ? 'Sign in' : (retry ? 'Try again' : ''),
+                action: signedOut ? () => window.location.assign('/auth/login?refresh=1') : retry
+            });
+        }
+
+        function confirmAction({ title = 'Confirm change', message, confirmLabel = 'Confirm', danger = true }) {
+            const dialog = document.getElementById('confirmDialog');
+            if (!dialog?.showModal) return Promise.resolve(window.confirm(message));
+            document.getElementById('confirmDialogTitle').textContent = title;
+            document.getElementById('confirmDialogMessage').textContent = message;
+            const accept = document.getElementById('confirmDialogAccept');
+            accept.textContent = confirmLabel;
+            accept.className = danger ? 'danger' : 'primary';
+            return new Promise(resolve => {
+                dialog.returnValue = 'cancel';
+                document.getElementById('confirmDialogCancel').onclick = () => dialog.close('cancel');
+                accept.onclick = () => dialog.close('confirm');
+                dialog.onclose = () => resolve(dialog.returnValue === 'confirm');
+                dialog.showModal();
+            });
         }
 
         function withGuild(path) {
@@ -2521,22 +2719,74 @@
         }
 
         document.addEventListener('pointerover', event => {
-            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
-            if (anchor && !anchor.contains(event.relatedTarget)) showHelpTooltip(anchor);
+            const anchor = event.target.closest?.('[data-tooltip]');
+            if (anchor) showHelpTooltip(anchor);
         });
         document.addEventListener('pointerout', event => {
-            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
-            if (anchor && !anchor.contains(event.relatedTarget)) hideHelpTooltip(anchor);
+            const anchor = event.target.closest?.('[data-tooltip]');
+            const nextAnchor = event.relatedTarget?.closest?.('[data-tooltip]');
+            if (nextAnchor) showHelpTooltip(nextAnchor);
+            else if (anchor) hideHelpTooltip(anchor);
         });
         document.addEventListener('focusin', event => {
-            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
+            const anchor = event.target.closest?.('[data-tooltip]');
             if (anchor) showHelpTooltip(anchor);
         });
         document.addEventListener('focusout', event => {
-            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
-            if (anchor) hideHelpTooltip(anchor);
+            const anchor = event.target.closest?.('[data-tooltip]');
+            const nextAnchor = event.relatedTarget?.closest?.('[data-tooltip]');
+            if (nextAnchor) showHelpTooltip(nextAnchor);
+            else if (anchor) hideHelpTooltip(anchor);
         });
         window.addEventListener('scroll', () => hideHelpTooltip(), true);
+
+        const featureTooltipDefinitions = {
+            setBotEnabled: 'Master switch for Flummi in this server. When off, server-specific bot behaviour is paused without removing saved settings.',
+            setTriggersEnabled: 'Allows configured text triggers to respond in this server. The global Triggers switch can temporarily override this setting.',
+            setCooldownEnabled: 'Prevents trigger actions from being repeated too quickly, reducing spam and accidental rapid responses.',
+            setCooldownSeconds: 'Minimum waiting time before another trigger action is allowed.',
+            setExactMatch: 'When enabled, a message must exactly match the trigger phrase instead of merely containing it.',
+            setMaxTriggerLength: 'Maximum number of characters allowed when someone creates a new trigger phrase.',
+            guildFeatureAiConversations: 'Allows members to have AI-powered conversations with Flummi in this server.',
+            guildFeatureAiAttachments: 'Allows Flummi to inspect supported attachments as context for AI replies.',
+            guildFeatureAiImageSearch: 'Allows AI replies to request and return relevant images from configured search providers.',
+            guildFeaturePingResponses: 'Allows Flummi to respond when members mention or ping the bot.',
+            guildFeaturePingSave: 'Allows configured ping requests to be saved for later viewing in the panel.',
+            guildFeatureShots: 'Enables the server shot counter, leaderboard and related commands.',
+            featureTriggers: 'Global master switch for text triggers across every server.',
+            featureAiConversations: 'Global master switch for AI conversations across every server.',
+            featureAiAttachments: 'Global master switch for AI attachment analysis across every server.',
+            featureAiImageSearch: 'Global master switch for AI image search across every server.',
+            featurePingResponses: 'Global master switch for bot mention and ping responses across every server.',
+            featurePingSave: 'Global master switch for saving ping requests across every server.',
+            featureShots: 'Global master switch for the shot system across every server.'
+        };
+
+        function installFeatureTooltips() {
+            for (const [inputId, explanation] of Object.entries(featureTooltipDefinitions)) {
+                const input = document.getElementById(inputId);
+                const label = document.querySelector(`label[for="${inputId}"]`);
+                if (!input || !label) continue;
+                let tip = label.querySelector('[data-feature-help]');
+                if (!tip) {
+                    tip = document.createElement('span');
+                    tip.className = 'help-tip';
+                    tip.tabIndex = 0;
+                    tip.dataset.featureHelp = 'true';
+                    tip.textContent = '?';
+                    label.append(' ', tip);
+                }
+                tip.dataset.tooltip = explanation;
+                const surface = input.closest('.checkbox-row');
+                if (surface) {
+                    surface.classList.add('tooltip-surface');
+                    surface.dataset.baseTooltip = explanation;
+                    surface.dataset.tooltip = explanation;
+                }
+            }
+        }
+
+        installFeatureTooltips();
 
         // ---------- Tabs ----------
         const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
@@ -2555,6 +2805,7 @@
             users: 'This tab does not refresh automatically, so your permission edits and selected member are not interrupted. Use Refresh when you want current data.',
             settings: 'This tab does not refresh automatically, so unsaved settings are never overwritten. Use Refresh to reload saved values.',
             messenger: 'This tab does not refresh automatically while you are composing a message. Use Refresh to reload available channels.',
+            experiments: 'This tab does not refresh automatically, so a pending experiment is not overwritten before you apply it.',
             reliability: 'This tab refreshes every 20 seconds while open. Its automatic Discord gateway and API checks update every 30 seconds.',
             logs: 'This tab refreshes every 20 seconds while open. Use Refresh now immediately after reproducing an error.',
             default: 'This tab refreshes every 20 seconds while open. Use Refresh for an immediate update.'
@@ -2600,7 +2851,9 @@
             ai: loadAi,
             logs: loadLogs,
             reliability: loadReliability,
-            soundboard: loadSoundboard
+            soundboard: loadSoundboard,
+            audit: loadAudit,
+            experiments: loadExperiments
         };
 
         tabButtons.forEach(btn => {
@@ -2615,7 +2868,7 @@
 
                 const loader = tabLoaders[btn.dataset.tab];
                 if (loader) {
-                    loader().then(updateLiveDurations).catch(error => console.error(error));
+                    loader().then(() => { clearPageNotice(); updateLiveDurations(); }).catch(error => handleUiError(error, () => loader().catch(handleUiError)));
                 }
             });
         });
@@ -2633,15 +2886,48 @@
             }
         }
 
-        // Reorders the sidebar nav per config.panel.tabOrder (config.json); '---' entries render as divider lines.
+        // Reorders the shared sidebar navigation. Developer tools can move only inside their protected group.
+        const defaultDeveloperTabOrder = ['messenger', 'profiles', 'ai', 'reliability', 'logs', 'experiments'];
+        const fixedDeveloperTabIds = new Set(defaultDeveloperTabOrder);
+        let activeDeveloperTabOrder = [...defaultDeveloperTabOrder];
+
         function isDividerToken(value) {
             return typeof value === 'string' && /^-{2,}$/.test(value.trim());
+        }
+
+        function isTitleToken(value) {
+            return typeof value === 'string' && value.startsWith('title:');
+        }
+
+        function titleFromToken(value) {
+            return isTitleToken(value) ? value.slice('title:'.length).trim() : '';
         }
 
         function createTabDivider() {
             const hr = document.createElement('hr');
             hr.className = 'tab-divider';
+            hr.dataset.generatedNav = 'true';
             return hr;
+        }
+
+        function createTabTitle(title) {
+            const label = document.createElement('div');
+            label.className = 'tab-group-label';
+            label.dataset.generatedNav = 'true';
+            label.textContent = title;
+            return label;
+        }
+
+        function organizeDeveloperNav() {
+            const nav = document.querySelector('.tabs');
+            const divider = nav.querySelector('.developer-nav.tab-divider');
+            const label = nav.querySelector('.developer-nav.tab-group-label');
+            if (divider) nav.appendChild(divider);
+            if (label) nav.appendChild(label);
+            for (const tabId of activeDeveloperTabOrder) {
+                const button = tabButtons.find(candidate => candidate.dataset.tab === tabId);
+                if (button) nav.appendChild(button);
+            }
         }
 
         function applyTabOrder(order) {
@@ -2651,14 +2937,27 @@
 
             const nav = document.querySelector('.tabs');
             const seen = new Set();
+            const configuredDeveloperTabs = order.filter(tabId => fixedDeveloperTabIds.has(tabId));
+            activeDeveloperTabOrder = [
+                ...new Set(configuredDeveloperTabs),
+                ...defaultDeveloperTabOrder.filter(tabId => !configuredDeveloperTabs.includes(tabId))
+            ];
 
-            nav.querySelectorAll('.tab-divider:not(.developer-nav)').forEach(el => el.remove());
+            nav.querySelectorAll('[data-generated-nav]').forEach(element => element.remove());
 
             for (const tabId of order) {
                 if (isDividerToken(tabId)) {
                     nav.appendChild(createTabDivider());
                     continue;
                 }
+
+                if (isTitleToken(tabId)) {
+                    const title = titleFromToken(tabId);
+                    if (title) nav.appendChild(createTabTitle(title));
+                    continue;
+                }
+
+                if (fixedDeveloperTabIds.has(tabId)) continue;
 
                 const btn = tabButtons.find(b => b.dataset.tab === tabId);
 
@@ -2669,42 +2968,50 @@
             }
 
             for (const btn of tabButtons) {
-                if (!seen.has(btn.dataset.tab)) {
+                if (!fixedDeveloperTabIds.has(btn.dataset.tab) && !seen.has(btn.dataset.tab)) {
                     nav.appendChild(btn);
                 }
             }
+
+            organizeDeveloperNav();
         }
 
         async function loadPanelAccount() {
             const data = await api('/auth/me');
-            state.role = data.role === 'developer' ? 'developer' : 'admin';
+            state.role = ['developer', 'owner', 'manager', 'user'].includes(data.role) ? data.role : 'user';
+            state.actualRole = data.actualRole === 'developer' ? 'developer' : 'admin';
+            state.accountUsername = data.user.username;
             const avatar = document.getElementById('panelAccountAvatar');
             avatar.src = data.user.avatarUrl;
             avatar.alt = `${data.user.username}'s Discord avatar`;
-            document.getElementById('panelAccountName').textContent = `${data.user.username} · ${state.role === 'developer' ? 'Developer' : 'Server admin'}`;
             document.getElementById('panelAccount').hidden = false;
             applyAccessVisibility();
         }
 
         function applyAccessVisibility() {
             const isDeveloper = state.role === 'developer';
-            const developerTabs = ['profiles', 'ai', 'reliability', 'logs'];
+            const isActualDeveloper = state.actualRole === 'developer';
+            const canAccessSettings = isDeveloper || state.role === 'owner' || state.role === 'manager';
+            const canManageTriggers = canAccessSettings;
+            const roleName = `${state.role[0].toUpperCase()}${state.role.slice(1)}`;
+            const roleLabel = isActualDeveloper && !isDeveloper ? `${roleName} preview` : roleName;
+            if (state.accountUsername) {
+                document.getElementById('panelAccountName').innerHTML = `<span class="account-username">${escapeHtml(state.accountUsername)}</span><span class="account-role">${escapeHtml(roleLabel)}</span>`;
+            }
+            const developerTabs = ['messenger', 'profiles', 'ai', 'reliability', 'logs'];
             document.querySelectorAll('[data-developer-only]').forEach(element => { element.hidden = !isDeveloper; });
             developerTabs.forEach(tabId => {
                 const panel = document.getElementById(`tab-${tabId}`);
                 if (panel) panel.hidden = !isDeveloper;
             });
+            document.querySelectorAll('[data-actual-developer-only]').forEach(element => { element.hidden = !isActualDeveloper; });
+            document.getElementById('tab-experiments').hidden = !isActualDeveloper;
+            const settingsButton = tabButtons.find(button => button.dataset.tab === 'settings');
+            if (settingsButton) settingsButton.hidden = !canAccessSettings;
+            document.getElementById('tab-settings').hidden = !canAccessSettings;
+            document.querySelectorAll('[data-trigger-manager-only]').forEach(element => { element.hidden = !canManageTriggers; });
 
-            const nav = document.querySelector('.tabs');
-            const divider = nav.querySelector('.developer-nav.tab-divider');
-            const label = nav.querySelector('.developer-nav.tab-group-label');
-            if (isDeveloper && divider && label) {
-                nav.append(divider, label);
-                developerTabs.forEach(tabId => {
-                    const button = tabButtons.find(candidate => candidate.dataset.tab === tabId);
-                    if (button) nav.appendChild(button);
-                });
-            }
+            organizeDeveloperNav();
 
             const activeButton = tabButtons.find(button => button.classList.contains('active'));
             if (!activeButton || activeButton.hidden) {
@@ -2717,6 +3024,10 @@
         document.getElementById('logoutPanel').addEventListener('click', async () => {
             await fetch('/auth/logout', { method: 'POST' });
             window.location.assign('/');
+        });
+
+        document.getElementById('refreshDiscordAccess').addEventListener('click', () => {
+            window.location.assign('/auth/login?refresh=1');
         });
 
         function applyTabNames(names) {
@@ -2754,6 +3065,7 @@
         // ---------- Guild loading ----------
         function fillGuildSelect(rows) {
             guildSelect.innerHTML = '';
+            state.guildRoles = new Map(rows.map(row => [String(row.id), row.role || 'user']));
 
             if (!rows.length) {
                 const option = document.createElement('option');
@@ -2761,9 +3073,16 @@
                 option.textContent = 'No guilds available';
                 guildSelect.appendChild(option);
                 guildSelect.disabled = true;
+                showPageNotice(
+                    state.role !== 'developer'
+                        ? 'No shared server is currently available with Administrator permission.'
+                        : 'Flummi is not currently connected to a server.',
+                    { type: 'warn', actionLabel: 'Refresh Discord access', action: () => window.location.assign('/auth/login?refresh=1') }
+                );
                 return;
             }
 
+            clearPageNotice();
             guildSelect.disabled = false;
             for (const row of rows) {
                 const option = document.createElement('option');
@@ -2787,18 +3106,22 @@
             }
 
             state.guildId = guildSelect.value || null;
+            if (state.guildId) state.role = state.guildRoles.get(String(state.guildId)) || state.role;
+            applyAccessVisibility();
             if (state.guildId) localStorage.setItem('flummi.guildId', state.guildId);
             await refreshActiveTab();
         }
 
         guildSelect.addEventListener('change', () => {
             state.guildId = guildSelect.value || null;
+            if (state.guildId) state.role = state.guildRoles.get(String(state.guildId)) || state.role;
+            applyAccessVisibility();
             if (state.guildId) localStorage.setItem('flummi.guildId', state.guildId);
-            refreshActiveTab().catch(error => console.error(error));
+            refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
         });
 
         document.getElementById('refreshAll').addEventListener('click', () => {
-            refreshActiveTab().catch(error => console.error(error));
+            refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
         });
 
         let chartResizeTimer;
@@ -2813,7 +3136,7 @@
         // Voice activity changes constantly, so it gets a much faster refresh than the rest.
         const AUTO_REFRESH_MS = 20000;
         const TAB_REFRESH_OVERRIDES = { voice: 5000 };
-        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'settings', 'users']);
+        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'settings', 'users', 'experiments']);
         let autoRefreshBusy = false;
         let lastAutoRefreshAt = 0;
 
@@ -2878,7 +3201,7 @@
                 return;
             }
 
-            const bannerStyle = backgroundUrlStyle(guildInfo.bannerUrl || '/assets/branding/flummi-banner.jpeg');
+            const bannerStyle = backgroundUrlStyle(guildInfo.bannerUrl || '/assets/branding/flummi-banner-color.jpg');
             const iconStyle = guildInfo.iconUrl
                 ? `background-image: url('${guildInfo.iconUrl.replace(/'/g, '%27')}');`
                 : '';
@@ -3145,6 +3468,7 @@
             field.textContent = text || '';
             field.className = 'status';
             if (kind) field.classList.add(kind);
+            field.hidden = !field.textContent.trim();
         }
 
         function updateCounter() {
@@ -3235,24 +3559,28 @@
         async function loadTriggers() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/triggers'));
+            const canManageTriggers = ['developer', 'owner', 'manager'].includes(state.role);
 
             document.getElementById('triggerCards').innerHTML = [
                 statCard('Triggers', `${data.triggers.length} / ${data.limit}`),
                 statCard('Total Uses Tracked', data.triggers.reduce((sum, t) => sum + (t.uses || 0), 0))
             ].join('');
 
-            renderTable(document.getElementById('triggerTable'),
-                [
-                    { label: 'Phrase', key: 'trigger', render: r => `<strong>${escapeHtml(r.trigger)}</strong>` },
-                    { label: 'Response', key: 'response', render: r => r.response ? escapeHtml(r.response).slice(0, 120) : '<span class="muted">None</span>' },
-                    { label: 'Image', sortValue: r => r.image ? 1 : 0, render: r => r.image ? `<a href="${escapeHtml(r.image)}" target="_blank" rel="noopener">View</a>` : '<span class="muted">None</span>' },
-                    { label: 'Status', key: 'enabled', render: r => r.enabled === false ? '<span class="badge off">Disabled</span>' : '<span class="badge on">Enabled</span>' },
-                    { label: 'Uses', key: 'uses' },
-                    { label: 'Manage', sortable: false, render: r => `<button class="secondary" data-trigger-manage="${escapeHtml(r.trigger)}">Manage</button>` },
-                    { label: 'Added By', key: 'addedByLabel', render: r => withNicknameTitle(r.addedByLabel, r.addedByNickname) },
-                    { label: 'Added At', key: 'addedAt', render: r => escapeHtml(formatDateTime(r.addedAt)) }
-                ],
-                data.triggers, 'No triggers configured yet.');
+            const triggerColumns = [
+                { label: 'Phrase', key: 'trigger', render: r => `<strong>${escapeHtml(r.trigger)}</strong>` },
+                { label: 'Response', key: 'response', render: r => r.response ? escapeHtml(r.response).slice(0, 120) : '<span class="muted">None</span>' },
+                { label: 'Image', sortValue: r => r.image ? 1 : 0, render: r => r.image ? `<a href="${escapeHtml(r.image)}" target="_blank" rel="noopener">View</a>` : '<span class="muted">None</span>' },
+                { label: 'Status', key: 'enabled', render: r => r.enabled === false ? '<span class="badge off">Disabled</span>' : '<span class="badge on">Enabled</span>' },
+                { label: 'Uses', key: 'uses' }
+            ];
+            if (canManageTriggers) {
+                triggerColumns.push({ label: 'Manage', sortable: false, render: r => `<button class="secondary" data-trigger-manage="${escapeHtml(r.trigger)}">Manage</button>` });
+            }
+            triggerColumns.push(
+                { label: 'Added By', key: 'addedByLabel', render: r => withNicknameTitle(r.addedByLabel, r.addedByNickname) },
+                { label: 'Added At', key: 'addedAt', render: r => escapeHtml(formatDateTime(r.addedAt)) }
+            );
+            renderTable(document.getElementById('triggerTable'), triggerColumns, data.triggers, 'No triggers configured yet.');
 
             renderTable(document.getElementById('triggerAudit'),
                 [
@@ -3299,7 +3627,7 @@
                 return;
             }
 
-            if (!window.confirm(`Delete trigger "${phrase}"?`)) {
+            if (!await confirmAction({ title: 'Delete trigger?', message: `Delete trigger "${phrase}"? This cannot be undone.`, confirmLabel: 'Delete trigger' })) {
                 return;
             }
 
@@ -3591,8 +3919,18 @@
         const serverMembersContainer = document.getElementById('serverMembersTable');
 
         function renderMemberRoleCell(member) {
+            if (member.isOwner) {
+                return '<span class="badge owner">Owner</span>';
+            }
+
             if (member.isDeveloper) {
                 return '<span class="badge dev">Developer</span>';
+            }
+
+            if (!state.canManageManagers) {
+                return member.role === 'manager'
+                    ? '<span class="badge manager">Manager</span>'
+                    : '<span class="badge">User</span>';
             }
 
             return `<select data-role-select data-user-id="${escapeHtml(member.id)}">` +
@@ -3604,6 +3942,10 @@
         function renderMemberActionsCell(member) {
             if (member.isDeveloper) {
                 return '<span class="muted">-</span>';
+            }
+
+            if (member.isOwner) {
+                return `<button type="button" class="secondary" data-manage-user="${escapeHtml(member.id)}">Manage permissions</button>`;
             }
 
             return `<div class="row">` +
@@ -3624,24 +3966,27 @@
                 return;
             }
 
+            state.canManageManagers = data.canManageManagers === true;
             renderTable(serverMembersContainer,
                 [
                     { label: 'User', key: 'tag', render: r => withNicknameTitle(r.tag, r.nickname) },
                     { label: 'Nickname', key: 'nickname', render: r => r.nickname ? escapeHtml(r.nickname) : '<span class="muted">-</span>' },
                     { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
-                    { label: 'Role', sortValue: r => r.isDeveloper ? 2 : (r.role === 'manager' ? 1 : 0), render: renderMemberRoleCell },
+                    { label: 'Role', sortValue: r => r.isOwner ? 3 : (r.isDeveloper ? 2 : (r.role === 'manager' ? 1 : 0)), render: renderMemberRoleCell },
                     { label: 'Custom Permissions', sortValue: r => r.overrideCount + r.nonDefaultFeatureCount, render: r => (r.overrideCount + r.nonDefaultFeatureCount) > 0 ? `<span class="badge manager">${r.overrideCount + r.nonDefaultFeatureCount} custom</span>` : '<span class="muted">Default</span>' },
                     { label: '', sortable: false, render: renderMemberActionsCell }
                 ],
                 data.members, 'No members found.');
         }
 
-        serverMembersContainer.addEventListener('change', event => {
+        serverMembersContainer.addEventListener('change', async event => {
             const select = event.target.closest('[data-role-select]');
             if (!select) return;
 
             const userId = select.dataset.userId;
             const role = select.value;
+            const confirmed = await confirmAction({ title: 'Change member role?', message: `Change ${userId} to ${role}? This changes their Flummi permissions for this server.`, confirmLabel: 'Change role' });
+            if (!confirmed) { await loadServerMembers(); return; }
 
             api(withGuild('/api/members/role'), {
                 method: 'POST',
@@ -3655,7 +4000,7 @@
             });
         });
 
-        serverMembersContainer.addEventListener('click', event => {
+        serverMembersContainer.addEventListener('click', async event => {
             const manageButton = event.target.closest('[data-manage-user]');
 
             if (manageButton) {
@@ -3670,6 +4015,8 @@
             if (!button) return;
 
             const userId = button.dataset.resetUser;
+            const confirmed = await confirmAction({ title: 'Reset member permissions?', message: `Reset every custom Flummi permission for ${userId}?`, confirmLabel: 'Reset permissions' });
+            if (!confirmed) return;
 
             api(withGuild('/api/members/reset'), {
                 method: 'POST',
@@ -3688,24 +4035,41 @@
             await populateGuildUserSelects();
             await loadServerMembers();
             const data = await api(withGuild('/api/managers'));
+            state.canManageManagers = data.canManageManagers === true;
 
             renderTable(document.getElementById('managerTable'),
-                [{ label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` }],
+                [
+                    { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
+                    { label: 'Role', key: 'role', render: r => `<span class="badge ${r.role === 'owner' ? 'owner' : 'manager'}">${r.role === 'owner' ? 'Owner' : 'Manager'}</span>` },
+                    { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` }
+                ],
                 data.managers, 'No managers configured yet.');
+
+            const managerControls = ['managerUserSelect', 'managerUserId', 'addManager', 'removeManager'];
+            for (const id of managerControls) {
+                const control = document.getElementById(id);
+                control.disabled = !state.canManageManagers;
+                control.title = state.canManageManagers ? '' : 'Only the server owner can grant or remove the Manager role.';
+            }
+            if (!state.canManageManagers) {
+                setStatus(managerStatusField, 'Manager roles are read-only. Only the server owner can change them.');
+            } else if (!managerStatusField.classList.contains('error')) {
+                setStatus(managerStatusField, '');
+            }
 
             renderTable(document.getElementById('developerTable'),
                 [{ label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` }],
                 data.developers, 'No developers configured.');
 
-            const configData = await api('/api/config');
-            const rows = Object.entries(configData.commandPermissions || {}).map(([path, role]) => ({ path, role }));
-
-            renderTable(document.getElementById('commandPermissionsTable'),
-                [
-                    { label: 'Command', key: 'path', render: r => `<code>/${escapeHtml(r.path.replace(/\./g, ' '))}</code>` },
-                    { label: 'Required Role', key: 'role', render: r => `<select data-command-role="${escapeHtml(r.path)}"><option value="user" ${r.role === 'user' ? 'selected' : ''}>user</option><option value="manager" ${r.role === 'manager' ? 'selected' : ''}>manager</option><option value="developer" ${r.role === 'developer' ? 'selected' : ''}>developer</option></select>` }
-                ],
-                rows, 'No configured command permissions.');
+            if (state.role === 'developer') {
+                const configData = await api('/api/config');
+                const rows = Object.entries(configData.commandPermissions || {}).map(([path, role]) => ({ path, role }));
+                renderTable(document.getElementById('commandPermissionsTable'),
+                    [
+                        { label: 'Command', key: 'path', render: r => `<code>/${escapeHtml(r.path.replace(/\./g, ' '))}</code>` },
+                        { label: 'Required Role', key: 'role', render: r => `<select data-command-role="${escapeHtml(r.path)}"><option value="user" ${r.role === 'user' ? 'selected' : ''}>user</option><option value="manager" ${r.role === 'manager' ? 'selected' : ''}>manager</option><option value="developer" ${r.role === 'developer' ? 'selected' : ''}>developer</option></select>` }
+                    ], rows, 'No configured command permissions.');
+            }
         }
 
         document.getElementById('commandPermissionsTable').addEventListener('change', async event => {
@@ -3717,12 +4081,24 @@
         document.getElementById('removeManager').addEventListener('click', () => setManager(false));
 
         async function setManager(shouldBeManager) {
+            if (!state.canManageManagers) {
+                setStatus(managerStatusField, 'Only the server owner can change Manager roles.', 'error');
+                return;
+            }
+
             const userId = document.getElementById('managerUserId').value.trim();
 
             if (!state.guildId || !userId) {
                 setStatus(managerStatusField, 'Select a guild and enter a user ID.', 'error');
                 return;
             }
+
+            const confirmed = await confirmAction({
+                title: shouldBeManager ? 'Add manager?' : 'Remove manager?',
+                message: `${shouldBeManager ? 'Grant' : 'Remove'} manager access for ${userId} on this server?`,
+                confirmLabel: shouldBeManager ? 'Add manager' : 'Remove manager'
+            });
+            if (!confirmed) return;
 
             try {
                 await api(withGuild('/api/managers'), {
@@ -3783,7 +4159,7 @@
                 ${memberIdentityCard(userId)}
                 <p class="sub">
                     Member ID: ${escapeHtml(userId)}
-                    <span class="badge ${data.role === 'developer' ? 'dev' : data.role === 'manager' ? 'manager' : ''}">${escapeHtml(data.role)}</span>
+                    <span class="badge ${data.role === 'developer' ? 'dev' : data.role === 'owner' ? 'owner' : data.role === 'manager' ? 'manager' : ''}">${escapeHtml(data.role)}</span>
                     ${readOnly ? '<span class="sub">Developers always have full access and cannot be edited here.</span>' : ''}
                 </p>
                 <div class="two-col">${featureRows}</div>
@@ -3822,12 +4198,14 @@
             loadPermissionsEditor(document.getElementById('permUserId').value.trim()).catch(error => console.error(error));
         });
 
-        permissionsEditor.addEventListener('change', event => {
+        permissionsEditor.addEventListener('change', async event => {
             const toggle = event.target.closest('[data-feature-toggle]');
             if (!toggle) return;
 
             const userId = permissionsEditor.dataset.userId;
             const key = toggle.dataset.featureKey;
+            const confirmed = await confirmAction({ title: 'Change feature permission?', message: `${toggle.checked ? 'Allow' : 'Block'} ${key} for ${userId}?`, confirmLabel: 'Change permission' });
+            if (!confirmed) { await loadPermissionsEditor(userId); return; }
 
             api(withGuild('/api/permissions'), {
                 method: 'POST',
@@ -3841,12 +4219,14 @@
             });
         });
 
-        permissionsEditor.addEventListener('click', event => {
+        permissionsEditor.addEventListener('click', async event => {
             const clearButton = event.target.closest('[data-clear-override]');
 
             if (clearButton) {
                 const userId = permissionsEditor.dataset.userId;
                 const commandPath = clearButton.dataset.clearOverride;
+                const confirmed = await confirmAction({ title: 'Clear command override?', message: `Return /${commandPath.replace(/\./g, ' ')} to its inherited permission for ${userId}?`, confirmLabel: 'Clear override', danger: false });
+                if (!confirmed) return;
 
                 api(withGuild('/api/permissions'), {
                     method: 'POST',
@@ -3871,6 +4251,9 @@
                 setStatus(permissionsStatusField, 'Enter a command path, e.g. trigger.add.', 'error');
                 return;
             }
+
+            const confirmed = await confirmAction({ title: 'Set command override?', message: `${commandAccess === 'allow' ? 'Allow' : 'Block'} /${commandPath.replace(/\./g, ' ')} for ${userId}?`, confirmLabel: 'Set override' });
+            if (!confirmed) return;
 
             api(withGuild('/api/permissions'), {
                 method: 'POST',
@@ -3897,7 +4280,7 @@
                 ['Style', `Color: #${Number(profile.color).toString(16).padStart(6, '0').toUpperCase()}`],
                 ['Socials', Object.entries(profile.socials || {}).map(([name, handle]) => `${name}: ${handle}`).join('\n') || 'No socials set.']
             ];
-            const bannerStyle = backgroundUrlStyle(profile.bannerUrl || data.user.bannerUrl || '/assets/branding/flummi-banner.jpeg');
+            const bannerStyle = backgroundUrlStyle(profile.bannerUrl || data.user.bannerUrl || '/assets/branding/flummi-banner-color.jpg');
             const avatar = data.user.avatarUrl ? `<img class="discord-preview-avatar" src="${escapeHtml(data.user.avatarUrl)}" alt="">` : '';
 
             document.getElementById('profilePreview').innerHTML = `
@@ -4109,6 +4492,7 @@
 
         // ---------- Settings ----------
         let editableTabOrder = [];
+        let editableDeveloperTabOrder = [...defaultDeveloperTabOrder];
         let editableTabNames = {};
 
         function tabLabel(tabId) {
@@ -4119,7 +4503,13 @@
             const container = document.getElementById('tabOrderEditor');
             container.innerHTML = editableTabOrder.length ? `<table><tbody>${editableTabOrder.map((entry, index) => {
                 const divider = isDividerToken(entry);
-                return `<tr><td>${divider ? '<span class="muted">──────── Divider ────────</span>' : `<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name">`}</td><td style="width:1%;white-space:nowrap"><button class="secondary" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> <button class="danger" data-tab-order="remove" data-index="${index}">Remove</button></td></tr>`;
+                const title = isTitleToken(entry);
+                const content = divider
+                    ? '<span class="muted">──── Divider ────</span>'
+                    : title
+                        ? `<div class="row"><span class="badge manager">Category</span><input data-tab-title-index="${index}" maxlength="60" value="${escapeHtml(titleFromToken(entry))}" aria-label="Category title" style="flex:1"></div>`
+                        : `<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name">`;
+                return `<tr><td>${content}</td><td style="width:1%;white-space:nowrap"><button class="secondary" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> <button class="danger" data-tab-order="remove" data-index="${index}">Remove</button></td></tr>`;
             }).join('')}</tbody></table>` : '<div class="empty">No tabs configured.</div>';
             container.querySelectorAll('[data-tab-order]').forEach(button => button.addEventListener('click', () => {
                 const index = Number(button.dataset.index); const action = button.dataset.tabOrder;
@@ -4129,6 +4519,28 @@
                 renderTabOrderEditor();
             }));
             container.querySelectorAll('[data-tab-name]').forEach(input => input.addEventListener('input', () => { editableTabNames[input.dataset.tabName] = input.value; }));
+            container.querySelectorAll('[data-tab-title-index]').forEach(input => input.addEventListener('input', () => {
+                editableTabOrder[Number(input.dataset.tabTitleIndex)] = `title:${input.value.slice(0, 60)}`;
+            }));
+        }
+
+        function renderDeveloperTabOrderEditor() {
+            const container = document.getElementById('developerTabOrderEditor');
+            container.innerHTML = `<table><tbody>${editableDeveloperTabOrder.map((tabId, index) => `
+                <tr>
+                    <td><span class="badge dev">Developer</span> ${escapeHtml(editableTabNames[tabId] || defaultTabLabels[tabId] || tabLabel(tabId))}</td>
+                    <td style="width:1%;white-space:nowrap">
+                        <button class="secondary" type="button" data-developer-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
+                        <button class="secondary" type="button" data-developer-tab-order="down" data-index="${index}" ${index === editableDeveloperTabOrder.length - 1 ? 'disabled' : ''}>↓</button>
+                    </td>
+                </tr>`).join('')}</tbody></table>`;
+            container.querySelectorAll('[data-developer-tab-order]').forEach(button => button.addEventListener('click', () => {
+                const index = Number(button.dataset.index);
+                const target = button.dataset.developerTabOrder === 'up' ? index - 1 : index + 1;
+                if (target < 0 || target >= editableDeveloperTabOrder.length) return;
+                [editableDeveloperTabOrder[index], editableDeveloperTabOrder[target]] = [editableDeveloperTabOrder[target], editableDeveloperTabOrder[index]];
+                renderDeveloperTabOrderEditor();
+            }));
         }
 
         async function loadSettings() {
@@ -4174,52 +4586,91 @@
             const configuredTabOrder = Array.isArray(configData.panel?.tabOrder) && configData.panel.tabOrder.length
                 ? [...configData.panel.tabOrder]
                 : [];
-            const configuredTabs = new Set(configuredTabOrder.filter(tabId => !isDividerToken(tabId)));
+            const configuredDeveloperOrder = configuredTabOrder.filter(entry => fixedDeveloperTabIds.has(entry));
+            editableDeveloperTabOrder = [
+                ...new Set(configuredDeveloperOrder),
+                ...defaultDeveloperTabOrder.filter(tabId => !configuredDeveloperOrder.includes(tabId))
+            ];
+            const sharedConfiguredOrder = configuredTabOrder.filter(entry => !fixedDeveloperTabIds.has(entry));
+            const configuredTabs = new Set(sharedConfiguredOrder.filter(tabId => !isDividerToken(tabId) && !isTitleToken(tabId)));
             // Older saved configurations predate newer tabs. Keep their custom order and dividers,
             // then append every newly available tab so it can be positioned and renamed normally.
             editableTabOrder = [
-                ...configuredTabOrder,
+                ...sharedConfiguredOrder,
                 ...tabButtons
                     .map(button => button.dataset.tab)
-                    .filter(tabId => !configuredTabs.has(tabId))
+                    .filter(tabId => !fixedDeveloperTabIds.has(tabId) && !configuredTabs.has(tabId))
             ];
             editableTabNames = { ...(configData.panel?.tabNames || {}) };
             renderTabOrderEditor();
+            renderDeveloperTabOrderEditor();
         }
 
         function syncGlobalFeatureState() {
-            const guildTriggers = document.getElementById('setTriggersEnabled');
-            const globalTriggersOn = document.getElementById('featureTriggers').checked;
-            guildTriggers.disabled = !globalTriggersOn;
-            guildTriggers.closest('.checkbox-row').style.opacity = globalTriggersOn ? '1' : '.45';
-            guildTriggers.closest('.checkbox-row').title = globalTriggersOn ? '' : 'Disabled globally in Global Feature Settings.';
             const pairs = [
+                ['featureTriggers', 'setTriggersEnabled'],
                 ['featureAiConversations', 'guildFeatureAiConversations'], ['featureAiAttachments', 'guildFeatureAiAttachments'],
                 ['featureAiImageSearch', 'guildFeatureAiImageSearch'], ['featurePingResponses', 'guildFeaturePingResponses'],
                 ['featurePingSave', 'guildFeaturePingSave'], ['featureShots', 'guildFeatureShots']
             ];
             for (const [globalId, guildId] of pairs) {
-                const input = document.getElementById(guildId); const on = document.getElementById(globalId).checked;
-                input.disabled = !on; input.closest('.guild-feature').style.opacity = on ? '1' : '.45';
-                input.closest('.guild-feature').title = on ? '' : 'Disabled globally in Global Feature Settings.';
+                const globalInput = document.getElementById(globalId);
+                const input = document.getElementById(guildId);
+                const on = globalInput.checked;
+                const surface = input.closest('.checkbox-row');
+                const label = document.querySelector(`label[for="${globalId}"]`)?.textContent.replace(/\?\s*$/, '').trim() || 'this feature';
+                const baseTooltip = surface.dataset.baseTooltip || featureTooltipDefinitions[guildId] || '';
+                const tooltip = on
+                    ? baseTooltip
+                    : `Temporarily disabled because “${label}” is turned off in Global Feature Settings. ${baseTooltip}`;
+                input.disabled = !on;
+                surface.style.opacity = on ? '1' : '.55';
+                surface.dataset.disabledByGlobal = String(!on);
+                surface.dataset.tooltip = tooltip;
+                surface.setAttribute('aria-disabled', String(!on));
+                const help = surface.querySelector('[data-feature-help]');
+                if (help) help.dataset.tooltip = tooltip;
             }
         }
 
         ['featureTriggers', 'featureAiConversations', 'featureAiAttachments', 'featureAiImageSearch', 'featurePingResponses', 'featurePingSave', 'featureShots'].forEach(id => document.getElementById(id).addEventListener('change', syncGlobalFeatureState));
 
         document.getElementById('addTabDivider').addEventListener('click', () => { editableTabOrder.push('---'); renderTabOrderEditor(); });
+        document.getElementById('addTabTitle').addEventListener('click', () => {
+            const input = document.getElementById('tabTitleInput');
+            const title = input.value.trim();
+            if (!title) {
+                setStatus(document.getElementById('tabOrderStatus'), 'Enter a category title first.', 'error');
+                input.focus();
+                return;
+            }
+            editableTabOrder.push(`title:${title.slice(0, 60)}`);
+            input.value = '';
+            renderTabOrderEditor();
+            setStatus(document.getElementById('tabOrderStatus'), 'Category title added. Move it with the arrows, then save.', 'ok');
+        });
+        document.getElementById('tabTitleInput').addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                document.getElementById('addTabTitle').click();
+            }
+        });
         document.getElementById('saveTabOrder').addEventListener('click', async () => {
             const status = document.getElementById('tabOrderStatus');
+            if (!await confirmAction({ title: 'Save panel navigation?', message: 'This changes tab names and ordering for every panel user.', confirmLabel: 'Save navigation', danger: false })) return;
             try {
+                editableTabOrder = editableTabOrder.filter(entry => !isTitleToken(entry) || Boolean(titleFromToken(entry)));
                 const tabNames = Object.fromEntries(Object.entries(editableTabNames).map(([id, name]) => [id, String(name).trim()]).filter(([, name]) => name));
-                const result = await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ panel: { tabOrder: editableTabOrder, tabNames } }) });
-                applyTabOrder(result.config?.panel?.tabOrder || editableTabOrder);
+                const completeTabOrder = [...editableTabOrder, ...editableDeveloperTabOrder];
+                const result = await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ panel: { tabOrder: completeTabOrder, tabNames } }) });
+                applyTabOrder(result.config?.panel?.tabOrder || completeTabOrder);
                 applyTabNames(result.config?.panel?.tabNames || tabNames);
                 setStatus(status, 'Tab order saved.', 'ok');
             } catch (error) { setStatus(status, error.message, 'error'); }
         });
 
-        document.getElementById('saveSettings').addEventListener('click', () => {
+        document.getElementById('saveSettings').addEventListener('click', async () => {
+            if (!await confirmAction({ title: 'Save server settings?', message: 'These feature and trigger settings apply immediately to the selected server.', confirmLabel: 'Save settings', danger: false })) return;
             saveSettings().catch(error => setStatus(document.getElementById('settingsStatus'), error.message, 'error'));
         });
 
@@ -4228,6 +4679,19 @@
 
             if (!state.guildId) {
                 setStatus(statusField, 'Select a guild first.', 'error');
+                return;
+            }
+
+            const cooldownInput = document.getElementById('setCooldownSeconds');
+            const triggerLengthInput = document.getElementById('setMaxTriggerLength');
+            if (!cooldownInput.checkValidity()) {
+                setStatus(statusField, 'Cooldown seconds must be between 0 and 3600.', 'error');
+                cooldownInput.reportValidity();
+                return;
+            }
+            if (!triggerLengthInput.checkValidity()) {
+                setStatus(statusField, 'Max trigger length must be between 1 and 200.', 'error');
+                triggerLengthInput.reportValidity();
                 return;
             }
 
@@ -4259,6 +4723,7 @@
 
         document.getElementById('saveGlobalFeatures').addEventListener('click', async () => {
             const statusField = document.getElementById('globalFeatureStatus');
+            if (!await confirmAction({ title: 'Save global features?', message: 'These switches affect every server connected to Flummi.', confirmLabel: 'Save global features' })) return;
             try {
                 await api('/api/config', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
@@ -4282,7 +4747,7 @@
 
         document.getElementById('downloadBackup').addEventListener('click', () => { if (state.guildId) window.location.href = withGuild('/api/backup'); });
         document.getElementById('loadStorage').addEventListener('click', async () => { try { const data = await api(withGuild('/api/data-tools')); renderTable(document.getElementById('storageDetails'), [{ label: 'File', key: 'name' }, { label: 'Bytes', key: 'size' }, { label: 'Modified', key: 'modifiedAt', render: r => formatDateTime(r.modifiedAt) }], data.guildFiles, 'No guild storage files.'); } catch (error) { setStatus(document.getElementById('settingsStatus'), error.message, 'error'); } });
-        document.getElementById('resetUserData').addEventListener('click', async () => { const userId = document.getElementById('resetDataUser').value.trim(), store = document.getElementById('resetDataStore').value; if (!userId || !state.guildId || !window.confirm(`Reset ${store} for ${userId}? This cannot be undone.`)) return; try { await api(withGuild('/api/data-tools/reset'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, store, confirmation: 'RESET' }) }); setStatus(document.getElementById('settingsStatus'), `Reset ${store} for ${userId}.`, 'ok'); } catch (error) { setStatus(document.getElementById('settingsStatus'), error.message, 'error'); } });
+        document.getElementById('resetUserData').addEventListener('click', async () => { const userId = document.getElementById('resetDataUser').value.trim(), store = document.getElementById('resetDataStore').value; if (!userId || !state.guildId) return; if (!await confirmAction({ title: 'Permanently reset user data?', message: `Reset ${store} for ${userId}? This cannot be undone.`, confirmLabel: 'Reset data' })) return; try { await api(withGuild('/api/data-tools/reset'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, store, confirmation: 'RESET' }) }); setStatus(document.getElementById('settingsStatus'), `Reset ${store} for ${userId}.`, 'ok'); } catch (error) { setStatus(document.getElementById('settingsStatus'), error.message, 'error'); } });
 
         // ---------- Ping requests ----------
         async function loadPingRequests() {
@@ -4493,6 +4958,61 @@
             } catch (error) { setStatus(document.getElementById('guildBotProfileStatus'), error.message, 'error'); }
         });
 
+        async function loadAudit() {
+            if (!state.guildId) {
+                document.getElementById('auditTable').innerHTML = '<div class="empty">Select a server to view its audit log.</div>';
+                return;
+            }
+            const data = await api(withGuild('/api/audit'));
+            renderTable(document.getElementById('auditTable'), [
+                { label: 'When', key: 'at', render: row => escapeHtml(formatDateTime(row.at)) },
+                { label: 'Who', key: 'actorName', render: row => escapeHtml(row.actorName || row.actorId || 'Unknown') },
+                { label: 'Action', key: 'type' },
+                { label: 'Details', key: 'message' }
+            ], data.entries || [], 'No confirmed panel changes have been recorded for this server yet.', { index: 0, dir: -1 });
+        }
+
+        async function loadExperiments() {
+            const data = await api('/api/experiments');
+            document.getElementById('experimentAdminView').checked = data.previewAdminView === true;
+            document.getElementById('experimentPanelRole').value = data.previewPanelRole || 'manager';
+            document.getElementById('experimentPanelRole').disabled = data.previewAdminView !== true;
+            document.getElementById('experimentDiscordRole').value = data.discordRole || 'developer';
+            document.getElementById('experimentExpiry').textContent = data.expiresAt
+                ? `Automatically resets to Developer at ${formatDateTime(data.expiresAt)}.`
+                : 'No Discord role simulation is active.';
+        }
+
+        document.getElementById('saveExperiments').addEventListener('click', async () => {
+            const previewAdminView = document.getElementById('experimentAdminView').checked;
+            const previewPanelRole = document.getElementById('experimentPanelRole').value;
+            const discordRole = document.getElementById('experimentDiscordRole').value;
+            const confirmed = await confirmAction({
+                title: 'Apply developer experiment?',
+                message: `Panel view: ${previewAdminView ? previewPanelRole : 'developer'}. Discord bot role: ${discordRole}. The Discord simulation affects your real bot interactions until reset or expiry.`,
+                confirmLabel: 'Apply experiment'
+            });
+            if (!confirmed) return;
+            const status = document.getElementById('experimentsStatus');
+            try {
+                await api('/api/experiments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ previewAdminView, previewPanelRole, discordRole })
+                });
+                setStatus(status, 'Experiment applied.', 'ok');
+                await loadPanelAccount();
+                await loadGuilds();
+                await loadExperiments();
+            } catch (error) {
+                setStatus(status, error.message, 'error');
+            }
+        });
+
+        document.getElementById('experimentAdminView').addEventListener('change', event => {
+            document.getElementById('experimentPanelRole').disabled = !event.target.checked;
+        });
+
         // ---------- Init ----------
         const rememberedTab = localStorage.getItem('flummi.activeTab');
         const rememberedButton = tabButtons.find(button => button.dataset.tab === rememberedTab);
@@ -4509,9 +5029,17 @@
             ]);
         }
 
-        initializePanel().catch(error => console.error(error));
+        initializePanel().catch(error => handleUiError(error, () => initializePanel().catch(handleUiError)));
     </script>
     <div id="chartTooltip" class="chart-tooltip" role="status" aria-live="polite"></div>
+    <dialog id="confirmDialog" class="confirm-dialog">
+        <div class="confirm-dialog-body">
+            <h2 id="confirmDialogTitle">Confirm change</h2>
+            <p id="confirmDialogMessage" class="sub"></p>
+            <div class="actions"><button id="confirmDialogCancel" class="secondary" type="button">Cancel</button><button
+                    id="confirmDialogAccept" class="danger" type="button">Confirm</button></div>
+        </div>
+    </dialog>
 </body>
 
 </html>

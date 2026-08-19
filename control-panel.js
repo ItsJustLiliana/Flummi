@@ -25,7 +25,7 @@ loadEnv();
 
 const botToken = process.env.DISCORD_BOT_TOKEN || config.token;
 
-const host = '127.0.0.1';
+const host = '0.0.0.0';
 const port = 3789;
 const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');

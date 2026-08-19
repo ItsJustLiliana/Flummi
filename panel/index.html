@@ -116,6 +116,36 @@
             margin: 4px 0 0;
         }
 
+        .sidebar-account {
+            margin-top: auto;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .account-summary {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            margin-bottom: 10px;
+        }
+
+        .account-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid var(--border);
+        }
+
+        .account-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
         h1 {
             margin: 0;
             font-size: clamp(20px, 3vw, 28px);
@@ -1313,6 +1343,10 @@
                 <button class="tab-btn" data-tab="reliability" type="button">Reliability</button>
                 <button class="tab-btn" data-tab="soundboard" type="button">Soundboard</button>
             </nav>
+            <div class="sidebar-account">
+                <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" alt=""><span id="panelAccountName" class="account-name">Signed in</span></div>
+                <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
+            </div>
         </aside>
     </div>
 
@@ -1657,6 +1691,19 @@
                 }
             }
         }
+
+        async function loadPanelAccount() {
+            const data = await api('/auth/me');
+            const avatar = document.getElementById('panelAccountAvatar');
+            avatar.src = data.user.avatarUrl;
+            avatar.alt = `${data.user.username}'s Discord avatar`;
+            document.getElementById('panelAccountName').textContent = data.user.username;
+        }
+
+        document.getElementById('logoutPanel').addEventListener('click', async () => {
+            await fetch('/auth/logout', { method: 'POST' });
+            window.location.assign('/');
+        });
 
         function applyTabNames(names) {
             for (const button of tabButtons) {
@@ -3309,6 +3356,7 @@
         });
 
         // ---------- Init ----------
+        loadPanelAccount().catch(() => window.location.assign('/'));
         loadInviteLink().catch(error => console.error(error));
         loadGuilds().catch(error => console.error(error));
     </script>

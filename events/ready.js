@@ -1,6 +1,6 @@
 const { ensureGlobalStorage, ensureGuildStorage } = require('../utils/guild-storage');
 const { applyConfiguredPresence } = require('../utils/presence');
-const { endVoiceSession, getUserVoiceStats, startVoiceSession } = require('../stores/voice-store');
+const { endVoiceSession, getUserVoiceStats, startVoiceSession, updateVoiceSession } = require('../stores/voice-store');
 
 function getVoiceStateData(voiceState) {
     return {
@@ -25,6 +25,18 @@ function reconcileVoiceSessions(guild) {
         }
 
         const currentStats = getUserVoiceStats(guild.id, user.id);
+
+        // Keep a persisted active session alive across a bot restart when the user is
+        // still in the same channel, so the live duration does not reset.
+        if (currentStats.currentChannelId === voiceState.channelId) {
+            updateVoiceSession({
+                guildId: guild.id,
+                userId: user.id,
+                at: now,
+                state: getVoiceStateData(voiceState)
+            });
+            continue;
+        }
 
         if (currentStats.currentChannelId) {
             endVoiceSession({

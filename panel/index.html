@@ -563,11 +563,137 @@
                 flex-direction: row;
                 flex-wrap: wrap;
             }
+
+            .sidebar-account {
+                margin-top: 0;
+            }
         }
 
         @media (max-width: 860px) {
             .two-col {
                 grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            :root { --sidebar-width: 100%; }
+
+            .content {
+                padding: 16px 12px 24px;
+            }
+
+            .sidebar {
+                padding: 14px 12px;
+                gap: 12px;
+                align-items: stretch;
+            }
+
+            .brand {
+                width: 100%;
+            }
+
+            .sidebar-actions,
+            .tabs,
+            .sidebar-account {
+                width: 100%;
+            }
+
+            .tabs {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 6px;
+                padding: 0;
+            }
+
+            .tab-btn {
+                min-height: 42px;
+                padding: 8px 6px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .tab-divider {
+                grid-column: 1 / -1;
+                width: 100%;
+                margin: 4px 0;
+            }
+
+            .sidebar-account {
+                padding-top: 12px;
+            }
+
+            .section {
+                padding: 13px;
+                margin-bottom: 12px;
+            }
+
+            .row,
+            .actions {
+                gap: 8px;
+                align-items: stretch;
+            }
+
+            .section > .row > select,
+            .section > .row > input,
+            .section > .row > button,
+            .section > .row > label.secondary,
+            .actions > button {
+                min-height: 42px;
+            }
+
+            .section > .row > select,
+            .section > .row > input {
+                flex: 1 1 145px;
+                min-width: 0;
+            }
+
+            .actions > button {
+                flex: 1 1 150px;
+            }
+
+            .table-wrap table {
+                min-width: 600px;
+            }
+
+            .table-toolbar {
+                min-width: 600px;
+            }
+
+            .heatmap {
+                grid-template-columns: 38px repeat(24, 12px);
+                width: max-content;
+                min-width: 100%;
+                overflow: visible;
+            }
+
+            .heatmap::after {
+                content: '';
+            }
+
+            .section:has(.heatmap) {
+                overflow-x: auto;
+            }
+
+            .analytics-chart {
+                height: 230px;
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .analytics-chart.compact {
+                height: 82px;
+            }
+
+            .help-tip::after {
+                left: auto;
+                right: 0;
+                transform: translate(0, 4px);
+            }
+
+            .help-tip:hover::after,
+            .help-tip:focus-visible::after {
+                transform: translate(0, 0);
             }
         }
 
@@ -1343,7 +1469,7 @@
                 <button class="tab-btn" data-tab="reliability" type="button">Reliability</button>
                 <button class="tab-btn" data-tab="soundboard" type="button">Soundboard</button>
             </nav>
-            <div class="sidebar-account">
+            <div id="panelAccount" class="sidebar-account" hidden>
                 <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" alt=""><span id="panelAccountName" class="account-name">Signed in</span></div>
                 <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
             </div>
@@ -1698,6 +1824,7 @@
             avatar.src = data.user.avatarUrl;
             avatar.alt = `${data.user.username}'s Discord avatar`;
             document.getElementById('panelAccountName').textContent = data.user.username;
+            document.getElementById('panelAccount').hidden = false;
         }
 
         document.getElementById('logoutPanel').addEventListener('click', async () => {
@@ -3356,7 +3483,7 @@
         });
 
         // ---------- Init ----------
-        loadPanelAccount().catch(() => window.location.assign('/'));
+        loadPanelAccount().catch(() => { /* OAuth is not deployed yet, so keep the account block hidden. */ });
         loadInviteLink().catch(error => console.error(error));
         loadGuilds().catch(error => console.error(error));
     </script>

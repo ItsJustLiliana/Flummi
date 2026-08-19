@@ -107,9 +107,43 @@ function requirePanelAccess(req, res) {
     return session;
 }
 
+function isDeveloperSession(session) {
+    return Boolean(session && (session.isDeveloper || accessStore.isDeveloper(session.userId)));
+}
+
+function canAccessGuild(session, guildId) {
+    if (!session || !guildId) return false;
+    if (isDeveloperSession(session)) return true;
+    return Array.isArray(session.adminGuildIds) && session.adminGuildIds.includes(String(guildId));
+}
+
+async function hasCurrentGuildAccess(session, guildId) {
+    if (!canAccessGuild(session, guildId)) return false;
+    if (isDeveloperSession(session)) return true;
+    try {
+        const guild = await client.guilds.fetch(String(guildId));
+        const member = await guild.members.fetch(String(session.userId));
+        return member.permissions.has(PermissionsBitField.Flags.Administrator);
+    } catch {
+        return false;
+    }
+}
+
+async function requireGuildAccess(session, guildId, res) {
+    if (await hasCurrentGuildAccess(session, guildId)) return true;
+    sendJson(res, 403, { error: 'You do not have administrator access to this server.' });
+    return false;
+}
+
+function requireDeveloperAccess(session, res) {
+    if (isDeveloperSession(session)) return true;
+    sendJson(res, 403, { error: 'This feature is only available to Flummi developers.' });
+    return false;
+}
+
 function loginPage(message = '') {
     const safeMessage = String(message).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]));
-    return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flummi Panel</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1020;color:#edf2ff;font:16px Segoe UI,sans-serif}.card{width:min(420px,calc(100vw - 40px));padding:32px;border:1px solid #243157;border-radius:16px;background:#111a33;box-shadow:0 16px 50px #0006}h1{margin:0 0 8px}.sub{color:#a5b1d8;line-height:1.5}a{display:block;margin-top:24px;padding:12px 16px;border-radius:9px;background:#5865f2;color:white;text-align:center;text-decoration:none;font-weight:700}.error{margin-top:14px;color:#ffbf5b}</style><main class="card"><h1>Flummi Admin Panel</h1><p class="sub">Sign in with the Discord account configured as a Flummi developer.</p>${safeMessage ? `<p class="error">${safeMessage}</p>` : ''}<a href="/auth/login">Continue with Discord</a></main></html>`;
+    return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flummi Panel</title><style>body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px;background:#0b1020;color:#edf2ff;font:16px Segoe UI,sans-serif;box-sizing:border-box}.card{width:min(420px,100%);padding:32px;border:1px solid #243157;border-radius:16px;background:#111a33;box-shadow:0 16px 50px #0006;box-sizing:border-box}h1{margin:0 0 8px}.sub{color:#a5b1d8;line-height:1.5}a{display:block;margin-top:24px;padding:12px 16px;border-radius:9px;background:#5865f2;color:white;text-align:center;text-decoration:none;font-weight:700}.error{margin-top:14px;color:#ffbf5b}</style><main class="card"><h1>Flummi Admin Panel</h1><p class="sub">Sign in with Discord to manage servers where you have Administrator permission.</p>${safeMessage ? `<p class="error">${safeMessage}</p>` : ''}<a href="/auth/login">Continue with Discord</a></main></html>`;
 }
 
 function cleanupAuthRecords() {
@@ -291,10 +325,17 @@ async function listVoiceChannels(guildId) {
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-async function listGuilds() {
+async function listGuilds(session) {
     await client.guilds.fetch();
 
-    return Array.from(client.guilds.cache.values())
+    const guilds = Array.from(client.guilds.cache.values());
+    const permitted = isDeveloperSession(session)
+        ? guilds
+        : (await Promise.all(guilds.map(async guild => ({ guild, allowed: await hasCurrentGuildAccess(session, guild.id) }))))
+            .filter(result => result.allowed)
+            .map(result => result.guild);
+
+    return permitted
         .map(guild => ({ id: guild.id, name: guild.name }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -695,7 +736,7 @@ function createServer() {
                 const redirectUri = `${panelPublicUrl(req)}/auth/callback`;
                 oauthStates.set(state, { redirectUri, expiresAt: Date.now() + 10 * 60 * 1000 });
                 const authorize = new URL('https://discord.com/oauth2/authorize');
-                authorize.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: redirectUri, response_type: 'code', scope: 'identify', state }).toString();
+                authorize.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: redirectUri, response_type: 'code', scope: 'identify guilds', state }).toString();
                 sendRedirect(res, authorize.toString());
                 return;
             }
@@ -724,13 +765,29 @@ function createServer() {
                     const userResponse = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${token.access_token}` } });
                     const user = await userResponse.json();
                     if (!userResponse.ok || !user?.id) throw new Error('Discord user lookup failed.');
-                    if (!accessStore.isDeveloper(user.id)) {
-                        sendHtml(res, loginPage('This Discord account is not allowed to access the panel.'));
+
+                    const isDeveloper = accessStore.isDeveloper(user.id);
+                    let adminGuildIds = [];
+                    if (!isDeveloper) {
+                        const guildResponse = await fetch('https://discord.com/api/users/@me/guilds', { headers: { Authorization: `Bearer ${token.access_token}` } });
+                        const userGuilds = await guildResponse.json();
+                        if (!guildResponse.ok || !Array.isArray(userGuilds)) throw new Error('Discord server lookup failed.');
+                        const administratorPermission = PermissionsBitField.Flags.Administrator;
+                        adminGuildIds = userGuilds
+                            .filter(guild => guild.owner || (BigInt(guild.permissions || '0') & administratorPermission) === administratorPermission)
+                            .map(guild => String(guild.id));
+                    }
+
+                    await client.guilds.fetch();
+                    const availableGuildIds = new Set(client.guilds.cache.keys());
+                    adminGuildIds = adminGuildIds.filter(guildId => availableGuildIds.has(guildId));
+                    if (!isDeveloper && adminGuildIds.length === 0) {
+                        sendHtml(res, loginPage('No shared server was found where you have Administrator permission.'));
                         return;
                     }
 
                     const sessionToken = crypto.randomBytes(32).toString('hex');
-                    panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, expiresAt: Date.now() + sessionDurationMs });
+                    panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, isDeveloper, adminGuildIds, expiresAt: Date.now() + sessionDurationMs });
                     persistPanelSessions();
                     const secure = record.redirectUri.startsWith('https://') ? '; Secure' : '';
                     res.writeHead(302, { Location: '/', 'Set-Cookie': `flummi_panel_session=${sessionToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(sessionDurationMs / 1000)}${secure}` });
@@ -746,7 +803,7 @@ function createServer() {
                 const session = requirePanelAccess(req, res);
                 if (!session) return;
                 const avatarUrl = session.avatar ? `https://cdn.discordapp.com/avatars/${session.userId}/${session.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${Number(session.userId) % 5}.png`;
-                sendJson(res, 200, { user: { id: session.userId, username: session.username, avatarUrl } });
+                sendJson(res, 200, { user: { id: session.userId, username: session.username, avatarUrl }, role: isDeveloperSession(session) ? 'developer' : 'admin' });
                 return;
             }
 
@@ -786,8 +843,22 @@ function createServer() {
                 return;
             }
 
+            let panelSession = null;
             if (requestUrl.pathname.startsWith('/api/')) {
-                if (!requirePanelAccess(req, res)) return;
+                panelSession = requirePanelAccess(req, res);
+                if (!panelSession) return;
+
+                const developerPaths = new Set([
+                    '/api/ai-memory', '/api/profile', '/api/serper-usage', '/api/logs', '/api/activity',
+                    '/api/bot-profile', '/api/bot-profile/application', '/api/bot-profile/guild', '/api/config',
+                    '/api/data-tools', '/api/backup', '/api/data-tools/reset', '/api/reliability',
+                    '/api/ai-health', '/api/reliability/backup', '/api/reliability/reconcile-voice',
+                    '/api/health', '/api/runtime', '/api/update-status'
+                ]);
+                if (developerPaths.has(requestUrl.pathname) && !requireDeveloperAccess(panelSession, res)) return;
+
+                const requestedGuildId = requestUrl.searchParams.get('guildId');
+                if (requestedGuildId && !await requireGuildAccess(panelSession, requestedGuildId, res)) return;
             }
 
             if (req.method === 'GET' && requestUrl.pathname.startsWith('/assets/branding/')) {
@@ -804,7 +875,7 @@ function createServer() {
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/guilds') {
-                const guilds = await listGuilds();
+                const guilds = await listGuilds(panelSession);
                 sendJson(res, 200, { guilds });
                 return;
             }
@@ -1106,7 +1177,10 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
 
-                sendJson(res, 200, { settings: settingsStore.readSettings(guildId) });
+                sendJson(res, 200, {
+                    settings: settingsStore.readSettings(guildId),
+                    globalFeatures: config.features || {}
+                });
                 return;
             }
 

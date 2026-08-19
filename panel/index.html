@@ -54,6 +54,7 @@
 
         body {
             min-height: 100vh;
+            min-height: 100dvh;
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             color: var(--text);
             background: var(--bg);
@@ -62,6 +63,7 @@
         .layout {
             display: flex;
             min-height: 100vh;
+            min-height: 100dvh;
             align-items: stretch;
             width: 100%;
             max-width: 100%;
@@ -136,6 +138,7 @@
             margin-top: auto;
             padding-top: 16px;
             border-top: 1px solid var(--border);
+            flex-shrink: 0;
         }
 
         .account-summary {
@@ -333,6 +336,19 @@
             border: none;
             border-top: 1px solid var(--border);
             margin: 6px 4px;
+        }
+
+        .tab-group-label {
+            padding: 4px 12px 2px;
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .11em;
+            text-transform: uppercase;
+        }
+
+        [hidden] {
+            display: none !important;
         }
 
         .tab-panel {
@@ -773,11 +789,14 @@
                 display: flex;
                 width: 100%;
                 height: calc(100vh - 68px);
+                height: calc(100dvh - 68px);
                 min-height: 0;
-                padding: 16px 12px 22px;
+                padding: 16px 12px calc(22px + env(safe-area-inset-bottom));
                 flex-direction: column;
                 gap: 14px;
                 overflow-y: auto;
+                overscroll-behavior: contain;
+                scrollbar-gutter: stable;
                 border-top: 1px solid var(--border);
                 border-bottom: 1px solid var(--border);
                 background: linear-gradient(180deg, #101a35, #0b1328);
@@ -795,6 +814,7 @@
                 flex-direction: column;
                 gap: 6px;
                 padding: 0;
+                flex: 0 0 auto;
             }
 
             .tab-btn {
@@ -813,6 +833,7 @@
             .sidebar-account {
                 padding-top: 12px;
                 margin-top: auto;
+                padding-bottom: max(2px, env(safe-area-inset-bottom));
             }
 
             .mobile-menu-backdrop {
@@ -1152,6 +1173,10 @@
             transform: translate(-50%, 0);
         }
 
+        .tooltips-enhanced .help-tip::after {
+            display: none;
+        }
+
         .help-tip:focus-visible {
             outline: 2px solid var(--accent);
             outline-offset: 2px;
@@ -1249,8 +1274,9 @@
 
         .chart-tooltip {
             position: fixed;
-            z-index: 20;
+            z-index: 200;
             pointer-events: none;
+            max-width: min(280px, calc(100vw - 24px));
             padding: 8px 10px;
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -1264,6 +1290,31 @@
 
         .chart-tooltip.visible {
             opacity: 1;
+        }
+
+        .ui-tooltip {
+            position: fixed;
+            z-index: 200;
+            width: max-content;
+            max-width: min(280px, calc(100vw - 24px));
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #091126;
+            color: var(--text);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, .42);
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 1.4;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity .12s ease;
+        }
+
+        .ui-tooltip.visible {
+            opacity: 1;
+            visibility: visible;
         }
 
         .analytics-chart.compact {
@@ -1784,7 +1835,7 @@
                     </div>
                     <p id="settingsStatus" class="status"></p>
                 </div>
-                <div class="section">
+                <div id="developerGlobalFeatures" class="section">
                     <h2>Global Feature Settings <span class="help-tip" tabindex="0"
                             data-tooltip="A global switch overrides every guild. When it is off, the corresponding guild switch becomes unavailable because no guild can turn it back on.">?</span>
                     </h2>
@@ -1814,7 +1865,7 @@
                             features</button></div>
                     <p id="globalFeatureStatus" class="status"></p>
                 </div>
-                <div class="section">
+                <div id="developerTabOrder" class="section">
                     <h2>Panel Tab Order</h2>
                     <p class="sub">Move tabs with the arrows. Divider lines group related tabs in the sidebar.</p>
                     <div id="tabOrderEditor" class="table-wrap"></div>
@@ -1823,7 +1874,7 @@
                             order</button></div>
                     <p id="tabOrderStatus" class="status"></p>
                 </div>
-                <div class="section">
+                <div id="developerDataTools" class="section">
                     <h2>Backup &amp; Data Tools</h2>
                     <div class="row"><button id="downloadBackup" class="secondary" type="button">Download guild
                             backup</button><button id="loadStorage" class="secondary" type="button">Storage
@@ -2143,13 +2194,15 @@
                     <button class="tab-btn" data-tab="voice" type="button">Voice Analytics</button>
                     <button class="tab-btn" data-tab="stats" type="button">Message Analytics</button>
                     <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
-                    <button class="tab-btn" data-tab="profiles" type="button">Profiles</button>
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
-                    <button class="tab-btn" data-tab="ai" type="button">AI &amp; System</button>
-                    <button class="tab-btn" data-tab="logs" type="button">Bot Logs</button>
-                    <button class="tab-btn" data-tab="reliability" type="button">Reliability</button>
                     <button class="tab-btn" data-tab="soundboard" type="button">Soundboard</button>
+                    <hr class="tab-divider developer-nav" data-developer-only>
+                    <div class="tab-group-label developer-nav" data-developer-only>Developer tools</div>
+                    <button class="tab-btn" data-tab="profiles" data-developer-only type="button">Profiles</button>
+                    <button class="tab-btn" data-tab="ai" data-developer-only type="button">AI &amp; System</button>
+                    <button class="tab-btn" data-tab="reliability" data-developer-only type="button">Reliability</button>
+                    <button class="tab-btn" data-tab="logs" data-developer-only type="button">Bot Logs</button>
                 </nav>
                 <div id="panelAccount" class="sidebar-account" hidden>
                     <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" alt=""><span
@@ -2166,7 +2219,8 @@
         const state = {
             guildId: null,
             channels: [],
-            guildMembers: new Map()
+            guildMembers: new Map(),
+            role: 'admin'
         };
 
         const guildSelect = document.getElementById('guild');
@@ -2417,6 +2471,73 @@
             return `${path}${path.includes('?') ? '&' : '?'}guildId=${encodeURIComponent(state.guildId || '')}`;
         }
 
+        // Tooltips are rendered in one fixed overlay so cards and tables cannot clip them.
+        const uiTooltip = document.createElement('div');
+        uiTooltip.className = 'ui-tooltip';
+        uiTooltip.setAttribute('role', 'tooltip');
+        document.body.appendChild(uiTooltip);
+        document.documentElement.classList.add('tooltips-enhanced');
+        let tooltipAnchor = null;
+
+        function floatingBounds() {
+            const gap = 12;
+            const bounds = { left: gap, top: gap, right: window.innerWidth - gap, bottom: window.innerHeight - gap };
+            const navRect = document.querySelector('.sidebar')?.getBoundingClientRect();
+            if (!navRect) return bounds;
+            if (navRect.height > window.innerHeight * .7 && navRect.right < window.innerWidth * .55) {
+                bounds.left = Math.max(bounds.left, navRect.right + 8);
+            } else if (navRect.width > window.innerWidth * .8 && navRect.bottom < 140) {
+                bounds.top = Math.max(bounds.top, navRect.bottom + 8);
+            }
+            return bounds;
+        }
+
+        function positionFloatingElement(element, anchorRect) {
+            const bounds = floatingBounds();
+            const rect = element.getBoundingClientRect();
+            const gap = 8;
+            const centeredLeft = anchorRect.left + anchorRect.width / 2 - rect.width / 2;
+            const left = Math.min(Math.max(centeredLeft, bounds.left), Math.max(bounds.left, bounds.right - rect.width));
+            const above = anchorRect.top - rect.height - gap;
+            const below = anchorRect.bottom + gap;
+            const top = above >= bounds.top ? above : Math.min(below, Math.max(bounds.top, bounds.bottom - rect.height));
+            element.style.left = `${Math.round(left)}px`;
+            element.style.top = `${Math.round(Math.max(bounds.top, top))}px`;
+        }
+
+        function showHelpTooltip(anchor) {
+            const message = anchor?.dataset.tooltip;
+            if (!message) return;
+            tooltipAnchor = anchor;
+            uiTooltip.textContent = message;
+            uiTooltip.classList.add('visible');
+            positionFloatingElement(uiTooltip, anchor.getBoundingClientRect());
+        }
+
+        function hideHelpTooltip(anchor) {
+            if (anchor && tooltipAnchor !== anchor) return;
+            tooltipAnchor = null;
+            uiTooltip.classList.remove('visible');
+        }
+
+        document.addEventListener('pointerover', event => {
+            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
+            if (anchor && !anchor.contains(event.relatedTarget)) showHelpTooltip(anchor);
+        });
+        document.addEventListener('pointerout', event => {
+            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
+            if (anchor && !anchor.contains(event.relatedTarget)) hideHelpTooltip(anchor);
+        });
+        document.addEventListener('focusin', event => {
+            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
+            if (anchor) showHelpTooltip(anchor);
+        });
+        document.addEventListener('focusout', event => {
+            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
+            if (anchor) hideHelpTooltip(anchor);
+        });
+        window.addEventListener('scroll', () => hideHelpTooltip(), true);
+
         // ---------- Tabs ----------
         const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
         const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
@@ -2442,7 +2563,7 @@
         for (const panel of tabPanels) {
             const tabId = panel.id.replace(/^tab-/, '');
             const heading = panel.querySelector(':scope > h2');
-            if (!heading || heading.querySelector('[data-refresh-tooltip]')) continue;
+            if (!heading || heading.querySelector('.help-tip')) continue;
             const tip = document.createElement('span');
             tip.className = 'help-tip';
             tip.tabIndex = 0;
@@ -2531,7 +2652,7 @@
             const nav = document.querySelector('.tabs');
             const seen = new Set();
 
-            nav.querySelectorAll('.tab-divider').forEach(el => el.remove());
+            nav.querySelectorAll('.tab-divider:not(.developer-nav)').forEach(el => el.remove());
 
             for (const tabId of order) {
                 if (isDividerToken(tabId)) {
@@ -2556,11 +2677,41 @@
 
         async function loadPanelAccount() {
             const data = await api('/auth/me');
+            state.role = data.role === 'developer' ? 'developer' : 'admin';
             const avatar = document.getElementById('panelAccountAvatar');
             avatar.src = data.user.avatarUrl;
             avatar.alt = `${data.user.username}'s Discord avatar`;
-            document.getElementById('panelAccountName').textContent = data.user.username;
+            document.getElementById('panelAccountName').textContent = `${data.user.username} · ${state.role === 'developer' ? 'Developer' : 'Server admin'}`;
             document.getElementById('panelAccount').hidden = false;
+            applyAccessVisibility();
+        }
+
+        function applyAccessVisibility() {
+            const isDeveloper = state.role === 'developer';
+            const developerTabs = ['profiles', 'ai', 'reliability', 'logs'];
+            document.querySelectorAll('[data-developer-only]').forEach(element => { element.hidden = !isDeveloper; });
+            developerTabs.forEach(tabId => {
+                const panel = document.getElementById(`tab-${tabId}`);
+                if (panel) panel.hidden = !isDeveloper;
+            });
+
+            const nav = document.querySelector('.tabs');
+            const divider = nav.querySelector('.developer-nav.tab-divider');
+            const label = nav.querySelector('.developer-nav.tab-group-label');
+            if (isDeveloper && divider && label) {
+                nav.append(divider, label);
+                developerTabs.forEach(tabId => {
+                    const button = tabButtons.find(candidate => candidate.dataset.tab === tabId);
+                    if (button) nav.appendChild(button);
+                });
+            }
+
+            const activeButton = tabButtons.find(button => button.classList.contains('active'));
+            if (!activeButton || activeButton.hidden) {
+                tabButtons.forEach(button => button.classList.toggle('active', button.dataset.tab === 'overview'));
+                tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === 'tab-overview'));
+                localStorage.setItem('flummi.activeTab', 'overview');
+            }
         }
 
         document.getElementById('logoutPanel').addEventListener('click', async () => {
@@ -2581,6 +2732,12 @@
 
         applyTabOrder(window.__PANEL_TAB_ORDER__);
         applyTabNames(window.__PANEL_TAB_NAMES__);
+
+        // Keep Settings limited to server-admin controls; platform-wide tools live in developer tabs.
+        const aiPanel = document.getElementById('tab-ai');
+        const reliabilityPanel = document.getElementById('tab-reliability');
+        aiPanel?.append(document.getElementById('developerGlobalFeatures'), document.getElementById('developerTabOrder'));
+        reliabilityPanel?.append(document.getElementById('developerDataTools'));
 
         // ---------- Invite link ----------
         async function loadInviteLink() {
@@ -2797,9 +2954,15 @@
         function showChartTooltip(event, row, metricLabel) {
             const tooltip = document.getElementById('chartTooltip');
             tooltip.innerHTML = `<strong>${escapeHtml(formatDateTime(row.date))}</strong><br>${escapeHtml(metricLabel)}: ${escapeHtml(String(Number(row.count) || 0))}`;
-            tooltip.style.left = `${Math.min(window.innerWidth - 190, event.clientX + 14)}px`;
-            tooltip.style.top = `${Math.min(window.innerHeight - 70, event.clientY + 14)}px`;
             tooltip.classList.add('visible');
+            positionFloatingElement(tooltip, {
+                left: event.clientX,
+                right: event.clientX,
+                top: event.clientY,
+                bottom: event.clientY,
+                width: 0,
+                height: 0
+            });
         }
 
         function hideChartTooltip() {
@@ -3979,8 +4142,7 @@
             document.getElementById('setCooldownSeconds').value = s.triggerActionCooldownSeconds;
             document.getElementById('setExactMatch').checked = s.exactTriggerMatch;
             document.getElementById('setMaxTriggerLength').value = s.maxTriggerLength;
-            const configData = await api('/api/config'); const f = configData.features || {};
-            document.getElementById('analyticsRetentionDays').value = configData.analytics?.retentionDays || 365;
+            const f = data.globalFeatures || {};
             document.getElementById('featureTriggers').checked = f.triggersEnabled !== false;
             document.getElementById('featureAiConversations').checked = f.aiConversationsEnabled !== false;
             document.getElementById('featureAiAttachments').checked = f.aiAttachmentsEnabled !== false;
@@ -3996,6 +4158,19 @@
             document.getElementById('guildFeaturePingSave').checked = gf.pingRequestSaveEnabled !== false;
             document.getElementById('guildFeatureShots').checked = gf.shotsEnabled !== false;
             syncGlobalFeatureState();
+            if (state.role === 'developer') applyDeveloperSettings(await api('/api/config'));
+        }
+
+        function applyDeveloperSettings(configData) {
+            const f = configData.features || {};
+            document.getElementById('analyticsRetentionDays').value = configData.analytics?.retentionDays || 365;
+            document.getElementById('featureTriggers').checked = f.triggersEnabled !== false;
+            document.getElementById('featureAiConversations').checked = f.aiConversationsEnabled !== false;
+            document.getElementById('featureAiAttachments').checked = f.aiAttachmentsEnabled !== false;
+            document.getElementById('featureAiImageSearch').checked = f.aiImageSearchEnabled !== false;
+            document.getElementById('featurePingResponses').checked = f.pingResponsesEnabled !== false;
+            document.getElementById('featurePingSave').checked = f.pingRequestSaveEnabled !== false;
+            document.getElementById('featureShots').checked = f.shotsEnabled !== false;
             const configuredTabOrder = Array.isArray(configData.panel?.tabOrder) && configData.panel.tabOrder.length
                 ? [...configData.panel.tabOrder]
                 : [];
@@ -4220,6 +4395,7 @@
         async function loadAi() {
             await populateGuildUserSelects();
             const configData = await api('/api/config'); const ai = configData.ai || {};
+            applyDeveloperSettings(configData);
             document.getElementById('aiTextModel').value = ai.model || '';
             document.getElementById('aiBaseUrl').value = ai.baseUrl || '';
             document.getElementById('aiVisionModels').value = (ai.visionModels || []).join('\n');
@@ -4325,9 +4501,15 @@
             tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `tab-${rememberedTab}`));
         }
 
-        loadPanelAccount().catch(() => { /* OAuth is not deployed yet, so keep the account block hidden. */ });
-        loadInviteLink().catch(error => console.error(error));
-        loadGuilds().catch(error => console.error(error));
+        async function initializePanel() {
+            await loadPanelAccount();
+            await Promise.all([
+                loadInviteLink().catch(error => console.error(error)),
+                loadGuilds()
+            ]);
+        }
+
+        initializePanel().catch(error => console.error(error));
     </script>
     <div id="chartTooltip" class="chart-tooltip" role="status" aria-live="polite"></div>
 </body>

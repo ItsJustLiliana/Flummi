@@ -9,8 +9,16 @@ const defaultSettings = {
     triggerActionCooldownEnabled: true,
     triggerActionCooldownSeconds: 10,
     maxTriggerLength: 200,
-    exactTriggerMatch: false
+    exactTriggerMatch: false,
+    features: {}
 };
+
+const featureKeys = ['triggersEnabled', 'aiConversationsEnabled', 'aiAttachmentsEnabled', 'aiImageSearchEnabled', 'pingResponsesEnabled', 'pingRequestSaveEnabled', 'shotsEnabled'];
+
+function normalizeFeatures(value) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    return Object.fromEntries(featureKeys.filter(key => typeof source[key] === 'boolean').map(key => [key, source[key]]));
+}
 
 function resolveGuildFolder(guildId) {
     if (!guildId) {
@@ -66,6 +74,7 @@ function normalizeSettings(source) {
             typeof safeSource.exactTriggerMatch === 'boolean'
                 ? safeSource.exactTriggerMatch
                 : defaultSettings.exactTriggerMatch,
+        features: normalizeFeatures(safeSource.features),
         maxTriggers:
             Number.isFinite(safeSource.maxTriggers) && safeSource.maxTriggers > 0
                 ? Math.floor(safeSource.maxTriggers)
@@ -118,6 +127,7 @@ function writeSettings(settings, guildId) {
             typeof settings.exactTriggerMatch === 'boolean'
                 ? settings.exactTriggerMatch
                 : defaultSettings.exactTriggerMatch,
+        features: normalizeFeatures(settings.features),
         maxTriggers:
             Number.isFinite(settings.maxTriggers) && settings.maxTriggers > 0
                 ? Math.floor(settings.maxTriggers)

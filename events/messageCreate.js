@@ -662,7 +662,12 @@ module.exports = {
         }
 
         const config = getConfig();
-        const features = config.features || {};
+        const globalFeatures = config.features || {};
+        const guildFeatureOverrides = readSettings(guildId).features || {};
+        const features = Object.fromEntries(Object.keys({ ...globalFeatures, ...guildFeatureOverrides }).map(key => [
+            key,
+            globalFeatures[key] === false ? false : (guildFeatureOverrides[key] ?? globalFeatures[key])
+        ]));
         const conversationEnabled = features.aiConversationsEnabled !== false;
         const isMentioningBot = Boolean(client?.user) && message.mentions.has(client.user);
         const mentionInput = stripBotMentions(content);
@@ -741,7 +746,7 @@ module.exports = {
                         return;
                     }
 
-                    const aiInput = buildAiUserInput(userInput, message, referencedMessage, config);
+                    const aiInput = buildAiUserInput(userInput, message, referencedMessage, { ...config, features });
                     const ai = await generateAiReply({
                         userInput: aiInput,
                         history,

@@ -13,11 +13,14 @@
             --card-alt: #0e1730;
             --text: #edf2ff;
             --muted: #a5b1d8;
-            --accent: #ff7b00;
-            --accent-2: #ffb000;
+            --accent: #75cfff;
+            --accent-2: #4e6bff;
+            --warning: #ffbf5b;
             --danger: #ff4d6d;
             --ok: #40d981;
             --border: #243157;
+            --surface: #0a1328;
+            --surface-hover: #111e3b;
             --sidebar-width: 280px;
         }
 
@@ -137,6 +140,11 @@
             gap: 6px;
         }
 
+        .field label {
+            font-weight: 600;
+            letter-spacing: .1px;
+        }
+
         label {
             font-size: 13px;
             color: var(--muted);
@@ -149,20 +157,28 @@
         .invite-btn {
             border-radius: 10px;
             border: 1px solid var(--border);
-            background: #0a1328;
+            background: var(--surface);
             color: var(--text);
             padding: 9px 12px;
             font-size: 14px;
             font-family: inherit;
+            transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
         }
+
+        select { cursor: pointer; }
+
+        select:hover,
+        input:hover,
+        textarea:hover { border-color: #3a5488; }
 
         select:focus,
         input:focus,
         textarea:focus,
         button:focus,
         .invite-btn:focus {
-            outline: 2px solid rgba(30, 136, 229, 0.5);
-            outline-offset: 1px;
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(117, 207, 255, .18);
         }
 
         textarea {
@@ -185,19 +201,20 @@
         }
 
         .primary {
-            background: #ffffff;
+            background: linear-gradient(135deg, var(--accent-2), var(--accent));
             border-color: transparent;
-            color: #10192f;
+            color: #071225;
             font-weight: 600;
+            box-shadow: 0 5px 14px rgba(78, 107, 255, .2);
         }
 
         .primary:hover {
-            background: #eef1f8;
+            background: linear-gradient(135deg, #6980ff, #9ae3ff);
         }
 
         .secondary {
-            background: #0b142a;
-            color: var(--muted);
+            background: var(--surface);
+            color: var(--text);
         }
 
         .danger {
@@ -247,19 +264,19 @@
         }
 
         .tab-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: #ffffff;
+            background: rgba(117, 207, 255, .08);
+            color: var(--text);
         }
 
         .tab-btn.active {
-            background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(255, 255, 255, 0.3);
+            background: linear-gradient(90deg, rgba(78, 107, 255, .32), rgba(117, 207, 255, .16));
+            border-color: rgba(117, 207, 255, .44);
             color: #ffffff;
             font-weight: 600;
         }
 
         .tab-btn.active:hover {
-            background: rgba(255, 255, 255, 0.16);
+            background: linear-gradient(90deg, rgba(78, 107, 255, .42), rgba(117, 207, 255, .23));
         }
 
         .tab-divider {
@@ -284,10 +301,11 @@
         }
 
         .stat-card {
-            background: #0a1328;
+            background: linear-gradient(145deg, var(--surface), #0d1832);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 14px 16px;
+            box-shadow: inset 0 1px rgba(255, 255, 255, .025);
         }
 
         .stat-card .value {
@@ -314,7 +332,7 @@
         .banner.warn {
             background: rgba(255, 176, 0, 0.1);
             border-color: rgba(255, 176, 0, 0.4);
-            color: var(--accent-2);
+            color: var(--warning);
         }
 
         .banner.ok {
@@ -434,6 +452,9 @@
             vertical-align: top;
         }
 
+        tbody tr { transition: background-color 120ms ease; }
+        tbody tr:hover { background: rgba(117, 207, 255, .055); }
+
         th {
             color: var(--muted);
             font-weight: 600;
@@ -456,12 +477,13 @@
             overflow: auto;
             border: 1px solid var(--border);
             border-radius: 12px;
+            background: rgba(7, 14, 30, .32);
         }
 
         .table-toolbar {
             position: sticky;
             top: 0;
-            background: #0a1328;
+            background: #0c1730;
             padding: 8px 10px;
             border-bottom: 1px solid var(--border);
             z-index: 1;
@@ -472,11 +494,12 @@
         }
 
         .section {
-            background: #0a1328;
+            background: linear-gradient(145deg, rgba(14, 26, 54, .94), rgba(10, 19, 40, .94));
             border: 1px solid var(--border);
             border-radius: 14px;
             padding: 16px;
             margin-bottom: 16px;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, .12), inset 0 1px rgba(255, 255, 255, .025);
         }
 
         .two-col {
@@ -533,16 +556,19 @@
             border-radius: 999px;
             font-size: 11px;
             font-weight: 600;
+            border: 1px solid transparent;
         }
 
         .badge.on {
             background: rgba(64, 217, 129, 0.18);
             color: var(--ok);
+            border-color: rgba(64, 217, 129, .28);
         }
 
         .badge.off {
             background: rgba(255, 77, 109, 0.18);
             color: var(--danger);
+            border-color: rgba(255, 77, 109, .28);
         }
 
         .badge.dev {
@@ -556,7 +582,7 @@
         }
 
         .discord-preview {
-            border-left: 4px solid var(--accent-2);
+            border-left: 4px solid var(--accent);
             border-radius: 8px;
             background: #101729;
             max-width: 720px;
@@ -619,14 +645,19 @@
             margin-top: 14px;
             font-size: 13px;
             min-height: 20px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .025);
         }
 
         .status.error {
             color: var(--danger);
+            background: rgba(255, 77, 109, .08);
         }
 
         .status.ok {
             color: var(--ok);
+            background: rgba(64, 217, 129, .08);
         }
 
         .muted {
@@ -648,19 +679,75 @@
         }
 
         .checkbox-row input {
-            width: auto;
+            appearance: none;
+            -webkit-appearance: none;
+            width: 42px;
+            min-width: 42px;
+            height: 24px;
+            margin: 0;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #293556;
+            cursor: pointer;
+            position: relative;
+            transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
+        }
+
+        .checkbox-row input::after {
+            content: '';
+            width: 18px;
+            height: 18px;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            box-shadow: 0 1px 4px rgba(0,0,0,.35);
+            transition: transform .18s ease, background .18s ease;
+        }
+
+        .checkbox-row input:checked {
+            background: linear-gradient(90deg, #4e6bff, #67c7ff);
+            border-color: #83d9ff;
+        }
+
+        .checkbox-row input:checked::after {
+            transform: translateX(18px);
+            background: #fff;
+        }
+
+        .checkbox-row input:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(117, 207, 255, .32);
+        }
+
+        .checkbox-row input:disabled {
+            cursor: not-allowed;
+            opacity: .5;
         }
 
         .empty {
-            padding: 16px;
+            padding: 22px 16px;
             color: var(--muted);
             font-size: 13px;
             text-align: center;
+            border: 1px dashed rgba(117, 207, 255, .24);
+            border-radius: 10px;
+            background: rgba(117, 207, 255, .03);
         }
 
-        .analytics-chart { display:flex; align-items:end; gap:5px; height:180px; padding:12px 0 26px; border-bottom:1px solid var(--border); overflow-x:auto; }
+        .analytics-chart { display:block; height:180px; padding:12px 0 26px; border-bottom:1px solid var(--border); overflow-x:auto; }
         .analytics-bar { min-width:18px; flex:1; max-width:42px; background:linear-gradient(180deg, #83d9ff, #4e6bff); border-radius:5px 5px 0 0; position:relative; }
         .analytics-bar span { position:absolute; top:calc(100% + 5px); left:50%; transform:translateX(-50%) rotate(-45deg); white-space:nowrap; font-size:10px; color:var(--muted); }
+        .analytics-svg { display:block; height:100%; min-height:142px; overflow:visible; }
+        .analytics-chart.compact .analytics-svg { min-height:66px; }
+        .analytics-grid { stroke:var(--border); stroke-width:1; stroke-dasharray:3 4; }
+        .analytics-axis-label { fill:var(--muted); font-size:11px; }
+        .analytics-bar-rect { fill:url(#analyticsBarGradient); cursor:crosshair; }
+        .analytics-line-path { fill:none; stroke:#75cfff; stroke-width:3; stroke-linejoin:round; stroke-linecap:round; }
+        .analytics-point { fill:#8be0ff; stroke:#18213f; stroke-width:2; cursor:crosshair; }
+        .chart-tooltip { position:fixed; z-index:20; pointer-events:none; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:#111a35; color:var(--text); box-shadow:0 8px 24px rgba(0,0,0,.28); font-size:12px; opacity:0; transition:opacity .12s; }
+        .chart-tooltip.visible { opacity:1; }
         .analytics-chart.compact { height:74px; padding:4px 0; gap:3px; border:0; overflow:hidden; }
         .analytics-chart.compact .analytics-bar { min-width:4px; border-radius:3px 3px 0 0; }
         .analytics-chart.compact .analytics-bar span { display:none; }
@@ -684,8 +771,8 @@
                 </div>
                 <div class="card-grid" id="overviewCards"></div>
                 <div class="two-col">
-                    <div class="section"><h2>Messages · last 7 days</h2><div id="overviewMessageChart" class="analytics-chart compact"></div><div class="chart-caption"><span>7 days ago</span><span>Today</span></div></div>
-                    <div class="section"><h2>Voice sessions · last 7 days</h2><div id="overviewVoiceChart" class="analytics-chart compact"></div><div class="chart-caption"><span>7 days ago</span><span>Today</span></div></div>
+                    <div class="section"><div class="row"><h2 style="margin:0">Messages</h2><select id="overviewMessageRange"><option value="1">1 day</option><option value="7" selected>1 week</option><option value="30">1 month</option><option value="90">3 months</option></select><select id="overviewMessageType"><option value="bar">Bars</option><option value="line">Line</option></select></div><div id="overviewMessageChart" class="analytics-chart compact"></div><div class="chart-caption"><span>Earlier</span><span>Now</span></div></div>
+                    <div class="section"><div class="row"><h2 style="margin:0">Voice sessions</h2><select id="overviewVoiceRange"><option value="1">1 day</option><option value="7" selected>1 week</option><option value="30">1 month</option><option value="90">3 months</option></select><select id="overviewVoiceType"><option value="bar">Bars</option><option value="line">Line</option></select></div><div id="overviewVoiceChart" class="analytics-chart compact"></div><div class="chart-caption"><span>Earlier</span><span>Now</span></div></div>
                 </div>
                 <div class="two-col">
                     <div class="section">
@@ -708,7 +795,7 @@
             <section id="tab-analytics" class="tab-panel">
                 <h2 style="font-size:20px;">Analytics</h2>
                 <p class="sub">Privacy-friendly event analytics. Message contents are never stored—only activity metadata.</p>
-                <div class="row"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays"><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option></select></div>
+                <div class="row"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="analyticsGraphType" aria-label="Analytics graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div>
                 <div class="card-grid" id="analyticsCards"></div>
                 <div class="section"><h2>Messages over time</h2><div id="analyticsChart" class="analytics-chart"></div></div>
                 <div class="two-col"><div class="section"><h2>Most active channels</h2><div id="analyticsChannels" class="table-wrap"></div></div><div class="section"><h2>Most active members</h2><div id="analyticsUsers" class="table-wrap"></div></div></div>
@@ -827,7 +914,7 @@
             <section id="tab-voice" class="tab-panel">
                 <h2 style="font-size:20px;">Voice Time</h2>
                 <div class="card-grid" id="voiceCards"></div>
-                <div class="section"><h2>Voice sessions over time</h2><p class="sub">Completed voice sessions per day.</p><div id="voiceActivityChart" class="analytics-chart"></div></div>
+                <div class="section"><div class="row"><h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="voiceGraphType" aria-label="Voice graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><p class="sub">Completed voice sessions per day.</p><div id="voiceActivityChart" class="analytics-chart"></div></div>
                 <div class="section">
                     <h2>Currently in Voice</h2>
                     <div id="voiceActive" class="table-wrap">
@@ -879,9 +966,9 @@
 
             <!-- Server stats -->
             <section id="tab-stats" class="tab-panel">
-                <h2 style="font-size:20px;">Server Stats</h2>
-                <div id="statsGuildHeader"></div>
+                <h2 style="font-size:20px;">Message Analytics</h2>
                 <div class="card-grid" id="statsCards"></div>
+                <div class="section"><div class="row"><h2 style="margin:0">Messages over time</h2><select id="messageGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="messageGraphType" aria-label="Message graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><div id="messageActivityChart" class="analytics-chart"></div></div>
                 <div class="two-col">
                     <div class="section">
                         <h2>Messages by Channel</h2>
@@ -985,6 +1072,12 @@
                             <label for="setMaxTriggerLength">Max trigger length</label>
                             <input id="setMaxTriggerLength" type="number" min="1" max="500">
                         </div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeatureAiConversations" type="checkbox"><label for="guildFeatureAiConversations" style="margin:0">AI conversations</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeatureAiAttachments" type="checkbox"><label for="guildFeatureAiAttachments" style="margin:0">AI attachments</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeatureAiImageSearch" type="checkbox"><label for="guildFeatureAiImageSearch" style="margin:0">AI image search</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeaturePingResponses" type="checkbox"><label for="guildFeaturePingResponses" style="margin:0">Ping responses</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeaturePingSave" type="checkbox"><label for="guildFeaturePingSave" style="margin:0">Save ping requests</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeatureShots" type="checkbox"><label for="guildFeatureShots" style="margin:0">Shot system</label></div>
                     </div>
                     <div class="actions">
                         <span class="sub">Changes apply immediately to the selected guild.</span>
@@ -1665,19 +1758,73 @@
             `).join('');
         }
 
-        function renderActivityChart(containerId, rows, emptyMessage) {
+        function showChartTooltip(event, row, metricLabel) {
+            const tooltip = document.getElementById('chartTooltip');
+            tooltip.innerHTML = `<strong>${escapeHtml(formatDateTime(row.date))}</strong><br>${escapeHtml(metricLabel)}: ${escapeHtml(String(Number(row.count) || 0))}`;
+            tooltip.style.left = `${Math.min(window.innerWidth - 190, event.clientX + 14)}px`;
+            tooltip.style.top = `${Math.min(window.innerHeight - 70, event.clientY + 14)}px`;
+            tooltip.classList.add('visible');
+        }
+
+        function hideChartTooltip() {
+            document.getElementById('chartTooltip').classList.remove('visible');
+        }
+
+        function bindChartHover(container, values, metricLabel) {
+            container.querySelectorAll('[data-chart-index]').forEach(element => {
+                const row = values[Number(element.dataset.chartIndex)];
+                element.addEventListener('pointermove', event => showChartTooltip(event, row, metricLabel));
+                element.addEventListener('pointerleave', hideChartTooltip);
+            });
+        }
+
+        function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar', metricLabel = 'Events') {
             const container = document.getElementById(containerId);
             const values = Array.isArray(rows) ? rows : [];
             const maximum = Math.max(1, ...values.map(row => Number(row.count) || 0));
-            const height = container.classList.contains('compact') ? 66 : 140;
-            container.innerHTML = values.length
-                ? values.map(row => `<div class="analytics-bar" title="${escapeHtml(row.date)}: ${Number(row.count) || 0}" style="height:${Math.max(4, Math.round((Number(row.count) || 0) / maximum * height))}px"><span>${escapeHtml(String(row.date).slice(5))}</span></div>`).join('')
-                : `<div class="empty">${escapeHtml(emptyMessage)}</div>`;
+            if (!values.length) {
+                container.innerHTML = `<div class="empty">${escapeHtml(emptyMessage)}</div>`;
+                return;
+            }
+
+            const compact = container.classList.contains('compact');
+            const width = compact ? Math.max(240, values.length * 34) : Math.max(540, values.length * 54);
+            const height = compact ? 76 : 160;
+            const left = compact ? 4 : 40;
+            const right = 12;
+            const top = 10;
+            const bottom = compact ? 8 : 28;
+            const plotWidth = width - left - right;
+            const plotHeight = height - top - bottom;
+            const points = values.map((row, index) => {
+                const x = values.length === 1 ? left + plotWidth / 2 : left + index * (plotWidth / (values.length - 1));
+                const y = top + (1 - ((Number(row.count) || 0) / maximum)) * plotHeight;
+                return { x, y };
+            });
+            const grid = compact ? '' : [maximum, Math.ceil(maximum / 2), 0].map(value => {
+                const y = top + (1 - value / maximum) * plotHeight;
+                return `<line class="analytics-grid" x1="${left}" x2="${width - right}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"></line><text class="analytics-axis-label" x="${left - 7}" y="${(y + 4).toFixed(1)}" text-anchor="end">${value}</text>`;
+            }).join('');
+            const dates = compact ? '' : points.map((point, index) => `<text class="analytics-axis-label" x="${point.x.toFixed(1)}" y="${height - 7}" text-anchor="middle">${escapeHtml(String(values[index].date).slice(5))}</text>`).join('');
+            const marks = chartType === 'line'
+                ? `<path class="analytics-line-path" d="M ${points.map(point => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')}"></path>${points.map((point, index) => `<circle class="analytics-point" data-chart-index="${index}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="5"></circle>`).join('')}`
+                : points.map((point, index) => {
+                    const barWidth = Math.min(30, Math.max(6, plotWidth / values.length * .62));
+                    return `<rect class="analytics-bar-rect" data-chart-index="${index}" x="${(point.x - barWidth / 2).toFixed(1)}" y="${point.y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(2, top + plotHeight - point.y).toFixed(1)}" rx="4"></rect>`;
+                }).join('');
+            container.innerHTML = `<svg class="analytics-svg" style="width:${width}px;min-width:100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(metricLabel)} over time"><defs><linearGradient id="analyticsBarGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#83d9ff"></stop><stop offset="100%" stop-color="#4e6bff"></stop></linearGradient></defs>${grid}${marks}${dates}</svg>`;
+            bindChartHover(container, values, metricLabel);
         }
 
         async function loadOverview() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/overview'));
+            const messageDays = Number(document.getElementById('overviewMessageRange').value) || 7;
+            const voiceDays = Number(document.getElementById('overviewVoiceRange').value) || 7;
+            const [messageGraph, voiceGraph] = await Promise.all([
+                api(withGuild(`/api/analytics?days=${messageDays}`)),
+                api(withGuild(`/api/voice-analytics?from=${encodeURIComponent(new Date(Date.now() - voiceDays * 86400000).toISOString())}`))
+            ]);
             const overviewCards = document.getElementById('overviewCards');
             const banner = document.getElementById('overviewBanner');
 
@@ -1700,8 +1847,8 @@
                 statCard('Developers', data.developerCount)
             ].join('');
 
-            renderActivityChart('overviewMessageChart', data.analytics?.dailyMessages, 'No messages tracked yet.');
-            renderActivityChart('overviewVoiceChart', data.voiceAnalytics?.activeOverTime, 'No voice sessions tracked yet.');
+            renderActivityChart('overviewMessageChart', messageGraph.dailyMessages, 'No messages tracked yet.', document.getElementById('overviewMessageType').value, 'Messages');
+            renderActivityChart('overviewVoiceChart', voiceGraph.activeOverTime, 'No voice sessions tracked yet.', document.getElementById('overviewVoiceType').value, 'Voice sessions');
 
             renderTable(document.getElementById('overviewShots'),
                 [
@@ -1962,13 +2109,14 @@
         async function loadVoice() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/voice'));
-            const analytics = await api(withGuild('/api/voice-analytics'));
+            const voiceDays = Number(document.getElementById('voiceGraphRange').value) || 30;
+            const analytics = await api(withGuild(`/api/voice-analytics?from=${encodeURIComponent(new Date(Date.now() - voiceDays * 86400000).toISOString())}`));
 
             document.getElementById('voiceCards').innerHTML = [
                 statCard('In Voice Now', data.activeSessions.length),
                 statCard('Tracked Users', data.leaderboard.length)
             ].join('');
-            renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.');
+            renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.', document.getElementById('voiceGraphType').value, 'Voice sessions');
 
             renderTable(document.getElementById('voiceActive'),
                 [
@@ -2084,14 +2232,15 @@
         async function loadStats() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/serverstats'));
-
-            renderGuildHeader('statsGuildHeader', data.guildInfo);
+            const days = Number(document.getElementById('messageGraphRange').value) || 30;
+            const analytics = await api(withGuild(`/api/analytics?days=${days}`));
 
             document.getElementById('statsCards').innerHTML = [
-                guildInfoStatCards(data.guildInfo),
                 statCard('Total Messages Tracked', data.totalMessages),
-                statCard('Server Owner', data.guildInfo?.ownerTag || 'Unknown')
+                statCard('Messages in Selected Range', analytics.messageCount),
+                statCard('Active Authors', analytics.uniqueAuthors)
             ].join('');
+            renderActivityChart('messageActivityChart', analytics.dailyMessages, 'No messages in this range yet.', document.getElementById('messageGraphType').value, 'Messages');
 
             renderTable(document.getElementById('statsChannels'),
                 [
@@ -2117,12 +2266,21 @@
                 statCard('Messages', data.messageCount), statCard('Unique Authors', data.uniqueAuthors),
                 statCard('Voice Events', data.voiceEvents), statCard('Period', `${data.periodDays} days`)
             ].join('');
-            renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.');
+            renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.', document.getElementById('analyticsGraphType').value, 'Messages');
             renderTable(document.getElementById('analyticsChannels'), [{ label: 'Channel', key: 'name', render: r => `#${escapeHtml(r.name)}` }, { label: 'Messages', key: 'count' }], data.topChannels, 'No channel activity yet.');
             renderTable(document.getElementById('analyticsUsers'), [{ label: 'Member', key: 'name', render: r => escapeHtml(r.name) }, { label: 'Messages', key: 'count' }], data.topUsers, 'No member activity yet.');
         }
 
         document.getElementById('analyticsDays').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
+        document.getElementById('analyticsGraphType').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
+        document.getElementById('messageGraphRange').addEventListener('change', () => loadStats().catch(error => console.error(error)));
+        document.getElementById('messageGraphType').addEventListener('change', () => loadStats().catch(error => console.error(error)));
+        document.getElementById('voiceGraphRange').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
+        document.getElementById('voiceGraphType').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
+        document.getElementById('overviewMessageRange').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
+        document.getElementById('overviewMessageType').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
+        document.getElementById('overviewVoiceRange').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
+        document.getElementById('overviewVoiceType').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
 
         // ---------- Users & permissions ----------
         const managerStatusField = document.getElementById('managerStatus');
@@ -2678,6 +2836,13 @@
             document.getElementById('featurePingResponses').checked = f.pingResponsesEnabled !== false;
             document.getElementById('featurePingSave').checked = f.pingRequestSaveEnabled !== false;
             document.getElementById('featureShots').checked = f.shotsEnabled !== false;
+            const gf = s.features || {};
+            document.getElementById('guildFeatureAiConversations').checked = gf.aiConversationsEnabled !== false;
+            document.getElementById('guildFeatureAiAttachments').checked = gf.aiAttachmentsEnabled !== false;
+            document.getElementById('guildFeatureAiImageSearch').checked = gf.aiImageSearchEnabled !== false;
+            document.getElementById('guildFeaturePingResponses').checked = gf.pingResponsesEnabled !== false;
+            document.getElementById('guildFeaturePingSave').checked = gf.pingRequestSaveEnabled !== false;
+            document.getElementById('guildFeatureShots').checked = gf.shotsEnabled !== false;
             syncGlobalFeatureState();
             editableTabOrder = Array.isArray(configData.panel?.tabOrder) && configData.panel.tabOrder.length
                 ? [...configData.panel.tabOrder]
@@ -2692,9 +2857,19 @@
             guildTriggers.disabled = !globalTriggersOn;
             guildTriggers.closest('.checkbox-row').style.opacity = globalTriggersOn ? '1' : '.45';
             guildTriggers.closest('.checkbox-row').title = globalTriggersOn ? '' : 'Disabled globally in Global Feature Settings.';
+            const pairs = [
+                ['featureAiConversations', 'guildFeatureAiConversations'], ['featureAiAttachments', 'guildFeatureAiAttachments'],
+                ['featureAiImageSearch', 'guildFeatureAiImageSearch'], ['featurePingResponses', 'guildFeaturePingResponses'],
+                ['featurePingSave', 'guildFeaturePingSave'], ['featureShots', 'guildFeatureShots']
+            ];
+            for (const [globalId, guildId] of pairs) {
+                const input = document.getElementById(guildId); const on = document.getElementById(globalId).checked;
+                input.disabled = !on; input.closest('.guild-feature').style.opacity = on ? '1' : '.45';
+                input.closest('.guild-feature').title = on ? '' : 'Disabled globally in Global Feature Settings.';
+            }
         }
 
-        document.getElementById('featureTriggers').addEventListener('change', syncGlobalFeatureState);
+        ['featureTriggers', 'featureAiConversations', 'featureAiAttachments', 'featureAiImageSearch', 'featurePingResponses', 'featurePingSave', 'featureShots'].forEach(id => document.getElementById(id).addEventListener('change', syncGlobalFeatureState));
 
         document.getElementById('addTabDivider').addEventListener('click', () => { editableTabOrder.push('---'); renderTabOrderEditor(); });
         document.getElementById('saveTabOrder').addEventListener('click', async () => {
@@ -2726,7 +2901,15 @@
                 triggerActionCooldownEnabled: document.getElementById('setCooldownEnabled').checked,
                 triggerActionCooldownSeconds: Number(document.getElementById('setCooldownSeconds').value) || 0,
                 exactTriggerMatch: document.getElementById('setExactMatch').checked,
-                maxTriggerLength: Number(document.getElementById('setMaxTriggerLength').value) || 200
+                maxTriggerLength: Number(document.getElementById('setMaxTriggerLength').value) || 200,
+                features: {
+                    aiConversationsEnabled: document.getElementById('guildFeatureAiConversations').checked,
+                    aiAttachmentsEnabled: document.getElementById('guildFeatureAiAttachments').checked,
+                    aiImageSearchEnabled: document.getElementById('guildFeatureAiImageSearch').checked,
+                    pingResponsesEnabled: document.getElementById('guildFeaturePingResponses').checked,
+                    pingRequestSaveEnabled: document.getElementById('guildFeaturePingSave').checked,
+                    shotsEnabled: document.getElementById('guildFeatureShots').checked
+                }
             };
 
             await api(withGuild('/api/settings'), {
@@ -2864,6 +3047,7 @@
         loadInviteLink().catch(error => console.error(error));
         loadGuilds().catch(error => console.error(error));
     </script>
+    <div id="chartTooltip" class="chart-tooltip" role="status" aria-live="polite"></div>
 </body>
 
 </html>

@@ -19,6 +19,7 @@ const serverStatsStore = require('./stores/server-stats-store');
 const analyticsStore = require('./stores/analytics-store');
 const pingRequestStore = require('./stores/ping-request-store');
 const serperUsageStore = require('./stores/serper-usage-store');
+const pingMetricsStore = require('./stores/ping-metrics-store');
 const userConversationStore = require('./stores/user-conversation-store');
 const profileStore = require('./stores/profile-store');
 const { getAiConfig, buildTextModelCandidates, buildVisionModelCandidates } = require('./services/ai-chat');
@@ -1522,7 +1523,13 @@ function createServer() {
                 const storage = folderStats(path.join(dataDir, 'guilds', guildId));
                 const ageDays = storage.oldestAt ? Math.max(1, (Date.now() - new Date(storage.oldestAt).getTime()) / 86400000) : 1;
                 const health = Object.fromEntries(fs.readdirSync(path.join(__dirname, 'events')).filter(name => name.endsWith('.js')).map(name => [name.replace('.js', ''), 'Loaded']));
-                sendJson(res, 200, { storage: { ...storage, forecast30DaysBytes: Math.round(storage.bytes / ageDays * 30) }, lastBackup: latestBackup(guildId), handlerHealth: health });
+                const panelGatewayMs = Number.isFinite(client.ws.ping) ? Math.max(0, Math.round(client.ws.ping)) : null;
+                sendJson(res, 200, {
+                    storage: { ...storage, forecast30DaysBytes: Math.round(storage.bytes / ageDays * 30) },
+                    lastBackup: latestBackup(guildId),
+                    handlerHealth: health,
+                    ping: { latest: pingMetricsStore.getLatestPingMetrics(), panelGatewayMs }
+                });
                 return;
             }
 

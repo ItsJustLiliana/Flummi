@@ -209,9 +209,15 @@ module.exports = {
             };
 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp(reply);
+                await interaction.followUp(reply).catch(replyError => {
+                    console.error(`Could not send the error follow-up for /${interaction.commandName}:`, replyError);
+                });
             } else {
-                await interaction.reply(reply);
+                // An interaction may have expired while a command was working. Never let that
+                // secondary reply failure crash the bot process.
+                await interaction.reply(reply).catch(replyError => {
+                    console.error(`Could not send the error reply for /${interaction.commandName}:`, replyError);
+                });
             }
         }
     }

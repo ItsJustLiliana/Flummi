@@ -3462,11 +3462,17 @@
             if (!state.guildId) return;
             const data = await api(withGuild('/api/reliability'));
             const storage = data.storage || {};
+            const ping = data.ping || {};
+            const metric = value => Number.isFinite(value) ? `${Math.round(value)}ms` : 'Not measured';
             const megabytes = bytes => `${(Number(bytes || 0) / 1024 / 1024).toFixed(2)} MB`;
             document.getElementById('reliabilityCards').innerHTML = [
                 statCard('Guild storage', megabytes(storage.bytes)), statCard('30-day forecast', megabytes(storage.forecast30DaysBytes)),
                 statCard('Last backup', data.lastBackup ? formatDateTime(data.lastBackup.createdAt) : 'Never'),
-                statCard('Handlers loaded', Object.keys(data.handlerHealth || {}).length)
+                statCard('Handlers loaded', Object.keys(data.handlerHealth || {}).length),
+                statCard('Last /ping → Flummi', metric(ping.latest?.commandLatency)),
+                statCard('Last bot gateway', metric(ping.latest?.gatewayLatency)),
+                statCard('Last Discord acknowledgement', metric(ping.latest?.acknowledgementLatency)),
+                statCard('Live panel gateway', metric(ping.panelGatewayMs))
             ].join('');
             renderTable(document.getElementById('handlerHealth'), [{ label: 'Handler', key: 'name' }, { label: 'Status', key: 'status', render: r => '<span class="badge on">Loaded</span>' }], Object.entries(data.handlerHealth || {}).map(([name, status]) => ({ name, status })), 'No event handlers found.');
         }

@@ -547,10 +547,10 @@ async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRo
 
             if (error instanceof AiChatError && error.code === 'RATE_LIMITED') {
                 rateLimitedCount = attemptedModels;
-            } else if (error instanceof AiChatError && error.code === 'REQUEST_TIMEOUT') {
-                timeoutCount += 1;
             } else if (error instanceof AiChatError && error.code === 'REQUEST_TIMEOUT' && stopAfterRoutedTimeout) {
                 throw error;
+            } else if (error instanceof AiChatError && error.code === 'REQUEST_TIMEOUT') {
+                timeoutCount += 1;
             } else if (
                 !(error instanceof AiChatError) ||
                 !['MODEL_UNAVAILABLE', 'EMPTY_RESPONSE', 'REQUEST_TIMEOUT'].includes(error.code)
@@ -679,9 +679,10 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
             messages: messagesWithHistory,
             sessionId,
             userId,
-            // Vision providers are independent. A timeout from one must not
-            // prevent the next configured vision model from receiving the image.
-            stopAfterRoutedTimeout: false
+            // OpenRouter already receives several text-model candidates in one routed request.
+            // Do not run another slow, sequential fallback chain after that request times out.
+            // Vision providers remain independent because a vision fallback can genuinely help.
+            stopAfterRoutedTimeout: !hasImages
         });
         const parsed = extractImageSearchRequest(reply);
         const text = isImageEchoReply(parsed.text)

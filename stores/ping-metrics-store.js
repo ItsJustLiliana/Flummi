@@ -4,13 +4,22 @@ const path = require('path');
 const filePath = path.join(__dirname, '..', 'data', 'runtime', 'ping-metrics.json');
 const maxSamples = 100;
 
-function readSamples() {
+function readData() {
     try {
         const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        return Array.isArray(data) ? data : [];
+        if (Array.isArray(data)) return { samples: data, system: null };
+        return {
+            samples: Array.isArray(data?.samples) ? data.samples : [],
+            system: data?.system && typeof data.system === 'object' ? data.system : null
+        };
     } catch {
-        return [];
+        return { samples: [], system: null };
     }
+}
+
+function writeData(data) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
 function recordPingMetrics({ commandLatency, gatewayLatency, acknowledgementLatency }) {
@@ -20,15 +29,27 @@ function recordPingMetrics({ commandLatency, gatewayLatency, acknowledgementLate
         gatewayLatency: Number.isFinite(gatewayLatency) ? Math.round(gatewayLatency) : null,
         acknowledgementLatency: Number.isFinite(acknowledgementLatency) ? Math.round(acknowledgementLatency) : null
     };
-    const samples = [...readSamples(), sample].slice(-maxSamples);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(samples, null, 2));
+    const data = readData();
+    data.samples = [...data.samples, sample].slice(-maxSamples);
+    writeData(data);
     return sample;
 }
 
-function getLatestPingMetrics() {
-    const samples = readSamples();
-    return samples.at(-1) || null;
+function recordSystemPingMetrics({ gatewayLatency, apiLatency, apiStatus }) {
+    const data = readData();
+    data.system = {
+        at: new Date().toISOString(),
+        gatewayLatency: Number.isFinite(gatewayLatency) ? Math.round(gatewayLatency) : null,
+        apiLatency: Number.isFinite(apiLatency) ? Math.round(apiLatency) : null,
+        apiStatus: apiStatus || null
+    };
+    writeData(data);
+    return data.system;
 }
 
-module.exports = { getLatestPingMetrics, recordPingMetrics };
+function getPingMetrics() {
+    const data = readData();
+    return { latest: data.samples.at(-1) || null, system: data.system };
+}
+
+module.exports = { getPingMetrics, recordPingMetrics, recordSystemPingMetrics };

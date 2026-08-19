@@ -88,6 +88,10 @@
             overflow-y: auto;
         }
 
+        .mobile-menu-toggle,
+        .mobile-menu-backdrop { display: none; }
+        .mobile-sidebar-content { display: contents; }
+
         .brand h1 {
             margin: 0;
             font-size: 19px;
@@ -604,14 +608,33 @@
             }
 
             .sidebar {
-                padding: 14px 12px;
-                gap: 12px;
-                align-items: stretch;
+                position: sticky;
+                top: 0;
+                z-index: 80;
+                width: 100%;
+                min-height: 68px;
+                padding: 10px 12px;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
+                overflow: visible;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
             }
 
             .brand {
-                width: 100%;
+                width: auto;
+                min-width: 0;
             }
+
+            .brand .sub { display: none; }
+            .brand-image { width: 38px; height: 38px; }
+            .mobile-menu-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 9px; color: var(--text); background: #152344; font: inherit; font-weight: 700; cursor: pointer; }
+            .mobile-menu-toggle[aria-expanded="true"] { border-color: var(--accent); background: #1b3262; }
+            .mobile-menu-icon { font-size: 18px; line-height: 1; }
+            .mobile-sidebar-content { display: none; }
+            .sidebar.mobile-menu-open .mobile-sidebar-content { position: absolute; top: 100%; left: 0; display: flex; width: 100%; height: calc(100vh - 68px); min-height: 0; padding: 16px 12px 22px; flex-direction: column; gap: 14px; overflow-y: auto; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #101a35, #0b1328); box-shadow: 0 18px 40px rgba(0, 0, 0, .42); }
 
             .sidebar-actions,
             .tabs,
@@ -620,8 +643,8 @@
             }
 
             .tabs {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                display: flex;
+                flex-direction: column;
                 gap: 6px;
                 padding: 0;
             }
@@ -635,14 +658,17 @@
             }
 
             .tab-divider {
-                grid-column: 1 / -1;
                 width: 100%;
                 margin: 4px 0;
             }
 
             .sidebar-account {
                 padding-top: 12px;
+                margin-top: auto;
             }
+
+            .mobile-menu-backdrop { position: fixed; z-index: 70; inset: 68px 0 0; width: 100%; border: 0; background: rgba(0, 0, 0, .48); cursor: default; }
+            .mobile-menu-backdrop.visible { display: block; }
 
             .section {
                 padding: 13px;
@@ -1010,7 +1036,7 @@
         <main class="content">
             <!-- Overview -->
             <section id="tab-overview" class="tab-panel active">
-                <h2 style="font-size:20px;">Overview</h2>
+                <h2 style="font-size:20px;">Overview <span class="help-tip" tabindex="0" data-tooltip="Overview refreshes automatically every 20 seconds while it is open. Use Refresh for an immediate update.">?</span></h2>
                 <div id="guildHeader"></div>
                 <div class="overview-summary-row">
                     <div class="card-grid overview-quad" id="overviewQuad"></div>
@@ -1164,7 +1190,7 @@
 
             <!-- Voice -->
             <section id="tab-voice" class="tab-panel">
-                <h2 style="font-size:20px;">Voice Time</h2>
+                <h2 style="font-size:20px;">Voice Time <span class="help-tip" tabindex="0" data-tooltip="Voice data refreshes every 5 seconds while this tab is open, so live sessions and durations stay current.">?</span></h2>
                 <div class="card-grid" id="voiceCards"></div>
                 <div class="section"><div class="row"><h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="voiceGraphChannel" aria-label="Voice channel"><option value="">All channels</option></select><select id="voiceGraphType" aria-label="Voice graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><p class="sub">Completed voice sessions per day.</p><div id="voiceActivityChart" class="analytics-chart"></div></div>
                 <div class="section"><h2>Voice minutes over time</h2><div id="voiceMinutesChart" class="analytics-chart"></div></div>
@@ -1440,15 +1466,15 @@
             </section>
 
             <section id="tab-logs" class="tab-panel">
-                <h2 style="font-size:20px;">Bot Logs</h2>
-                <p class="sub">Recent bot-console messages. Use Errors first when diagnosing failed AI replies, time-outs, or Discord API problems. Newest entries are shown first and refresh automatically.</p>
+                <h2 style="font-size:20px;">Bot Logs <span class="help-tip" tabindex="0" data-tooltip="Logs refresh every 20 seconds while this tab is open. Use Refresh now after reproducing an issue to see it immediately.">?</span></h2>
+                <p class="sub">Recent bot-console messages. Use Errors first when diagnosing failed AI replies, time-outs, or Discord API problems. Newest entries are shown first.</p>
                 <div class="section">
                     <div class="row"><h2 style="margin:0">Runtime Console</h2><select id="logLevel"><option value="">All levels</option><option value="error">Errors only</option><option value="warn">Warnings only</option><option value="info">Info only</option></select><button id="refreshLogs" class="secondary" type="button">Refresh now</button></div><div id="logViewer" class="table-wrap"></div>
                 </div>
             </section>
 
             <section id="tab-reliability" class="tab-panel">
-                <h2 style="font-size:20px;">Reliability</h2>
+                <h2 style="font-size:20px;">Reliability <span class="help-tip" tabindex="0" data-tooltip="This tab refreshes every 20 seconds. Automatic Discord gateway and API checks run every 30 seconds; /ping values update when a developer runs /ping.">?</span></h2>
                 <div id="reliabilityCards" class="card-grid"></div>
                 <div class="section"><h2>Actions</h2><div class="row"><button id="createBackup" class="secondary" type="button">Create backup now</button><button id="reconcileVoice" class="primary" type="button">Reconcile voice now</button></div><p id="reliabilityStatus" class="status"></p></div>
                 <div class="section"><h2>Event handler health</h2><div id="handlerHealth" class="table-wrap"></div></div>
@@ -1472,6 +1498,9 @@
                 </div>
             </div>
 
+            <button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobileSidebarContent"><span class="mobile-menu-icon" aria-hidden="true">☰</span><span>Menu</span></button>
+
+            <div id="mobileSidebarContent" class="mobile-sidebar-content">
             <div class="field">
                 <label for="guild">Guild</label>
                 <select id="guild"></select>
@@ -1479,7 +1508,7 @@
 
             <div class="sidebar-actions">
                 <button id="refreshAll" class="secondary" type="button"
-                    title="Manually refresh the current tab now (data also updates automatically)">Refresh</button>
+                    title="Refresh the current tab now. Most tabs update every 20 seconds; Voice updates every 5 seconds. Reliability’s automatic Discord API check runs every 30 seconds.">Refresh</button>
                 <a id="inviteLink" class="secondary invite-btn" href="#" target="_blank" rel="noopener">Invite bot</a>
             </div>
 
@@ -1504,7 +1533,9 @@
                 <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" alt=""><span id="panelAccountName" class="account-name">Signed in</span></div>
                 <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
             </div>
+            </div>
         </aside>
+        <button id="mobileMenuBackdrop" class="mobile-menu-backdrop" type="button" aria-label="Close navigation"></button>
     </div>
 
     <script>
@@ -1667,8 +1698,9 @@
             updateLiveDurations();
         }
 
-        function statCard(label, value) {
-            return `<div class="stat-card"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value)}</div></div>`;
+        function statCard(label, value, tooltip = '') {
+            const help = tooltip ? ` <span class="help-tip" tabindex="0" data-tooltip="${escapeHtml(tooltip)}">?</span>` : '';
+            return `<div class="stat-card"><div class="label">${escapeHtml(label)}${help}</div><div class="value">${escapeHtml(value)}</div></div>`;
         }
 
         function formatAgo(isoString) {
@@ -1764,6 +1796,22 @@
         // ---------- Tabs ----------
         const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
         const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
+        const sidebar = document.querySelector('.sidebar');
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const mobileMenuBackdrop = document.getElementById('mobileMenuBackdrop');
+        const mobileMenuMedia = window.matchMedia('(max-width: 600px)');
+
+        function setMobileMenu(open) {
+            const shouldOpen = Boolean(open) && mobileMenuMedia.matches;
+            sidebar.classList.toggle('mobile-menu-open', shouldOpen);
+            mobileMenuToggle.setAttribute('aria-expanded', String(shouldOpen));
+            mobileMenuBackdrop.classList.toggle('visible', shouldOpen);
+        }
+
+        mobileMenuToggle.addEventListener('click', () => setMobileMenu(!sidebar.classList.contains('mobile-menu-open')));
+        mobileMenuBackdrop.addEventListener('click', () => setMobileMenu(false));
+        document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileMenu(false); });
+        mobileMenuMedia.addEventListener('change', () => setMobileMenu(false));
         const defaultTabLabels = Object.fromEntries(tabButtons.map(button => [button.dataset.tab, button.textContent.trim()]));
         const tabLoaders = {
             overview: loadOverview,
@@ -1785,6 +1833,7 @@
 
         tabButtons.forEach(btn => {
             btn.addEventListener('click', () => {
+                setMobileMenu(false);
                 tabButtons.forEach(b => b.classList.remove('active'));
                 tabPanels.forEach(p => p.classList.remove('active'));
                 btn.classList.add('active');
@@ -3469,10 +3518,12 @@
                 statCard('Guild storage', megabytes(storage.bytes)), statCard('30-day forecast', megabytes(storage.forecast30DaysBytes)),
                 statCard('Last backup', data.lastBackup ? formatDateTime(data.lastBackup.createdAt) : 'Never'),
                 statCard('Handlers loaded', Object.keys(data.handlerHealth || {}).length),
-                statCard('Last /ping → Flummi', metric(ping.latest?.commandLatency)),
-                statCard('Last bot gateway', metric(ping.latest?.gatewayLatency)),
-                statCard('Last Discord acknowledgement', metric(ping.latest?.acknowledgementLatency)),
-                statCard('Live panel gateway', metric(ping.panelGatewayMs))
+                statCard('Last /ping → Flummi', metric(ping.latest?.commandLatency), 'Time from Discord creating your developer /ping command until Flummi receives it. This includes Discord routing and the network path to the bot.'),
+                statCard('Last bot gateway', metric(ping.latest?.gatewayLatency), 'Gateway is Flummi’s always-open real-time connection to Discord. Lower milliseconds means Discord events reach the bot more quickly.'),
+                statCard('Last Discord acknowledgement', metric(ping.latest?.acknowledgementLatency), 'How long Flummi’s first response to Discord took after receiving /ping. This mainly measures the outgoing Discord API acknowledgement.'),
+                statCard('Auto bot gateway', metric(ping.system?.gatewayLatency), 'The bot gateway latency measured automatically every 30 seconds. Unlike the last /ping value, this does not need someone to run a command.'),
+                statCard('Auto Discord API check', metric(ping.system?.apiLatency), 'Time for a lightweight automated request from the bot server to Discord’s API. It refreshes every 30 seconds.'),
+                statCard('Live panel gateway', metric(ping.panelGatewayMs), 'The panel’s own live Discord gateway connection. It is separate from the main bot connection, so a small difference is normal.')
             ].join('');
             renderTable(document.getElementById('handlerHealth'), [{ label: 'Handler', key: 'name' }, { label: 'Status', key: 'status', render: r => '<span class="badge on">Loaded</span>' }], Object.entries(data.handlerHealth || {}).map(([name, status]) => ({ name, status })), 'No event handlers found.');
         }

@@ -1421,7 +1421,9 @@ function createServer() {
                 let guildProfile = null;
 
                 if (guildId) {
-                    guildProfile = await discordBotApi(`/guilds/${encodeURIComponent(guildId)}/members/@me`);
+                    // GET Guild Member requires the concrete bot user ID. Discord only accepts
+                    // @me for the separate "Modify Current Member" route used when saving.
+                    guildProfile = await discordBotApi(`/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(client.user.id)}`);
                 }
 
                 sendJson(res, 200, {
@@ -1528,7 +1530,7 @@ function createServer() {
                     storage: { ...storage, forecast30DaysBytes: Math.round(storage.bytes / ageDays * 30) },
                     lastBackup: latestBackup(guildId),
                     handlerHealth: health,
-                    ping: { latest: pingMetricsStore.getLatestPingMetrics(), panelGatewayMs }
+                    ping: { ...pingMetricsStore.getPingMetrics(), panelGatewayMs }
                 });
                 return;
             }

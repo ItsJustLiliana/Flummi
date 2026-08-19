@@ -5,6 +5,7 @@ const { installTimestampedConsole } = require('./utils/logger');
 const { loadEnv } = require('./utils/env-loader');
 const { localPath, readConfig } = require('./utils/config');
 const { applyConfiguredPresence } = require('./utils/presence');
+const { recordSystemPingMetrics } = require('./stores/ping-metrics-store');
 const config = readConfig();
 
 installTimestampedConsole();
@@ -23,6 +24,37 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+
+const DISCORD_HEALTH_CHECK_INTERVAL_MS = 30 * 1000;
+
+async function recordAutomaticDiscordLatency() {
+    const gatewayLatency = Number.isFinite(client.ws.ping) ? Math.max(0, Math.round(client.ws.ping)) : null;
+    const controller = new AbortController();
+    const startedAt = Date.now();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    try {
+        const response = await fetch('https://discord.com/api/v10/gateway', { signal: controller.signal });
+        recordSystemPingMetrics({
+            gatewayLatency,
+            apiLatency: Date.now() - startedAt,
+            apiStatus: response.status
+        });
+    } catch (error) {
+        recordSystemPingMetrics({
+            gatewayLatency,
+            apiLatency: null,
+            apiStatus: error?.name === 'AbortError' ? 'Timed out' : 'Unavailable'
+        });
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+client.once('clientReady', () => {
+    recordAutomaticDiscordLatency().catch(() => {});
+    setInterval(() => recordAutomaticDiscordLatency().catch(() => {}), DISCORD_HEALTH_CHECK_INTERVAL_MS);
+});
 
 let presenceReloadTimer = null;
 fs.watch(path.dirname(localPath), (_eventType, filename) => {

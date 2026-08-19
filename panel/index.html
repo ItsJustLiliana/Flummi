@@ -2999,9 +2999,18 @@
             document.getElementById('guildFeaturePingSave').checked = gf.pingRequestSaveEnabled !== false;
             document.getElementById('guildFeatureShots').checked = gf.shotsEnabled !== false;
             syncGlobalFeatureState();
-            editableTabOrder = Array.isArray(configData.panel?.tabOrder) && configData.panel.tabOrder.length
+            const configuredTabOrder = Array.isArray(configData.panel?.tabOrder) && configData.panel.tabOrder.length
                 ? [...configData.panel.tabOrder]
-                : tabButtons.map(button => button.dataset.tab);
+                : [];
+            const configuredTabs = new Set(configuredTabOrder.filter(tabId => !isDividerToken(tabId)));
+            // Older saved configurations predate newer tabs. Keep their custom order and dividers,
+            // then append every newly available tab so it can be positioned and renamed normally.
+            editableTabOrder = [
+                ...configuredTabOrder,
+                ...tabButtons
+                    .map(button => button.dataset.tab)
+                    .filter(tabId => !configuredTabs.has(tabId))
+            ];
             editableTabNames = { ...(configData.panel?.tabNames || {}) };
             renderTabOrderEditor();
         }

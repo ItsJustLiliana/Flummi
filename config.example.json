@@ -6,7 +6,7 @@
     "panel": {
         "enabledOnStart": true,
         "openBrowserOnStart": false,
-        "tabOrder": ["overview", "analytics", "---", "stats", "voice", "users", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "settings", "ai"]
+        "tabOrder": ["overview", "analytics", "---", "stats", "voice", "soundboard", "users", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "settings", "ai", "reliability"]
     },
     "features": {
         "triggersEnabled": true,

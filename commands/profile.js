@@ -34,6 +34,14 @@ function formatPercent(value) {
     return `${value.toFixed(value >= 10 ? 1 : 2)}%`;
 }
 
+function formatDuration(ms) {
+    const totalMinutes = Math.max(0, Math.floor((Number(ms) || 0) / 60000));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
 function formatFilledLine(label, value) {
     return value ? `**${label}:** ${value}` : null;
 }
@@ -97,8 +105,8 @@ async function buildProfileEmbed(interaction, targetUser) {
     const roleKey = getUserRole(targetUser.id, guildId);
     const messageStats = getUserMessageStats(guildId, targetUser.id);
     const shots = getShots(targetUser.id, guildId);
-    const canViewVoiceStats = isManager(interaction.user.id, guildId);
-    const voiceStats = canViewVoiceStats ? getUserVoiceStats(guildId, targetUser.id) : null;
+    const canViewVoiceActivity = isManager(interaction.user.id, guildId);
+    const voiceStats = getUserVoiceStats(guildId, targetUser.id);
     const voiceChannelId = voiceStats?.currentChannelId || voiceStats?.lastChannelId;
     const voiceChannelLabel = voiceChannelId
         ? `<#${voiceChannelId}>${voiceStats.currentChannelId ? ' (in VC now)' : ''}`
@@ -141,6 +149,7 @@ async function buildProfileEmbed(interaction, targetUser) {
                 value: [
                     `**Messages:** ${messageStats.count}`,
                     `**Server share:** ${formatPercent(messageStats.percentage)}`,
+                    `**Voice time:** ${formatDuration(voiceStats.totalMs)}`,
                     `**Shots:** ${shots}`,
                     `**Role:** ${roleKey}`
                 ].join('\n'),
@@ -153,7 +162,7 @@ async function buildProfileEmbed(interaction, targetUser) {
                 ].join('\n'),
                 inline: true
             },
-            canViewVoiceStats ? {
+            canViewVoiceActivity ? {
                 name: '__Voice__',
                 value: [
                     `**Last VC:** ${voiceChannelLabel}`,

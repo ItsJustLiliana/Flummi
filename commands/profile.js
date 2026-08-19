@@ -1,4 +1,5 @@
-const { EmbedBuilder, MessageFlags, SlashCommandBuilder } = require('discord.js');
+const { MessageFlags, SlashCommandBuilder } = require('discord.js');
+const { createCommandEmbed } = require('../utils/command-ui');
 const { getUserRole, isManager } = require('../stores/access-store');
 const { getShots } = require('../stores/shot-store');
 const { getUserMessageStats } = require('../stores/server-stats-store');
@@ -132,9 +133,18 @@ async function buildProfileEmbed(interaction, targetUser) {
     ].filter(Boolean));
     const socials = formatSocials(profile.socials);
 
-    const embed = new EmbedBuilder()
-        .setTitle(displayName)
+    const embed = createCommandEmbed(interaction, {
+        title: displayName,
+        tone: 'primary',
+        footer: profile.updatedAt
+            ? 'Member profile • Customised profile'
+            : 'Member profile • Ready to customise'
+    })
         .setColor(profile.color)
+        .setAuthor({
+            name: 'Flummi • Member Profile',
+            iconURL: interaction.client.user.displayAvatarURL({ size: 128 })
+        })
         .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
         .setDescription([
             profile.bio || '*No bio set yet.*',
@@ -145,7 +155,7 @@ async function buildProfileEmbed(interaction, targetUser) {
         ].join('\n\n'))
         .addFields(...[
             {
-                name: '__Stats__',
+                name: '📊 Stats',
                 value: [
                     `**Messages:** ${messageStats.count}`,
                     `**Server share:** ${formatPercent(messageStats.percentage)}`,
@@ -156,14 +166,14 @@ async function buildProfileEmbed(interaction, targetUser) {
                 inline: true
             },
             {
-                name: '__Style__',
+                name: '🎨 Style',
                 value: [
                     `**Color:** ${formatColor(profile.color)}`
                 ].join('\n'),
                 inline: true
             },
             canViewVoiceActivity ? {
-                name: '__Voice__',
+                name: '🎙 Voice',
                 value: [
                     `**Last VC:** ${voiceChannelLabel}`,
                     `**Last joined:** ${formatDiscordTimestamp(voiceStats.lastJoinedAt)}`
@@ -171,16 +181,11 @@ async function buildProfileEmbed(interaction, targetUser) {
                 inline: true
             } : null,
             {
-                name: '__Badges__',
+                name: '🏅 Badges',
                 value: badges.length ? badges.join('\n') : 'No badges yet.',
                 inline: true
             }
-        ].filter(Boolean))
-        .setFooter({
-            text: profile.updatedAt
-                ? `Last updated: ${profile.updatedAt}`
-                : `Account created ${formatDiscordTimestamp(targetUser.createdAt)}`
-        });
+        ].filter(Boolean));
 
     if (profile.bannerUrl) {
         embed.setImage(buildFlatBannerUrl(profile.bannerUrl));
@@ -192,7 +197,7 @@ async function buildProfileEmbed(interaction, targetUser) {
 
     if (socials) {
         embed.addFields({
-            name: 'Socials',
+            name: '🔗 Socials',
             value: socials,
             inline: false
         });
@@ -200,7 +205,7 @@ async function buildProfileEmbed(interaction, targetUser) {
 
     if (missingFields) {
         embed.addFields({
-            name: '\u200B',
+            name: 'Complete your profile',
             value: `*Not set: ${missingFields}*`,
             inline: false
         });

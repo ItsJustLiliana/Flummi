@@ -529,6 +529,10 @@ async function discordBotApi(pathname, options = {}) {
         ...options,
         headers: {
             Authorization: `Bot ${botToken}`,
+            // Discord requires a recognised content type on HTTP API calls, including reads.
+            // Without it, the API responds with 50035 "Invalid Form Body".
+            'Content-Type': 'application/json',
+            'User-Agent': 'DiscordBot (https://github.com/ItsJustLiliana/Flummi, 1.0)',
             ...(options.headers || {})
         }
     });

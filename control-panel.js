@@ -37,9 +37,31 @@ const brandingDir = path.join(__dirname, 'assets', 'branding');
 const runtimeFilePath = path.join(__dirname, 'data', 'runtime', 'runtime.json');
 const updateStatusFilePath = path.join(__dirname, 'data', 'runtime', 'update-status.json');
 const dataDir = path.join(__dirname, 'data');
+const panelSessionsFilePath = path.join(__dirname, 'data', 'runtime', 'panel-sessions.json');
 const panelSessions = new Map();
 const oauthStates = new Map();
-const sessionDurationMs = 24 * 60 * 60 * 1000;
+const sessionDurationMs = 14 * 24 * 60 * 60 * 1000;
+
+function sessionKey(token) {
+    return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
+function persistPanelSessions() {
+    fs.mkdirSync(path.dirname(panelSessionsFilePath), { recursive: true });
+    fs.writeFileSync(panelSessionsFilePath, JSON.stringify([...panelSessions.entries()]));
+}
+
+function loadPanelSessions() {
+    try {
+        const records = JSON.parse(fs.readFileSync(panelSessionsFilePath, 'utf8'));
+        if (!Array.isArray(records)) return;
+        for (const [key, session] of records) {
+            if (typeof key === 'string' && session?.expiresAt > Date.now()) panelSessions.set(key, session);
+        }
+    } catch { /* no persisted sessions yet */ }
+}
+
+loadPanelSessions();
 
 function parseCookies(req) {
     return Object.fromEntries(String(req.headers.cookie || '').split(';').map(part => part.trim().split(/=(.*)/s, 2)).filter(([key]) => key).map(([key, value]) => [key, decodeURIComponent(value || '')]));
@@ -62,12 +84,15 @@ function sendRedirect(res, location) {
 
 function sessionFor(req) {
     const token = parseCookies(req).flummi_panel_session;
-    const session = token ? panelSessions.get(token) : null;
+    const key = token ? sessionKey(token) : null;
+    const session = key ? panelSessions.get(key) : null;
     if (!session || session.expiresAt <= Date.now()) {
-        if (token) panelSessions.delete(token);
+        if (key) {
+            if (panelSessions.delete(key)) persistPanelSessions();
+        }
         return null;
     }
-    return { token, ...session };
+    return { key, ...session };
 }
 
 function requirePanelAccess(req, res) {
@@ -86,7 +111,14 @@ function loginPage(message = '') {
 
 function cleanupAuthRecords() {
     const now = Date.now();
-    for (const [token, session] of panelSessions) if (session.expiresAt <= now) panelSessions.delete(token);
+    let sessionsChanged = false;
+    for (const [token, session] of panelSessions) {
+        if (session.expiresAt <= now) {
+            panelSessions.delete(token);
+            sessionsChanged = true;
+        }
+    }
+    if (sessionsChanged) persistPanelSessions();
     for (const [state, record] of oauthStates) if (record.expiresAt <= now) oauthStates.delete(state);
 }
 
@@ -631,7 +663,8 @@ function createServer() {
                     }
 
                     const sessionToken = crypto.randomBytes(32).toString('hex');
-                    panelSessions.set(sessionToken, { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, expiresAt: Date.now() + sessionDurationMs });
+                    panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, expiresAt: Date.now() + sessionDurationMs });
+                    persistPanelSessions();
                     const secure = record.redirectUri.startsWith('https://') ? '; Secure' : '';
                     res.writeHead(302, { Location: '/', 'Set-Cookie': `flummi_panel_session=${sessionToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(sessionDurationMs / 1000)}${secure}` });
                     res.end();
@@ -652,7 +685,10 @@ function createServer() {
 
             if (req.method === 'POST' && requestUrl.pathname === '/auth/logout') {
                 const session = sessionFor(req);
-                if (session) panelSessions.delete(session.token);
+                if (session) {
+                    panelSessions.delete(session.key);
+                    persistPanelSessions();
+                }
                 res.writeHead(204, { 'Set-Cookie': 'flummi_panel_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0' });
                 res.end();
                 return;

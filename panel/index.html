@@ -1755,6 +1755,7 @@
                 tabPanels.forEach(p => p.classList.remove('active'));
                 btn.classList.add('active');
                 document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+                localStorage.setItem('flummi.activeTab', btn.dataset.tab);
                 lastAutoRefreshAt = Date.now();
 
                 const loader = tabLoaders[btn.dataset.tab];
@@ -3483,6 +3484,13 @@
         });
 
         // ---------- Init ----------
+        const rememberedTab = localStorage.getItem('flummi.activeTab');
+        const rememberedButton = tabButtons.find(button => button.dataset.tab === rememberedTab);
+        if (rememberedButton) {
+            tabButtons.forEach(button => button.classList.toggle('active', button === rememberedButton));
+            tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `tab-${rememberedTab}`));
+        }
+
         loadPanelAccount().catch(() => { /* OAuth is not deployed yet, so keep the account block hidden. */ });
         loadInviteLink().catch(error => console.error(error));
         loadGuilds().catch(error => console.error(error));

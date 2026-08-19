@@ -837,6 +837,16 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'GET' && requestUrl.pathname === '/api/soundboard') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                const guild = client.guilds.cache.get(guildId); if (!guild) { sendJson(res, 404, { error: 'Guild is not available.' }); return; }
+                const sounds = await guild.soundboardSounds.fetch();
+                const summary = analyticsStore.getSoundboardSummary(guildId, requestUrl.searchParams.get('days'));
+                const useCounts = new Map(summary.topSounds.map(row => [String(row.soundId), row.count]));
+                sendJson(res, 200, { sounds: [...sounds.values()].map(sound => ({ id: String(sound.soundId), name: sound.name, volume: sound.volume, emoji: sound.emoji?.name || null, available: sound.available, uses: useCounts.get(String(sound.soundId)) || 0 })).sort((a, b) => b.uses - a.uses || a.name.localeCompare(b.name)), summary });
+                return;
+            }
+
             if (req.method === 'GET' && requestUrl.pathname === '/api/analytics') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;

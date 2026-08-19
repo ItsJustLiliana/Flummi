@@ -772,6 +772,7 @@
         .chart-caption { display:flex; justify-content:space-between; margin-top:8px; color:var(--muted); font-size:12px; }
         .heatmap { display:grid; grid-template-columns:38px repeat(24, minmax(8px, 1fr)); gap:3px; align-items:center; overflow:hidden; }
         .heatmap-label { color:var(--muted); font-size:10px; text-align:right; padding-right:4px; }
+        .heatmap-hour { color:var(--muted); font-size:9px; text-align:center; }
         .heatmap-cell { aspect-ratio:1; min-height:8px; border-radius:3px; background:#17233f; }
     </style>
 </head>
@@ -1213,6 +1214,14 @@
                 <div class="section"><h2>Actions</h2><div class="row"><button id="createBackup" class="secondary" type="button">Create backup now</button><button id="reconcileVoice" class="primary" type="button">Reconcile voice now</button></div><p id="reliabilityStatus" class="status"></p></div>
                 <div class="section"><h2>Event handler health</h2><div id="handlerHealth" class="table-wrap"></div></div>
             </section>
+
+            <section id="tab-soundboard" class="tab-panel">
+                <h2 style="font-size:20px;">Soundboard</h2>
+                <p class="sub">Guild soundboard sounds and tracked play activity. Sound plays are collected from this update onward.</p>
+                <div id="soundboardCards" class="card-grid"></div>
+                <div class="section"><h2>Guild sounds</h2><div id="soundboardTable" class="table-wrap"></div></div>
+                <div class="two-col"><div class="section"><h2>Most used sounds</h2><div id="soundboardTopSounds" class="table-wrap"></div></div><div class="section"><h2>Most active voice channels</h2><div id="soundboardTopChannels" class="table-wrap"></div></div></div>
+            </section>
         </main>
 
         <aside class="sidebar">
@@ -1249,6 +1258,7 @@
                 <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                 <button class="tab-btn" data-tab="ai" type="button">AI &amp; System</button>
                 <button class="tab-btn" data-tab="reliability" type="button">Reliability</button>
+                <button class="tab-btn" data-tab="soundboard" type="button">Soundboard</button>
             </nav>
         </aside>
     </div>
@@ -1522,7 +1532,8 @@
             settings: loadSettings,
             pings: loadPingRequests,
             ai: loadAi,
-            reliability: loadReliability
+            reliability: loadReliability,
+            soundboard: loadSoundboard
         };
 
         tabButtons.forEach(btn => {
@@ -1919,7 +1930,9 @@
             const values = Array.isArray(rows) ? rows : Array.from({ length: 7 }, () => Array(24).fill(0));
             const maximum = Math.max(1, ...values.flat().map(Number));
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            container.innerHTML = values.map((day, dayIndex) => `<span class="heatmap-label">${days[dayIndex]}</span>${day.map((count, hour) => `<span class="heatmap-cell" title="${days[dayIndex]} ${String(hour).padStart(2, '0')}:00 UTC: ${Number(count) || 0}" style="background:rgba(117,207,255,${0.08 + (Number(count) || 0) / maximum * .88})"></span>`).join('')}`).join('');
+            const heatmapRows = values.map((day, dayIndex) => `<span class="heatmap-label">${days[dayIndex]}</span>${day.map((count, hour) => `<span class="heatmap-cell" title="${days[dayIndex]} ${String(hour).padStart(2, '0')}:00 UTC: ${Number(count) || 0}" style="background:rgba(117,207,255,${0.08 + (Number(count) || 0) / maximum * .88})"></span>`).join('')}`).join('');
+            const hours = `<span></span>${Array.from({ length: 24 }, (_, hour) => `<span class="heatmap-hour">${String(hour).padStart(2, '0')}</span>`).join('')}`;
+            container.innerHTML = `${heatmapRows}${hours}`;
         }
 
         async function loadOverview() {
@@ -3123,6 +3136,16 @@
                     <li>Last updated: ${escapeHtml(data.updatedAt ? formatDateTime(data.updatedAt) : 'Never')}</li>
                 </ul>
             `;
+        }
+
+        async function loadSoundboard() {
+            if (!state.guildId) return;
+            const data = await api(withGuild('/api/soundboard?days=30'));
+            const soundsById = new Map((data.sounds || []).map(sound => [sound.id, sound.name]));
+            document.getElementById('soundboardCards').innerHTML = [statCard('Guild sounds', data.sounds?.length || 0), statCard('Plays in 30 days', data.summary?.plays || 0)].join('');
+            renderTable(document.getElementById('soundboardTable'), [{ label: 'Sound', key: 'name' }, { label: 'Emoji', key: 'emoji', render: r => r.emoji || '-' }, { label: 'Volume', key: 'volume', render: r => `${Math.round((r.volume || 1) * 100)}%` }, { label: 'Plays', key: 'uses' }, { label: 'Available', key: 'available', render: r => r.available ? '<span class="badge on">Yes</span>' : '<span class="badge off">No</span>' }], data.sounds, 'No guild soundboard sounds found.');
+            renderTable(document.getElementById('soundboardTopSounds'), [{ label: 'Sound', key: 'soundId', render: r => escapeHtml(soundsById.get(r.soundId) || r.soundId) }, { label: 'Plays', key: 'count' }], data.summary?.topSounds || [], 'No plays recorded yet.');
+            renderTable(document.getElementById('soundboardTopChannels'), [{ label: 'Channel', key: 'channelId' }, { label: 'Plays', key: 'count' }], data.summary?.topChannels || [], 'No plays recorded yet.');
         }
 
         async function loadReliability() {

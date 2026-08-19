@@ -50,6 +50,17 @@ function recordMessageEvent({ guildId, channelId, channelName, userId, userTag, 
 
 function recordVoiceEvent(guildId, event) { return appendEvent(guildId, 'voice', { type: 'voice', ...event }); }
 function recordModerationEvent(guildId, event) { return appendEvent(guildId, 'moderation', { type: 'moderation', ...event }); }
+function recordSoundboardEvent(guildId, event) { return appendEvent(guildId, 'soundboard', { type: 'soundboard', ...event }); }
+
+function getSoundboardSummary(guildId, days = 30) {
+    const rows = readEvents(guildId, 'soundboard', Date.now() - Math.max(1, Number(days) || 30) * 86400000);
+    const sounds = new Map(), channels = new Map();
+    for (const row of rows) {
+        const sound = sounds.get(row.soundId) || { soundId: row.soundId, count: 0 }; sound.count++; sounds.set(row.soundId, sound);
+        const channel = channels.get(row.channelId) || { channelId: row.channelId, count: 0 }; channel.count++; channels.set(row.channelId, channel);
+    }
+    return { plays: rows.length, topSounds: [...sounds.values()].sort((a, b) => b.count - a.count), topChannels: [...channels.values()].sort((a, b) => b.count - a.count) };
+}
 
 function listFiles(folder) {
     if (!fs.existsSync(folder)) return [];
@@ -129,7 +140,7 @@ function getStorageDetails(guildId) {
 function pruneAnalytics(guildId, retentionDays = 365) {
     const cutoff = Date.now() - Math.max(1, Number(retentionDays) || 365) * 86400000;
     let removed = 0;
-    for (const category of ['messages', 'voice', 'moderation']) {
+    for (const category of ['messages', 'voice', 'moderation', 'soundboard']) {
         for (const file of listFiles(analyticsDir(guildId, category))) {
             const kept = fs.readFileSync(file, 'utf8').split('\n').filter(line => {
                 try { const row = JSON.parse(line); if (new Date(row.at).getTime() >= cutoff) return true; removed++; return false; } catch { return false; }
@@ -140,4 +151,4 @@ function pruneAnalytics(guildId, retentionDays = 365) {
     return removed;
 }
 
-module.exports = { MAX_SHARD_BYTES, appendEvent, getAnalyticsSummary, getStorageDetails, pruneAnalytics, readEvents, recordMessageEvent, recordModerationEvent, recordVoiceEvent };
+module.exports = { MAX_SHARD_BYTES, appendEvent, getAnalyticsSummary, getSoundboardSummary, getStorageDetails, pruneAnalytics, readEvents, recordMessageEvent, recordModerationEvent, recordSoundboardEvent, recordVoiceEvent };

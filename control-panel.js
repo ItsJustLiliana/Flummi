@@ -764,7 +764,7 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/voice-analytics') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
-                const analytics = voiceStore.getVoiceAnalytics(guildId, requestUrl.searchParams.get('from'), requestUrl.searchParams.get('to'));
+                const analytics = voiceStore.getVoiceAnalytics(guildId, requestUrl.searchParams.get('from'), requestUrl.searchParams.get('to'), requestUrl.searchParams.get('channelId'));
                 const ids = [...analytics.userTotals.map(row => row.userId), ...analytics.groupSessions.flatMap(row => row.userIds)];
                 const labels = await resolveUserLabels(ids, guildId);
                 analytics.userTotals = analytics.userTotals.map(row => ({ ...row, label: labels[row.userId]?.tag || row.userId, nickname: labels[row.userId]?.nickname || null }));
@@ -822,7 +822,7 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
                 const days = Math.min(90, Math.max(1, Number(requestUrl.searchParams.get('days')) || 30));
-                sendJson(res, 200, analyticsStore.getAnalyticsSummary(guildId, days));
+                sendJson(res, 200, analyticsStore.getAnalyticsSummary(guildId, days, requestUrl.searchParams.get('channelId')));
                 return;
             }
 

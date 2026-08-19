@@ -71,9 +71,11 @@ function readEvents(guildId, category, from = 0, to = Date.now()) {
     return rows;
 }
 
-function getAnalyticsSummary(guildId, days = 30) {
-    const from = Date.now() - Math.max(1, Number(days) || 30) * 86400000;
-    const messages = readEvents(guildId, 'messages', from);
+function getAnalyticsSummary(guildId, days = 30, channelId = null) {
+    const safeDays = Math.max(1, Number(days) || 30);
+    const from = Date.now() - safeDays * 86400000;
+    const normalizedChannelId = channelId ? String(channelId) : null;
+    const messages = readEvents(guildId, 'messages', from).filter(row => !normalizedChannelId || row.channelId === normalizedChannelId);
     const voice = readEvents(guildId, 'voice', from);
     const byDay = new Map(), channels = new Map(), users = new Map();
     for (const row of messages) {
@@ -83,10 +85,15 @@ function getAnalyticsSummary(guildId, days = 30) {
         const user = users.get(row.userId) || { id: row.userId, name: row.userTag, count: 0 };
         user.count++; users.set(row.userId, user);
     }
+    const dailyMessages = [];
+    for (let offset = safeDays - 1; offset >= 0; offset--) {
+        const date = new Date(Date.now() - offset * 86400000).toISOString().slice(0, 10);
+        dailyMessages.push({ date, count: byDay.get(date) || 0 });
+    }
     return {
-        periodDays: Math.max(1, Number(days) || 30), messageCount: messages.length,
+        periodDays: safeDays, messageCount: messages.length,
         voiceEvents: voice.length, uniqueAuthors: users.size,
-        dailyMessages: [...byDay].map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date)),
+        dailyMessages,
         topChannels: [...channels.values()].sort((a, b) => b.count - a.count).slice(0, 10),
         topUsers: [...users.values()].sort((a, b) => b.count - a.count).slice(0, 10)
     };

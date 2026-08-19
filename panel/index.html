@@ -487,10 +487,17 @@
             padding: 8px 10px;
             border-bottom: 1px solid var(--border);
             z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .table-toolbar input {
             width: 100%;
+        }
+
+        .table-wrap td > button + button {
+            margin-left: 8px;
         }
 
         .section {
@@ -536,7 +543,7 @@
 
         .row {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             align-items: center;
             flex-wrap: wrap;
         }
@@ -544,11 +551,20 @@
         .actions {
             margin-top: 12px;
             display: flex;
-            gap: 10px;
+            gap: 12px;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
         }
+
+        .section > .row + .table-wrap,
+        .section > .row + .two-col,
+        .section > .two-col + button,
+        .section > .table-wrap + .row {
+            margin-top: 12px;
+        }
+
+        td .row { gap: 8px; }
 
         .badge {
             display: inline-block;
@@ -914,7 +930,7 @@
             <section id="tab-voice" class="tab-panel">
                 <h2 style="font-size:20px;">Voice Time</h2>
                 <div class="card-grid" id="voiceCards"></div>
-                <div class="section"><div class="row"><h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="voiceGraphType" aria-label="Voice graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><p class="sub">Completed voice sessions per day.</p><div id="voiceActivityChart" class="analytics-chart"></div></div>
+                <div class="section"><div class="row"><h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="voiceGraphChannel" aria-label="Voice channel"><option value="">All channels</option></select><select id="voiceGraphType" aria-label="Voice graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><p class="sub">Completed voice sessions per day.</p><div id="voiceActivityChart" class="analytics-chart"></div></div>
                 <div class="section">
                     <h2>Currently in Voice</h2>
                     <div id="voiceActive" class="table-wrap">
@@ -968,7 +984,7 @@
             <section id="tab-stats" class="tab-panel">
                 <h2 style="font-size:20px;">Message Analytics</h2>
                 <div class="card-grid" id="statsCards"></div>
-                <div class="section"><div class="row"><h2 style="margin:0">Messages over time</h2><select id="messageGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="messageGraphType" aria-label="Message graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><div id="messageActivityChart" class="analytics-chart"></div></div>
+                <div class="section"><div class="row"><h2 style="margin:0">Messages over time</h2><select id="messageGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="messageGraphChannel" aria-label="Message channel"><option value="">All channels</option></select><select id="messageGraphType" aria-label="Message graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><div id="messageActivityChart" class="analytics-chart"></div></div>
                 <div class="two-col">
                     <div class="section">
                         <h2>Messages by Channel</h2>
@@ -1778,6 +1794,22 @@
             });
         }
 
+        async function ensureAnalyticsChannelFilter(selectId, endpoint) {
+            const select = document.getElementById(selectId);
+            if (!state.guildId || select.dataset.guildId === state.guildId) return;
+            const previousValue = select.value;
+            const data = await api(withGuild(endpoint));
+            select.innerHTML = '<option value="">All channels</option>';
+            for (const channel of data.channels || []) {
+                const option = document.createElement('option');
+                option.value = channel.id;
+                option.textContent = `#${channel.name}`;
+                select.appendChild(option);
+            }
+            if (previousValue && (data.channels || []).some(channel => channel.id === previousValue)) select.value = previousValue;
+            select.dataset.guildId = state.guildId;
+        }
+
         function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar', metricLabel = 'Events') {
             const container = document.getElementById(containerId);
             const values = Array.isArray(rows) ? rows : [];
@@ -1812,7 +1844,7 @@
                     const barWidth = Math.min(30, Math.max(6, plotWidth / values.length * .62));
                     return `<rect class="analytics-bar-rect" data-chart-index="${index}" x="${(point.x - barWidth / 2).toFixed(1)}" y="${point.y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(2, top + plotHeight - point.y).toFixed(1)}" rx="4"></rect>`;
                 }).join('');
-            container.innerHTML = `<svg class="analytics-svg" style="width:${width}px;min-width:100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(metricLabel)} over time"><defs><linearGradient id="analyticsBarGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#83d9ff"></stop><stop offset="100%" stop-color="#4e6bff"></stop></linearGradient></defs>${grid}${marks}${dates}</svg>`;
+            container.innerHTML = `<svg class="analytics-svg" width="${width}" height="${height}" style="width:${width}px;min-width:100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(metricLabel)} over time"><defs><linearGradient id="analyticsBarGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#83d9ff"></stop><stop offset="100%" stop-color="#4e6bff"></stop></linearGradient></defs>${grid}${marks}${dates}</svg>`;
             bindChartHover(container, values, metricLabel);
         }
 
@@ -2108,9 +2140,12 @@
         // ---------- Voice ----------
         async function loadVoice() {
             if (!state.guildId) return;
+            await ensureAnalyticsChannelFilter('voiceGraphChannel', '/api/voice-channels');
             const data = await api(withGuild('/api/voice'));
             const voiceDays = Number(document.getElementById('voiceGraphRange').value) || 30;
-            const analytics = await api(withGuild(`/api/voice-analytics?from=${encodeURIComponent(new Date(Date.now() - voiceDays * 86400000).toISOString())}`));
+            const voiceChannelId = document.getElementById('voiceGraphChannel').value;
+            const channelQuery = voiceChannelId ? `&channelId=${encodeURIComponent(voiceChannelId)}` : '';
+            const analytics = await api(withGuild(`/api/voice-analytics?from=${encodeURIComponent(new Date(Date.now() - voiceDays * 86400000).toISOString())}${channelQuery}`));
 
             document.getElementById('voiceCards').innerHTML = [
                 statCard('In Voice Now', data.activeSessions.length),
@@ -2231,9 +2266,12 @@
         // ---------- Server stats ----------
         async function loadStats() {
             if (!state.guildId) return;
+            await ensureAnalyticsChannelFilter('messageGraphChannel', '/api/channels');
             const data = await api(withGuild('/api/serverstats'));
             const days = Number(document.getElementById('messageGraphRange').value) || 30;
-            const analytics = await api(withGuild(`/api/analytics?days=${days}`));
+            const messageChannelId = document.getElementById('messageGraphChannel').value;
+            const channelQuery = messageChannelId ? `&channelId=${encodeURIComponent(messageChannelId)}` : '';
+            const analytics = await api(withGuild(`/api/analytics?days=${days}${channelQuery}`));
 
             document.getElementById('statsCards').innerHTML = [
                 statCard('Total Messages Tracked', data.totalMessages),
@@ -2274,8 +2312,10 @@
         document.getElementById('analyticsDays').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
         document.getElementById('analyticsGraphType').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
         document.getElementById('messageGraphRange').addEventListener('change', () => loadStats().catch(error => console.error(error)));
+        document.getElementById('messageGraphChannel').addEventListener('change', () => loadStats().catch(error => console.error(error)));
         document.getElementById('messageGraphType').addEventListener('change', () => loadStats().catch(error => console.error(error)));
         document.getElementById('voiceGraphRange').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
+        document.getElementById('voiceGraphChannel').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
         document.getElementById('voiceGraphType').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
         document.getElementById('overviewMessageRange').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
         document.getElementById('overviewMessageType').addEventListener('change', () => loadOverview().catch(error => console.error(error)));

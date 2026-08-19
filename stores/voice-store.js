@@ -366,11 +366,12 @@ function getRecentVoiceHistory(guildId, limit = 25) {
         .slice(0, Math.max(1, Number(limit) || 25));
 }
 
-function getVoiceAnalytics(guildId, from = null, to = null) {
+function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     const stats = readVoiceStats(guildId);
     const start = from ? new Date(from).getTime() : 0;
     const end = to ? new Date(to).getTime() : Date.now();
-    const history = readEvents(guildId, 'voice').filter(row => row.action === 'session-ended' && new Date(row.startedAt).getTime() <= end && new Date(row.endedAt || Date.now()).getTime() >= start);
+    const normalizedChannelId = channelId ? String(channelId) : null;
+    const history = readEvents(guildId, 'voice').filter(row => row.action === 'session-ended' && (!normalizedChannelId || row.channelId === normalizedChannelId) && new Date(row.startedAt).getTime() <= end && new Date(row.endedAt || Date.now()).getTime() >= start);
     const channels = new Map(), users = new Map(), daily = new Map();
     for (const row of history) {
         const rowStart = Math.max(start, new Date(row.startedAt).getTime());

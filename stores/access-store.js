@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const config = require('../config.json');
+const { readConfig } = require('../utils/config');
+const config = readConfig();
 
 const dataDir = path.join(__dirname, '..', 'data');
 

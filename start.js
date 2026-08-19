@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { installTimestampedConsole } = require('./utils/logger');
-const config = require('./config.json');
+const { readConfig } = require('./utils/config');
+const config = readConfig();
 const deployCommands = require('./deploy-commands');
 
 installTimestampedConsole();

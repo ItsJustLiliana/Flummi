@@ -1,5 +1,6 @@
 const { ActivityType } = require('discord.js');
-const config = require('../config.json');
+const { readConfig } = require('./config');
+const config = readConfig();
 
 const activityTypeMap = {
     Playing: ActivityType.Playing,

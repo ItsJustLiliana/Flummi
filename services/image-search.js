@@ -59,15 +59,9 @@ function createRequestError(provider, statusCode, errorText) {
     );
 }
 
-function getConfig() {
-    const configPath = path.join(__dirname, '..', 'config.json');
+const { readConfig } = require('../utils/config');
 
-    try {
-        return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch {
-        return require('../config.json');
-    }
-}
+function getConfig() { return readConfig(); }
 
 function normalizeProviders(providers, provider) {
     const defaultProviders = ['serper', 'serpapi'];

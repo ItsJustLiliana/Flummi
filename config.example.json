@@ -1,0 +1,38 @@
+{
+    "token": "",
+    "clientId": "",
+    "guildIds": [],
+    "deployCommandsOnStart": false,
+    "panel": {
+        "enabledOnStart": true,
+        "openBrowserOnStart": false,
+        "tabOrder": ["overview", "analytics", "---", "stats", "voice", "users", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "settings", "ai"]
+    },
+    "features": {
+        "triggersEnabled": true,
+        "shotsEnabled": true,
+        "pingResponsesEnabled": true,
+        "pingRequestSaveEnabled": true,
+        "aiConversationsEnabled": true,
+        "aiAttachmentsEnabled": true,
+        "aiImageSearchEnabled": true
+    },
+    "presence": {
+        "status": "online",
+        "activityEnabled": true,
+        "activityType": "Watching",
+        "activityText": ""
+    },
+    "ai": {
+        "openRouterApiKey": "",
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "model": "openai/gpt-oss-20b:free",
+        "fallbackModels": [],
+        "visionModels": [],
+        "maxHistoryTurns": 25,
+        "maxOutputTokens": 220,
+        "requestTimeoutMs": 8000
+    },
+    "commandPermissions": {},
+    "developerUserIds": []
+}

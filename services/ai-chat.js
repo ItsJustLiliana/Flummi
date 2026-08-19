@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { loadEnv } = require('../utils/env-loader');
+const { readConfig } = require('../utils/config');
 
 loadEnv();
 
@@ -30,13 +31,7 @@ class AiChatError extends Error {
 }
 
 function getConfig() {
-    const configPath = path.join(__dirname, '..', 'config.json');
-
-    try {
-        return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch {
-        return require('../config.json');
-    }
+    return readConfig();
 }
 
 function getAiConfig() {

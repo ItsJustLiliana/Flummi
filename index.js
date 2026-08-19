@@ -3,7 +3,8 @@ const path = require('path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const { installTimestampedConsole } = require('./utils/logger');
 const { loadEnv } = require('./utils/env-loader');
-const config = require('./config.json');
+const { readConfig } = require('./utils/config');
+const config = readConfig();
 
 installTimestampedConsole();
 loadEnv();

@@ -21,7 +21,7 @@ function getStatsPath(guildId) {
         return null;
     }
 
-    return path.join(dataDir, 'guilds', String(guildId), 'serverStats.json');
+    return path.join(dataDir, 'guilds', String(guildId), 'analytics', 'rollups', 'message-stats.json');
 }
 
 function emptyStats() {

@@ -7,13 +7,15 @@ const { Client, GatewayIntentBits, ChannelType, PermissionsBitField, GuildVerifi
 const { installTimestampedConsole, readRecentLogs } = require('./utils/logger');
 const { readActivity, recordActivity } = require('./stores/activity-store');
 const { loadEnv } = require('./utils/env-loader');
-const config = require('./config.json');
+const { readConfig, saveConfig: saveLocalConfig } = require('./utils/config');
+const config = readConfig();
 const settingsStore = require('./stores/settings-store');
 const accessStore = require('./stores/access-store');
 const triggerStore = require('./stores/trigger-store');
 const shotStore = require('./stores/shot-store');
 const voiceStore = require('./stores/voice-store');
 const serverStatsStore = require('./stores/server-stats-store');
+const analyticsStore = require('./stores/analytics-store');
 const pingRequestStore = require('./stores/ping-request-store');
 const serperUsageStore = require('./stores/serper-usage-store');
 const userConversationStore = require('./stores/user-conversation-store');
@@ -35,8 +37,7 @@ const dataDir = path.join(__dirname, 'data');
 
 function saveConfig(updates) {
     Object.assign(config, updates);
-    fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 4));
-    return config;
+    return saveLocalConfig(config);
 }
 
 function fileDetails(folder) {
@@ -720,7 +721,7 @@ function createServer() {
                     startedAt: session.startedAt,
                     durationMs: Date.now() - new Date(session.startedAt).getTime()
                 }));
-                const recentHistory = stats.history
+                const recentHistory = voiceStore.getRecentVoiceHistory(guildId, 25)
                     .slice()
                     .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
                     .slice(0, 25);
@@ -809,6 +810,14 @@ function createServer() {
                     ...serverStatsStore.getServerStatsSummary(guildId, 25),
                     guildInfo
                 });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/analytics') {
+                const guildId = requireGuildId(requestUrl, res);
+                if (!guildId) return;
+                const days = Math.min(90, Math.max(1, Number(requestUrl.searchParams.get('days')) || 30));
+                sendJson(res, 200, analyticsStore.getAnalyticsSummary(guildId, days));
                 return;
             }
 
@@ -1183,7 +1192,7 @@ function createServer() {
                 const userId = String(parsed.userId);
                 if (parsed.store === 'memory') userConversationStore.clearUserHistory(userId);
                 if (parsed.store === 'profile') profileStore.updateProfile(userId, guildId, { nickname: null, bio: null, pronouns: null, birthday: null, timezone: null, languages: [], website: null, bannerUrl: null, socials: {} });
-                if (parsed.store === 'voice') { const stats = voiceStore.readVoiceStats(guildId); delete stats.users[userId]; delete stats.activeSessions[userId]; stats.history = stats.history.filter(row => row.userId !== userId); voiceStore.saveVoiceStats(stats, guildId); }
+                if (parsed.store === 'voice') { const stats = voiceStore.readVoiceStats(guildId); delete stats.users[userId]; delete stats.activeSessions[userId]; voiceStore.saveVoiceStats(stats, guildId); }
                 if (parsed.store === 'shots') shotStore.setShots(userId, 0, guildId, 'panel', { action: 'reset' });
                 if (parsed.store === 'permissions') accessStore.resetUserPermissions(userId, guildId);
                 recordActivity('data-reset', `Reset ${parsed.store} for ${userId}`, { guildId, userId }); sendJson(res, 200, { ok: true }); return;

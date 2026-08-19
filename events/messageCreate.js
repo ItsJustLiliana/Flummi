@@ -13,8 +13,10 @@ const { appendPingRequest } = require('../stores/ping-request-store');
 const { getUserMemory, appendConversationTurn, clearUserHistory } = require('../stores/user-conversation-store');
 const { formatLanguages, getProfile } = require('../stores/profile-store');
 const { incrementMessageStats } = require('../stores/server-stats-store');
+const { recordMessageEvent } = require('../stores/analytics-store');
 const { AiChatError, generateAiReply, stringifyUserInput } = require('../services/ai-chat');
 const { ImageSearchError, searchImage } = require('../services/image-search');
+const { readConfig } = require('../utils/config');
 
 const pingResponsesPath = path.join(__dirname, '..', 'data', 'botPingResponses.json');
 const defaultPingRequestSaveCommands = ['zet dit op pornhub'];
@@ -35,13 +37,7 @@ class ImageAttachmentError extends Error {
 }
 
 function getConfig() {
-    const configPath = path.join(__dirname, '..', 'config.json');
-
-    try {
-        return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch {
-        return require('../config.json');
-    }
+    return readConfig();
 }
 
 async function getReferencedMessage(message) {
@@ -650,6 +646,10 @@ module.exports = {
                 channelName: message.channel?.name || message.channelId,
                 userId: message.author.id,
                 userTag: message.author.tag || message.author.username || message.author.id
+            });
+            recordMessageEvent({
+                guildId, channelId: message.channelId, channelName: message.channel?.name || message.channelId,
+                userId: message.author.id, userTag: message.author.tag || message.author.username || message.author.id, message
             });
         } catch (error) {
             console.warn('Failed to update server stats:', error);

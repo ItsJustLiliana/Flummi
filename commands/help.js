@@ -8,7 +8,8 @@ const {
     roleMeetsRequirement
 } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
-const config = require('../config.json');
+const { readConfig } = require('../utils/config');
+const config = readConfig();
 
 function getCommandDescription(command, pathKey) {
     const parts = pathKey.split('.');

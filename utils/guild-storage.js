@@ -22,7 +22,7 @@ function ensureGuildStorage(guildId) {
     ensureJsonFile(path.join(base, 'settings.json'), defaultSettings);
     ensureJsonFile(path.join(base, 'triggers.json'), []);
     ensureJsonFile(path.join(base, 'triggerStats.json'), {});
-    ensureJsonFile(path.join(base, 'serverStats.json'), {
+    ensureJsonFile(path.join(base, 'analytics', 'rollups', 'message-stats.json'), {
         messages: {
             total: 0,
             byChannel: {},
@@ -33,7 +33,7 @@ function ensureGuildStorage(guildId) {
     ensureJsonFile(path.join(base, 'pingRequests.json'), []);
     ensureJsonFile(path.join(base, 'managers.json'), []);
     ensureJsonFile(path.join(base, 'userPermissions.json'), {});
-    ensureJsonFile(path.join(base, 'voiceStats.json'), {
+    ensureJsonFile(path.join(base, 'analytics', 'rollups', 'voice-state.json'), {
         activeSessions: {},
         history: [],
         users: {}

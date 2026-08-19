@@ -6,6 +6,7 @@ node_modules/
 .env.*
 !.env.example
 config.local.json
+config.json
 
 # Runtime and generated data
 !data/*.example.json

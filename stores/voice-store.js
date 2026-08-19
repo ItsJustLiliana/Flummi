@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { recordActivity } = require('./activity-store');
+const { recordVoiceEvent, readEvents } = require('./analytics-store');
 
 const dataDir = path.join(__dirname, '..', 'data');
 
@@ -23,7 +24,7 @@ function getVoiceStatsPath(guildId) {
         return null;
     }
 
-    return path.join(dataDir, 'guilds', String(guildId), 'voiceStats.json');
+    return path.join(dataDir, 'guilds', String(guildId), 'analytics', 'rollups', 'voice-state.json');
 }
 
 function emptyVoiceStats() {
@@ -42,9 +43,7 @@ function normalizeVoiceStats(raw) {
     const users = stats.users && typeof stats.users === 'object' && !Array.isArray(stats.users)
         ? stats.users
         : {};
-    const history = Array.isArray(stats.history) ? stats.history : [];
-
-    return { activeSessions, history, users };
+    return { activeSessions, history: [], users };
 }
 
 function readVoiceStats(guildId) {
@@ -169,6 +168,7 @@ function startVoiceSession({ guildId, userId, channelId, channelName, at, reason
     stats.users[String(userId)] = entry;
 
     saveVoiceStats(stats, guildId);
+    recordVoiceEvent(guildId, { action: 'joined', userId: normalizedUserId, channelId: normalizedChannelId, channelName: channelName || normalizedChannelId, reason });
     recordActivity('voice-join', `User ${normalizedUserId} joined ${channelName || normalizedChannelId}`, { guildId, userId: normalizedUserId, channelId: normalizedChannelId });
 }
 
@@ -204,8 +204,7 @@ function endVoiceSession({ guildId, userId, at, reason = 'leave', state = null }
             endState: state ? normalizeVoiceState(state) : session.state || normalizeVoiceState(),
             withUserIds: Array.from(new Set(session.withUserIds || []))
         };
-        entry.history.push(historyEntry);
-        stats.history.push({ userId: String(userId), ...historyEntry });
+        recordVoiceEvent(guildId, { action: 'session-ended', userId: String(userId), ...historyEntry });
     }
 
     entry.lastLeftAt = endedAt.toISOString();
@@ -214,6 +213,7 @@ function endVoiceSession({ guildId, userId, at, reason = 'leave', state = null }
     stats.users[String(userId)] = entry;
 
     saveVoiceStats(stats, guildId);
+    recordVoiceEvent(guildId, { action: 'left', userId: String(userId), channelId: session?.channelId || null, channelName: session?.channelName || null, durationMs: session ? Math.max(0, endedAt.getTime() - new Date(session.startedAt).getTime()) : 0, reason });
     recordActivity('voice-leave', `User ${userId} left voice`, { guildId, userId: String(userId), channelId: session?.channelId || null });
 }
 
@@ -262,14 +262,14 @@ function getUserVoiceStats(guildId, userId) {
         currentChannelId: activeSession ? activeSession.channelId : null,
         currentChannelName: activeSession ? activeSession.channelName : null,
         currentSince: activeSession ? activeSession.startedAt : null,
-        history: entry.history
+        history: getVoiceHistory(guildId, userId)
     };
 }
 
 function getVoiceHistory(guildId, userId, channelId = null) {
     const stats = readVoiceStats(guildId);
     const normalizedChannelId = channelId ? String(channelId) : null;
-    const history = stats.history.filter(entry =>
+    const history = readEvents(guildId, 'voice').filter(entry => entry.action === 'session-ended' &&
         entry.userId === String(userId) &&
         (!normalizedChannelId || entry.channelId === normalizedChannelId)
     );
@@ -300,7 +300,7 @@ function getChannelVoiceMembers(guildId, channelId) {
     const normalizedChannelId = String(channelId);
     const members = new Map();
 
-    for (const session of stats.history) {
+    for (const session of readEvents(guildId, 'voice').filter(entry => entry.action === 'session-ended')) {
         if (session.channelId !== normalizedChannelId || !session.userId) {
             continue;
         }
@@ -359,11 +359,18 @@ function getVoiceStatsSummary(guildId, limit = 10) {
         .slice(0, safeLimit);
 }
 
+function getRecentVoiceHistory(guildId, limit = 25) {
+    return readEvents(guildId, 'voice')
+        .filter(entry => entry.action === 'session-ended')
+        .sort((left, right) => new Date(right.startedAt) - new Date(left.startedAt))
+        .slice(0, Math.max(1, Number(limit) || 25));
+}
+
 function getVoiceAnalytics(guildId, from = null, to = null) {
     const stats = readVoiceStats(guildId);
     const start = from ? new Date(from).getTime() : 0;
     const end = to ? new Date(to).getTime() : Date.now();
-    const history = stats.history.filter(row => new Date(row.startedAt).getTime() <= end && new Date(row.endedAt || Date.now()).getTime() >= start);
+    const history = readEvents(guildId, 'voice').filter(row => row.action === 'session-ended' && new Date(row.startedAt).getTime() <= end && new Date(row.endedAt || Date.now()).getTime() >= start);
     const channels = new Map(), users = new Map(), daily = new Map();
     for (const row of history) {
         const rowStart = Math.max(start, new Date(row.startedAt).getTime());
@@ -405,6 +412,7 @@ module.exports = {
     endVoiceSession,
     getChannelVoiceMembers,
     getUserVoiceStats,
+    getRecentVoiceHistory,
     getVoiceHistory,
     getVoiceStatsSummary,
     getVoiceAnalytics,

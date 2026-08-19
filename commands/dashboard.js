@@ -3,7 +3,7 @@ const { exec } = require('child_process');
 const { MessageFlags, SlashCommandBuilder } = require('discord.js');
 const { isDeveloper } = require('../stores/access-store');
 
-const panelHost = '127.0.0.1';
+const panelHost = '100.111.62.126';
 const panelPort = 3789;
 const panelUrl = `http://${panelHost}:${panelPort}`;
 

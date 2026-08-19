@@ -35,6 +35,7 @@ const host = '0.0.0.0';
 const port = 3789;
 const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
+const faviconPath = path.join(__dirname, 'panel', 'favicon.png');
 const brandingDir = path.join(__dirname, 'assets', 'branding');
 const runtimeFilePath = path.join(__dirname, 'data', 'runtime', 'runtime.json');
 const updateStatusFilePath = path.join(__dirname, 'data', 'runtime', 'update-status.json');
@@ -773,6 +774,15 @@ function createServer() {
                     `<script>window.__PANEL_TAB_ORDER__ = ${JSON.stringify(tabOrder)}; window.__PANEL_TAB_NAMES__ = ${JSON.stringify(tabNames)};</script>`
                 );
                 sendHtml(res, injected);
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/favicon.png') {
+                if (!fs.existsSync(faviconPath)) {
+                    sendJson(res, 404, { error: 'Favicon not found.' });
+                    return;
+                }
+                sendAsset(res, faviconPath);
                 return;
             }
 

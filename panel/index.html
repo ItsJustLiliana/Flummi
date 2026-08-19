@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Flummi Admin Panel</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
     <!--PANEL_CONFIG-->
     <style>
         :root {
@@ -32,6 +33,8 @@
         body {
             margin: 0;
             height: 100%;
+            max-width: 100%;
+            overflow-x: clip;
             scrollbar-color: var(--border) var(--bg);
         }
 
@@ -60,11 +63,15 @@
             display: flex;
             min-height: 100vh;
             align-items: stretch;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: clip;
         }
 
         .content {
             flex: 1;
             min-width: 0;
+            max-width: 100%;
             padding: 28px clamp(16px, 3vw, 48px);
             background:
                 radial-gradient(1200px 700px at 90% -10%, rgba(30, 136, 229, 0.18), transparent 60%),
@@ -674,6 +681,29 @@
 
             .content {
                 padding: 16px 12px 24px;
+                width: 100%;
+                min-width: 0;
+                overflow-x: clip;
+            }
+
+            /* Keep the page itself within the viewport. Wide data remains
+               scrollable in its own table/heatmap container instead. */
+            .tab-panel,
+            .section,
+            .card-grid,
+            .overview-summary-row,
+            .two-col,
+            .row,
+            .actions {
+                min-width: 0;
+                max-width: 100%;
+            }
+
+            .table-wrap,
+            .table-toolbar {
+                max-width: 100%;
+                overflow-x: auto;
+                overscroll-behavior-x: contain;
             }
 
             .sidebar {
@@ -768,8 +798,8 @@
             }
 
             .tab-btn {
-                min-height: 42px;
-                padding: 8px 6px;
+                min-height: 46px;
+                padding: 11px 12px;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;

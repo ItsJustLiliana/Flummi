@@ -506,14 +506,14 @@ async function listChannels(guildId) {
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function readBody(req) {
+function readBody(req, maxBytes = 20000) {
     return new Promise((resolve, reject) => {
         let body = '';
 
         req.on('data', chunk => {
             body += chunk;
 
-            if (body.length > 20000) {
+            if (Buffer.byteLength(body, 'utf8') > maxBytes) {
                 reject(new Error('Request body too large'));
                 req.destroy();
             }
@@ -522,6 +522,44 @@ function readBody(req) {
         req.on('end', () => resolve(body));
         req.on('error', reject);
     });
+}
+
+async function discordBotApi(pathname, options = {}) {
+    const response = await fetch(`https://discord.com/api/v10${pathname}`, {
+        ...options,
+        headers: {
+            Authorization: `Bot ${botToken}`,
+            ...(options.headers || {})
+        }
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(payload.message || `Discord API request failed (${response.status}).`);
+    }
+
+    return payload;
+}
+
+function normalizeTags(tags) {
+    if (!Array.isArray(tags)) throw new Error('Tags must be a list.');
+    const normalized = [...new Set(tags.map(tag => String(tag || '').trim()).filter(Boolean))];
+    if (normalized.length > 5 || normalized.some(tag => tag.length > 20)) {
+        throw new Error('Use at most 5 tags, each up to 20 characters.');
+    }
+    return normalized;
+}
+
+function optionalImageData(value, fieldName) {
+    if (value === undefined) return undefined;
+    if (value === null || value === '') return null;
+    if (typeof value !== 'string' || !/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value)) {
+        throw new Error(`${fieldName} must be an uploaded PNG, JPEG, WebP, or GIF image.`);
+    }
+    if (Buffer.byteLength(value, 'utf8') > 7 * 1024 * 1024) {
+        throw new Error(`${fieldName} image is too large. Use a file under 5 MB.`);
+    }
+    return value;
 }
 
 function normalizeImageUrls(imageUrls) {
@@ -1364,6 +1402,69 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/activity') {
                 const guildId = requestUrl.searchParams.get('guildId');
                 sendJson(res, 200, { entries: readActivity().filter(row => !guildId || !row.guildId || row.guildId === guildId).slice(0, 100) });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/bot-profile') {
+                const guildId = requestUrl.searchParams.get('guildId');
+                const application = await discordBotApi('/applications/@me');
+                let guildProfile = null;
+
+                if (guildId) {
+                    guildProfile = await discordBotApi(`/guilds/${encodeURIComponent(guildId)}/members/@me`);
+                }
+
+                sendJson(res, 200, {
+                    application: {
+                        id: application.id,
+                        name: application.name,
+                        description: application.description || '',
+                        tags: application.tags || [],
+                        iconUrl: application.icon ? `https://cdn.discordapp.com/app-icons/${application.id}/${application.icon}.png?size=256` : null,
+                        coverImageUrl: application.cover_image ? `https://cdn.discordapp.com/app-icons/${application.id}/${application.cover_image}.png?size=1024` : null
+                    },
+                    guildProfile: guildProfile ? {
+                        nick: guildProfile.nick || '',
+                        bio: guildProfile.bio || '',
+                        avatarUrl: guildProfile.avatar && (guildProfile.user?.id || client.user?.id) ? `https://cdn.discordapp.com/guilds/${guildId}/users/${guildProfile.user?.id || client.user?.id}/avatars/${guildProfile.avatar}.png?size=256` : null,
+                        bannerUrl: guildProfile.banner && (guildProfile.user?.id || client.user?.id) ? `https://cdn.discordapp.com/guilds/${guildId}/users/${guildProfile.user?.id || client.user?.id}/banners/${guildProfile.banner}.png?size=1024` : null
+                    } : null
+                });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/bot-profile/application') {
+                const parsed = JSON.parse(await readBody(req, 8 * 1024 * 1024) || '{}');
+                const payload = {};
+                if (Object.prototype.hasOwnProperty.call(parsed, 'description')) payload.description = String(parsed.description || '').trim().slice(0, 400);
+                if (Object.prototype.hasOwnProperty.call(parsed, 'tags')) payload.tags = normalizeTags(parsed.tags);
+                const icon = optionalImageData(parsed.icon, 'App icon');
+                const coverImage = optionalImageData(parsed.coverImage, 'Cover image');
+                if (icon !== undefined) payload.icon = icon;
+                if (coverImage !== undefined) payload.cover_image = coverImage;
+                const application = await discordBotApi('/applications/@me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                recordActivity('bot-profile', 'Updated global Discord application profile');
+                sendJson(res, 200, { ok: true, application });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/bot-profile/guild') {
+                const parsed = JSON.parse(await readBody(req, 8 * 1024 * 1024) || '{}');
+                const guildId = String(parsed.guildId || '').trim();
+                if (!guildId) {
+                    sendJson(res, 400, { error: 'guildId is required.' });
+                    return;
+                }
+                const payload = {};
+                if (Object.prototype.hasOwnProperty.call(parsed, 'nick')) payload.nick = String(parsed.nick || '').trim().slice(0, 32) || null;
+                if (Object.prototype.hasOwnProperty.call(parsed, 'bio')) payload.bio = String(parsed.bio || '').trim().slice(0, 190) || null;
+                const avatar = optionalImageData(parsed.avatar, 'Guild avatar');
+                const banner = optionalImageData(parsed.banner, 'Guild banner');
+                if (avatar !== undefined) payload.avatar = avatar;
+                if (banner !== undefined) payload.banner = banner;
+                const member = await discordBotApi(`/guilds/${encodeURIComponent(guildId)}/members/@me`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                recordActivity('bot-profile', `Updated Flummi's profile in guild ${guildId}`, { guildId });
+                sendJson(res, 200, { ok: true, member });
                 return;
             }
 

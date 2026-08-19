@@ -902,15 +902,15 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 17px;
-            height: 17px;
-            margin-left: 4px;
-            border: 1px solid rgba(117, 207, 255, .6);
+            width: 14px;
+            height: 14px;
+            margin-left: 3px;
+            border: 1px solid rgba(165, 177, 216, .42);
             border-radius: 50%;
-            color: var(--accent);
+            color: rgba(165, 177, 216, .72);
             cursor: help;
-            font-size: 11px;
-            font-weight: 800;
+            font-size: 9px;
+            font-weight: 700;
             line-height: 1;
             position: relative;
             vertical-align: middle;
@@ -1381,6 +1381,8 @@
                 <div class="section"><h2>Discord Presence</h2><p class="sub">Applied live to the bot after saving.</p><div class="two-col"><div class="field"><label>Status <span class="help-tip" tabindex="0" data-tooltip="The status dot shown beside Flummi in Discord. Invisible keeps the bot online but hides the dot.">?</span></label><select id="presenceStatus"><option value="online">Online</option><option value="idle">Idle</option><option value="dnd">Do not disturb</option><option value="invisible">Invisible</option></select></div><div class="field"><label>Activity type <span class="help-tip" tabindex="0" data-tooltip="The verb Discord puts before the activity text, for example ‘Watching for /help’.">?</span></label><select id="presenceActivityType"><option value="Playing">Playing</option><option value="Streaming">Streaming</option><option value="Listening">Listening</option><option value="Watching">Watching</option><option value="Competing">Competing</option></select></div><div class="field"><label>Activity text <span class="help-tip" tabindex="0" data-tooltip="The short custom status line shown on the bot profile. Keep it clear and under Discord’s 128-character limit.">?</span></label><input id="presenceActivityText" maxlength="128" placeholder="for /help"></div><div class="checkbox-row"><input id="presenceActivityEnabled" type="checkbox"><label for="presenceActivityEnabled" style="margin:0">Show activity <span class="help-tip" tabindex="0" data-tooltip="Turns the custom activity line on or off. The bot’s online status is unaffected.">?</span></label></div></div><button id="savePresenceConfig" class="primary" type="button">Save presence</button><p id="presenceConfigStatus" class="status"></p></div>
                 <div class="section"><h2>AI Controls <span class="help-tip" tabindex="0" data-tooltip="Use exact OpenRouter model IDs. Vision models are for image messages; fallback models are tried in order after a model error or rate limit. More history and output tokens use more AI context.">?</span></h2><div class="two-col"><div class="field"><label>Text model</label><input id="aiTextModel"></div><div class="field"><label>OpenRouter base URL</label><input id="aiBaseUrl" type="url"></div><div class="field"><label>Vision models (one per line)</label><textarea id="aiVisionModels"></textarea></div><div class="field"><label>Fallback models (one per line)</label><textarea id="aiFallbackModels"></textarea></div><div class="field"><label>Timeout (ms)</label><input id="aiTimeout" type="number" min="1000"></div><div class="field"><label>Max output tokens</label><input id="aiMaxOutput" type="number" min="1"></div><div class="field"><label>History turns</label><input id="aiMaxHistoryTurns" type="number" min="1" max="100"></div><div class="field"><label>Image providers (one per line)</label><textarea id="aiImageProviders"></textarea></div></div><button id="saveAiConfig" class="primary" type="button">Save AI controls</button><p id="aiConfigStatus" class="status"></p></div>
                 <div class="section"><h2>Start-up Behaviour <span class="help-tip" tabindex="0" data-tooltip="These only affect the next service restart. Keep ‘Start admin panel’ on unless you intentionally want to disable remote panel access. Browser auto-open is normally off on Linux.">?</span></h2><p class="sub">These options take effect the next time the service starts. Secrets and bot identity stay server-only.</p><div class="two-col"><div class="checkbox-row"><input id="deployCommandsOnStart" type="checkbox"><label for="deployCommandsOnStart" style="margin:0">Deploy slash commands on start</label></div><div class="checkbox-row"><input id="panelEnabledOnStart" type="checkbox"><label for="panelEnabledOnStart" style="margin:0">Start admin panel with bot</label></div><div class="checkbox-row"><input id="panelOpenBrowserOnStart" type="checkbox"><label for="panelOpenBrowserOnStart" style="margin:0">Open panel browser on start</label></div></div><button id="saveStartupConfig" class="primary" type="button">Save start-up settings</button><p id="startupConfigStatus" class="status"></p></div>
+                <div class="section"><h2>Discord App Profile</h2><p class="sub">Global profile used across Discord. The description and tags replace the matching Developer Portal fields.</p><div class="two-col"><div class="field"><label for="appProfileDescription">App description</label><textarea id="appProfileDescription" maxlength="400" placeholder="What does Flummi do?"></textarea></div><div class="field"><label for="appProfileTags">App tags</label><input id="appProfileTags" maxlength="104" placeholder="analytics, community, moderation"><span class="sub">Comma-separated; maximum 5 tags of 20 characters.</span></div><div class="field"><label for="appProfileIcon">App icon</label><input id="appProfileIcon" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="checkbox-row"><input id="clearAppProfileIcon" type="checkbox"><label for="clearAppProfileIcon" style="margin:0">Clear current icon</label></div></div><div class="field"><label for="appProfileCover">Cover image</label><input id="appProfileCover" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="checkbox-row"><input id="clearAppProfileCover" type="checkbox"><label for="clearAppProfileCover" style="margin:0">Clear current cover</label></div></div></div><button id="saveAppProfile" class="primary" type="button">Save global app profile</button><p id="appProfileStatus" class="status"></p></div>
+                <div class="section"><h2>Bot Profile in Selected Server</h2><p class="sub">Customises how Flummi appears only in the guild selected in the sidebar. Discord must allow the matching profile field for the bot.</p><div class="two-col"><div class="field"><label for="guildBotNick">Nickname</label><input id="guildBotNick" maxlength="32" placeholder="Flummi"></div><div class="field"><label for="guildBotBio">Server bio</label><textarea id="guildBotBio" maxlength="190" placeholder="A custom bio for this server"></textarea></div><div class="field"><label for="guildBotAvatar">Server avatar</label><input id="guildBotAvatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="checkbox-row"><input id="clearGuildBotAvatar" type="checkbox"><label for="clearGuildBotAvatar" style="margin:0">Clear server avatar</label></div></div><div class="field"><label for="guildBotBanner">Server banner</label><input id="guildBotBanner" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="checkbox-row"><input id="clearGuildBotBanner" type="checkbox"><label for="clearGuildBotBanner" style="margin:0">Clear server banner</label></div></div></div><button id="saveGuildBotProfile" class="primary" type="button">Save selected-server profile</button><p id="guildBotProfileStatus" class="status"></p></div>
                 <div class="two-col">
                     <div class="section">
                         <h2>AI Memory Lookup</h2>
@@ -1632,6 +1634,7 @@
             });
             container.querySelector('[data-role="table-prev"]')?.addEventListener('click', () => { state.page--; paintTable(container); });
             container.querySelector('[data-role="table-next"]')?.addEventListener('click', () => { state.page++; paintTable(container); });
+            updateLiveDurations();
         }
 
         function statCard(label, value) {
@@ -1760,7 +1763,7 @@
 
                 const loader = tabLoaders[btn.dataset.tab];
                 if (loader) {
-                    loader().catch(error => console.error(error));
+                    loader().then(updateLiveDurations).catch(error => console.error(error));
                 }
             });
         });
@@ -1774,6 +1777,7 @@
             const loader = tabLoaders[activeTab()];
             if (loader) {
                 await loader();
+                updateLiveDurations();
             }
         }
 
@@ -1943,17 +1947,30 @@
         }, 1000);
 
         function updateLiveDurations() {
+            const now = Date.now();
             document.querySelectorAll('[data-live-duration]').forEach(element => {
                 const startedAt = new Date(element.dataset.liveDuration).getTime();
-                element.textContent = Number.isNaN(startedAt) ? '-' : formatDuration(Date.now() - startedAt);
+                if (Number.isNaN(startedAt)) {
+                    element.textContent = '-';
+                    return;
+                }
+
+                const elapsedSeconds = Math.max(0, Math.floor((now - startedAt) / 1000));
+                if (element.dataset.liveSecond === String(elapsedSeconds)) return;
+                element.dataset.liveSecond = String(elapsedSeconds);
+                element.textContent = formatDuration(elapsedSeconds * 1000);
             });
         }
 
-        // Live durations update independently of API refreshes, so they keep moving even
-        // while a table is being searched, sorted, or another panel request is in progress.
-        setInterval(() => {
+        // Align with the real clock rather than a drifting fixed interval. A table redraw is also
+        // filled immediately, so durations do not flash empty during an automatic refresh.
+        function scheduleLiveDurationUpdate() {
             if (document.visibilityState === 'visible') updateLiveDurations();
-        }, 2000);
+            const delay = Math.max(80, 1000 - (Date.now() % 1000) + 12);
+            setTimeout(scheduleLiveDurationUpdate, delay);
+        }
+
+        scheduleLiveDurationUpdate();
 
         // ---------- Overview ----------
         function renderGuildHeader(containerId, guildInfo) {
@@ -3401,6 +3418,27 @@
         document.getElementById('createBackup').addEventListener('click', async () => { try { const result = await api(withGuild('/api/reliability/backup'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), `Backup created: ${result.backup}`, 'ok'); await loadReliability(); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
         document.getElementById('reconcileVoice').addEventListener('click', async () => { try { await api(withGuild('/api/reliability/reconcile-voice'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), 'Voice sessions reconciled with Discord.', 'ok'); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
 
+        async function readImageUpload(inputId, clearId) {
+            if (document.getElementById(clearId).checked) return null;
+            const file = document.getElementById(inputId).files[0];
+            if (!file) return undefined;
+            if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) throw new Error('Choose an image under 5 MB.');
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error('Could not read image file.'));
+                reader.onload = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function loadBotProfiles() {
+            const data = await api(withGuild('/api/bot-profile'));
+            document.getElementById('appProfileDescription').value = data.application?.description || '';
+            document.getElementById('appProfileTags').value = (data.application?.tags || []).join(', ');
+            document.getElementById('guildBotNick').value = data.guildProfile?.nick || '';
+            document.getElementById('guildBotBio').value = data.guildProfile?.bio || '';
+        }
+
         async function loadAi() {
             await populateGuildUserSelects();
             const configData = await api('/api/config'); const ai = configData.ai || {};
@@ -3420,6 +3458,7 @@
             document.getElementById('deployCommandsOnStart').checked = configData.deployCommandsOnStart !== false;
             document.getElementById('panelEnabledOnStart').checked = configData.panel?.enabledOnStart !== false;
             document.getElementById('panelOpenBrowserOnStart').checked = configData.panel?.openBrowserOnStart === true;
+            await loadBotProfiles();
             const health = await api('/api/health');
             document.getElementById('healthCards').innerHTML = [
                 statCard('Discord', health.discord),
@@ -3481,6 +3520,21 @@
                 await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deployCommandsOnStart: document.getElementById('deployCommandsOnStart').checked, panel: { enabledOnStart: document.getElementById('panelEnabledOnStart').checked, openBrowserOnStart: document.getElementById('panelOpenBrowserOnStart').checked } }) });
                 setStatus(document.getElementById('startupConfigStatus'), 'Start-up settings saved for the next restart.', 'ok');
             } catch (error) { setStatus(document.getElementById('startupConfigStatus'), error.message, 'error'); }
+        });
+        document.getElementById('saveAppProfile').addEventListener('click', async () => {
+            try {
+                await api('/api/bot-profile/application', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: document.getElementById('appProfileDescription').value, tags: document.getElementById('appProfileTags').value.split(',').map(tag => tag.trim()).filter(Boolean), icon: await readImageUpload('appProfileIcon', 'clearAppProfileIcon'), coverImage: await readImageUpload('appProfileCover', 'clearAppProfileCover') }) });
+                setStatus(document.getElementById('appProfileStatus'), 'Global Discord app profile saved.', 'ok');
+                await loadBotProfiles();
+            } catch (error) { setStatus(document.getElementById('appProfileStatus'), error.message, 'error'); }
+        });
+        document.getElementById('saveGuildBotProfile').addEventListener('click', async () => {
+            try {
+                if (!state.guildId) throw new Error('Select a server first.');
+                await api('/api/bot-profile/guild', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guildId: state.guildId, nick: document.getElementById('guildBotNick').value, bio: document.getElementById('guildBotBio').value, avatar: await readImageUpload('guildBotAvatar', 'clearGuildBotAvatar'), banner: await readImageUpload('guildBotBanner', 'clearGuildBotBanner') }) });
+                setStatus(document.getElementById('guildBotProfileStatus'), 'Selected-server bot profile saved.', 'ok');
+                await loadBotProfiles();
+            } catch (error) { setStatus(document.getElementById('guildBotProfileStatus'), error.message, 'error'); }
         });
 
         // ---------- Init ----------

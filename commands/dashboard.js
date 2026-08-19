@@ -2,8 +2,8 @@ const http = require('http');
 const { MessageFlags, SlashCommandBuilder } = require('discord.js');
 const { isDeveloper } = require('../stores/access-store');
 
-const panelHost = '100.111.62.126';
-const panelPort = 3789;
+const panelHost = process.env.PANEL_HOST || '127.0.0.1';
+const panelPort = Number(process.env.PANEL_PORT || 3789);
 const panelUrl = `http://${panelHost}:${panelPort}`;
 
 function isPanelRunning() {

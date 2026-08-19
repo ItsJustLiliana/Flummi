@@ -89,8 +89,13 @@
         }
 
         .mobile-menu-toggle,
-        .mobile-menu-backdrop { display: none; }
-        .mobile-sidebar-content { display: contents; }
+        .mobile-menu-backdrop {
+            display: none;
+        }
+
+        .mobile-sidebar-content {
+            display: contents;
+        }
 
         .brand h1 {
             margin: 0;
@@ -199,11 +204,15 @@
             transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
         }
 
-        select { cursor: pointer; }
+        select {
+            cursor: pointer;
+        }
 
         select:hover,
         input:hover,
-        textarea:hover { border-color: #3a5488; }
+        textarea:hover {
+            border-color: #3a5488;
+        }
 
         select:focus,
         input:focus,
@@ -441,16 +450,67 @@
             border-radius: 14px;
             background: #0d1730;
         }
-        .member-identity-banner { position: absolute; inset: 0 0 auto; height: 74px; background: linear-gradient(120deg, #243b7a, #13234b 52%, #182b5f); background-position: center; background-size: cover; opacity: .82; }
-        .member-identity-content { position: relative; display: flex; align-items: flex-end; gap: 12px; padding: 42px 15px 14px; }
-        .member-identity-avatar { width: 62px; height: 62px; border: 3px solid #101a35; border-radius: 50%; background: #172445; object-fit: cover; flex: 0 0 auto; }
-        .member-identity-name { min-width: 0; }
-        .member-identity-name strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-size: 16px; }
-        .member-identity-name span { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
+        .member-identity-banner {
+            position: absolute;
+            inset: 0 0 auto;
+            height: 74px;
+            background: linear-gradient(120deg, #243b7a, #13234b 52%, #182b5f);
+            background-position: center;
+            background-size: cover;
+            opacity: .82;
+        }
+
+        .member-identity-content {
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            padding: 42px 15px 14px;
+        }
+
+        .member-identity-avatar {
+            width: 62px;
+            height: 62px;
+            border: 3px solid #101a35;
+            border-radius: 50%;
+            background: #172445;
+            object-fit: cover;
+            flex: 0 0 auto;
+        }
+
+        .member-identity-name {
+            min-width: 0;
+        }
+
+        .member-identity-name strong {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .member-identity-name span {
+            display: block;
+            margin-top: 3px;
+            overflow: hidden;
+            color: var(--muted);
+            font-size: 12px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
 
         @media (max-width: 600px) {
-            .member-identity-content { padding: 38px 12px 12px; }
-            .member-identity-avatar { width: 54px; height: 54px; }
+            .member-identity-content {
+                padding: 38px 12px 12px;
+            }
+
+            .member-identity-avatar {
+                width: 54px;
+                height: 54px;
+            }
         }
 
         .overview-summary-row {
@@ -459,6 +519,8 @@
             gap: 16px;
             margin-bottom: 16px;
         }
+
+        #tab-analytics > .row { margin-bottom: 14px; }
 
         .overview-quad {
             grid-template-columns: 1fr 1fr;
@@ -507,8 +569,13 @@
             vertical-align: top;
         }
 
-        tbody tr { transition: background-color 120ms ease; }
-        tbody tr:hover { background: rgba(117, 207, 255, .055); }
+        tbody tr {
+            transition: background-color 120ms ease;
+        }
+
+        tbody tr:hover {
+            background: rgba(117, 207, 255, .055);
+        }
 
         th {
             color: var(--muted);
@@ -551,7 +618,7 @@
             width: 100%;
         }
 
-        .table-wrap td > button + button {
+        .table-wrap td>button+button {
             margin-left: 8px;
         }
 
@@ -601,7 +668,9 @@
         }
 
         @media (max-width: 600px) {
-            :root { --sidebar-width: 100%; }
+            :root {
+                --sidebar-width: 100%;
+            }
 
             .content {
                 padding: 16px 12px 24px;
@@ -628,13 +697,62 @@
                 min-width: 0;
             }
 
-            .brand .sub { display: none; }
-            .brand-image { width: 38px; height: 38px; }
-            .mobile-menu-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 9px; color: var(--text); background: #152344; font: inherit; font-weight: 700; cursor: pointer; }
-            .mobile-menu-toggle[aria-expanded="true"] { border-color: var(--accent); background: #1b3262; }
-            .mobile-menu-icon { font-size: 18px; line-height: 1; }
-            .mobile-sidebar-content { display: none; }
-            .sidebar.mobile-menu-open .mobile-sidebar-content { position: absolute; top: 100%; left: 0; display: flex; width: 100%; height: calc(100vh - 68px); min-height: 0; padding: 16px 12px 22px; flex-direction: column; gap: 14px; overflow-y: auto; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #101a35, #0b1328); box-shadow: 0 18px 40px rgba(0, 0, 0, .42); }
+            .brand .sub {
+                display: none;
+            }
+
+            .brand-image {
+                width: 38px;
+                height: 38px;
+            }
+
+            .mobile-menu-toggle {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 7px;
+                min-height: 42px;
+                padding: 8px 12px;
+                border: 1px solid var(--border);
+                border-radius: 9px;
+                color: var(--text);
+                background: #152344;
+                font: inherit;
+                font-weight: 700;
+                cursor: pointer;
+            }
+
+            .mobile-menu-toggle[aria-expanded="true"] {
+                border-color: var(--accent);
+                background: #1b3262;
+            }
+
+            .mobile-menu-icon {
+                font-size: 18px;
+                line-height: 1;
+            }
+
+            .mobile-sidebar-content {
+                display: none;
+            }
+
+            .sidebar.mobile-menu-open .mobile-sidebar-content {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                display: flex;
+                width: 100%;
+                height: calc(100vh - 68px);
+                min-height: 0;
+                padding: 16px 12px 22px;
+                flex-direction: column;
+                gap: 14px;
+                overflow-y: auto;
+                border-top: 1px solid var(--border);
+                border-bottom: 1px solid var(--border);
+                background: linear-gradient(180deg, #101a35, #0b1328);
+                box-shadow: 0 18px 40px rgba(0, 0, 0, .42);
+            }
 
             .sidebar-actions,
             .tabs,
@@ -667,8 +785,19 @@
                 margin-top: auto;
             }
 
-            .mobile-menu-backdrop { position: fixed; z-index: 70; inset: 68px 0 0; width: 100%; border: 0; background: rgba(0, 0, 0, .48); cursor: default; }
-            .mobile-menu-backdrop.visible { display: block; }
+            .mobile-menu-backdrop {
+                position: fixed;
+                z-index: 70;
+                inset: 68px 0 0;
+                width: 100%;
+                border: 0;
+                background: rgba(0, 0, 0, .48);
+                cursor: default;
+            }
+
+            .mobile-menu-backdrop.visible {
+                display: block;
+            }
 
             .section {
                 padding: 13px;
@@ -681,21 +810,21 @@
                 align-items: stretch;
             }
 
-            .section > .row > select,
-            .section > .row > input,
-            .section > .row > button,
-            .section > .row > label.secondary,
-            .actions > button {
+            .section>.row>select,
+            .section>.row>input,
+            .section>.row>button,
+            .section>.row>label.secondary,
+            .actions>button {
                 min-height: 42px;
             }
 
-            .section > .row > select,
-            .section > .row > input {
+            .section>.row>select,
+            .section>.row>input {
                 flex: 1 1 145px;
                 min-width: 0;
             }
 
-            .actions > button {
+            .actions>button {
                 flex: 1 1 150px;
             }
 
@@ -760,14 +889,16 @@
             flex-wrap: wrap;
         }
 
-        .section > .row + .table-wrap,
-        .section > .row + .two-col,
-        .section > .two-col + button,
-        .section > .table-wrap + .row {
+        .section>.row+.table-wrap,
+        .section>.row+.two-col,
+        .section>.two-col+button,
+        .section>.table-wrap+.row {
             margin-top: 12px;
         }
 
-        td .row { gap: 8px; }
+        td .row {
+            gap: 8px;
+        }
 
         .badge {
             display: inline-block;
@@ -921,7 +1052,7 @@
             left: 2px;
             border-radius: 50%;
             background: #cbd5e1;
-            box-shadow: 0 1px 4px rgba(0,0,0,.35);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
             transition: transform .18s ease, background .18s ease;
         }
 
@@ -1006,28 +1137,157 @@
             background: rgba(117, 207, 255, .03);
         }
 
-        .analytics-chart { display:block; height:210px; padding:16px 18px 30px; border-bottom:1px solid var(--border); overflow:hidden; }
-        .analytics-bar { min-width:18px; flex:1; max-width:42px; background:linear-gradient(180deg, #83d9ff, #4e6bff); border-radius:5px 5px 0 0; position:relative; }
-        .analytics-bar span { position:absolute; top:calc(100% + 5px); left:50%; transform:translateX(-50%) rotate(-45deg); white-space:nowrap; font-size:10px; color:var(--muted); }
-        .analytics-svg { display:block; height:100%; min-height:142px; overflow:visible; }
-        .analytics-chart.compact .analytics-svg { min-height:66px; }
-        .analytics-canvas { display:block; width:100%; height:100%; min-height:142px; }
-        .analytics-chart.compact .analytics-canvas { min-height:66px; }
-        .analytics-grid { stroke:var(--border); stroke-width:1; stroke-dasharray:3 4; }
-        .analytics-axis-label { fill:var(--muted); font-size:11px; }
-        .analytics-bar-rect { fill:url(#analyticsBarGradient); cursor:crosshair; }
-        .analytics-line-path { fill:none; stroke:#75cfff; stroke-width:3; stroke-linejoin:round; stroke-linecap:round; }
-        .analytics-point { fill:#8be0ff; stroke:#18213f; stroke-width:2; cursor:crosshair; }
-        .chart-tooltip { position:fixed; z-index:20; pointer-events:none; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:#111a35; color:var(--text); box-shadow:0 8px 24px rgba(0,0,0,.28); font-size:12px; opacity:0; transition:opacity .12s; }
-        .chart-tooltip.visible { opacity:1; }
-        .analytics-chart.compact { height:74px; padding:4px 8px; gap:3px; border:0; overflow:hidden; }
-        .analytics-chart.compact .analytics-bar { min-width:4px; border-radius:3px 3px 0 0; }
-        .analytics-chart.compact .analytics-bar span { display:none; }
-        .chart-caption { display:flex; justify-content:space-between; margin-top:8px; color:var(--muted); font-size:12px; }
-        .heatmap { display:grid; grid-template-columns:38px repeat(24, minmax(8px, 1fr)); gap:3px; align-items:center; overflow:hidden; }
-        .heatmap-label { color:var(--muted); font-size:10px; text-align:right; padding-right:4px; }
-        .heatmap-hour { color:var(--muted); font-size:9px; text-align:center; }
-        .heatmap-cell { aspect-ratio:1; min-height:8px; border-radius:3px; background:#17233f; }
+        .analytics-chart {
+            display: block;
+            height: 210px;
+            padding: 16px 18px 30px;
+            border-bottom: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .analytics-bar {
+            min-width: 18px;
+            flex: 1;
+            max-width: 42px;
+            background: linear-gradient(180deg, #83d9ff, #4e6bff);
+            border-radius: 5px 5px 0 0;
+            position: relative;
+        }
+
+        .analytics-bar span {
+            position: absolute;
+            top: calc(100% + 5px);
+            left: 50%;
+            transform: translateX(-50%) rotate(-45deg);
+            white-space: nowrap;
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .analytics-svg {
+            display: block;
+            height: 100%;
+            min-height: 142px;
+            overflow: visible;
+        }
+
+        .analytics-chart.compact .analytics-svg {
+            min-height: 66px;
+        }
+
+        .analytics-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            min-height: 142px;
+        }
+
+        .analytics-chart.compact .analytics-canvas {
+            min-height: 66px;
+        }
+
+        .analytics-grid {
+            stroke: var(--border);
+            stroke-width: 1;
+            stroke-dasharray: 3 4;
+        }
+
+        .analytics-axis-label {
+            fill: var(--muted);
+            font-size: 11px;
+        }
+
+        .analytics-bar-rect {
+            fill: url(#analyticsBarGradient);
+            cursor: crosshair;
+        }
+
+        .analytics-line-path {
+            fill: none;
+            stroke: #75cfff;
+            stroke-width: 3;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+        }
+
+        .analytics-point {
+            fill: #8be0ff;
+            stroke: #18213f;
+            stroke-width: 2;
+            cursor: crosshair;
+        }
+
+        .chart-tooltip {
+            position: fixed;
+            z-index: 20;
+            pointer-events: none;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #111a35;
+            color: var(--text);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity .12s;
+        }
+
+        .chart-tooltip.visible {
+            opacity: 1;
+        }
+
+        .analytics-chart.compact {
+            height: 74px;
+            padding: 4px 8px;
+            gap: 3px;
+            border: 0;
+            overflow: hidden;
+        }
+
+        .analytics-chart.compact .analytics-bar {
+            min-width: 4px;
+            border-radius: 3px 3px 0 0;
+        }
+
+        .analytics-chart.compact .analytics-bar span {
+            display: none;
+        }
+
+        .chart-caption {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .heatmap {
+            display: grid;
+            grid-template-columns: 38px repeat(24, minmax(8px, 1fr));
+            gap: 3px;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .heatmap-label {
+            color: var(--muted);
+            font-size: 10px;
+            text-align: right;
+            padding-right: 4px;
+        }
+
+        .heatmap-hour {
+            color: var(--muted);
+            font-size: 9px;
+            text-align: center;
+        }
+
+        .heatmap-cell {
+            aspect-ratio: 1;
+            min-height: 8px;
+            border-radius: 3px;
+            background: #17233f;
+        }
     </style>
 </head>
 
@@ -1036,7 +1296,9 @@
         <main class="content">
             <!-- Overview -->
             <section id="tab-overview" class="tab-panel active">
-                <h2 style="font-size:20px;">Overview <span class="help-tip" tabindex="0" data-tooltip="Overview refreshes automatically every 20 seconds while it is open. Use Refresh for an immediate update.">?</span></h2>
+                <h2 style="font-size:20px;">Overview <span class="help-tip" tabindex="0"
+                        data-tooltip="Overview refreshes automatically every 20 seconds while it is open. Use Refresh for an immediate update.">?</span>
+                </h2>
                 <div id="guildHeader"></div>
                 <div class="overview-summary-row">
                     <div class="card-grid overview-quad" id="overviewQuad"></div>
@@ -1047,8 +1309,36 @@
                 </div>
                 <div class="card-grid" id="overviewCards"></div>
                 <div class="two-col">
-                    <div class="section"><div class="row"><h2 style="margin:0">Messages</h2><select id="overviewMessageRange"><option value="1">1 day</option><option value="7" selected>1 week</option><option value="30">1 month</option><option value="90">3 months</option></select><select id="overviewMessageType"><option value="bar">Bars</option><option value="line">Line</option></select></div><div id="overviewMessageChart" class="analytics-chart compact"></div><div class="chart-caption"><span>Earlier</span><span>Now</span></div></div>
-                    <div class="section"><div class="row"><h2 style="margin:0">Voice sessions</h2><select id="overviewVoiceRange"><option value="1">1 day</option><option value="7" selected>1 week</option><option value="30">1 month</option><option value="90">3 months</option></select><select id="overviewVoiceType"><option value="bar">Bars</option><option value="line">Line</option></select></div><div id="overviewVoiceChart" class="analytics-chart compact"></div><div class="chart-caption"><span>Earlier</span><span>Now</span></div></div>
+                    <div class="section">
+                        <div class="row">
+                            <h2 style="margin:0">Messages</h2><select id="overviewMessageRange">
+                                <option value="1">1 day</option>
+                                <option value="7" selected>1 week</option>
+                                <option value="30">1 month</option>
+                                <option value="90">3 months</option>
+                            </select><select id="overviewMessageType">
+                                <option value="bar">Bars</option>
+                                <option value="line">Line</option>
+                            </select>
+                        </div>
+                        <div id="overviewMessageChart" class="analytics-chart compact"></div>
+                        <div class="chart-caption"><span>Earlier</span><span>Now</span></div>
+                    </div>
+                    <div class="section">
+                        <div class="row">
+                            <h2 style="margin:0">Voice sessions</h2><select id="overviewVoiceRange">
+                                <option value="1">1 day</option>
+                                <option value="7" selected>1 week</option>
+                                <option value="30">1 month</option>
+                                <option value="90">3 months</option>
+                            </select><select id="overviewVoiceType">
+                                <option value="bar">Bars</option>
+                                <option value="line">Line</option>
+                            </select>
+                        </div>
+                        <div id="overviewVoiceChart" class="analytics-chart compact"></div>
+                        <div class="chart-caption"><span>Earlier</span><span>Now</span></div>
+                    </div>
                 </div>
                 <div class="two-col">
                     <div class="section">
@@ -1070,13 +1360,46 @@
             <!-- Analytics -->
             <section id="tab-analytics" class="tab-panel">
                 <h2 style="font-size:20px;">Analytics</h2>
-                <p class="sub">Privacy-friendly event analytics. Message contents are never stored—only activity metadata.</p>
-                <div class="row"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="analyticsChannel" aria-label="Analytics channel"><option value="">All channels</option></select><select id="analyticsMember" aria-label="Analytics member"><option value="">All members</option></select><select id="analyticsGraphType" aria-label="Analytics graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div>
+                <p class="sub">Privacy-friendly event analytics. Message contents are never stored—only activity
+                    metadata.</p>
+                <div class="row"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays">
+                        <option value="1">1 day</option>
+                        <option value="7">1 week</option>
+                        <option value="30" selected>1 month</option>
+                        <option value="90">3 months</option>
+                    </select><select id="analyticsChannel" aria-label="Analytics channel">
+                        <option value="">All channels</option>
+                    </select><select id="analyticsMember" aria-label="Analytics member">
+                        <option value="">All members</option>
+                    </select><select id="analyticsGraphType" aria-label="Analytics graph type">
+                        <option value="bar">Bars</option>
+                        <option value="line">Line</option>
+                    </select></div>
                 <div class="card-grid" id="analyticsCards"></div>
-                <div class="section"><h2>Messages over time</h2><div id="analyticsChart" class="analytics-chart"></div></div>
-                <div class="section"><h2>Message activity by day and hour</h2><p class="sub">Darker/brighter cells show when messages are most active (UTC).</p><div id="messageHeatmap" class="heatmap"></div></div>
-                <div class="two-col"><div class="section"><h2>Most active channels</h2><div id="analyticsChannels" class="table-wrap"></div></div><div class="section"><h2>Most active members</h2><div id="analyticsUsers" class="table-wrap"></div></div></div>
-                <div class="section"><h2>Moderation insights</h2><p class="sub">Metadata only. New events are collected from this update onward.</p><div id="moderationCards" class="card-grid"></div></div>
+                <div class="section">
+                    <h2>Messages over time</h2>
+                    <div id="analyticsChart" class="analytics-chart"></div>
+                </div>
+                <div class="section">
+                    <h2>Message activity by day and hour</h2>
+                    <p class="sub">Darker/brighter cells show when messages are most active (UTC).</p>
+                    <div id="messageHeatmap" class="heatmap"></div>
+                </div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Most active channels</h2>
+                        <div id="analyticsChannels" class="table-wrap"></div>
+                    </div>
+                    <div class="section">
+                        <h2>Most active members</h2>
+                        <div id="analyticsUsers" class="table-wrap"></div>
+                    </div>
+                </div>
+                <div class="section">
+                    <h2>Moderation insights</h2>
+                    <p class="sub">Metadata only. New events are collected from this update onward.</p>
+                    <div id="moderationCards" class="card-grid"></div>
+                </div>
             </section>
 
             <!-- Messenger -->
@@ -1140,14 +1463,17 @@
                                 id="editTriggerResponse"></textarea></div>
                         <div class="field"><label for="editTriggerImage">Image URL</label><input id="editTriggerImage"
                                 type="url"></div>
-                        <div class="checkbox-row"><input id="editTriggerEnabled" type="checkbox" checked><label for="editTriggerEnabled" style="margin:0;">Enabled</label></div>
+                        <div class="checkbox-row"><input id="editTriggerEnabled" type="checkbox" checked><label
+                                for="editTriggerEnabled" style="margin:0;">Enabled</label></div>
                         <div class="actions"><button id="editTrigger" class="secondary" type="button">Save
                                 changes</button><button id="deleteTrigger" class="danger" type="button">Delete
                                 trigger</button></div>
                     </div>
                 </div>
                 <div class="section">
-                    <div class="row"><button id="exportTriggers" class="secondary" type="button">Export JSON</button><label class="secondary" style="cursor:pointer">Import JSON<input id="importTriggers" type="file" accept="application/json" hidden></label></div>
+                    <div class="row"><button id="exportTriggers" class="secondary" type="button">Export
+                            JSON</button><label class="secondary" style="cursor:pointer">Import JSON<input
+                                id="importTriggers" type="file" accept="application/json" hidden></label></div>
                     <h2>Configured Triggers</h2>
                     <div id="triggerTable" class="table-wrap">
                         <div class="empty">Loading...</div>
@@ -1190,11 +1516,36 @@
 
             <!-- Voice -->
             <section id="tab-voice" class="tab-panel">
-                <h2 style="font-size:20px;">Voice Time <span class="help-tip" tabindex="0" data-tooltip="Voice data refreshes every 5 seconds while this tab is open, so live sessions and durations stay current.">?</span></h2>
+                <h2 style="font-size:20px;">Voice Time <span class="help-tip" tabindex="0"
+                        data-tooltip="Voice data refreshes every 5 seconds while this tab is open, so live sessions and durations stay current.">?</span>
+                </h2>
                 <div class="card-grid" id="voiceCards"></div>
-                <div class="section"><div class="row"><h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="voiceGraphChannel" aria-label="Voice channel"><option value="">All channels</option></select><select id="voiceGraphType" aria-label="Voice graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><p class="sub">Completed voice sessions per day.</p><div id="voiceActivityChart" class="analytics-chart"></div></div>
-                <div class="section"><h2>Voice minutes over time</h2><div id="voiceMinutesChart" class="analytics-chart"></div></div>
-                <div class="section"><h2>Voice activity by day and hour</h2><p class="sub">Session starts by hour (UTC).</p><div id="voiceHeatmap" class="heatmap"></div></div>
+                <div class="section">
+                    <div class="row">
+                        <h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphRange">
+                            <option value="1">1 day</option>
+                            <option value="7">1 week</option>
+                            <option value="30" selected>1 month</option>
+                            <option value="90">3 months</option>
+                        </select><select id="voiceGraphChannel" aria-label="Voice channel">
+                            <option value="">All channels</option>
+                        </select><select id="voiceGraphType" aria-label="Voice graph type">
+                            <option value="bar">Bars</option>
+                            <option value="line">Line</option>
+                        </select>
+                    </div>
+                    <p class="sub">Completed voice sessions per day.</p>
+                    <div id="voiceActivityChart" class="analytics-chart"></div>
+                </div>
+                <div class="section">
+                    <h2>Voice minutes over time</h2>
+                    <div id="voiceMinutesChart" class="analytics-chart"></div>
+                </div>
+                <div class="section">
+                    <h2>Voice activity by day and hour</h2>
+                    <p class="sub">Session starts by hour (UTC).</p>
+                    <div id="voiceHeatmap" class="heatmap"></div>
+                </div>
                 <div class="section">
                     <h2>Currently in Voice</h2>
                     <div id="voiceActive" class="table-wrap">
@@ -1215,8 +1566,21 @@
                         </div>
                     </div>
                 </div>
-                <div class="two-col"><div class="section"><h2>Top Channels</h2><div id="voiceTopChannels" class="table-wrap"></div></div><div class="section"><h2>Weekly / Monthly User Totals</h2><div id="voiceUserTotals" class="table-wrap"></div></div></div>
-                <div class="section"><h2>Grouped Call Sessions</h2><p class="sub">From the first participant joining until the last participant leaves.</p><div id="voiceGroupSessions" class="table-wrap"></div></div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Top Channels</h2>
+                        <div id="voiceTopChannels" class="table-wrap"></div>
+                    </div>
+                    <div class="section">
+                        <h2>Weekly / Monthly User Totals</h2>
+                        <div id="voiceUserTotals" class="table-wrap"></div>
+                    </div>
+                </div>
+                <div class="section">
+                    <h2>Grouped Call Sessions</h2>
+                    <p class="sub">From the first participant joining until the last participant leaves.</p>
+                    <div id="voiceGroupSessions" class="table-wrap"></div>
+                </div>
                 <div class="section">
                     <div class="row" style="justify-content: space-between;">
                         <h2 style="margin:0;">Channel Lookup</h2>
@@ -1248,7 +1612,22 @@
             <section id="tab-stats" class="tab-panel">
                 <h2 style="font-size:20px;">Message Analytics</h2>
                 <div class="card-grid" id="statsCards"></div>
-                <div class="section"><div class="row"><h2 style="margin:0">Messages over time</h2><select id="messageGraphRange"><option value="1">1 day</option><option value="7">1 week</option><option value="30" selected>1 month</option><option value="90">3 months</option></select><select id="messageGraphChannel" aria-label="Message channel"><option value="">All channels</option></select><select id="messageGraphType" aria-label="Message graph type"><option value="bar">Bars</option><option value="line">Line</option></select></div><div id="messageActivityChart" class="analytics-chart"></div></div>
+                <div class="section">
+                    <div class="row">
+                        <h2 style="margin:0">Messages over time</h2><select id="messageGraphRange">
+                            <option value="1">1 day</option>
+                            <option value="7">1 week</option>
+                            <option value="30" selected>1 month</option>
+                            <option value="90">3 months</option>
+                        </select><select id="messageGraphChannel" aria-label="Message channel">
+                            <option value="">All channels</option>
+                        </select><select id="messageGraphType" aria-label="Message graph type">
+                            <option value="bar">Bars</option>
+                            <option value="line">Line</option>
+                        </select>
+                    </div>
+                    <div id="messageActivityChart" class="analytics-chart"></div>
+                </div>
                 <div class="two-col">
                     <div class="section">
                         <h2>Messages by Channel</h2>
@@ -1352,12 +1731,22 @@
                             <label for="setMaxTriggerLength">Max trigger length</label>
                             <input id="setMaxTriggerLength" type="number" min="1" max="500">
                         </div>
-                        <div class="checkbox-row guild-feature"><input id="guildFeatureAiConversations" type="checkbox"><label for="guildFeatureAiConversations" style="margin:0">AI conversations</label></div>
-                        <div class="checkbox-row guild-feature"><input id="guildFeatureAiAttachments" type="checkbox"><label for="guildFeatureAiAttachments" style="margin:0">AI attachments</label></div>
-                        <div class="checkbox-row guild-feature"><input id="guildFeatureAiImageSearch" type="checkbox"><label for="guildFeatureAiImageSearch" style="margin:0">AI image search</label></div>
-                        <div class="checkbox-row guild-feature"><input id="guildFeaturePingResponses" type="checkbox"><label for="guildFeaturePingResponses" style="margin:0">Ping responses</label></div>
-                        <div class="checkbox-row guild-feature"><input id="guildFeaturePingSave" type="checkbox"><label for="guildFeaturePingSave" style="margin:0">Save ping requests</label></div>
-                        <div class="checkbox-row guild-feature"><input id="guildFeatureShots" type="checkbox"><label for="guildFeatureShots" style="margin:0">Shot system</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeatureAiConversations"
+                                type="checkbox"><label for="guildFeatureAiConversations" style="margin:0">AI
+                                conversations</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeatureAiAttachments"
+                                type="checkbox"><label for="guildFeatureAiAttachments" style="margin:0">AI
+                                attachments</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeatureAiImageSearch"
+                                type="checkbox"><label for="guildFeatureAiImageSearch" style="margin:0">AI image
+                                search</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeaturePingResponses"
+                                type="checkbox"><label for="guildFeaturePingResponses" style="margin:0">Ping
+                                responses</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeaturePingSave" type="checkbox"><label
+                                for="guildFeaturePingSave" style="margin:0">Save ping requests</label></div>
+                        <div class="checkbox-row guild-feature"><input id="guildFeatureShots" type="checkbox"><label
+                                for="guildFeatureShots" style="margin:0">Shot system</label></div>
                     </div>
                     <div class="actions">
                         <span class="sub">Changes apply immediately to the selected guild.</span>
@@ -1366,29 +1755,60 @@
                     <p id="settingsStatus" class="status"></p>
                 </div>
                 <div class="section">
-                    <h2>Global Feature Settings <span class="help-tip" tabindex="0" data-tooltip="A global switch overrides every guild. When it is off, the corresponding guild switch becomes unavailable because no guild can turn it back on.">?</span></h2>
-                    <p class="sub">These switches apply to every guild. When a global feature is off, its guild-level control is disabled.</p>
+                    <h2>Global Feature Settings <span class="help-tip" tabindex="0"
+                            data-tooltip="A global switch overrides every guild. When it is off, the corresponding guild switch becomes unavailable because no guild can turn it back on.">?</span>
+                    </h2>
+                    <p class="sub">These switches apply to every guild. When a global feature is off, its guild-level
+                        control is disabled.</p>
                     <div class="two-col">
-                        <div class="checkbox-row"><input id="featureTriggers" type="checkbox"><label for="featureTriggers" style="margin:0">Triggers</label></div>
-                        <div class="checkbox-row"><input id="featureAiConversations" type="checkbox"><label for="featureAiConversations" style="margin:0">AI conversations</label></div>
-                        <div class="checkbox-row"><input id="featureAiAttachments" type="checkbox"><label for="featureAiAttachments" style="margin:0">AI attachments</label></div>
-                        <div class="checkbox-row"><input id="featureAiImageSearch" type="checkbox"><label for="featureAiImageSearch" style="margin:0">AI image search</label></div>
-                        <div class="checkbox-row"><input id="featurePingResponses" type="checkbox"><label for="featurePingResponses" style="margin:0">Ping responses</label></div>
-                        <div class="checkbox-row"><input id="featurePingSave" type="checkbox"><label for="featurePingSave" style="margin:0">Save ping requests</label></div>
-                        <div class="checkbox-row"><input id="featureShots" type="checkbox"><label for="featureShots" style="margin:0">Shot system</label></div>
-                        <div class="field"><label for="analyticsRetentionDays">Analytics retention (days) <span class="help-tip" tabindex="0" data-tooltip="How long raw message, voice, moderation, and soundboard analytics are kept before older records are automatically deleted. Lower values reduce storage and retention.">?</span></label><input id="analyticsRetentionDays" type="number" min="1" max="3650" value="365"></div>
+                        <div class="checkbox-row"><input id="featureTriggers" type="checkbox"><label
+                                for="featureTriggers" style="margin:0">Triggers</label></div>
+                        <div class="checkbox-row"><input id="featureAiConversations" type="checkbox"><label
+                                for="featureAiConversations" style="margin:0">AI conversations</label></div>
+                        <div class="checkbox-row"><input id="featureAiAttachments" type="checkbox"><label
+                                for="featureAiAttachments" style="margin:0">AI attachments</label></div>
+                        <div class="checkbox-row"><input id="featureAiImageSearch" type="checkbox"><label
+                                for="featureAiImageSearch" style="margin:0">AI image search</label></div>
+                        <div class="checkbox-row"><input id="featurePingResponses" type="checkbox"><label
+                                for="featurePingResponses" style="margin:0">Ping responses</label></div>
+                        <div class="checkbox-row"><input id="featurePingSave" type="checkbox"><label
+                                for="featurePingSave" style="margin:0">Save ping requests</label></div>
+                        <div class="checkbox-row"><input id="featureShots" type="checkbox"><label for="featureShots"
+                                style="margin:0">Shot system</label></div>
+                        <div class="field"><label for="analyticsRetentionDays">Analytics retention (days) <span
+                                    class="help-tip" tabindex="0"
+                                    data-tooltip="How long raw message, voice, moderation, and soundboard analytics are kept before older records are automatically deleted. Lower values reduce storage and retention.">?</span></label><input
+                                id="analyticsRetentionDays" type="number" min="1" max="3650" value="365"></div>
                     </div>
-                    <div class="actions"><button id="saveGlobalFeatures" class="primary" type="button">Save global features</button></div>
+                    <div class="actions"><button id="saveGlobalFeatures" class="primary" type="button">Save global
+                            features</button></div>
                     <p id="globalFeatureStatus" class="status"></p>
                 </div>
                 <div class="section">
                     <h2>Panel Tab Order</h2>
                     <p class="sub">Move tabs with the arrows. Divider lines group related tabs in the sidebar.</p>
                     <div id="tabOrderEditor" class="table-wrap"></div>
-                    <div class="actions"><button id="addTabDivider" class="secondary" type="button">Add divider</button><button id="saveTabOrder" class="primary" type="button">Save tab order</button></div>
+                    <div class="actions"><button id="addTabDivider" class="secondary" type="button">Add
+                            divider</button><button id="saveTabOrder" class="primary" type="button">Save tab
+                            order</button></div>
                     <p id="tabOrderStatus" class="status"></p>
                 </div>
-                <div class="section"><h2>Backup &amp; Data Tools</h2><div class="row"><button id="downloadBackup" class="secondary" type="button">Download guild backup</button><button id="loadStorage" class="secondary" type="button">Storage details</button></div><div id="storageDetails" class="table-wrap"></div><div class="row" style="margin-top:12px"><input id="resetDataUser" placeholder="User ID"><select id="resetDataStore"><option value="memory">AI memory</option><option value="profile">Profile</option><option value="voice">Voice data</option><option value="shots">Shots</option><option value="permissions">Permissions</option></select><button id="resetUserData" class="danger" type="button">Reset selected data</button></div></div>
+                <div class="section">
+                    <h2>Backup &amp; Data Tools</h2>
+                    <div class="row"><button id="downloadBackup" class="secondary" type="button">Download guild
+                            backup</button><button id="loadStorage" class="secondary" type="button">Storage
+                            details</button></div>
+                    <div id="storageDetails" class="table-wrap"></div>
+                    <div class="row" style="margin-top:12px"><input id="resetDataUser" placeholder="User ID"><select
+                            id="resetDataStore">
+                            <option value="memory">AI memory</option>
+                            <option value="profile">Profile</option>
+                            <option value="voice">Voice data</option>
+                            <option value="shots">Shots</option>
+                            <option value="permissions">Permissions</option>
+                        </select><button id="resetUserData" class="danger" type="button">Reset selected data</button>
+                    </div>
+                </div>
             </section>
 
             <!-- Ping requests -->
@@ -1426,12 +1846,132 @@
             <!-- AI & system -->
             <section id="tab-ai" class="tab-panel">
                 <h2 style="font-size:20px;">AI &amp; System</h2>
-                <div class="section"><h2>Live Activity Feed</h2><div id="activityFeed" class="table-wrap"></div></div>
-                <div class="section"><h2>Discord Presence</h2><p class="sub">Applied live to the bot after saving.</p><div class="two-col"><div class="field"><label>Status <span class="help-tip" tabindex="0" data-tooltip="The status dot shown beside Flummi in Discord. Invisible keeps the bot online but hides the dot.">?</span></label><select id="presenceStatus"><option value="online">Online</option><option value="idle">Idle</option><option value="dnd">Do not disturb</option><option value="invisible">Invisible</option></select></div><div class="field"><label>Activity type <span class="help-tip" tabindex="0" data-tooltip="The verb Discord puts before the activity text, for example ‘Watching for /help’.">?</span></label><select id="presenceActivityType"><option value="Playing">Playing</option><option value="Streaming">Streaming</option><option value="Listening">Listening</option><option value="Watching">Watching</option><option value="Competing">Competing</option></select></div><div class="field"><label>Activity text <span class="help-tip" tabindex="0" data-tooltip="The short custom status line shown on the bot profile. Keep it clear and under Discord’s 128-character limit.">?</span></label><input id="presenceActivityText" maxlength="128" placeholder="for /help"></div><div class="checkbox-row"><input id="presenceActivityEnabled" type="checkbox"><label for="presenceActivityEnabled" style="margin:0">Show activity <span class="help-tip" tabindex="0" data-tooltip="Turns the custom activity line on or off. The bot’s online status is unaffected.">?</span></label></div></div><button id="savePresenceConfig" class="primary" type="button">Save presence</button><p id="presenceConfigStatus" class="status"></p></div>
-                <div class="section"><h2>AI Controls <span class="help-tip" tabindex="0" data-tooltip="Use exact OpenRouter model IDs. Vision models are for image messages; fallback models are tried in order after a model error or rate limit. More history and output tokens use more AI context.">?</span></h2><div class="two-col"><div class="field"><label>Text model</label><input id="aiTextModel"></div><div class="field"><label>OpenRouter base URL</label><input id="aiBaseUrl" type="url"></div><div class="field"><label>Vision models (one per line)</label><textarea id="aiVisionModels"></textarea></div><div class="field"><label>Fallback models (one per line)</label><textarea id="aiFallbackModels"></textarea></div><div class="field"><label>Timeout (ms)</label><input id="aiTimeout" type="number" min="1000"></div><div class="field"><label>Max output tokens</label><input id="aiMaxOutput" type="number" min="1"></div><div class="field"><label>History turns</label><input id="aiMaxHistoryTurns" type="number" min="1" max="100"></div><div class="field"><label>Image providers (one per line)</label><textarea id="aiImageProviders"></textarea></div></div><button id="saveAiConfig" class="primary" type="button">Save AI controls</button><p id="aiConfigStatus" class="status"></p></div>
-                <div class="section"><h2>Start-up Behaviour <span class="help-tip" tabindex="0" data-tooltip="These only affect the next service restart. Keep ‘Start admin panel’ on unless you intentionally want to disable remote panel access. Browser auto-open is normally off on Linux.">?</span></h2><p class="sub">These options take effect the next time the service starts. Secrets and bot identity stay server-only.</p><div class="two-col"><div class="checkbox-row"><input id="deployCommandsOnStart" type="checkbox"><label for="deployCommandsOnStart" style="margin:0">Deploy slash commands on start</label></div><div class="checkbox-row"><input id="panelEnabledOnStart" type="checkbox"><label for="panelEnabledOnStart" style="margin:0">Start admin panel with bot</label></div><div class="checkbox-row"><input id="panelOpenBrowserOnStart" type="checkbox"><label for="panelOpenBrowserOnStart" style="margin:0">Open panel browser on start</label></div></div><button id="saveStartupConfig" class="primary" type="button">Save start-up settings</button><p id="startupConfigStatus" class="status"></p></div>
-                <div class="section"><h2>Discord App Profile</h2><p class="sub">Global profile used across Discord. The description and tags replace the matching Developer Portal fields.</p><div class="two-col"><div class="field"><label for="appProfileDescription">App description</label><textarea id="appProfileDescription" maxlength="400" placeholder="What does Flummi do?"></textarea></div><div class="field"><label for="appProfileTags">App tags</label><input id="appProfileTags" maxlength="104" placeholder="analytics, community, moderation"><span class="sub">Comma-separated; maximum 5 tags of 20 characters.</span></div><div class="field"><label for="appProfileIcon">App icon</label><input id="appProfileIcon" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="checkbox-row"><input id="clearAppProfileIcon" type="checkbox"><label for="clearAppProfileIcon" style="margin:0">Clear current icon</label></div></div><div class="field"><label for="appProfileCover">Cover image</label><input id="appProfileCover" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="checkbox-row"><input id="clearAppProfileCover" type="checkbox"><label for="clearAppProfileCover" style="margin:0">Clear current cover</label></div></div></div><button id="saveAppProfile" class="primary" type="button">Save global app profile</button><p id="appProfileStatus" class="status"></p></div>
-                <div class="section"><h2>Bot Profile in Selected Server</h2><p class="sub">Customises how Flummi appears only in the guild selected in the sidebar. Discord must allow the matching profile field for the bot.</p><div class="two-col"><div class="field"><label for="guildBotNick">Nickname</label><input id="guildBotNick" maxlength="32" placeholder="Flummi"></div><div class="field"><label for="guildBotBio">Server bio</label><textarea id="guildBotBio" maxlength="190" placeholder="A custom bio for this server"></textarea></div><div class="field"><label for="guildBotAvatar">Server avatar</label><input id="guildBotAvatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="checkbox-row"><input id="clearGuildBotAvatar" type="checkbox"><label for="clearGuildBotAvatar" style="margin:0">Clear server avatar</label></div></div><div class="field"><label for="guildBotBanner">Server banner</label><input id="guildBotBanner" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="checkbox-row"><input id="clearGuildBotBanner" type="checkbox"><label for="clearGuildBotBanner" style="margin:0">Clear server banner</label></div></div></div><button id="saveGuildBotProfile" class="primary" type="button">Save selected-server profile</button><p id="guildBotProfileStatus" class="status"></p></div>
+                <div class="section">
+                    <h2>Live Activity Feed</h2>
+                    <div id="activityFeed" class="table-wrap"></div>
+                </div>
+                <div class="section">
+                    <h2>AI Health</h2>
+                    <div id="aiHealthCards" class="card-grid"></div>
+                </div>
+                <div class="section">
+                    <h2>Discord Presence</h2>
+                    <p class="sub">Applied live to the bot after saving.</p>
+                    <div class="two-col">
+                        <div class="field"><label>Status <span class="help-tip" tabindex="0"
+                                    data-tooltip="The status dot shown beside Flummi in Discord. Invisible keeps the bot online but hides the dot.">?</span></label><select
+                                id="presenceStatus">
+                                <option value="online">Online</option>
+                                <option value="idle">Idle</option>
+                                <option value="dnd">Do not disturb</option>
+                                <option value="invisible">Invisible</option>
+                            </select></div>
+                        <div class="field"><label>Activity type <span class="help-tip" tabindex="0"
+                                    data-tooltip="The verb Discord puts before the activity text, for example ‘Watching for /help’.">?</span></label><select
+                                id="presenceActivityType">
+                                <option value="Playing">Playing</option>
+                                <option value="Streaming">Streaming</option>
+                                <option value="Listening">Listening</option>
+                                <option value="Watching">Watching</option>
+                                <option value="Competing">Competing</option>
+                            </select></div>
+                        <div class="field"><label>Activity text <span class="help-tip" tabindex="0"
+                                    data-tooltip="The short custom status line shown on the bot profile. Keep it clear and under Discord’s 128-character limit.">?</span></label><input
+                                id="presenceActivityText" maxlength="128" placeholder="for /help"></div>
+                        <div class="checkbox-row"><input id="presenceActivityEnabled" type="checkbox"><label
+                                for="presenceActivityEnabled" style="margin:0">Show activity <span class="help-tip"
+                                    tabindex="0"
+                                    data-tooltip="Turns the custom activity line on or off. The bot’s online status is unaffected.">?</span></label>
+                        </div>
+                    </div><button id="savePresenceConfig" class="primary" type="button">Save presence</button>
+                    <p id="presenceConfigStatus" class="status"></p>
+                </div>
+                <div class="section">
+                    <h2>AI Controls <span class="help-tip" tabindex="0"
+                            data-tooltip="Use exact OpenRouter model IDs. Vision models are for image messages; fallback models are tried in order after a model error or rate limit. More history and output tokens use more AI context.">?</span>
+                    </h2>
+                    <div class="two-col">
+                        <div class="field"><label>Text model</label><input id="aiTextModel"></div>
+                        <div class="field"><label>OpenRouter base URL</label><input id="aiBaseUrl" type="url"></div>
+                        <div class="field"><label>Vision models (one per line)</label><textarea
+                                id="aiVisionModels"></textarea></div>
+                        <div class="field"><label>Fallback models (one per line)</label><textarea
+                                id="aiFallbackModels"></textarea></div>
+                        <div class="field"><label>Timeout (ms)</label><input id="aiTimeout" type="number" min="1000">
+                        </div>
+                        <div class="field"><label>Max output tokens</label><input id="aiMaxOutput" type="number"
+                                min="1"></div>
+                        <div class="field"><label>History turns</label><input id="aiMaxHistoryTurns" type="number"
+                                min="1" max="100"></div>
+                        <div class="field"><label>Image providers (one per line)</label><textarea
+                                id="aiImageProviders"></textarea></div>
+                    </div><button id="saveAiConfig" class="primary" type="button">Save AI controls</button>
+                    <p id="aiConfigStatus" class="status"></p>
+                </div>
+                <div class="section">
+                    <h2>Start-up Behaviour <span class="help-tip" tabindex="0"
+                            data-tooltip="These only affect the next service restart. Keep ‘Start admin panel’ on unless you intentionally want to disable remote panel access. Browser auto-open is normally off on Linux.">?</span>
+                    </h2>
+                    <p class="sub">These options take effect the next time the service starts. Secrets and bot identity
+                        stay server-only.</p>
+                    <div class="two-col">
+                        <div class="checkbox-row"><input id="deployCommandsOnStart" type="checkbox"><label
+                                for="deployCommandsOnStart" style="margin:0">Deploy slash commands on start</label>
+                        </div>
+                        <div class="checkbox-row"><input id="panelEnabledOnStart" type="checkbox"><label
+                                for="panelEnabledOnStart" style="margin:0">Start admin panel with bot</label></div>
+                        <div class="checkbox-row"><input id="panelOpenBrowserOnStart" type="checkbox"><label
+                                for="panelOpenBrowserOnStart" style="margin:0">Open panel browser on start</label></div>
+                    </div><button id="saveStartupConfig" class="primary" type="button">Save start-up settings</button>
+                    <p id="startupConfigStatus" class="status"></p>
+                </div>
+                <div class="section">
+                    <h2>Discord App Profile</h2>
+                    <p class="sub">Global profile used across Discord. The description and tags replace the matching
+                        Developer Portal fields.</p>
+                    <div class="two-col">
+                        <div class="field"><label for="appProfileDescription">App description</label><textarea
+                                id="appProfileDescription" maxlength="400"
+                                placeholder="What does Flummi do?"></textarea></div>
+                        <div class="field"><label for="appProfileTags">App tags</label><input id="appProfileTags"
+                                maxlength="104" placeholder="analytics, community, moderation"><span
+                                class="sub">Comma-separated; maximum 5 tags of 20 characters.</span></div>
+                        <div class="field"><label for="appProfileIcon">App icon</label><input id="appProfileIcon"
+                                type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                            <div class="checkbox-row"><input id="clearAppProfileIcon" type="checkbox"><label
+                                    for="clearAppProfileIcon" style="margin:0">Clear current icon</label></div>
+                        </div>
+                        <div class="field"><label for="appProfileCover">Cover image</label><input id="appProfileCover"
+                                type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                            <div class="checkbox-row"><input id="clearAppProfileCover" type="checkbox"><label
+                                    for="clearAppProfileCover" style="margin:0">Clear current cover</label></div>
+                        </div>
+                    </div><button id="saveAppProfile" class="primary" type="button">Save global app profile</button>
+                    <p id="appProfileStatus" class="status"></p>
+                </div>
+                <div class="section">
+                    <h2>Bot Profile in Selected Server</h2>
+                    <p class="sub">Customises how Flummi appears only in the guild selected in the sidebar. Discord must
+                        allow the matching profile field for the bot.</p>
+                    <div class="two-col">
+                        <div class="field"><label for="guildBotNick">Nickname</label><input id="guildBotNick"
+                                maxlength="32" placeholder="Flummi"></div>
+                        <div class="field"><label for="guildBotBio">Server bio</label><textarea id="guildBotBio"
+                                maxlength="190" placeholder="A custom bio for this server"></textarea></div>
+                        <div class="field"><label for="guildBotAvatar">Server avatar</label><input id="guildBotAvatar"
+                                type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                            <div class="checkbox-row"><input id="clearGuildBotAvatar" type="checkbox"><label
+                                    for="clearGuildBotAvatar" style="margin:0">Clear server avatar</label></div>
+                        </div>
+                        <div class="field"><label for="guildBotBanner">Server banner</label><input id="guildBotBanner"
+                                type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                            <div class="checkbox-row"><input id="clearGuildBotBanner" type="checkbox"><label
+                                    for="clearGuildBotBanner" style="margin:0">Clear server banner</label></div>
+                        </div>
+                    </div><button id="saveGuildBotProfile" class="primary" type="button">Save selected-server
+                        profile</button>
+                    <p id="guildBotProfileStatus" class="status"></p>
+                </div>
                 <div class="two-col">
                     <div class="section">
                         <h2>AI Memory Lookup</h2>
@@ -1456,7 +1996,10 @@
                     <h2>Bot Health</h2>
                     <div id="healthCards" class="card-grid"></div>
                 </div>
-                <div class="section"><h2>GitHub Update Status</h2><div id="updateStatusCards" class="card-grid"></div></div>
+                <div class="section">
+                    <h2>GitHub Update Status</h2>
+                    <div id="updateStatusCards" class="card-grid"></div>
+                </div>
                 <div class="section">
                     <h2>Bot Runtime Instances</h2>
                     <div id="runtimeTable" class="table-wrap">
@@ -1466,26 +2009,72 @@
             </section>
 
             <section id="tab-logs" class="tab-panel">
-                <h2 style="font-size:20px;">Bot Logs <span class="help-tip" tabindex="0" data-tooltip="Logs refresh every 20 seconds while this tab is open. Use Refresh now after reproducing an issue to see it immediately.">?</span></h2>
-                <p class="sub">Recent bot-console messages. Use Errors first when diagnosing failed AI replies, time-outs, or Discord API problems. Newest entries are shown first.</p>
+                <h2 style="font-size:20px;">Bot Logs <span class="help-tip" tabindex="0"
+                        data-tooltip="Logs refresh every 20 seconds while this tab is open. Use Refresh now after reproducing an issue to see it immediately.">?</span>
+                </h2>
+                <p class="sub">Recent bot-console messages. Use Errors first when diagnosing failed AI replies,
+                    time-outs, or Discord API problems. Newest entries are shown first.</p>
                 <div class="section">
-                    <div class="row"><h2 style="margin:0">Runtime Console</h2><select id="logLevel"><option value="">All levels</option><option value="error">Errors only</option><option value="warn">Warnings only</option><option value="info">Info only</option></select><button id="refreshLogs" class="secondary" type="button">Refresh now</button></div><div id="logViewer" class="table-wrap"></div>
+                    <div class="row">
+                        <h2 style="margin:0">Runtime Console</h2><select id="logLevel">
+                            <option value="">All levels</option>
+                            <option value="error">Errors only</option>
+                            <option value="warn">Warnings only</option>
+                            <option value="info">Info only</option>
+                        </select><button id="refreshLogs" class="secondary" type="button">Refresh now</button>
+                    </div>
+                    <div id="logViewer" class="table-wrap"></div>
                 </div>
             </section>
 
             <section id="tab-reliability" class="tab-panel">
-                <h2 style="font-size:20px;">Reliability <span class="help-tip" tabindex="0" data-tooltip="This tab refreshes every 20 seconds. Automatic Discord gateway and API checks run every 30 seconds; /ping values update when a developer runs /ping.">?</span></h2>
+                <h2 style="font-size:20px;">Reliability <span class="help-tip" tabindex="0"
+                        data-tooltip="This tab refreshes every 20 seconds. Automatic Discord gateway and API checks run every 30 seconds; /ping values update when a developer runs /ping.">?</span>
+                </h2>
                 <div id="reliabilityCards" class="card-grid"></div>
-                <div class="section"><h2>Actions</h2><div class="row"><button id="createBackup" class="secondary" type="button">Create backup now</button><button id="reconcileVoice" class="primary" type="button">Reconcile voice now</button></div><p id="reliabilityStatus" class="status"></p></div>
-                <div class="section"><h2>Event handler health</h2><div id="handlerHealth" class="table-wrap"></div></div>
+                <div class="section">
+                    <h2>Actions</h2>
+                    <div class="row"><button id="createBackup" class="secondary" type="button">Create backup
+                            now</button><button id="reconcileVoice" class="primary" type="button">Reconcile voice
+                            now</button><button id="downloadReliabilityExport" class="secondary" type="button">Download
+                            guild export</button></div>
+                    <p id="reliabilityStatus" class="status"></p>
+                </div>
+                <div class="section">
+                    <h2>Data retention</h2>
+                    <div id="retentionCards" class="card-grid"></div>
+                    <div id="retentionTable" class="table-wrap"></div>
+                </div>
+                <div class="section">
+                    <h2>Role &amp; channel permission audit</h2>
+                    <p class="sub">Channels where Flummi is missing permissions for normal text or voice features.</p>
+                    <div id="permissionAudit" class="table-wrap"></div>
+                </div>
+                <div class="section">
+                    <h2>Event handler health</h2>
+                    <div id="handlerHealth" class="table-wrap"></div>
+                </div>
             </section>
 
             <section id="tab-soundboard" class="tab-panel">
                 <h2 style="font-size:20px;">Soundboard</h2>
-                <p class="sub">Guild soundboard sounds and tracked play activity. Sound plays are collected from this update onward.</p>
+                <p class="sub">Guild soundboard sounds and tracked play activity. Sound plays are collected from this
+                    update onward.</p>
                 <div id="soundboardCards" class="card-grid"></div>
-                <div class="section"><h2>Guild sounds</h2><div id="soundboardTable" class="table-wrap"></div></div>
-                <div class="two-col"><div class="section"><h2>Most used sounds</h2><div id="soundboardTopSounds" class="table-wrap"></div></div><div class="section"><h2>Most active voice channels</h2><div id="soundboardTopChannels" class="table-wrap"></div></div></div>
+                <div class="section">
+                    <h2>Guild sounds</h2>
+                    <div id="soundboardTable" class="table-wrap"></div>
+                </div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Most used sounds</h2>
+                        <div id="soundboardTopSounds" class="table-wrap"></div>
+                    </div>
+                    <div class="section">
+                        <h2>Most active voice channels</h2>
+                        <div id="soundboardTopChannels" class="table-wrap"></div>
+                    </div>
+                </div>
             </section>
         </main>
 
@@ -1498,44 +2087,49 @@
                 </div>
             </div>
 
-            <button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobileSidebarContent"><span class="mobile-menu-icon" aria-hidden="true">☰</span><span>Menu</span></button>
+            <button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-expanded="false"
+                aria-controls="mobileSidebarContent"><span class="mobile-menu-icon"
+                    aria-hidden="true">☰</span><span>Menu</span></button>
 
             <div id="mobileSidebarContent" class="mobile-sidebar-content">
-            <div class="field">
-                <label for="guild">Guild</label>
-                <select id="guild"></select>
-            </div>
+                <div class="field">
+                    <label for="guild">Guild</label>
+                    <select id="guild"></select>
+                </div>
 
-            <div class="sidebar-actions">
-                <button id="refreshAll" class="secondary" type="button"
-                    title="Refresh the current tab now. Most tabs update every 20 seconds; Voice updates every 5 seconds. Reliability’s automatic Discord API check runs every 30 seconds.">Refresh</button>
-                <a id="inviteLink" class="secondary invite-btn" href="#" target="_blank" rel="noopener">Invite bot</a>
-            </div>
+                <div class="sidebar-actions">
+                    <button id="refreshAll" class="secondary" type="button"
+                        title="Refresh the current tab now. Most tabs update every 20 seconds; Voice updates every 5 seconds. Reliability’s automatic Discord API check runs every 30 seconds.">Refresh</button>
+                    <a id="inviteLink" class="secondary invite-btn" href="#" target="_blank" rel="noopener">Invite
+                        bot</a>
+                </div>
 
-            <nav class="tabs">
-                <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
-                <button class="tab-btn" data-tab="analytics" type="button">Analytics</button>
-                <button class="tab-btn" data-tab="messenger" type="button">Messenger</button>
-                <button class="tab-btn" data-tab="triggers" type="button">Triggers</button>
-                <button class="tab-btn" data-tab="shots" type="button">Shots</button>
-                <button class="tab-btn" data-tab="voice" type="button">Voice Analytics</button>
-                <button class="tab-btn" data-tab="stats" type="button">Message Analytics</button>
-                <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
-                <button class="tab-btn" data-tab="profiles" type="button">Profiles</button>
-                <button class="tab-btn" data-tab="settings" type="button">Settings</button>
-                <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
-                <button class="tab-btn" data-tab="ai" type="button">AI &amp; System</button>
-                <button class="tab-btn" data-tab="logs" type="button">Bot Logs</button>
-                <button class="tab-btn" data-tab="reliability" type="button">Reliability</button>
-                <button class="tab-btn" data-tab="soundboard" type="button">Soundboard</button>
-            </nav>
-            <div id="panelAccount" class="sidebar-account" hidden>
-                <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" alt=""><span id="panelAccountName" class="account-name">Signed in</span></div>
-                <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
-            </div>
+                <nav class="tabs">
+                    <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
+                    <button class="tab-btn" data-tab="analytics" type="button">Analytics</button>
+                    <button class="tab-btn" data-tab="messenger" type="button">Messenger</button>
+                    <button class="tab-btn" data-tab="triggers" type="button">Triggers</button>
+                    <button class="tab-btn" data-tab="shots" type="button">Shots</button>
+                    <button class="tab-btn" data-tab="voice" type="button">Voice Analytics</button>
+                    <button class="tab-btn" data-tab="stats" type="button">Message Analytics</button>
+                    <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
+                    <button class="tab-btn" data-tab="profiles" type="button">Profiles</button>
+                    <button class="tab-btn" data-tab="settings" type="button">Settings</button>
+                    <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
+                    <button class="tab-btn" data-tab="ai" type="button">AI &amp; System</button>
+                    <button class="tab-btn" data-tab="logs" type="button">Bot Logs</button>
+                    <button class="tab-btn" data-tab="reliability" type="button">Reliability</button>
+                    <button class="tab-btn" data-tab="soundboard" type="button">Soundboard</button>
+                </nav>
+                <div id="panelAccount" class="sidebar-account" hidden>
+                    <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" alt=""><span
+                            id="panelAccountName" class="account-name">Signed in</span></div>
+                    <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
+                </div>
             </div>
         </aside>
-        <button id="mobileMenuBackdrop" class="mobile-menu-backdrop" type="button" aria-label="Close navigation"></button>
+        <button id="mobileMenuBackdrop" class="mobile-menu-backdrop" type="button"
+            aria-label="Close navigation"></button>
     </div>
 
     <script>
@@ -1800,6 +2394,33 @@
         const mobileMenuToggle = document.getElementById('mobileMenuToggle');
         const mobileMenuBackdrop = document.getElementById('mobileMenuBackdrop');
         const mobileMenuMedia = window.matchMedia('(max-width: 600px)');
+        const defaultPanelTitles = Object.fromEntries(tabPanels.map(panel => {
+            const heading = panel.querySelector(':scope > h2');
+            const textNode = Array.from(heading?.childNodes || []).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+            return [panel.id.replace(/^tab-/, ''), textNode?.textContent.trim() || ''];
+        }));
+        const tabRefreshTooltips = {
+            voice: 'This tab refreshes every 5 seconds while open so live voice sessions and durations stay current.',
+            users: 'This tab does not refresh automatically, so your permission edits and selected member are not interrupted. Use Refresh when you want current data.',
+            settings: 'This tab does not refresh automatically, so unsaved settings are never overwritten. Use Refresh to reload saved values.',
+            messenger: 'This tab does not refresh automatically while you are composing a message. Use Refresh to reload available channels.',
+            reliability: 'This tab refreshes every 20 seconds while open. Its automatic Discord gateway and API checks update every 30 seconds.',
+            logs: 'This tab refreshes every 20 seconds while open. Use Refresh now immediately after reproducing an error.',
+            default: 'This tab refreshes every 20 seconds while open. Use Refresh for an immediate update.'
+        };
+
+        for (const panel of tabPanels) {
+            const tabId = panel.id.replace(/^tab-/, '');
+            const heading = panel.querySelector(':scope > h2');
+            if (!heading || heading.querySelector('[data-refresh-tooltip]')) continue;
+            const tip = document.createElement('span');
+            tip.className = 'help-tip';
+            tip.tabIndex = 0;
+            tip.dataset.refreshTooltip = 'true';
+            tip.dataset.tooltip = tabRefreshTooltips[tabId] || tabRefreshTooltips.default;
+            tip.textContent = '?';
+            heading.append(' ', tip);
+        }
 
         function setMobileMenu(open) {
             const shouldOpen = Boolean(open) && mobileMenuMedia.matches;
@@ -1921,6 +2542,10 @@
             for (const button of tabButtons) {
                 const name = typeof names?.[button.dataset.tab] === 'string' ? names[button.dataset.tab].trim() : '';
                 button.textContent = name || defaultTabLabels[button.dataset.tab];
+                const panel = document.getElementById(`tab-${button.dataset.tab}`);
+                const heading = panel?.querySelector(':scope > h2');
+                const textNode = Array.from(heading?.childNodes || []).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+                if (textNode) textNode.textContent = `${name || defaultPanelTitles[button.dataset.tab]} `;
             }
         }
 
@@ -2515,7 +3140,8 @@
         });
         document.getElementById('importTriggers').addEventListener('change', async event => {
             const file = event.target.files[0]; if (!file || !state.guildId) return;
-            try { const triggers = JSON.parse(await file.text()); if (!Array.isArray(triggers)) throw new Error('Expected a JSON array.');
+            try {
+                const triggers = JSON.parse(await file.text()); if (!Array.isArray(triggers)) throw new Error('Expected a JSON array.');
                 for (const trigger of triggers) await api(withGuild('/api/triggers'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phrase: trigger.trigger, response: trigger.response, image: trigger.image }) });
                 await loadTriggers(); setStatus(document.getElementById('triggerStatus'), 'Triggers imported.', 'ok');
             } catch (error) { setStatus(document.getElementById('triggerStatus'), error.message, 'error'); }
@@ -3429,15 +4055,19 @@
         document.getElementById('saveGlobalFeatures').addEventListener('click', async () => {
             const statusField = document.getElementById('globalFeatureStatus');
             try {
-                await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: {
-                triggersEnabled: document.getElementById('featureTriggers').checked,
-                aiConversationsEnabled: document.getElementById('featureAiConversations').checked,
-                aiAttachmentsEnabled: document.getElementById('featureAiAttachments').checked,
-                aiImageSearchEnabled: document.getElementById('featureAiImageSearch').checked,
-                pingResponsesEnabled: document.getElementById('featurePingResponses').checked,
-                pingRequestSaveEnabled: document.getElementById('featurePingSave').checked,
-                shotsEnabled: document.getElementById('featureShots').checked
-            }, analytics: { retentionDays: Math.max(1, Math.min(3650, Number(document.getElementById('analyticsRetentionDays').value) || 365)) } }) });
+                await api('/api/config', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                        features: {
+                            triggersEnabled: document.getElementById('featureTriggers').checked,
+                            aiConversationsEnabled: document.getElementById('featureAiConversations').checked,
+                            aiAttachmentsEnabled: document.getElementById('featureAiAttachments').checked,
+                            aiImageSearchEnabled: document.getElementById('featureAiImageSearch').checked,
+                            pingResponsesEnabled: document.getElementById('featurePingResponses').checked,
+                            pingRequestSaveEnabled: document.getElementById('featurePingSave').checked,
+                            shotsEnabled: document.getElementById('featureShots').checked
+                        }, analytics: { retentionDays: Math.max(1, Math.min(3650, Number(document.getElementById('analyticsRetentionDays').value) || 365)) }
+                    })
+                });
                 syncGlobalFeatureState();
                 setStatus(statusField, 'Global features saved.', 'ok');
             } catch (error) {
@@ -3525,10 +4155,15 @@
                 statCard('Auto Discord API check', metric(ping.system?.apiLatency), 'Time for a lightweight automated request from the bot server to Discord’s API. It refreshes every 30 seconds.'),
                 statCard('Live panel gateway', metric(ping.panelGatewayMs), 'The panel’s own live Discord gateway connection. It is separate from the main bot connection, so a small difference is normal.')
             ].join('');
+            const retention = data.retention || { categories: [] };
+            document.getElementById('retentionCards').innerHTML = [statCard('Retained storage', megabytes(retention.totalBytes)), statCard('30-day forecast', megabytes(retention.forecast30DaysBytes))].join('');
+            renderTable(document.getElementById('retentionTable'), [{ label: 'Category', key: 'name' }, { label: 'Stored', key: 'bytes', render: row => megabytes(row.bytes) }, { label: '30-day forecast', key: 'forecast30DaysBytes', render: row => megabytes(row.forecast30DaysBytes) }], retention.categories, 'No retained data yet.');
+            renderTable(document.getElementById('permissionAudit'), [{ label: 'Channel', key: 'name', render: row => `#${escapeHtml(row.name)}` }, { label: 'Type', key: 'type' }, { label: 'Missing permissions', key: 'missing', render: row => escapeHtml(row.missing.join(', ')) }], data.permissionAudit || [], 'No missing permissions found.');
             renderTable(document.getElementById('handlerHealth'), [{ label: 'Handler', key: 'name' }, { label: 'Status', key: 'status', render: r => '<span class="badge on">Loaded</span>' }], Object.entries(data.handlerHealth || {}).map(([name, status]) => ({ name, status })), 'No event handlers found.');
         }
 
         document.getElementById('createBackup').addEventListener('click', async () => { try { const result = await api(withGuild('/api/reliability/backup'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), `Backup created: ${result.backup}`, 'ok'); await loadReliability(); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
+        document.getElementById('downloadReliabilityExport').addEventListener('click', () => { if (state.guildId) window.location.href = withGuild('/api/backup'); });
         document.getElementById('reconcileVoice').addEventListener('click', async () => { try { await api(withGuild('/api/reliability/reconcile-voice'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), 'Voice sessions reconciled with Discord.', 'ok'); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
 
         async function readImageUpload(inputId, clearId) {
@@ -3597,6 +4232,8 @@
 
             const runtime = await api('/api/runtime');
             const updateStatus = await api('/api/update-status');
+            const aiHealth = await api('/api/ai-health');
+            document.getElementById('aiHealthCards').innerHTML = [statCard('Current model', aiHealth.currentModel || 'Not configured'), statCard('Last reply', aiHealth.lastReply?.latencyMs ? `${aiHealth.lastReply.latencyMs}ms` : 'No data yet'), statCard('Success rate', aiHealth.successRate === null ? 'No data yet' : `${aiHealth.successRate}%`), statCard('Timeouts', aiHealth.timeouts || 0), statCard('Rate limits', aiHealth.rateLimits || 0), statCard('Failures', aiHealth.failures || 0)].join('');
             document.getElementById('updateStatusCards').innerHTML = [
                 statCard('Last update check', updateStatus.lastCheckedAt ? formatDateTime(updateStatus.lastCheckedAt) : 'Never'),
                 statCard('Last GitHub pull', updateStatus.lastUpdatedAt ? formatDateTime(updateStatus.lastUpdatedAt) : 'Never'),

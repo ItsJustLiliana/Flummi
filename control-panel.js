@@ -20,6 +20,7 @@ const analyticsStore = require('./stores/analytics-store');
 const pingRequestStore = require('./stores/ping-request-store');
 const serperUsageStore = require('./stores/serper-usage-store');
 const pingMetricsStore = require('./stores/ping-metrics-store');
+const aiHealthStore = require('./stores/ai-health-store');
 const userConversationStore = require('./stores/user-conversation-store');
 const profileStore = require('./stores/profile-store');
 const { getAiConfig, buildTextModelCandidates, buildVisionModelCandidates } = require('./services/ai-chat');
@@ -528,6 +529,23 @@ function readBody(req, maxBytes = 20000) {
         req.on('end', () => resolve(body));
         req.on('error', reject);
     });
+}
+
+async function auditGuildChannelPermissions(guildId) {
+    const guild = await client.guilds.fetch(guildId); const me = guild.members.me || await guild.members.fetchMe(); await guild.channels.fetch();
+    const textTypes = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildForum, ChannelType.GuildMedia]);
+    const voiceTypes = new Set([ChannelType.GuildVoice, ChannelType.GuildStageVoice]);
+    return Array.from(guild.channels.cache.values()).filter(channel => textTypes.has(channel.type) || voiceTypes.has(channel.type)).map(channel => {
+        const required = textTypes.has(channel.type) ? ['ViewChannel', 'SendMessages', 'EmbedLinks', 'AttachFiles'] : ['ViewChannel', 'Connect', 'Speak'];
+        const missing = required.filter(permission => !channel.permissionsFor(me)?.has(permission));
+        return missing.length ? { id: channel.id, name: channel.name, type: textTypes.has(channel.type) ? 'Text' : 'Voice', missing: missing.map(flag => flag.replace(/([a-z])([A-Z])/g, '$1 $2')) } : null;
+    }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function retentionSummary(guildId) {
+    const root = path.join(dataDir, 'guilds', guildId); const analytics = folderStats(path.join(root, 'analytics')); const total = folderStats(root); const backups = folderStats(backupRoot(guildId)); const ageDays = total.oldestAt ? Math.max(1, (Date.now() - new Date(total.oldestAt).getTime()) / 86400000) : 1;
+    const operational = Math.max(0, total.bytes - analytics.bytes);
+    return { totalBytes: total.bytes, forecast30DaysBytes: Math.round(total.bytes / ageDays * 30), categories: [{ name: 'Analytics', bytes: analytics.bytes, forecast30DaysBytes: Math.round(analytics.bytes / ageDays * 30) }, { name: 'Guild data & settings', bytes: operational, forecast30DaysBytes: Math.round(operational / ageDays * 30) }, { name: 'Backups', bytes: backups.bytes, forecast30DaysBytes: 0 }] };
 }
 
 async function discordBotApi(pathname, options = {}) {
@@ -1526,12 +1544,21 @@ function createServer() {
                 const ageDays = storage.oldestAt ? Math.max(1, (Date.now() - new Date(storage.oldestAt).getTime()) / 86400000) : 1;
                 const health = Object.fromEntries(fs.readdirSync(path.join(__dirname, 'events')).filter(name => name.endsWith('.js')).map(name => [name.replace('.js', ''), 'Loaded']));
                 const panelGatewayMs = Number.isFinite(client.ws.ping) ? Math.max(0, Math.round(client.ws.ping)) : null;
+                const permissionAudit = await auditGuildChannelPermissions(guildId).catch(() => []);
                 sendJson(res, 200, {
                     storage: { ...storage, forecast30DaysBytes: Math.round(storage.bytes / ageDays * 30) },
                     lastBackup: latestBackup(guildId),
                     handlerHealth: health,
-                    ping: { ...pingMetricsStore.getPingMetrics(), panelGatewayMs }
+                    ping: { ...pingMetricsStore.getPingMetrics(), panelGatewayMs },
+                    retention: retentionSummary(guildId),
+                    permissionAudit
                 });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/ai-health') {
+                const ai = getAiConfig();
+                sendJson(res, 200, { ...aiHealthStore.getAiHealth(), currentModel: ai.model, fastModel: ai.fastModel });
                 return;
             }
 

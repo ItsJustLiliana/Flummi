@@ -17,6 +17,7 @@ const { recordMessageEvent } = require('../stores/analytics-store');
 const { AiChatError, generateAiReply, stringifyUserInput } = require('../services/ai-chat');
 const { ImageSearchError, searchImage } = require('../services/image-search');
 const { readConfig } = require('../utils/config');
+const { recordAiResult } = require('../stores/ai-health-store');
 
 const pingResponsesPath = path.join(__dirname, '..', 'data', 'botPingResponses.json');
 const defaultPingRequestSaveCommands = ['zet dit op pornhub'];
@@ -721,6 +722,7 @@ module.exports = {
             } else {
                 try {
                     await message.channel.sendTyping();
+                    const aiStartedAt = Date.now();
                     const memory = getUserMemory(message.author.id);
                     const externalUserProfile = buildExternalUserProfileContext(getProfile(message.author.id));
                     const history = memory.history;
@@ -761,6 +763,7 @@ module.exports = {
                         guildId,
                         channelId: message.channelId
                     });
+                    recordAiResult({ ok: true, latencyMs: Date.now() - aiStartedAt, model: readConfig().ai?.model || null });
                     const replyPayload = await buildAiReplyPayload(ai);
 
                     await message.reply(replyPayload);
@@ -782,6 +785,7 @@ module.exports = {
                         ai.maxHistoryTurns
                     );
                 } catch (error) {
+                    recordAiResult({ ok: false, model: readConfig().ai?.model || null, code: error instanceof AiChatError ? error.code : 'REQUEST_FAILED' });
                     console.error('Failed to generate AI conversation reply:', error);
 
                     try {

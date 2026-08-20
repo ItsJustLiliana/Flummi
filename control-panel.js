@@ -32,8 +32,10 @@ loadEnv();
 
 const botToken = process.env.DISCORD_BOT_TOKEN || config.token;
 
-const host = '0.0.0.0';
-const port = 3789;
+// Keep the default reachable through the LAN/Tailscale. Set PANEL_HOST=127.0.0.1
+// for tunnel-only deployments.
+const host = process.env.PANEL_HOST || '0.0.0.0';
+const port = Number(process.env.PANEL_PORT) || 3789;
 const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
 const faviconPath = path.join(__dirname, 'panel', 'favicon.png');
@@ -218,6 +220,60 @@ async function requireSettingsAccess(session, guildId, res) {
     return requireGuildManagerAccess(session, guildId, res, 'Settings can only be changed by the server owner or a manager.');
 }
 
+function serializeForInlineScript(value) {
+    return JSON.stringify(value)
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e')
+        .replace(/&/g, '\\u0026')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
+}
+
+const stateChangingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function normalizedOrigin(value) {
+    try {
+        return new URL(String(value)).origin;
+    } catch {
+        return null;
+    }
+}
+
+// SameSite cookies are useful defense in depth, but exact Origin checks also
+// protect against requests from another subdomain on the same parent domain.
+function hasAllowedMutationOrigin(req) {
+    if (!stateChangingMethods.has(req.method)) return true;
+
+    const suppliedOrigin = normalizedOrigin(req.headers.origin);
+    const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+
+    if (!suppliedOrigin) {
+        // Preserve non-browser/Tailscale tooling while rejecting browser requests
+        // explicitly identified as cross-site.
+        return fetchSite !== 'cross-site';
+    }
+
+    const requestOrigin = normalizedOrigin(`${isSecureRequest(req) ? 'https' : 'http'}://${req.headers.host}`);
+    const publicOrigin = normalizedOrigin(panelPublicUrl(req));
+    return suppliedOrigin === requestOrigin || suppliedOrigin === publicOrigin;
+}
+
+function applySecurityHeaders(req, res) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Security-Policy', "base-uri 'none'; frame-ancestors 'none'; object-src 'none'; form-action 'self'");
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    res.setHeader('Permissions-Policy', 'accelerometer=(), camera=(), geolocation=(), microphone=(), payment=(), usb=()');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+
+    if (isSecureRequest(req)) {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+}
+
 async function canEditMemberPermissions(session, guildId, targetUserId) {
     if (hasDeveloperView(session)) return !accessStore.isConfiguredDeveloper(targetUserId);
     try {
@@ -326,7 +382,7 @@ async function loginClient() {
     }
 }
 
-let server = null;
+let servers = [];
 
 const requiredBotPermissionFlags = [
     'ViewChannel',
@@ -475,7 +531,9 @@ async function listGuildMembers(guildId) {
         throw error;
     }
 
-    const members = Array.from(fetched.values())
+    const fetchedMembers = Array.from(fetched.values());
+    const botCount = fetchedMembers.filter(member => member.user.bot).length;
+    const members = fetchedMembers
         .filter(member => !member.user.bot)
         .map(member => ({
             id: member.id,
@@ -489,7 +547,7 @@ async function listGuildMembers(guildId) {
         }))
         .sort((a, b) => a.tag.localeCompare(b.tag));
 
-    memberCache.set(guildId, { members, fetchedAt: Date.now() });
+    memberCache.set(guildId, { members, botCount, fetchedAt: Date.now() });
     return members;
 }
 
@@ -569,6 +627,19 @@ async function buildGuildInfo(guildId) {
     accessStore.setGuildOwner(guild.id, guild.ownerId);
 
     const owner = await guild.fetchOwner().catch(() => null);
+    let humanMemberCount = null;
+    let botCount = null;
+
+    if (membersIntentEnabled) {
+        try {
+            const humanMembers = await listGuildMembers(guild.id);
+            const cachedMembers = memberCache.get(guild.id);
+            humanMemberCount = humanMembers.length;
+            botCount = Number.isFinite(cachedMembers?.botCount) ? cachedMembers.botCount : null;
+        } catch {
+            // Exact human/bot counts require the privileged Server Members intent.
+        }
+    }
 
     return {
         id: guild.id,
@@ -576,7 +647,9 @@ async function buildGuildInfo(guildId) {
         description: guild.description || null,
         iconUrl: guild.iconURL({ size: 256, extension: 'png' }) || null,
         bannerUrl: guild.bannerURL({ size: 1024, extension: 'png' }) || null,
-        memberCount: guild.memberCount,
+        memberCount: humanMemberCount,
+        botCount,
+        totalMemberCount: guild.memberCount,
         channelCount: guild.channels.cache.size,
         roleCount: guild.roles.cache.size,
         emojiCount: guild.emojis.cache.size,
@@ -833,6 +906,13 @@ async function sendComposedMessage(guildId, channelId, content, imageUrls, allow
 function createServer() {
     return http.createServer(async (req, res) => {
         try {
+            applySecurityHeaders(req, res);
+
+            if (!hasAllowedMutationOrigin(req)) {
+                sendJson(res, 403, { error: 'Cross-site request blocked.' });
+                return;
+            }
+
             const requestUrl = new URL(req.url, `http://${req.headers.host}`);
 
             if (req.method === 'GET' && requestUrl.pathname === '/auth/login') {
@@ -900,7 +980,7 @@ function createServer() {
                     if (record.previousSessionKey) panelSessions.delete(record.previousSessionKey);
                     persistPanelSessions();
                     const secure = record.redirectUri.startsWith('https://') ? '; Secure' : '';
-                    res.writeHead(302, { Location: '/', 'Set-Cookie': `flummi_panel_session=${sessionToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(sessionDurationMs / 1000)}${secure}` });
+                    res.writeHead(302, { Location: '/', 'Set-Cookie': `flummi_panel_session=${sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(sessionDurationMs / 1000)}${secure}` });
                     res.end();
                 } catch (error) {
                     console.error('Discord OAuth login failed:', error);
@@ -930,7 +1010,8 @@ function createServer() {
                     panelSessions.delete(session.key);
                     persistPanelSessions();
                 }
-                res.writeHead(204, { 'Set-Cookie': 'flummi_panel_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0' });
+                const secure = isSecureRequest(req) ? '; Secure' : '';
+                res.writeHead(204, { 'Set-Cookie': `flummi_panel_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}` });
                 res.end();
                 return;
             }
@@ -945,7 +1026,7 @@ function createServer() {
                 const tabNames = config.panel?.tabNames && typeof config.panel.tabNames === 'object' ? config.panel.tabNames : {};
                 const injected = html.replace(
                     '<!--PANEL_CONFIG-->',
-                    `<script>window.__PANEL_TAB_ORDER__ = ${JSON.stringify(tabOrder)}; window.__PANEL_TAB_NAMES__ = ${JSON.stringify(tabNames)};</script>`
+                    `<script>window.__PANEL_TAB_ORDER__ = ${serializeForInlineScript(tabOrder)}; window.__PANEL_TAB_NAMES__ = ${serializeForInlineScript(tabNames)};</script>`
                 );
                 sendHtml(res, injected);
                 return;
@@ -2077,22 +2158,37 @@ async function start() {
 
     await loginClient();
 
-    const url = `http://${host}:${port}`;
+    const listenHosts = (host === '0.0.0.0' || host === '::' || host === '127.0.0.1')
+        ? [host]
+        : [host, '127.0.0.1'];
 
-    server = createServer();
-    server.listen(port, host, () => {
-        console.log(`Bot control panel running at ${url}`);
+    servers = listenHosts.map(() => createServer());
 
-        if (openBrowserOnStart) {
-            openBrowser(url);
-        }
-    });
+    try {
+        await Promise.all(servers.map((panelServer, index) => new Promise((resolve, reject) => {
+            panelServer.once('error', reject);
+            panelServer.listen(port, listenHosts[index], () => {
+                panelServer.off('error', reject);
+                resolve();
+            });
+        })));
+    } catch (error) {
+        for (const panelServer of servers) panelServer.close();
+        servers = [];
+        throw error;
+    }
+
+    const urls = listenHosts.map(listenHost => `http://${listenHost}:${port}`);
+    console.log(`Bot control panel running at ${urls.join(' and ')}`);
+
+    if (openBrowserOnStart) {
+        openBrowser(urls[0]);
+    }
 }
 
 function shutdown() {
-    if (server) {
-        server.close();
-    }
+    for (const panelServer of servers) panelServer.close();
+    servers = [];
 
     client.destroy();
 }

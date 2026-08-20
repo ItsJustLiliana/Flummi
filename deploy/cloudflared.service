@@ -1,0 +1,14 @@
+[Unit]
+Description=Cloudflare Tunnel for the Flummi panel
+After=network-online.target flummi.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/cloudflared/tunnel.env
+ExecStart=%h/.local/bin/cloudflared tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

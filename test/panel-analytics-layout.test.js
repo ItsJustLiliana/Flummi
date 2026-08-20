@@ -41,6 +41,14 @@ test('sidebar uses the Flummi profile image and name lockup', () => {
     assert.doesNotMatch(panelHtml, /class="brand-banner"/);
 });
 
+test('overview separates human members from bots', () => {
+    assert.match(panelServer, /memberCount: humanMemberCount/);
+    assert.match(panelServer, /botCount,/);
+    assert.match(panelHtml, /statCard\('Members', guildInfo\.memberCount \?\? 'Unavailable'\)/);
+    assert.match(panelHtml, /statCard\('Bots', guildInfo\.botCount \?\? 'Unavailable'\)/);
+    assert.doesNotMatch(panelHtml, /statCard\('Developers', data\.developerCount\)/);
+});
+
 test('moderation analytics are withheld from regular-user API responses', () => {
     assert.match(panelServer, /events: canViewModeration \? messages\.moderation : null/);
     assert.match(panelServer, /analytics\.moderation = null/);

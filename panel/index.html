@@ -3557,7 +3557,7 @@
                         <div class="guild-icon" style="${iconStyle}"></div>
                         <div class="guild-meta">
                             <h2>${escapeHtml(guildInfo.name)}</h2>
-                            <p>${guildInfo.description ? escapeHtml(guildInfo.description) : `${escapeHtml(guildInfo.memberCount)} members &middot; created ${escapeHtml(formatDateTime(guildInfo.createdAt))}`}</p>
+                            <p>${guildInfo.description ? escapeHtml(guildInfo.description) : `${escapeHtml(guildInfo.totalMemberCount)} total members &middot; created ${escapeHtml(formatDateTime(guildInfo.createdAt))}`}</p>
                         </div>
                     </div>
                 </div>
@@ -3570,7 +3570,8 @@
             }
 
             return [
-                statCard('Members', guildInfo.memberCount),
+                statCard('Members', guildInfo.memberCount ?? 'Unavailable'),
+                statCard('Bots', guildInfo.botCount ?? 'Unavailable'),
                 statCard('Channels', guildInfo.channelCount),
                 statCard('Roles', guildInfo.roleCount),
                 statCard('Boost Tier', guildInfo.boostTier === '0' ? 'None' : `Level ${guildInfo.boostTier} (${guildInfo.boostCount} boosts)`),
@@ -3588,9 +3589,9 @@
             }
 
             container.innerHTML = [
-                statCard('Members', guildInfo.memberCount),
+                statCard('Members', guildInfo.memberCount ?? 'Unavailable'),
+                statCard('Bots', guildInfo.botCount ?? 'Unavailable'),
                 statCard('Channels', guildInfo.channelCount),
-                statCard('Roles', guildInfo.roleCount),
                 statCard('Total Messages Tracked', totalMessages)
             ].join('');
         }
@@ -3604,6 +3605,7 @@
             }
 
             const rows = [
+                ['Roles', guildInfo.roleCount],
                 ['Boost Tier', guildInfo.boostTier === '0' ? 'None' : `Level ${guildInfo.boostTier} (${guildInfo.boostCount} boosts)`],
                 ['Verification Level', guildInfo.verificationLevel],
                 ['Server Created', formatDateTime(guildInfo.createdAt)],
@@ -3777,8 +3779,7 @@
                 statCard('Triggers', `${data.triggerCount} / ${data.triggerLimit}`),
                 statCard('Members in Voice Now', data.activeVoiceCount),
                 statCard('Total Voice Time Tracked', data.totalVoiceFormatted),
-                statCard('Managers', data.managerCount),
-                statCard('Developers', data.developerCount)
+                statCard('Managers', data.managerCount)
             ].join('');
 
             renderActivityChart('overviewMessageChart', messageGraph.dailyMessages, 'No messages tracked yet.', document.getElementById('overviewMessageType').value, 'Messages');

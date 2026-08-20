@@ -34,10 +34,11 @@ test('Stats & Analytics is a lightweight cross-feature summary', () => {
     assert.match(panelHtml, /data-tab="stats"[^>]*>Messages<\/button>/);
 });
 
-test('sidebar uses the Flummi banner instead of the profile image and name lockup', () => {
-    assert.match(panelHtml, /class="brand-banner" src="\/assets\/branding\/flummi-banner\.jpeg"/);
-    assert.doesNotMatch(panelHtml, /class="brand-image"/);
-    assert.match(panelHtml, /\.brand \{[\s\S]*?width: calc\(100% \+ 36px\);[\s\S]*?margin: -22px -18px 0;/);
+test('sidebar uses the Flummi profile image and name lockup', () => {
+    assert.match(panelHtml, /class="brand-image" src="\/assets\/branding\/flummi-pfp\.jpeg"/);
+    assert.match(panelHtml, /<h1>Flummi<\/h1>/);
+    assert.match(panelHtml, /<p class="sub">Dashboard<\/p>/);
+    assert.doesNotMatch(panelHtml, /class="brand-banner"/);
 });
 
 test('moderation analytics are withheld from regular-user API responses', () => {
@@ -58,4 +59,9 @@ test('Voice and Server Media use matching top-level period controls', () => {
         assert.match(markup, />Period<\/label>/);
     }
     assert.match(tabMarkup('voice'), /<option value="all">All time<\/option>/);
+});
+
+test('audit log renders structured setting changes in their own column', () => {
+    assert.match(panelHtml, /\{ label: 'Changes', key: 'changes'/);
+    assert.match(panelHtml, /function renderAuditChanges\(changes\)/);
 });

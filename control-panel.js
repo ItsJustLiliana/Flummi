@@ -9,6 +9,7 @@ const { installTimestampedConsole, readRecentLogs } = require('./utils/logger');
 const { readActivity, recordActivity } = require('./stores/activity-store');
 const { loadEnv } = require('./utils/env-loader');
 const { readConfig, saveConfig: saveLocalConfig } = require('./utils/config');
+const { buildFieldChanges } = require('./utils/audit-details');
 const config = readConfig();
 const settingsStore = require('./stores/settings-store');
 const accessStore = require('./stores/access-store');
@@ -45,6 +46,21 @@ const panelSessionsFilePath = path.join(__dirname, 'data', 'runtime', 'panel-ses
 const panelSessions = new Map();
 const oauthStates = new Map();
 const sessionDurationMs = 14 * 24 * 60 * 60 * 1000;
+const settingAuditLabels = {
+    botEnabled: 'Bot enabled',
+    triggersEnabled: 'Triggers enabled',
+    triggerActionCooldownEnabled: 'Trigger cooldown enabled',
+    triggerActionCooldownSeconds: 'Trigger cooldown seconds',
+    exactTriggerMatch: 'Exact trigger matching',
+    maxTriggerLength: 'Maximum trigger length',
+    maxTriggers: 'Maximum triggers',
+    'features.aiConversationsEnabled': 'AI conversations',
+    'features.aiAttachmentsEnabled': 'AI attachments',
+    'features.aiImageSearchEnabled': 'AI image search',
+    'features.pingResponsesEnabled': 'Ping responses',
+    'features.pingRequestSaveEnabled': 'Save ping requests',
+    'features.shotsEnabled': 'Shots'
+};
 
 function sessionKey(token) {
     return crypto.createHash('sha256').update(String(token)).digest('hex');
@@ -1473,7 +1489,8 @@ function createServer() {
                 const current = settingsStore.readSettings(guildId);
                 const next = { ...current, ...parsed };
                 const saved = settingsStore.writeSettings(next, guildId);
-                auditPanelAction(panelSession, 'settings-update', 'Updated server settings', { guildId });
+                const changes = buildFieldChanges(current, saved, settingAuditLabels);
+                auditPanelAction(panelSession, 'settings-update', 'Updated server settings', { guildId, changes });
 
                 sendJson(res, 200, { ok: true, settings: saved });
                 return;

@@ -113,17 +113,16 @@
         }
 
         .brand {
-            display: block;
-            width: calc(100% + 36px);
-            margin: -22px -18px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .brand-banner {
-            display: block;
-            width: 100%;
-            aspect-ratio: 1744 / 608;
-            border-radius: 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+        .brand-image {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.22);
             object-fit: cover;
         }
 
@@ -798,8 +797,8 @@
                 max-width: 100%;
             }
 
-            .table-wrap,
-            .table-toolbar {
+        .table-wrap,
+        .table-toolbar {
                 max-width: 100%;
                 overflow-x: auto;
                 overscroll-behavior-x: contain;
@@ -822,14 +821,13 @@
             }
 
             .brand {
-                width: min(52vw, 190px);
-                margin: 0;
+                width: auto;
                 min-width: 0;
             }
 
-            .brand-banner {
-                border: 1px solid rgba(255, 255, 255, 0.18);
-                border-radius: 8px;
+            .brand-image {
+                width: 38px;
+                height: 38px;
             }
 
             .brand .sub {
@@ -1064,6 +1062,24 @@
         .badge.manager {
             background: rgba(30, 136, 229, 0.18);
             color: #64b5f6;
+        }
+
+        .audit-change-list {
+            display: grid;
+            gap: 5px;
+            min-width: 220px;
+        }
+
+        .audit-change {
+            display: grid;
+            gap: 2px;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .audit-change-values {
+            color: var(--muted);
+            font-size: 12px;
         }
 
         .media-thumb {
@@ -2608,7 +2624,11 @@
 
         <aside class="sidebar">
             <div class="brand">
-                <img class="brand-banner" src="/assets/branding/flummi-banner.jpeg" alt="Flummi">
+                <img class="brand-image" src="/assets/branding/flummi-pfp.jpeg" alt="Flummi">
+                <div class="brand-copy">
+                    <h1>Flummi</h1>
+                    <p class="sub">Dashboard</p>
+                </div>
             </div>
 
             <button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-expanded="false"
@@ -5455,8 +5475,22 @@
                 { label: 'When', key: 'at', render: row => escapeHtml(formatDateTime(row.at)) },
                 { label: 'Who', key: 'actorName', render: row => escapeHtml(row.actorName || row.actorId || 'Unknown') },
                 { label: 'Action', key: 'type' },
-                { label: 'Details', key: 'message' }
+                { label: 'Details', key: 'message' },
+                { label: 'Changes', key: 'changes', sortable: false, render: row => renderAuditChanges(row.changes) }
             ], data.entries || [], 'No confirmed panel changes have been recorded for this server yet.', { index: 0, dir: -1 });
+        }
+
+        function formatAuditValue(value) {
+            if (value === null || value === undefined || value === '') return 'Not set';
+            if (typeof value === 'boolean') return value ? 'Enabled' : 'Disabled';
+            if (Array.isArray(value)) return value.length ? value.join(', ') : 'None';
+            if (typeof value === 'object') return JSON.stringify(value);
+            return String(value);
+        }
+
+        function renderAuditChanges(changes) {
+            if (!Array.isArray(changes) || !changes.length) return '<span class="muted">—</span>';
+            return `<div class="audit-change-list">${changes.map(change => `<div class="audit-change"><strong>${escapeHtml(change.label || change.field || 'Setting')}</strong><span class="audit-change-values">${escapeHtml(formatAuditValue(change.before))} → ${escapeHtml(formatAuditValue(change.after))}</span></div>`).join('')}</div>`;
         }
 
         async function loadExperiments() {

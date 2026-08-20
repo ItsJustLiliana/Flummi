@@ -20,6 +20,11 @@ test('panel applies browser security and private-cache headers', () => {
     }
 });
 
+test('COOP is only sent over HTTPS or a trustworthy localhost origin', () => {
+    assert.match(panelServer, /function isPotentiallyTrustworthyRequest\(req\)/);
+    assert.match(panelServer, /if \(isPotentiallyTrustworthyRequest\(req\)\) \{\s*res\.setHeader\('Cross-Origin-Opener-Policy', 'same-origin'\)/);
+});
+
 test('panel validates mutation origins and retains direct Tailscale hosting support', () => {
     assert.match(panelServer, /const stateChangingMethods = new Set\(\['POST', 'PUT', 'PATCH', 'DELETE'\]\)/);
     assert.match(panelServer, /if \(!hasAllowedMutationOrigin\(req\)\)/);

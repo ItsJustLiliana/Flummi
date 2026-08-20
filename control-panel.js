@@ -93,6 +93,13 @@ function isSecureRequest(req) {
     return String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
 }
 
+function isPotentiallyTrustworthyRequest(req) {
+    if (isSecureRequest(req)) return true;
+
+    const hostname = String(req.headers.host || '').replace(/^\[|\](?::\d+)?$|:\d+$/g, '').toLowerCase();
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+}
+
 function panelPublicUrl(req) {
     const configured = process.env.PANEL_PUBLIC_URL || config.panel?.publicUrl;
     if (configured) return String(configured).replace(/\/$/, '');
@@ -261,13 +268,16 @@ function hasAllowedMutationOrigin(req) {
 function applySecurityHeaders(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Security-Policy', "base-uri 'none'; frame-ancestors 'none'; object-src 'none'; form-action 'self'");
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
     res.setHeader('Permissions-Policy', 'accelerometer=(), camera=(), geolocation=(), microphone=(), payment=(), usb=()');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+
+    if (isPotentiallyTrustworthyRequest(req)) {
+        res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    }
 
     if (isSecureRequest(req)) {
         res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');

@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const {
     endVoiceSession,
     getChannelVoiceMembers,
+    getVoiceAnalytics,
     getVoiceHistory,
     getUserVoiceStats,
     getVoiceStatsSummary,
@@ -99,6 +100,9 @@ test('voice store tracks join/leave durations and leaderboard', () => {
             ['200', 5 * 60 * 1000, false],
             ['300', 5 * 60 * 1000, false]
         ]);
+
+        const allTime = getVoiceAnalytics(guildId);
+        assert.equal(allTime.activeOverTime[0].date, '2026-01-01');
     } finally {
         cleanupGuild(guildId);
     }

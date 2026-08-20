@@ -113,16 +113,16 @@
         }
 
         .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            display: block;
+            width: 100%;
         }
 
-        .brand-image {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.22);
+        .brand-banner {
+            display: block;
+            width: 100%;
+            aspect-ratio: 1744 / 608;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
             object-fit: cover;
         }
 
@@ -196,6 +196,20 @@
             margin-top: 6px;
             color: var(--muted);
             font-size: 14px;
+        }
+
+        .tab-intro {
+            max-width: 900px;
+            margin: 6px 0 14px;
+        }
+
+        .tab-controls {
+            margin-bottom: 16px;
+        }
+
+        .tab-controls select {
+            width: auto;
+            min-width: 130px;
         }
 
         .field {
@@ -807,17 +821,12 @@
             }
 
             .brand {
-                width: auto;
+                width: min(52vw, 190px);
                 min-width: 0;
             }
 
             .brand .sub {
                 display: none;
-            }
-
-            .brand-image {
-                width: 38px;
-                height: 38px;
             }
 
             .mobile-menu-toggle {
@@ -1730,6 +1739,7 @@
                 <h2 style="font-size:20px;">Overview <span class="help-tip" tabindex="0"
                         data-tooltip="Overview refreshes automatically every 20 seconds while it is open. Use Refresh for an immediate update.">?</span>
                 </h2>
+                <p class="sub tab-intro">Server details, key totals, and recent message and voice activity at a glance.</p>
                 <div id="guildHeader"></div>
                 <div class="overview-summary-row">
                     <div class="card-grid overview-quad" id="overviewQuad"></div>
@@ -1791,7 +1801,7 @@
             <!-- Stats and analytics summary -->
             <section id="tab-analytics" class="tab-panel">
                 <h2 style="font-size:20px;">Stats &amp; Analytics</h2>
-                <p class="sub">A quick 30-day snapshot across the server. Open each feature tab for its full analytics.</p>
+                <p class="sub tab-intro">A quick 30-day snapshot across the server. Open each feature tab for its full analytics.</p>
                 <div class="two-col">
                     <div class="section">
                         <h2>Messages</h2>
@@ -1812,16 +1822,17 @@
                         <div id="analyticsSummaryShots" class="card-grid"></div>
                     </div>
                 </div>
-                <div class="section">
-                    <h2>Server Events</h2>
+                <div class="section" data-manager-only>
+                    <h2>Moderation Insights</h2>
                     <p class="sub">Metadata only. Message contents are never stored.</p>
-                    <div id="analyticsSummaryEvents" class="card-grid"></div>
+                    <div id="moderationCards" class="card-grid"></div>
                 </div>
             </section>
 
             <!-- Messenger -->
             <section id="tab-messenger" class="tab-panel" data-developer-only>
                 <h2 style="font-size:20px;">Messenger</h2>
+                <p class="sub tab-intro">Send a bot message, mention a member, or attach images to a selected channel.</p>
                 <div class="section">
                     <h2>Send a message as the bot</h2>
                     <div class="two-col">
@@ -1859,6 +1870,7 @@
             <!-- Triggers -->
             <section id="tab-triggers" class="tab-panel">
                 <h2 style="font-size:20px;">Triggers</h2>
+                <p class="sub tab-intro">Review automatic responses and, if permitted, create or change trigger rules.</p>
                 <div class="card-grid" id="triggerCards"></div>
                 <div class="two-col" data-trigger-manager-only>
                     <div class="section">
@@ -1907,6 +1919,7 @@
             <!-- Shots -->
             <section id="tab-shots" class="tab-panel">
                 <h2 style="font-size:20px;">Shots</h2>
+                <p class="sub tab-intro">View shot totals, leaderboard positions, and recent adjustments.</p>
                 <div class="card-grid" id="shotCards"></div>
                 <div class="section">
                     <div class="row" style="justify-content: space-between;">
@@ -1936,15 +1949,17 @@
                 <h2 style="font-size:20px;">Voice Time <span class="help-tip" tabindex="0"
                         data-tooltip="Voice data refreshes every 5 seconds while this tab is open, so live sessions and durations stay current.">?</span>
                 </h2>
+                <p class="sub tab-intro">Live voice activity, session history, time totals, and member and channel rankings.</p>
+                <div class="row tab-controls"><label for="voiceGraphRange" style="margin:0">Period</label><select id="voiceGraphRange">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="all">All time</option>
+                    </select></div>
                 <div class="card-grid" id="voiceCards"></div>
                 <div class="section">
                     <div class="row">
-                        <h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphRange">
-                            <option value="1">1 day</option>
-                            <option value="7">1 week</option>
-                            <option value="30" selected>1 month</option>
-                            <option value="90">3 months</option>
-                        </select><select id="voiceGraphChannel" aria-label="Voice channel">
+                        <h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphChannel" aria-label="Voice channel">
                             <option value="">All channels</option>
                         </select><select id="voiceGraphType" aria-label="Voice graph type">
                             <option value="bar">Bars</option>
@@ -2028,9 +2043,9 @@
             <!-- Messages -->
             <section id="tab-stats" class="tab-panel">
                 <h2 style="font-size:20px;">Messages</h2>
-                <p class="sub">Detailed, privacy-friendly message activity. Message contents are never stored—only
+                <p class="sub tab-intro">Detailed, privacy-friendly message activity. Message contents are never stored—only
                     activity metadata.</p>
-                <div class="row"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays">
+                <div class="row tab-controls"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays">
                         <option value="1">1 day</option>
                         <option value="7">1 week</option>
                         <option value="30" selected>1 month</option>
@@ -2063,16 +2078,12 @@
                         <div id="analyticsUsers" class="table-wrap"></div>
                     </div>
                 </div>
-                <div class="section">
-                    <h2>Moderation insights</h2>
-                    <p class="sub">Metadata only. New events are collected from this update onward.</p>
-                    <div id="moderationCards" class="card-grid"></div>
-                </div>
             </section>
 
             <!-- Users & permissions -->
             <section id="tab-users" class="tab-panel">
                 <h2 style="font-size:20px;">Users &amp; Permissions</h2>
+                <p class="sub tab-intro">Browse server members and manage panel roles, feature access, and command permissions.</p>
                 <div class="section">
                     <h2>Server Members</h2>
                     <p class="sub">Every non-bot member of the selected server. Change their role or reset them back to
@@ -2107,6 +2118,7 @@
             <!-- Settings -->
             <section id="tab-settings" class="tab-panel">
                 <h2 style="font-size:20px;">Settings</h2>
+                <p class="sub tab-intro">Configure server-specific bot behavior, limits, channels, and access settings.</p>
                 <div class="section">
                     <h2>Guild Settings</h2>
                     <div class="two-col">
@@ -2229,6 +2241,7 @@
             <!-- Ping requests -->
             <section id="tab-pings" class="tab-panel">
                 <h2 style="font-size:20px;">Ping Requests</h2>
+                <p class="sub tab-intro">Review messages that members asked Flummi to save for later attention.</p>
                 <div class="section">
                     <h2>Saved Ping Requests</h2>
                     <p class="sub">Messages saved via the configured @bot save phrase (e.g. "zet dit op pornhub").</p>
@@ -2241,6 +2254,7 @@
             <!-- AI & system -->
             <section id="tab-profiles" class="tab-panel">
                 <h2 style="font-size:20px;">Profiles</h2>
+                <p class="sub tab-intro">Inspect and manage the information Flummi uses for a member's profile and AI context.</p>
                 <div class="section">
                     <div class="row">
                         <select id="profileUserSelect" style="flex:1;">
@@ -2261,6 +2275,7 @@
             <!-- AI & system -->
             <section id="tab-ai" class="tab-panel">
                 <h2 style="font-size:20px;">AI &amp; System</h2>
+                <p class="sub tab-intro">Monitor AI activity and configure the bot's models, presence, and global behavior.</p>
                 <div class="section">
                     <h2>Live Activity Feed</h2>
                     <div id="activityFeed" class="table-wrap"></div>
@@ -2427,7 +2442,7 @@
                 <h2 style="font-size:20px;">Bot Logs <span class="help-tip" tabindex="0"
                         data-tooltip="Logs refresh every 20 seconds while this tab is open. Use Refresh now after reproducing an issue to see it immediately.">?</span>
                 </h2>
-                <p class="sub">Recent bot-console messages. Use Errors first when diagnosing failed AI replies,
+                <p class="sub tab-intro">Recent bot-console messages. Use Errors first when diagnosing failed AI replies,
                     time-outs, or Discord API problems. Newest entries are shown first.</p>
                 <div class="section">
                     <div class="row">
@@ -2446,6 +2461,7 @@
                 <h2 style="font-size:20px;">Reliability <span class="help-tip" tabindex="0"
                         data-tooltip="This tab refreshes every 20 seconds. Automatic Discord gateway and API checks run every 30 seconds; /ping values update when a developer runs /ping.">?</span>
                 </h2>
+                <p class="sub tab-intro">Check runtime health, Discord permissions, event handlers, backups, and retained data.</p>
                 <div id="reliabilityCards" class="card-grid"></div>
                 <div class="section">
                     <h2>Actions</h2>
@@ -2473,10 +2489,10 @@
 
             <section id="tab-soundboard" class="tab-panel">
                 <h2 style="font-size:20px;">Server Media</h2>
-                <p class="sub">One inventory for the server's soundboard, custom emojis, and stickers. Usage is tracked
-                    from the point collection was enabled for each media type.</p>
-                <div class="media-range-bar">
-                    <span><strong>Analytics range</strong><br><span class="sub">Applies to every graph, usage count, average, and trend below.</span></span>
+                <p class="sub tab-intro">One inventory for the server's soundboard, custom emojis, and stickers. Usage is tracked
+                    from when collection was enabled for each media type.</p>
+                <div class="row tab-controls">
+                    <label for="mediaRange" style="margin:0">Period</label>
                     <select id="mediaRange" aria-label="Media analytics range">
                         <option value="7">Last 7 days</option>
                         <option value="30" selected>Last 30 days</option>
@@ -2538,7 +2554,7 @@
 
             <section id="tab-audit" class="tab-panel">
                 <h2 style="font-size:20px;">Audit Log</h2>
-                <p class="sub">Confirmed panel changes for the selected server, including who performed them.</p>
+                <p class="sub tab-intro">Confirmed panel changes for the selected server, including who performed them.</p>
                 <div class="section">
                     <div id="auditTable" class="table-wrap">
                         <div class="empty">Loading audit entries…</div>
@@ -2548,6 +2564,7 @@
 
             <section id="tab-experiments" class="tab-panel">
                 <h2 style="font-size:20px;">Experiments</h2>
+                <p class="sub tab-intro">Preview lower access roles and temporarily simulate how Flummi handles your Discord account.</p>
                 <div class="banner warn">Experiments affect only your developer account. Admin view changes this panel
                     session; Discord role simulation changes how Flummi treats your account for up to two hours.</div>
                 <div class="two-col">
@@ -2584,11 +2601,7 @@
 
         <aside class="sidebar">
             <div class="brand">
-                <img class="brand-image" src="/assets/branding/flummi-pfp.jpeg" alt="Flummi">
-                <div class="brand-copy">
-                    <h1>Flummi</h1>
-                    <p class="sub">Dashboard</p>
-                </div>
+                <img class="brand-banner" src="/assets/branding/flummi-banner.jpeg" alt="Flummi">
             </div>
 
             <button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-expanded="false"
@@ -3291,6 +3304,7 @@
             if (settingsButton) settingsButton.hidden = !canAccessSettings;
             document.getElementById('tab-settings').hidden = !canAccessSettings;
             document.querySelectorAll('[data-trigger-manager-only]').forEach(element => { element.hidden = !canManageTriggers; });
+            document.querySelectorAll('[data-manager-only]').forEach(element => { element.hidden = !canAccessSettings; });
             document.getElementById('memberPermissionsSection').hidden = state.role === 'user';
 
             organizeDeveloperNav();
@@ -4022,10 +4036,12 @@
             if (!state.guildId) return;
             await ensureAnalyticsChannelFilter('voiceGraphChannel', '/api/voice-channels');
             const data = await api(withGuild('/api/voice'));
-            const voiceDays = Number(document.getElementById('voiceGraphRange').value) || 30;
+            const voiceRange = document.getElementById('voiceGraphRange').value;
             const voiceChannelId = document.getElementById('voiceGraphChannel').value;
-            const channelQuery = voiceChannelId ? `&channelId=${encodeURIComponent(voiceChannelId)}` : '';
-            const analytics = await api(withGuild(`/api/voice-analytics?from=${encodeURIComponent(new Date(Date.now() - voiceDays * 86400000).toISOString())}${channelQuery}`));
+            const filters = [];
+            if (voiceRange !== 'all') filters.push(`from=${encodeURIComponent(new Date(Date.now() - (Number(voiceRange) || 30) * 86400000).toISOString())}`);
+            if (voiceChannelId) filters.push(`channelId=${encodeURIComponent(voiceChannelId)}`);
+            const analytics = await api(withGuild(`/api/voice-analytics${filters.length ? `?${filters.join('&')}` : ''}`));
 
             document.getElementById('voiceCards').innerHTML = [
                 statCard('In Voice Now', data.activeSessions.length),
@@ -4173,11 +4189,6 @@
             ].join('');
             renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.', document.getElementById('analyticsGraphType').value, 'Messages');
             renderHeatmap('messageHeatmap', data.heatmap);
-            const moderation = data.moderation || {};
-            document.getElementById('moderationCards').innerHTML = [
-                statCard('Member joins', moderation.joins || 0), statCard('Member leaves', moderation.leaves || 0),
-                statCard('Deleted messages', moderation.deletedMessages || 0), statCard('Role changes', moderation.roleChanges || 0), statCard('Invite uses', moderation.inviteUses || 0)
-            ].join('');
             renderTable(document.getElementById('analyticsChannels'), [{ label: 'Channel', key: 'name', render: r => `#${escapeHtml(r.name)}` }, { label: 'Messages', key: 'count' }], data.topChannels, 'No channel activity yet.');
             renderTable(document.getElementById('analyticsUsers'), [{ label: 'Member', key: 'name', render: r => escapeHtml(r.name) }, { label: 'Messages', key: 'count' }], data.topUsers, 'No member activity yet.');
         }
@@ -4202,10 +4213,11 @@
                 statCard('Total Shots', data.shots.total), statCard('Tracked Members', data.shots.members),
                 statCard('Highest Total', data.shots.highest)
             ].join('');
-            document.getElementById('analyticsSummaryEvents').innerHTML = [
-                statCard('Member Joins', data.events.joins), statCard('Member Leaves', data.events.leaves),
-                statCard('Deleted Messages', data.events.deletedMessages), statCard('Role Changes', data.events.roleChanges),
-                statCard('Invite Uses', data.events.inviteUses)
+            const moderation = data.events || {};
+            document.getElementById('moderationCards').innerHTML = [
+                statCard('Member Joins', moderation.joins || 0), statCard('Member Leaves', moderation.leaves || 0),
+                statCard('Deleted Messages', moderation.deletedMessages || 0), statCard('Role Changes', moderation.roleChanges || 0),
+                statCard('Invite Uses', moderation.inviteUses || 0)
             ].join('');
         }
 

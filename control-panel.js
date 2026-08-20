@@ -1331,6 +1331,7 @@ function createServer() {
                 if (!guildId) return;
 
                 const periodDays = 30;
+                const canViewModeration = ['developer', 'owner', 'manager'].includes(getPanelGuildRole(panelSession, guildId));
                 const now = Date.now();
                 const messages = analyticsStore.getAnalyticsSummary(guildId, periodDays);
                 const voice = voiceStore.getVoiceAnalytics(
@@ -1364,7 +1365,7 @@ function createServer() {
                         members: shotLeaderboard.length,
                         highest: shotLeaderboard[0]?.total || 0
                     },
-                    events: messages.moderation
+                    events: canViewModeration ? messages.moderation : null
                 });
                 return;
             }
@@ -1439,7 +1440,9 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
                 const days = Math.min(90, Math.max(1, Number(requestUrl.searchParams.get('days')) || 30));
-                sendJson(res, 200, analyticsStore.getAnalyticsSummary(guildId, days, requestUrl.searchParams.get('channelId'), requestUrl.searchParams.get('userId')));
+                const analytics = analyticsStore.getAnalyticsSummary(guildId, days, requestUrl.searchParams.get('channelId'), requestUrl.searchParams.get('userId'));
+                if (!['developer', 'owner', 'manager'].includes(getPanelGuildRole(panelSession, guildId))) analytics.moderation = null;
+                sendJson(res, 200, analytics);
                 return;
             }
 

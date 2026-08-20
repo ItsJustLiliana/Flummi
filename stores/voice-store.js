@@ -411,7 +411,10 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     sessions.push(...activeByChannel.values());
     const activeOverTime = [];
     const minutesOverTime = [];
-    const firstDay = new Date(start || Date.now());
+    const firstHistoryAt = history.length
+        ? Math.min(...history.map(row => new Date(row.startedAt).getTime()).filter(Number.isFinite))
+        : Date.now();
+    const firstDay = new Date(start || firstHistoryAt);
     firstDay.setUTCHours(0, 0, 0, 0);
     const lastDay = new Date(end);
     lastDay.setUTCHours(0, 0, 0, 0);

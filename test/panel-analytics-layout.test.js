@@ -9,7 +9,7 @@ const panelServer = fs.readFileSync(path.join(__dirname, '..', 'control-panel.js
 function tabMarkup(id) {
     const start = panelHtml.indexOf(`<section id="tab-${id}"`);
     assert.notEqual(start, -1, `tab-${id} should exist`);
-    const end = panelHtml.indexOf('\n            <!--', start);
+    const end = panelHtml.indexOf('\n            <section id="tab-', start + 1);
     return panelHtml.slice(start, end === -1 ? panelHtml.length : end);
 }
 
@@ -55,9 +55,28 @@ test('moderation analytics are withheld from regular-user API responses', () => 
 });
 
 test('every panel tab starts with a consistent description', () => {
-    for (const id of ['overview', 'analytics', 'messenger', 'triggers', 'shots', 'voice', 'stats', 'users', 'settings', 'pings', 'profiles', 'ai', 'files', 'logs', 'reliability', 'soundboard', 'audit', 'experiments']) {
+    for (const id of ['overview', 'analytics', 'messenger', 'triggers', 'shots', 'voice', 'stats', 'users', 'settings', 'pings', 'profiles', 'ai', 'global', 'files', 'logs', 'reliability', 'soundboard', 'audit', 'experiments']) {
         assert.match(tabMarkup(id), /<h2 style="font-size:20px;">[\s\S]*?<\/h2>\s*<p class="sub tab-intro">/, `${id} should have a top-level description`);
     }
+});
+
+test('global platform controls have their own developer tab', () => {
+    const globalSettings = tabMarkup('global');
+    const aiSystem = tabMarkup('ai');
+    const guildSettings = tabMarkup('settings');
+
+    for (const id of ['developerSiteSettings', 'publicPanelEnabled', 'savePublicPanelAccess', 'developerGlobalFeatures', 'developerTabOrder', 'analyticsRetentionDays', 'tabOrderEditor']) {
+        assert.match(globalSettings, new RegExp(`id="${id}"`));
+        assert.doesNotMatch(aiSystem, new RegExp(`id="${id}"`));
+        assert.doesNotMatch(guildSettings, new RegExp(`id="${id}"`));
+    }
+    assert.match(aiSystem, /id="aiTextModel"/);
+    assert.match(aiSystem, /id="panelEnabledOnStart"/);
+    assert.match(panelHtml, /data-tab="global"[^>]*data-developer-only[^>]*>Global Settings<\/button>/);
+    assert.match(panelHtml, /global: loadGlobalSettings/);
+    assert.match(panelHtml, /data-developer-tab-name=/);
+    assert.match(panelHtml, /editableTabNames\[input\.dataset\.developerTabName\]/);
+    assert.match(panelHtml, /panel: \{ publicAccessEnabled: enabled \}/);
 });
 
 test('Voice and Server Media use matching top-level period controls', () => {

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { RepositoryFileManager, normalizeRelativePath } = require('../services/repository-file-manager');
+const { RepositoryFileManager, isSensitivePath, normalizeRelativePath } = require('../services/repository-file-manager');
 
 function fixture() {
     const base = fs.mkdtempSync(path.join(os.tmpdir(), 'flummi-files-'));
@@ -12,10 +12,15 @@ function fixture() {
     fs.mkdirSync(path.join(rootDir, 'panel'), { recursive: true });
     fs.mkdirSync(path.join(rootDir, 'assets'), { recursive: true });
     fs.mkdirSync(path.join(rootDir, 'data'), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, 'data', 'runtime', 'file-manager', 'backups'), { recursive: true });
+    fs.mkdirSync(path.join(rootDir, 'logs'), { recursive: true });
     fs.writeFileSync(path.join(rootDir, 'panel', 'index.html'), 'first\n');
     fs.writeFileSync(path.join(rootDir, 'README.md'), '# Test\n');
     fs.writeFileSync(path.join(rootDir, '.env.example'), 'SAFE_EXAMPLE=yes\n');
     fs.writeFileSync(path.join(rootDir, '.env'), 'SECRET=yes\n');
+    fs.writeFileSync(path.join(rootDir, 'data', 'botPingResponses.json'), '{"saved":true}\n');
+    fs.writeFileSync(path.join(rootDir, 'logs', 'flummi.log'), 'started\n');
+    fs.writeFileSync(path.join(rootDir, 'latest.log'), 'latest\n');
     const manager = new RepositoryFileManager({ rootDir, stateDir });
     return { base, rootDir, stateDir, manager };
 }
@@ -24,7 +29,13 @@ test('repository paths remain inside the allowlisted Flummi workspace', () => {
     assert.equal(normalizeRelativePath('panel/index.html'), 'panel/index.html');
     assert.throws(() => normalizeRelativePath('../.env'), /invalid/i);
     assert.throws(() => normalizeRelativePath('.env'), /outside/i);
-    assert.throws(() => normalizeRelativePath('data/runtime.json'), /outside/i);
+    assert.equal(normalizeRelativePath('data/runtime.json'), 'data/runtime.json');
+    assert.equal(normalizeRelativePath('logs/flummi.log'), 'logs/flummi.log');
+    assert.equal(isSensitivePath('data/runtime.json'), true);
+    assert.equal(isSensitivePath('logs/flummi.log'), true);
+    assert.equal(isSensitivePath('latest.log'), true);
+    assert.equal(isSensitivePath('panel/index.html'), false);
+    assert.throws(() => normalizeRelativePath('data/runtime/file-manager/backups'), /not browsable/i);
     assert.throws(() => normalizeRelativePath('panel/.secret'), /Hidden/i);
 });
 
@@ -34,6 +45,10 @@ test('root listing exposes the safe environment example but never the real envir
     const names = context.manager.list('').entries.map(entry => entry.name);
     assert.equal(names.includes('.env.example'), true);
     assert.equal(names.includes('.env'), false);
+    assert.equal(names.includes('data'), true);
+    assert.equal(names.includes('logs'), true);
+    assert.equal(names.includes('latest.log'), true);
+    assert.equal(context.manager.list('data/runtime').entries.some(entry => entry.name === 'file-manager'), false);
 });
 
 test('reading is a snapshot and optimistic saves detect external writes', t => {

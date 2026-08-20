@@ -2289,6 +2289,21 @@
                     </div>
                     <p id="settingsStatus" class="status"></p>
                 </div>
+            </section>
+
+            <!-- Global developer settings -->
+            <section id="tab-global" class="tab-panel">
+                <h2 style="font-size:20px;">Global Settings</h2>
+                <p class="sub tab-intro">Configure platform-wide feature gates, analytics retention, and panel navigation for every server and panel user.</p>
+                <div id="developerSiteSettings" class="section">
+                    <h2>Site Settings</h2>
+                    <p class="sub">Temporarily pause the public Cloudflare site without stopping Flummi, cloudflared, or direct Tailscale access.</p>
+                    <div class="banner warn">This setting can only be changed from the direct Tailscale or localhost panel. When paused, public visitors receive a 503 maintenance page and Discord OAuth through the public hostname is unavailable.</div>
+                    <div class="checkbox-row"><input id="publicPanelEnabled" type="checkbox"><label
+                            for="publicPanelEnabled" style="margin:0">Public Cloudflare site accessible</label></div>
+                    <div class="actions"><button id="savePublicPanelAccess" class="primary" type="button">Save site access</button></div>
+                    <p id="publicPanelAccessStatus" class="status"></p>
+                </div>
                 <div id="developerGlobalFeatures" class="section">
                     <h2>Global Feature Settings <span class="help-tip" tabindex="0"
                             data-tooltip="A global switch overrides every guild. When it is off, the corresponding guild switch becomes unavailable because no guild can turn it back on.">?</span>
@@ -2330,8 +2345,8 @@
                             class="secondary" type="button">Add divider</button></div>
                     <div class="section" style="margin-top:16px">
                         <h2>Developer tools</h2>
-                        <p class="sub">These tabs can be reordered inside this protected group, but cannot be moved into
-                            the public navigation.</p>
+                        <p class="sub">Rename these pages or reorder them inside the protected group. They cannot be moved
+                            into the public navigation.</p>
                         <div id="developerTabOrderEditor" class="table-wrap"></div>
                     </div>
                     <div class="actions"><span class="sub">The Developer tools group itself always stays together at the
@@ -2395,7 +2410,7 @@
             <!-- AI & system -->
             <section id="tab-ai" class="tab-panel">
                 <h2 style="font-size:20px;">AI &amp; System</h2>
-                <p class="sub tab-intro">Monitor AI activity and configure the bot's models, presence, and global behavior.</p>
+                <p class="sub tab-intro">Monitor the Linux runtime and AI activity, and configure models, Discord presence, start-up behaviour, and bot profiles.</p>
                 <div class="section">
                     <h2>Live Activity Feed</h2>
                     <div id="activityFeed" class="table-wrap"></div>
@@ -2560,8 +2575,8 @@
 
             <section id="tab-files" class="tab-panel">
                 <h2 style="font-size:20px;">Developer Files</h2>
-                <p class="sub tab-intro">Browse and edit the approved Flummi repository workspace. Secrets, runtime data,
-                    dependencies, Git internals, logs, and paths outside the project are blocked.</p>
+                <p class="sub tab-intro">Browse and edit the approved Flummi repository workspace, including runtime data
+                    and log files over Tailscale. Secrets, dependencies, Git internals, and paths outside the project remain blocked.</p>
                 <div class="banner ok">Opening a file takes a snapshot and never locks it. Flummi and other processes can
                     continue writing. If a file changes after you open it, saving stops with a conflict instead of silently
                     overwriting the newer version.</div>
@@ -2840,6 +2855,7 @@
                     <div class="tab-group-label developer-nav" data-developer-only>Developer tools</div>
                     <button class="tab-btn" data-tab="profiles" data-developer-only type="button">Profiles</button>
                     <button class="tab-btn" data-tab="ai" data-developer-only type="button">AI &amp; System</button>
+                    <button class="tab-btn" data-tab="global" data-developer-only type="button">Global Settings</button>
                     <button class="tab-btn" data-tab="reliability" data-developer-only
                         type="button">Reliability</button>
                     <button class="tab-btn" data-tab="files" data-developer-only type="button">Developer Files</button>
@@ -3304,6 +3320,7 @@
             triggers: 'This tab does not refresh automatically, so trigger drafts and edits are never overwritten. Use Refresh to reload saved triggers.',
             profiles: 'This tab does not refresh automatically, so unsaved profile fields are never overwritten. Use Refresh to reload profile data.',
             ai: 'This tab does not refresh automatically, so AI settings and panel navigation edits are never overwritten. Use Refresh to reload saved values.',
+            global: 'This tab does not refresh automatically, so global feature and panel navigation edits are never overwritten. Use Refresh to reload saved values.',
             files: 'This tab never refreshes automatically. Open files are snapshots and are never locked; use Reload snapshot to fetch external changes.',
             experiments: 'This tab does not refresh automatically, so a pending experiment is not overwritten before you apply it.',
             reliability: 'This tab refreshes every 20 seconds while open. Its automatic Discord gateway and API checks update every 30 seconds.',
@@ -3349,6 +3366,7 @@
             settings: loadSettings,
             pings: loadPingRequests,
             ai: loadAi,
+            global: loadGlobalSettings,
             logs: loadLogs,
             reliability: loadReliability,
             files: loadDeveloperFiles,
@@ -3388,7 +3406,7 @@
         }
 
         // Reorders the shared sidebar navigation. Developer tools can move only inside their protected group.
-        const defaultDeveloperTabOrder = ['messenger', 'profiles', 'ai', 'reliability', 'files', 'logs', 'experiments'];
+        const defaultDeveloperTabOrder = ['messenger', 'profiles', 'ai', 'global', 'reliability', 'files', 'logs', 'experiments'];
         const fixedDeveloperTabIds = new Set(defaultDeveloperTabOrder);
         let activeDeveloperTabOrder = [...defaultDeveloperTabOrder];
 
@@ -3499,7 +3517,7 @@
             if (state.accountUsername) {
                 document.getElementById('panelAccountName').innerHTML = `<span class="account-username">${escapeHtml(state.accountUsername)}</span><span class="account-role">${escapeHtml(roleLabel)}</span>`;
             }
-            const developerTabs = ['messenger', 'profiles', 'ai', 'reliability', 'files', 'logs'];
+            const developerTabs = ['messenger', 'profiles', 'ai', 'global', 'reliability', 'files', 'logs'];
             document.querySelectorAll('[data-developer-only]').forEach(element => { element.hidden = !isDeveloper; });
             developerTabs.forEach(tabId => {
                 const panel = document.getElementById(`tab-${tabId}`);
@@ -3547,10 +3565,8 @@
         applyTabOrder(window.__PANEL_TAB_ORDER__);
         applyTabNames(window.__PANEL_TAB_NAMES__);
 
-        // Keep Settings limited to server-admin controls; platform-wide tools live in developer tabs.
-        const aiPanel = document.getElementById('tab-ai');
+        // Keep Settings limited to server-admin controls; platform-wide tools have their own developer tab.
         const reliabilityPanel = document.getElementById('tab-reliability');
-        aiPanel?.append(document.getElementById('developerGlobalFeatures'), document.getElementById('developerTabOrder'));
         reliabilityPanel?.append(document.getElementById('developerDataTools'));
 
         // ---------- Invite link ----------
@@ -3630,7 +3646,7 @@
         // Passive refreshes must never redraw tabs that contain unsaved editors. The short
         // interaction grace period also prevents a background redraw while someone is using
         // filters, search fields, players, or pagination elsewhere in the panel.
-        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'triggers', 'users', 'settings', 'profiles', 'ai', 'files', 'experiments']);
+        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'triggers', 'users', 'settings', 'profiles', 'ai', 'global', 'files', 'experiments']);
         let lastPanelInteractionAt = 0;
 
         function shouldSkipPassiveRefresh(tab = activeTab()) {
@@ -4999,7 +5015,7 @@
             const container = document.getElementById('developerTabOrderEditor');
             container.innerHTML = `<table><tbody>${editableDeveloperTabOrder.map((tabId, index) => `
                 <tr>
-                    <td><span class="badge dev">Developer</span> ${escapeHtml(editableTabNames[tabId] || defaultTabLabels[tabId] || tabLabel(tabId))}</td>
+                    <td><div class="row"><span class="badge dev">Developer</span><input data-developer-tab-name="${escapeHtml(tabId)}" maxlength="60" value="${escapeHtml(editableTabNames[tabId] || defaultTabLabels[tabId] || tabLabel(tabId))}" aria-label="Developer tab name" style="flex:1"></div></td>
                     <td style="width:1%;white-space:nowrap">
                         <button class="secondary" type="button" data-developer-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
                         <button class="secondary" type="button" data-developer-tab-order="down" data-index="${index}" ${index === editableDeveloperTabOrder.length - 1 ? 'disabled' : ''}>↓</button>
@@ -5011,6 +5027,9 @@
                 if (target < 0 || target >= editableDeveloperTabOrder.length) return;
                 [editableDeveloperTabOrder[index], editableDeveloperTabOrder[target]] = [editableDeveloperTabOrder[target], editableDeveloperTabOrder[index]];
                 renderDeveloperTabOrderEditor();
+            }));
+            container.querySelectorAll('[data-developer-tab-name]').forEach(input => input.addEventListener('input', () => {
+                editableTabNames[input.dataset.developerTabName] = input.value.slice(0, 60);
             }));
         }
 
@@ -5041,7 +5060,13 @@
             document.getElementById('guildFeaturePingSave').checked = gf.pingRequestSaveEnabled !== false;
             document.getElementById('guildFeatureShots').checked = gf.shotsEnabled !== false;
             syncGlobalFeatureState();
-            if (state.role === 'developer') applyDeveloperSettings(await api('/api/config'));
+        }
+
+        async function loadGlobalSettings() {
+            const configData = await api('/api/config');
+            document.getElementById('publicPanelEnabled').checked = configData.panel?.publicAccessEnabled !== false;
+            applyDeveloperSettings(configData);
+            syncGlobalFeatureState();
         }
 
         function applyDeveloperSettings(configData) {
@@ -5213,6 +5238,33 @@
                 setStatus(statusField, 'Global features saved.', 'ok');
             } catch (error) {
                 setStatus(statusField, error.message, 'error');
+            }
+        });
+
+        document.getElementById('savePublicPanelAccess').addEventListener('click', async () => {
+            const enabled = document.getElementById('publicPanelEnabled').checked;
+            const status = document.getElementById('publicPanelAccessStatus');
+            const confirmed = await confirmAction({
+                title: enabled ? 'Enable the public site?' : 'Pause the public site?',
+                message: enabled
+                    ? 'The Cloudflare hostname will become available to visitors and Discord OAuth again.'
+                    : 'Public visitors will receive a maintenance page. The direct Tailscale panel remains available.',
+                confirmLabel: enabled ? 'Enable public site' : 'Pause public site',
+                danger: !enabled
+            });
+            if (!confirmed) return;
+            try {
+                const result = await api('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ panel: { publicAccessEnabled: enabled } })
+                });
+                document.getElementById('publicPanelEnabled').checked = result.config?.panel?.publicAccessEnabled !== false;
+                setStatus(status, enabled
+                    ? 'Public Cloudflare access is enabled.'
+                    : 'Public Cloudflare access is paused. Keep this Tailscale page open to re-enable it.', 'ok');
+            } catch (error) {
+                setStatus(status, error.message, 'error');
             }
         });
 
@@ -5556,7 +5608,7 @@
                 banner.textContent = 'Write access active through the private Tailscale/localhost route. Recent Discord authentication expires after 30 minutes.';
             } else if (!access.privateConnection) {
                 banner.className = 'banner warn';
-                banner.innerHTML = 'Read-only on the public Cloudflare route. Open this panel through <code>http://100.111.62.126:3789</code> to modify files.';
+                banner.innerHTML = 'Read-only source access on the public Cloudflare route. Runtime <code>data/</code>, logs, search, and all changes require <code>http://100.111.62.126:3789</code>.';
             } else {
                 banner.className = 'banner warn';
                 banner.innerHTML = 'Private connection confirmed. <a href="/auth/login?refresh=1">Refresh Discord authentication</a> to enable file changes for 30 minutes.';
@@ -5897,7 +5949,6 @@
         async function loadAi() {
             await populateGuildUserSelects();
             const configData = await api('/api/config'); const ai = configData.ai || {};
-            applyDeveloperSettings(configData);
             document.getElementById('aiTextModel').value = ai.model || '';
             document.getElementById('aiBaseUrl').value = ai.baseUrl || '';
             document.getElementById('aiVisionModels').value = (ai.visionModels || []).join('\n');

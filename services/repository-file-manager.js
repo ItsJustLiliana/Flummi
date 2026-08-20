@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
 const allowedDirectories = new Set([
-    'assets', 'commands', 'deploy', 'docs', 'events', 'panel', 'scripts',
+    'assets', 'commands', 'data', 'deploy', 'docs', 'events', 'logs', 'panel', 'scripts',
     'services', 'stores', 'test', 'tools', 'utils'
 ]);
 const allowedRootFiles = new Set([
@@ -13,7 +13,7 @@ const allowedRootFiles = new Set([
 ]);
 const textExtensions = new Set([
     '.bat', '.cjs', '.conf', '.css', '.csv', '.env', '.example', '.html', '.ini',
-    '.js', '.json', '.md', '.mjs', '.ps1', '.service', '.sh', '.svg', '.toml',
+    '.js', '.json', '.log', '.md', '.mjs', '.ps1', '.service', '.sh', '.svg', '.toml',
     '.ts', '.txt', '.yaml', '.yml'
 ]);
 const assetExtensions = new Set([
@@ -23,6 +23,8 @@ const assetExtensions = new Set([
 const maxTextBytes = 1024 * 1024;
 const maxUploadBytes = 8 * 1024 * 1024;
 const maxDownloadBytes = 20 * 1024 * 1024;
+const blockedPathPrefixes = ['data/runtime/file-manager'];
+const sensitiveDirectories = new Set(['data', 'logs']);
 
 class RepositoryFileError extends Error {
     constructor(message, code = 'FILE_MANAGER_ERROR', statusCode = 400, details = {}) {
@@ -55,12 +57,24 @@ function normalizeRelativePath(value, { allowRoot = false } = {}) {
         throw new RepositoryFileError('Hidden repository paths are not available.', 'BLOCKED_PATH', 403);
     }
 
+    const normalized = segments.join('/');
+    if (blockedPathPrefixes.some(prefix => normalized === prefix || normalized.startsWith(`${prefix}/`))) {
+        throw new RepositoryFileError('Internal file-manager backups and trash are not browsable.', 'BLOCKED_PATH', 403);
+    }
+
     const first = segments[0];
-    const allowed = allowedDirectories.has(first) || (segments.length === 1 && allowedRootFiles.has(first));
+    const allowedRootLog = segments.length === 1 && first.toLowerCase().endsWith('.log');
+    const allowed = allowedDirectories.has(first) || (segments.length === 1 && allowedRootFiles.has(first)) || allowedRootLog;
     if (!allowed) {
         throw new RepositoryFileError('That path is outside the developer file workspace.', 'BLOCKED_PATH', 403);
     }
-    return segments.join('/');
+    return normalized;
+}
+
+function isSensitivePath(value) {
+    const normalized = normalizeRelativePath(value, { allowRoot: true });
+    if (!normalized) return false;
+    return sensitiveDirectories.has(normalized.split('/')[0]) || normalized.toLowerCase().endsWith('.log');
 }
 
 function isTextPath(relativePath) {
@@ -113,7 +127,11 @@ class RepositoryFileManager {
         const entries = fs.readdirSync(resolved.target, { withFileTypes: true })
             .filter(entry => !entry.isSymbolicLink())
             .filter(entry => !entry.name.startsWith('.') || (!resolved.relativePath && allowedRootFiles.has(entry.name)))
-            .filter(entry => resolved.relativePath || allowedDirectories.has(entry.name) || allowedRootFiles.has(entry.name))
+            .filter(entry => resolved.relativePath || allowedDirectories.has(entry.name) || allowedRootFiles.has(entry.name) || entry.name.toLowerCase().endsWith('.log'))
+            .filter(entry => {
+                const childRelative = resolved.relativePath ? `${resolved.relativePath}/${entry.name}` : entry.name;
+                return !blockedPathPrefixes.some(prefix => childRelative === prefix || childRelative.startsWith(`${prefix}/`));
+            })
             .map(entry => {
                 const childRelative = resolved.relativePath ? `${resolved.relativePath}/${entry.name}` : entry.name;
                 const stat = fs.statSync(path.join(resolved.target, entry.name));
@@ -310,7 +328,8 @@ class RepositoryFileManager {
                 if (results.length >= 100 || inspected >= 2000) break;
                 if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue;
                 const relativePath = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
-                if (!relativeDirectory && !allowedDirectories.has(entry.name) && !allowedRootFiles.has(entry.name)) continue;
+                if (!relativeDirectory && !allowedDirectories.has(entry.name) && !allowedRootFiles.has(entry.name) && !entry.name.toLowerCase().endsWith('.log')) continue;
+                if (blockedPathPrefixes.some(prefix => relativePath === prefix || relativePath.startsWith(`${prefix}/`))) continue;
                 if (entry.isDirectory()) {
                     visit(relativePath);
                     continue;
@@ -338,6 +357,7 @@ module.exports = {
     RepositoryFileManager,
     allowedDirectories,
     allowedRootFiles,
+    isSensitivePath,
     isTextPath,
     normalizeRelativePath
 };

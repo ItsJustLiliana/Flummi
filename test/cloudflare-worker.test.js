@@ -16,6 +16,14 @@ test('Cloudflare Worker passes healthy responses and replaces tunnel failures', 
         assert.equal(healthy.status, 200);
         assert.equal(await healthy.text(), 'healthy');
 
+        global.fetch = async () => new Response('planned maintenance', {
+            status: 503,
+            headers: { 'X-Flummi-Maintenance': 'public-paused' }
+        });
+        const maintenance = await worker.fetch(new Request('https://flummi.example.com/'));
+        assert.equal(maintenance.status, 503);
+        assert.equal(await maintenance.text(), 'planned maintenance');
+
         global.fetch = async () => new Response('cloudflare tunnel error', { status: 530 });
         const offline = await worker.fetch(new Request('https://flummi.example.com/'));
         assert.equal(offline.status, 503);

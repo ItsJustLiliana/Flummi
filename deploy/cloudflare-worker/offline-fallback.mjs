@@ -64,6 +64,7 @@ export default {
     async fetch(request) {
         try {
             const response = await fetch(request);
+            if (response.headers.get('x-flummi-maintenance') === 'public-paused') return response;
             return fallbackStatuses.has(response.status) ? offlineResponse(request) : response;
         } catch {
             return offlineResponse(request);

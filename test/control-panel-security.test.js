@@ -33,9 +33,10 @@ test('panel validates mutation origins and retains direct Tailscale hosting supp
     assert.match(panelServer, /\[host, '127\.0\.0\.1'\]/);
 });
 
-test('panel session cookies use HttpOnly and strict same-site protection', () => {
-    assert.match(panelServer, /HttpOnly; SameSite=Strict; Path=\//);
-    assert.doesNotMatch(panelServer, /SameSite=Lax/);
+test('panel session cookies remain HttpOnly and support the Discord OAuth return', () => {
+    assert.match(panelServer, /HttpOnly; SameSite=Lax; Path=\//);
+    assert.doesNotMatch(panelServer, /SameSite=Strict/);
+    assert.match(panelServer, /Lax is required for the top-level redirect returning from Discord/);
 });
 
 test('server-provided panel configuration is escaped before inline script injection', () => {
@@ -50,4 +51,18 @@ test('developer file writes require developer access, Tailscale, and recent auth
     assert.match(panelServer, /TAILSCALE_REQUIRED/);
     assert.match(panelServer, /REAUTH_REQUIRED/);
     assert.match(panelServer, /authenticatedAt: Date\.now\(\)/);
+    assert.match(panelServer, /function requireDeveloperSensitiveFileAccess\(req, res\)/);
+    assert.match(panelServer, /isSensitivePath\(requestedPath\)/);
+    assert.match(panelServer, /Runtime data and log files are only available through the direct Tailscale/);
+});
+
+test('public site maintenance can only be controlled privately and preserves private access', () => {
+    assert.match(panelServer, /function isCloudflareRequest\(req\)/);
+    assert.match(panelServer, /config\.panel\?\.publicAccessEnabled === false && isCloudflareRequest\(req\)/);
+    assert.match(panelServer, /function requirePublicSiteToggleAccess\(req, session, res\)/);
+    assert.match(panelServer, /Public site access can only be changed through the direct Tailscale or localhost panel address/);
+    assert.match(panelServer, /Refresh your Discord sign-in before changing public site access/);
+    assert.match(panelServer, /publicSiteUnavailablePage\(\), 503/);
+    assert.match(panelServer, /X-Flummi-Maintenance', 'public-paused'/);
+    assert.match(panelServer, /auditPanelAction\(panelSession, 'public-site-access'/);
 });

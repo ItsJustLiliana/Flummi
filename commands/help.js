@@ -67,7 +67,7 @@ function getConfiguredCommandRows(client) {
             return {
                 pathKey,
                 command,
-                requiredRole,
+                requiredRole: command.public ? 'user' : requiredRole,
                 label: formatCommandPath(pathKey, command)
             };
         })
@@ -93,7 +93,7 @@ const COMMAND_CATALOG = [
     { path: 'manage.permissions', label: '/manage permissions', description: 'Set feature and command access for a member.', minimumRole: 'manager' },
     { path: 'manage.role', label: '/manage role', description: 'Assign or remove the Flummi manager role.', minimumRole: 'developer' },
     { path: 'shots.audit', label: '/shots audit [limit]', description: 'View the developer audit log for shot changes.', minimumRole: 'developer' },
-    { path: 'dashboard', label: '/dashboard', description: 'Open the local panel address for the selected guild.', minimumRole: 'developer' }
+    { path: 'dashboard', label: '/dashboard', description: 'Open the public Flummi dashboard.' }
 ];
 
 const ROLE_RANK = { user: 0, manager: 1, developer: 2 };

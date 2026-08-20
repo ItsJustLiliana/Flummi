@@ -10,8 +10,9 @@ const { readActivity, recordActivity } = require('./stores/activity-store');
 const { loadEnv } = require('./utils/env-loader');
 const { readConfig, saveConfig: saveLocalConfig } = require('./utils/config');
 const { buildFieldChanges } = require('./utils/audit-details');
-const { RepositoryFileError, RepositoryFileManager } = require('./services/repository-file-manager');
+const { RepositoryFileError, RepositoryFileManager, isSensitivePath } = require('./services/repository-file-manager');
 const config = readConfig();
+config.commandPermissions = { ...(config.commandPermissions || {}), dashboard: 'user' };
 const settingsStore = require('./stores/settings-store');
 const accessStore = require('./stores/access-store');
 const triggerStore = require('./stores/trigger-store');
@@ -96,6 +97,10 @@ function parseCookies(req) {
 
 function isSecureRequest(req) {
     return String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
+}
+
+function isCloudflareRequest(req) {
+    return Boolean(req.headers['cf-ray'] || req.headers['cf-connecting-ip']);
 }
 
 function isPotentiallyTrustworthyRequest(req) {
@@ -258,7 +263,7 @@ function isTailscaleAddress(address) {
 
 function developerFileWriteStatus(req, session) {
     const remoteAddress = normalizedRemoteAddress(req);
-    const throughCloudflare = Boolean(req.headers['cf-ray'] || req.headers['cf-connecting-ip']);
+    const throughCloudflare = isCloudflareRequest(req);
     const privateConnection = !throughCloudflare && (
         isTailscaleAddress(remoteAddress)
         || ['127.0.0.1', '::1'].includes(remoteAddress)
@@ -276,6 +281,25 @@ function requireDeveloperFileWriteAccess(req, session, res) {
     }
     if (!status.recentAuthentication) {
         sendJson(res, 401, { code: 'REAUTH_REQUIRED', error: 'Refresh your Discord sign-in before changing repository files.' });
+        return false;
+    }
+    return true;
+}
+
+function requireDeveloperSensitiveFileAccess(req, res) {
+    if (developerFileWriteStatus(req, null).privateConnection) return true;
+    sendJson(res, 403, { code: 'TAILSCALE_REQUIRED', error: 'Runtime data and log files are only available through the direct Tailscale or localhost panel address.' });
+    return false;
+}
+
+function requirePublicSiteToggleAccess(req, session, res) {
+    const status = developerFileWriteStatus(req, session);
+    if (!status.privateConnection) {
+        sendJson(res, 403, { code: 'TAILSCALE_REQUIRED', error: 'Public site access can only be changed through the direct Tailscale or localhost panel address.' });
+        return false;
+    }
+    if (!status.recentAuthentication) {
+        sendJson(res, 401, { code: 'REAUTH_REQUIRED', error: 'Refresh your Discord sign-in before changing public site access.' });
         return false;
     }
     return true;
@@ -498,8 +522,8 @@ function sendJson(res, statusCode, payload) {
     res.end(JSON.stringify(payload));
 }
 
-function sendHtml(res, html) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+function sendHtml(res, html, statusCode = 200, headers = {}) {
+    res.writeHead(statusCode, { 'Content-Type': 'text/html; charset=utf-8', ...headers });
     res.end(html);
 }
 
@@ -622,6 +646,10 @@ async function listGuildMembers(guildId) {
 
     memberCache.set(guildId, { members, botCount, fetchedAt: Date.now() });
     return members;
+}
+
+function publicSiteUnavailablePage() {
+    return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Flummi is temporarily unavailable</title><style>:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px;color:#f6f4ff;background:radial-gradient(circle at 20% 0%,#342d5e 0,transparent 42%),radial-gradient(circle at 100% 100%,#173c52 0,transparent 38%),#0d0c16}main{width:min(100%,560px);padding:38px;border:1px solid #ffffff1f;border-radius:24px;background:#181627db;box-shadow:0 24px 80px #00000059}.brand{font-size:20px;font-weight:750}.status{display:inline-flex;align-items:center;gap:8px;margin-top:28px;padding:7px 11px;border-radius:999px;color:#ffd8a8;background:#ffa94d1a;border:1px solid #ffa94d33;font-size:13px;font-weight:700}.dot{width:8px;height:8px;border-radius:50%;background:#ffa94d;box-shadow:0 0 0 5px #ffa94d1f}h1{margin:20px 0 12px;font-size:clamp(30px,6vw,44px);line-height:1.08;letter-spacing:-.035em}p{margin:0;color:#b9b5ca;font-size:16px;line-height:1.65}button{margin-top:28px;width:100%;padding:13px 18px;border:0;border-radius:12px;color:#171224;background:linear-gradient(135deg,#c9b6ff,#75ddff);font:inherit;font-weight:750;cursor:pointer}</style><main><div class="brand">Flummi</div><span class="status"><span class="dot"></span>Public access paused</span><h1>Temporarily unavailable</h1><p>The public Flummi panel has been temporarily disabled. Please try again later.</p><button type="button" onclick="location.reload()">Try again</button></main></html>`;
 }
 
 // Resolves a display tag plus (when guildId is given) the member's current server nickname, for tooltips.
@@ -988,6 +1016,17 @@ function createServer() {
 
             const requestUrl = new URL(req.url, `http://${req.headers.host}`);
 
+            if (config.panel?.publicAccessEnabled === false && isCloudflareRequest(req)) {
+                res.setHeader('X-Flummi-Maintenance', 'public-paused');
+                res.setHeader('Cache-Control', 'no-store');
+                if (requestUrl.pathname.startsWith('/api/')) {
+                    sendJson(res, 503, { error: 'The public Flummi panel is temporarily unavailable.' });
+                } else {
+                    sendHtml(res, publicSiteUnavailablePage(), 503, { 'Retry-After': '300' });
+                }
+                return;
+            }
+
             if (req.method === 'GET' && requestUrl.pathname === '/auth/login') {
                 const clientSecret = process.env.DISCORD_CLIENT_SECRET;
                 if (!clientSecret || !config.clientId) {
@@ -1053,7 +1092,10 @@ function createServer() {
                     if (record.previousSessionKey) panelSessions.delete(record.previousSessionKey);
                     persistPanelSessions();
                     const secure = record.redirectUri.startsWith('https://') ? '; Secure' : '';
-                    res.writeHead(302, { Location: '/', 'Set-Cookie': `flummi_panel_session=${sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(sessionDurationMs / 1000)}${secure}` });
+                    // Lax is required for the top-level redirect returning from Discord.
+                    // State validation and exact Origin checks protect the OAuth flow and
+                    // every state-changing panel request from cross-site submission.
+                    res.writeHead(302, { Location: '/', 'Set-Cookie': `flummi_panel_session=${sessionToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(sessionDurationMs / 1000)}${secure}` });
                     res.end();
                 } catch (error) {
                     console.error('Discord OAuth login failed:', error);
@@ -1084,7 +1126,7 @@ function createServer() {
                     persistPanelSessions();
                 }
                 const secure = isSecureRequest(req) ? '; Secure' : '';
-                res.writeHead(204, { 'Set-Cookie': `flummi_panel_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}` });
+                res.writeHead(204, { 'Set-Cookie': `flummi_panel_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}` });
                 res.end();
                 return;
             }
@@ -1144,23 +1186,30 @@ function createServer() {
                 if (requestedGuildId && !await requireGuildAccess(panelSession, requestedGuildId, res)) return;
 
                 if (req.method === 'GET' && requestUrl.pathname === '/api/developer/files/list') {
-                    const result = repositoryFileManager.list(requestUrl.searchParams.get('path') || '');
+                    const requestedPath = requestUrl.searchParams.get('path') || '';
+                    if (isSensitivePath(requestedPath) && !requireDeveloperSensitiveFileAccess(req, res)) return;
+                    const result = repositoryFileManager.list(requestedPath);
                     sendJson(res, 200, { ...result, writeAccess: developerFileWriteStatus(req, panelSession) });
                     return;
                 }
 
                 if (req.method === 'GET' && requestUrl.pathname === '/api/developer/files/read') {
-                    sendJson(res, 200, repositoryFileManager.read(requestUrl.searchParams.get('path')));
+                    const requestedPath = requestUrl.searchParams.get('path');
+                    if (isSensitivePath(requestedPath) && !requireDeveloperSensitiveFileAccess(req, res)) return;
+                    sendJson(res, 200, repositoryFileManager.read(requestedPath));
                     return;
                 }
 
                 if (req.method === 'GET' && requestUrl.pathname === '/api/developer/files/search') {
+                    if (!requireDeveloperSensitiveFileAccess(req, res)) return;
                     sendJson(res, 200, repositoryFileManager.search(requestUrl.searchParams.get('q')));
                     return;
                 }
 
                 if (req.method === 'GET' && requestUrl.pathname === '/api/developer/files/download') {
-                    const file = repositoryFileManager.download(requestUrl.searchParams.get('path'));
+                    const requestedPath = requestUrl.searchParams.get('path');
+                    if (isSensitivePath(requestedPath) && !requireDeveloperSensitiveFileAccess(req, res)) return;
+                    const file = repositoryFileManager.download(requestedPath);
                     const filename = path.basename(file.path);
                     res.writeHead(200, {
                         'Content-Type': 'application/octet-stream',
@@ -2153,6 +2202,15 @@ function createServer() {
 
             if (req.method === 'POST' && requestUrl.pathname === '/api/config') {
                 const parsed = JSON.parse(await readBody(req) || '{}');
+                const changesPublicAccess = Object.prototype.hasOwnProperty.call(parsed.panel || {}, 'publicAccessEnabled');
+                if (changesPublicAccess) {
+                    if (typeof parsed.panel.publicAccessEnabled !== 'boolean') {
+                        sendJson(res, 400, { error: 'publicAccessEnabled must be a boolean.' });
+                        return;
+                    }
+                    if (!requirePublicSiteToggleAccess(req, panelSession, res)) return;
+                }
+                const previousPublicAccess = config.panel?.publicAccessEnabled !== false;
                 const allowed = ['ai', 'features', 'presence', 'commandPermissions', 'panel', 'analytics'];
                 const updates = Object.fromEntries(allowed.filter(key => parsed[key] && typeof parsed[key] === 'object').map(key => [key, { ...(config[key] || {}), ...parsed[key] }]));
                 if (typeof parsed.deployCommandsOnStart === 'boolean') {
@@ -2160,8 +2218,14 @@ function createServer() {
                 }
                 if (parsed.ai?.imageSearch) updates.ai = { ...(updates.ai || config.ai), imageSearch: { ...(config.ai?.imageSearch || {}), ...parsed.ai.imageSearch } };
                 Object.assign(config, updates);
+                config.commandPermissions = { ...(config.commandPermissions || {}), dashboard: 'user' };
                 saveConfig(config);
                 auditPanelAction(panelSession, 'config', 'Global configuration updated from the panel');
+                if (changesPublicAccess && previousPublicAccess !== (config.panel?.publicAccessEnabled !== false)) {
+                    auditPanelAction(panelSession, 'public-site-access', config.panel.publicAccessEnabled
+                        ? 'Enabled public Cloudflare panel access'
+                        : 'Paused public Cloudflare panel access');
+                }
                 sendJson(res, 200, { ok: true, config: { ai: config.ai, features: config.features, presence: config.presence, commandPermissions: config.commandPermissions, panel: config.panel, analytics: config.analytics, deployCommandsOnStart: config.deployCommandsOnStart } });
                 return;
             }

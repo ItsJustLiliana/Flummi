@@ -6,6 +6,7 @@
     "panel": {
         "enabledOnStart": true,
         "openBrowserOnStart": false,
+        "publicAccessEnabled": true,
         "publicUrl": "https://panel.example.com",
         "tabOrder": ["overview", "analytics", "---", "stats", "voice", "soundboard", "users", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "settings", "ai", "logs", "reliability"]
     },
@@ -34,6 +35,8 @@
         "maxOutputTokens": 220,
         "requestTimeoutMs": 8000
     },
-    "commandPermissions": {},
+    "commandPermissions": {
+        "dashboard": "user"
+    },
     "developerUserIds": []
 }

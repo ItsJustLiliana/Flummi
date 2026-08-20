@@ -253,6 +253,10 @@ function getCommandPath(interaction) {
 }
 
 function getRequiredCommandRole(commandName, subcommandName, commandDefinition, subcommandGroupName = null) {
+    if (commandDefinition?.public) {
+        return 'user';
+    }
+
     const permissions = config.commandPermissions || {};
     const commandKey = String(commandName || '');
     const groupKey = subcommandGroupName ? `${commandKey}.${subcommandGroupName}` : null;

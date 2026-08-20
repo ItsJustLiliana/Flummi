@@ -34,6 +34,7 @@ test('command permissions resolve top-level and subcommand roles from config', (
     assert.equal(getRequiredCommandRole('manage', 'role', null), 'developer');
     assert.equal(getRequiredCommandRole('profile', 'color', null, 'set'), 'user');
     assert.equal(getRequiredCommandRole('profile', 'social', null, 'set'), 'user');
+    assert.equal(getRequiredCommandRole('dashboard', null, { public: true }), 'user');
 });
 
 test('role requirements follow user manager developer order', () => {

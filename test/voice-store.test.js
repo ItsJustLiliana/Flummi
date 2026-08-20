@@ -6,6 +6,7 @@ const {
     endVoiceSession,
     getChannelVoiceMembers,
     getVoiceAnalytics,
+    getVoiceActivityHeatmap,
     getVoiceHistory,
     getUserVoiceStats,
     getVoiceStatsSummary,
@@ -103,6 +104,9 @@ test('voice store tracks join/leave durations and leaderboard', () => {
 
         const allTime = getVoiceAnalytics(guildId);
         assert.equal(allTime.activeOverTime[0].date, '2026-01-01');
+        const firstHour = getVoiceActivityHeatmap(guildId, '2026-01-01T00:00:00.000Z', '2026-01-01T00:59:59.999Z', '10');
+        assert.equal(firstHour[4][0], 2);
+        assert.equal(firstHour.flat().reduce((total, count) => total + count, 0), 2);
     } finally {
         cleanupGuild(guildId);
     }

@@ -426,6 +426,24 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime, minutesOverTime, heatmap, totalMs, averageSessionMs: history.length ? Math.round(totalMs / history.length) : 0, groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100) };
 }
 
+function getVoiceActivityHeatmap(guildId, from = null, to = null, channelId = null) {
+    const start = from ? new Date(from).getTime() : 0;
+    const end = to ? new Date(to).getTime() : Date.now();
+    const normalizedChannelId = channelId ? String(channelId) : null;
+    const heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
+
+    for (const row of readEvents(guildId, 'voice')) {
+        if (row.action !== 'session-ended') continue;
+        if (normalizedChannelId && String(row.channelId) !== normalizedChannelId) continue;
+        const started = new Date(row.startedAt);
+        const startedAt = started.getTime();
+        if (!Number.isFinite(startedAt) || startedAt < start || startedAt > end) continue;
+        heatmap[started.getUTCDay()][started.getUTCHours()]++;
+    }
+
+    return heatmap;
+}
+
 module.exports = {
     emptyVoiceStats,
     endVoiceSession,
@@ -435,6 +453,7 @@ module.exports = {
     getVoiceHistory,
     getVoiceStatsSummary,
     getVoiceAnalytics,
+    getVoiceActivityHeatmap,
     readVoiceStats,
     saveVoiceStats,
     startVoiceSession,

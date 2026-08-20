@@ -23,6 +23,37 @@ test('message analytics details live on the Messages tab', () => {
     }
 });
 
+test('message and voice heatmaps offer all-time and navigable weekly modes', () => {
+    for (const kind of ['message', 'voice']) {
+        assert.match(panelHtml, new RegExp(`id="${kind}HeatmapMode"`));
+        assert.match(panelHtml, new RegExp(`id="${kind}HeatmapPreviousWeek"`));
+        assert.match(panelHtml, new RegExp(`id="${kind}HeatmapNextWeek"`));
+        assert.match(panelHtml, new RegExp(`id="${kind}HeatmapWeekLabel"`));
+    }
+    assert.match(panelHtml, /<option value="all">Heatmap: all time<\/option>/);
+    assert.match(panelHtml, /<option value="weekly">Heatmap: weekly<\/option>/);
+    assert.match(panelHtml, /function utcWeekRange\(offset = 0\)/);
+    assert.match(panelServer, /requestUrl\.pathname === '\/api\/activity-heatmap'/);
+});
+
+test('voice and message graph controls are centralized at the top of their tabs', () => {
+    for (const tabId of ['voice', 'stats']) {
+        const markup = tabMarkup(tabId);
+        const controlsStart = markup.indexOf('class="row tab-controls"');
+        const controlsEnd = markup.indexOf('</div>', controlsStart);
+        const firstSection = markup.indexOf('<div class="section">');
+        assert.ok(controlsStart >= 0 && controlsEnd < firstSection);
+    }
+    const voice = tabMarkup('voice');
+    const messages = tabMarkup('stats');
+    for (const id of ['voiceGraphRange', 'voiceGraphChannel', 'voiceGraphType', 'voiceHeatmapMode']) {
+        assert.ok(voice.indexOf(`id="${id}"`) < voice.indexOf('<div class="section">'));
+    }
+    for (const id of ['analyticsDays', 'analyticsChannel', 'analyticsMember', 'analyticsGraphType', 'messageHeatmapMode']) {
+        assert.ok(messages.indexOf(`id="${id}"`) < messages.indexOf('<div class="section">'));
+    }
+});
+
 test('Stats & Analytics is a lightweight cross-feature summary', () => {
     const summary = tabMarkup('analytics');
     for (const id of ['analyticsSummaryMessages', 'analyticsSummaryVoice', 'analyticsSummaryMedia', 'analyticsSummaryShots', 'moderationCards']) {
@@ -77,6 +108,15 @@ test('global platform controls have their own developer tab', () => {
     assert.match(panelHtml, /data-developer-tab-name=/);
     assert.match(panelHtml, /editableTabNames\[input\.dataset\.developerTabName\]/);
     assert.match(panelHtml, /panel: \{ publicAccessEnabled: enabled \}/);
+});
+
+test('trigger JSON import is only exposed inside developer data tools', () => {
+    assert.doesNotMatch(tabMarkup('triggers'), /id="importTriggers"/);
+    const toolsStart = panelHtml.indexOf('<div id="developerDataTools"');
+    const toolsEnd = panelHtml.indexOf('</div>\n            </section>', toolsStart);
+    assert.notEqual(toolsStart, -1);
+    assert.match(panelHtml.slice(toolsStart, toolsEnd), /id="importTriggers"/);
+    assert.match(panelHtml, /reliabilityPanel\?\.append\(document\.getElementById\('developerDataTools'\)\)/);
 });
 
 test('Voice and Server Media use matching top-level period controls', () => {

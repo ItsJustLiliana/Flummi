@@ -244,6 +244,24 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
     };
 }
 
+function getMessageActivityHeatmap(guildId, from = null, to = null, channelId = null, userId = null) {
+    const start = from ? new Date(from).getTime() : 0;
+    const end = to ? new Date(to).getTime() : Date.now();
+    const normalizedChannelId = channelId ? String(channelId) : null;
+    const normalizedUserId = userId ? String(userId) : null;
+    const heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
+
+    for (const row of readEvents(guildId, 'messages', start, end)) {
+        if (normalizedChannelId && String(row.channelId) !== normalizedChannelId) continue;
+        if (normalizedUserId && String(row.userId) !== normalizedUserId) continue;
+        const date = new Date(row.at);
+        if (Number.isNaN(date.getTime())) continue;
+        heatmap[date.getUTCDay()][date.getUTCHours()]++;
+    }
+
+    return heatmap;
+}
+
 function getStorageDetails(guildId) {
     const base = path.join(dataDir, 'guilds', String(guildId), 'analytics');
     return listFiles(base).map(file => ({ name: path.relative(base, file).replace(/\\/g, '/'), size: fs.statSync(file).size }));
@@ -263,4 +281,4 @@ function pruneAnalytics(guildId, retentionDays = 365) {
     return removed;
 }
 
-module.exports = { MAX_SHARD_BYTES, appendEvent, extractMessageMediaUsage, getAnalyticsSummary, getMediaUsageSummary, getSoundboardSummary, getStorageDetails, parseAnalyticsRange, pruneAnalytics, readEvents, recordMessageEvent, recordModerationEvent, recordSoundboardEvent, recordVoiceEvent, summarizeMediaField, trendDetails };
+module.exports = { MAX_SHARD_BYTES, appendEvent, extractMessageMediaUsage, getAnalyticsSummary, getMediaUsageSummary, getMessageActivityHeatmap, getSoundboardSummary, getStorageDetails, parseAnalyticsRange, pruneAnalytics, readEvents, recordMessageEvent, recordModerationEvent, recordSoundboardEvent, recordVoiceEvent, summarizeMediaField, trendDetails };

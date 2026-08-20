@@ -1748,6 +1748,31 @@
             background: #17233f;
         }
 
+        .heatmap-week-label {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .heatmap-week-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .heatmap-week-controls[hidden] {
+            display: none;
+        }
+
+        .heatmap-week-controls button {
+            min-width: 36px;
+            padding: 7px 10px;
+        }
+
+        .heatmap-week-label {
+            min-width: 152px;
+            text-align: center;
+        }
+
         .file-manager-layout {
             display: grid;
             grid-template-columns: minmax(250px, .75fr) minmax(0, 2fr);
@@ -2020,9 +2045,6 @@
                     </div>
                 </div>
                 <div class="section">
-                    <div class="row"><label class="secondary" data-trigger-manager-only
-                            style="cursor:pointer">Import JSON<input id="importTriggers" type="file"
-                                accept="application/json" hidden></label></div>
                     <h2>Configured Triggers</h2>
                     <div id="triggerTable" class="table-wrap">
                         <div class="empty">Loading...</div>
@@ -2075,16 +2097,23 @@
                         <option value="30" selected>Last 30 days</option>
                         <option value="90">Last 90 days</option>
                         <option value="all">All time</option>
-                    </select></div>
+                    </select><select id="voiceGraphChannel" aria-label="Voice channel">
+                        <option value="">All channels</option>
+                    </select><select id="voiceGraphType" aria-label="Voice graph type">
+                        <option value="bar">Bars</option>
+                        <option value="line">Line</option>
+                    </select><select id="voiceHeatmapMode" aria-label="Voice heatmap period">
+                        <option value="all">Heatmap: all time</option>
+                        <option value="weekly">Heatmap: weekly</option>
+                    </select><div id="voiceHeatmapWeekControls" class="heatmap-week-controls" hidden>
+                        <button id="voiceHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
+                        <span id="voiceHeatmapWeekLabel" class="heatmap-week-label"></span>
+                        <button id="voiceHeatmapNextWeek" class="secondary" type="button" aria-label="Next week">&#8594;</button>
+                    </div></div>
                 <div class="card-grid" id="voiceCards"></div>
                 <div class="section">
                     <div class="row">
-                        <h2 style="margin:0">Voice sessions over time</h2><select id="voiceGraphChannel" aria-label="Voice channel">
-                            <option value="">All channels</option>
-                        </select><select id="voiceGraphType" aria-label="Voice graph type">
-                            <option value="bar">Bars</option>
-                            <option value="line">Line</option>
-                        </select>
+                        <h2 style="margin:0">Voice sessions over time</h2>
                     </div>
                     <p class="sub">Completed voice sessions per day.</p>
                     <div id="voiceActivityChart" class="analytics-chart"></div>
@@ -2177,7 +2206,14 @@
                     </select><select id="analyticsGraphType" aria-label="Message graph type">
                         <option value="bar">Bars</option>
                         <option value="line">Line</option>
-                    </select></div>
+                    </select><select id="messageHeatmapMode" aria-label="Message heatmap period">
+                        <option value="all">Heatmap: all time</option>
+                        <option value="weekly">Heatmap: weekly</option>
+                    </select><div id="messageHeatmapWeekControls" class="heatmap-week-controls" hidden>
+                        <button id="messageHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
+                        <span id="messageHeatmapWeekLabel" class="heatmap-week-label"></span>
+                        <button id="messageHeatmapNextWeek" class="secondary" type="button" aria-label="Next week">&#8594;</button>
+                    </div></div>
                 <div class="card-grid" id="analyticsCards"></div>
                 <div class="section">
                     <h2>Messages over time</h2>
@@ -2358,7 +2394,9 @@
                     <h2>Backup &amp; Data Tools</h2>
                     <div class="row"><button id="downloadBackup" class="secondary" type="button">Download guild
                             backup</button><button id="loadStorage" class="secondary" type="button">Storage
-                            details</button><button id="exportTriggers" class="secondary" type="button">Export triggers JSON</button></div>
+                            details</button><button id="exportTriggers" class="secondary" type="button">Export triggers JSON</button><label
+                            class="secondary" style="cursor:pointer">Import triggers JSON<input id="importTriggers"
+                                type="file" accept="application/json" hidden></label></div>
                     <p id="triggerExportStatus" class="status"></p>
                     <div id="storageDetails" class="table-wrap"></div>
                     <div class="row" style="margin-top:12px"><input id="resetDataUser" placeholder="User ID"><select
@@ -3948,6 +3986,66 @@
             container.innerHTML = `${heatmapRows}${hours}`;
         }
 
+        const heatmapWeekOffsets = { message: 0, voice: 0 };
+
+        function utcWeekRange(offset = 0) {
+            const today = new Date();
+            const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+            start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7) + offset * 7);
+            const end = new Date(start.getTime() + 7 * 86400000);
+            return { start, end };
+        }
+
+        function formatHeatmapWeek(start, end) {
+            const format = date => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+            return `${format(start)} – ${format(new Date(end.getTime() - 1))} ${start.getUTCFullYear()}`;
+        }
+
+        async function loadActivityHeatmap(kind) {
+            const isMessage = kind === 'message';
+            const mode = document.getElementById(`${kind}HeatmapMode`).value;
+            const weekControls = document.getElementById(`${kind}HeatmapWeekControls`);
+            const nextButton = document.getElementById(`${kind}HeatmapNextWeek`);
+            const params = new URLSearchParams({ activity: isMessage ? 'messages' : 'voice' });
+            const channelId = document.getElementById(isMessage ? 'analyticsChannel' : 'voiceGraphChannel').value;
+            if (channelId) params.set('channelId', channelId);
+            if (isMessage) {
+                const userId = document.getElementById('analyticsMember').value;
+                if (userId) params.set('userId', userId);
+            }
+
+            weekControls.hidden = mode !== 'weekly';
+            if (mode === 'weekly') {
+                const { start, end } = utcWeekRange(heatmapWeekOffsets[kind]);
+                params.set('from', start.toISOString());
+                params.set('to', new Date(end.getTime() - 1).toISOString());
+                document.getElementById(`${kind}HeatmapWeekLabel`).textContent = formatHeatmapWeek(start, end);
+                nextButton.disabled = heatmapWeekOffsets[kind] >= 0;
+            }
+
+            const data = await api(withGuild(`/api/activity-heatmap?${params.toString()}`));
+            renderHeatmap(`${kind}Heatmap`, data.heatmap);
+        }
+
+        function installHeatmapControls(kind) {
+            document.getElementById(`${kind}HeatmapMode`).addEventListener('change', () => {
+                heatmapWeekOffsets[kind] = 0;
+                loadActivityHeatmap(kind).catch(error => console.error(error));
+            });
+            document.getElementById(`${kind}HeatmapPreviousWeek`).addEventListener('click', () => {
+                heatmapWeekOffsets[kind]--;
+                loadActivityHeatmap(kind).catch(error => console.error(error));
+            });
+            document.getElementById(`${kind}HeatmapNextWeek`).addEventListener('click', () => {
+                if (heatmapWeekOffsets[kind] >= 0) return;
+                heatmapWeekOffsets[kind]++;
+                loadActivityHeatmap(kind).catch(error => console.error(error));
+            });
+        }
+
+        installHeatmapControls('message');
+        installHeatmapControls('voice');
+
         async function loadOverview() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/overview'));
@@ -4218,8 +4316,8 @@
             try {
                 const triggers = JSON.parse(await file.text()); if (!Array.isArray(triggers)) throw new Error('Expected a JSON array.');
                 for (const trigger of triggers) await api(withGuild('/api/triggers'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phrase: trigger.trigger, response: trigger.response, image: trigger.image }) });
-                await loadTriggers(); setStatus(document.getElementById('triggerStatus'), 'Triggers imported.', 'ok');
-            } catch (error) { setStatus(document.getElementById('triggerStatus'), error.message, 'error'); }
+                await loadTriggers(); setStatus(document.getElementById('triggerExportStatus'), 'Triggers imported.', 'ok');
+            } catch (error) { setStatus(document.getElementById('triggerExportStatus'), error.message, 'error'); }
             event.target.value = '';
         });
 
@@ -4275,7 +4373,7 @@
             ].join('');
             renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.', document.getElementById('voiceGraphType').value, 'Voice sessions');
             renderActivityChart('voiceMinutesChart', analytics.minutesOverTime, 'No voice time in this range.', document.getElementById('voiceGraphType').value, 'Voice minutes');
-            renderHeatmap('voiceHeatmap', analytics.heatmap);
+            await loadActivityHeatmap('voice');
 
             renderTable(document.getElementById('voiceActive'),
                 [
@@ -4412,7 +4510,7 @@
                 statCard('Busiest hour', busiestHour), statCard('Busiest day', comparison.busiestDay?.date || '-')
             ].join('');
             renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.', document.getElementById('analyticsGraphType').value, 'Messages');
-            renderHeatmap('messageHeatmap', data.heatmap);
+            await loadActivityHeatmap('message');
             renderTable(document.getElementById('analyticsChannels'), [{ label: 'Channel', key: 'name', render: r => `#${escapeHtml(r.name)}` }, { label: 'Messages', key: 'count' }], data.topChannels, 'No channel activity yet.');
             renderTable(document.getElementById('analyticsUsers'), [{ label: 'Member', key: 'name', render: r => escapeHtml(r.name) }, { label: 'Messages', key: 'count' }], data.topUsers, 'No member activity yet.');
         }

@@ -1629,6 +1629,26 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'GET' && requestUrl.pathname === '/api/activity-heatmap') {
+                const guildId = requireGuildId(requestUrl, res);
+                if (!guildId) return;
+                const activity = requestUrl.searchParams.get('activity');
+                const from = requestUrl.searchParams.get('from');
+                const to = requestUrl.searchParams.get('to');
+                const channelId = requestUrl.searchParams.get('channelId');
+
+                if (!['messages', 'voice'].includes(activity)) {
+                    sendJson(res, 400, { error: 'activity must be messages or voice.' });
+                    return;
+                }
+
+                const heatmap = activity === 'voice'
+                    ? voiceStore.getVoiceActivityHeatmap(guildId, from, to, channelId)
+                    : analyticsStore.getMessageActivityHeatmap(guildId, from, to, channelId, requestUrl.searchParams.get('userId'));
+                sendJson(res, 200, { heatmap });
+                return;
+            }
+
             if (req.method === 'GET' && requestUrl.pathname === '/api/analytics-summary') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;

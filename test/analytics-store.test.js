@@ -1,6 +1,29 @@
+const fs = require('fs');
+const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { extractMessageMediaUsage, summarizeMediaField, trendDetails } = require('../stores/analytics-store');
+const { appendEvent, extractMessageMediaUsage, getMessageActivityHeatmap, summarizeMediaField, trendDetails } = require('../stores/analytics-store');
+
+function cleanupGuild(guildId) {
+    fs.rmSync(path.join(__dirname, '..', 'data', 'guilds', guildId), { recursive: true, force: true });
+}
+
+test('message activity heatmap supports exact ranges and channel and member filters', () => {
+    const guildId = `test-message-heatmap-${process.pid}`;
+    cleanupGuild(guildId);
+    try {
+        appendEvent(guildId, 'messages', { at: '2026-08-17T08:15:00.000Z', channelId: 'one', userId: 'alice' });
+        appendEvent(guildId, 'messages', { at: '2026-08-17T08:45:00.000Z', channelId: 'two', userId: 'bob' });
+        appendEvent(guildId, 'messages', { at: '2026-08-10T08:15:00.000Z', channelId: 'one', userId: 'alice' });
+
+        const allTime = getMessageActivityHeatmap(guildId);
+        const selectedWeek = getMessageActivityHeatmap(guildId, '2026-08-17T00:00:00.000Z', '2026-08-23T23:59:59.999Z', 'one', 'alice');
+        assert.equal(allTime[1][8], 3);
+        assert.equal(selectedWeek[1][8], 1);
+    } finally {
+        cleanupGuild(guildId);
+    }
+});
 
 test('message media usage tracks repeated custom emojis and attached stickers', () => {
     const result = extractMessageMediaUsage({

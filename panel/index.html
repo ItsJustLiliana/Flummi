@@ -1495,11 +1495,6 @@
             opacity: .5;
         }
 
-        .tooltip-surface[data-tooltip] {
-            border-radius: 8px;
-            cursor: help;
-        }
-
         .tooltip-surface[data-disabled-by-global="true"] {
             outline: 1px dashed rgba(255, 191, 91, .36);
             outline-offset: 4px;
@@ -2100,7 +2095,9 @@
                         data-tooltip="Voice data refreshes every 5 seconds while this tab is open, so live sessions and durations stay current.">?</span>
                 </h2>
                 <p class="sub tab-intro">Live voice activity, session history, time totals, and member and channel rankings.</p>
-                <div class="row tab-controls"><label for="voiceGraphRange" style="margin:0">Period</label><select id="voiceGraphRange">
+                <div class="row tab-controls"><label for="voiceGraphRange" style="margin:0">Period <span class="help-tip" tabindex="0"
+                            data-tooltip="Controls the date range for voice totals, comparisons, charts, and rankings. Total voice time remains all-time; the heatmap has its own range control.">?</span></label><select id="voiceGraphRange">
+                        <option value="1">Last 1 day</option>
                         <option value="7">Last 7 days</option>
                         <option value="30" selected>Last 30 days</option>
                         <option value="90">Last 90 days</option>
@@ -2114,18 +2111,19 @@
                 <div class="card-grid" id="voiceCards"></div>
                 <div class="section">
                     <div class="row">
-                        <h2 style="margin:0">Voice sessions over time</h2>
+                        <h2 style="margin:0">Voice sessions over time — <span id="voiceRangeLabel">last 30 days</span></h2>
                     </div>
                     <p class="sub">Completed voice sessions per day.</p>
                     <div id="voiceActivityChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">
-                    <h2>Voice minutes over time</h2>
+                    <h2>Voice minutes over time — <span id="voiceMinutesRangeLabel">last 30 days</span></h2>
                     <div id="voiceMinutesChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">
                     <div class="row heatmap-toolbar">
-                        <h2>Voice activity by day and hour</h2>
+                        <h2>Voice activity by day and hour <span class="help-tip" tabindex="0"
+                                data-tooltip="Counts voice session starts by weekday and UTC hour. Cell intensity is scaled against the busiest cell in the selected heatmap range.">?</span></h2>
                         <div id="voiceHeatmapWeekControls" class="heatmap-week-controls" hidden>
                             <button id="voiceHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
                             <span id="voiceHeatmapWeekLabel" class="heatmap-week-label"></span>
@@ -2165,7 +2163,8 @@
                         <div id="voiceTopChannels" class="table-wrap"></div>
                     </div>
                     <div class="section">
-                        <h2>Weekly / Monthly User Totals</h2>
+                        <h2>Weekly / Monthly User Totals <span class="help-tip" tabindex="0"
+                                data-tooltip="Rolling 7-day and 31-day voice totals. They are also limited by the Period filter selected at the top of this page.">?</span></h2>
                         <div id="voiceUserTotals" class="table-wrap"></div>
                     </div>
                 </div>
@@ -2206,11 +2205,13 @@
                 <h2 style="font-size:20px;">Messages</h2>
                 <p class="sub tab-intro">Detailed, privacy-friendly message activity. Message contents are never stored—only
                     activity metadata.</p>
-                <div class="row tab-controls"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays">
-                        <option value="1">1 day</option>
-                        <option value="7">1 week</option>
-                        <option value="30" selected>1 month</option>
-                        <option value="90">3 months</option>
+                <div class="row tab-controls"><label for="analyticsDays" style="margin:0">Period <span class="help-tip" tabindex="0"
+                            data-tooltip="Controls message totals, the previous-period comparison, charts, and rankings. Total messages remains all-time; the heatmap has its own range control.">?</span></label><select id="analyticsDays">
+                        <option value="1">Last 1 day</option>
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="all">All time</option>
                     </select><select id="analyticsChannel" aria-label="Message channel">
                         <option value="">All channels</option>
                     </select><select id="analyticsMember" aria-label="Message member">
@@ -2221,12 +2222,13 @@
                     </select></div>
                 <div class="card-grid" id="analyticsCards"></div>
                 <div class="section">
-                    <h2>Messages over time</h2>
+                    <h2>Messages over time — <span id="messageRangeLabel">last 30 days</span></h2>
                     <div id="analyticsChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">
                     <div class="row heatmap-toolbar">
-                        <h2>Message activity by day and hour</h2>
+                        <h2>Message activity by day and hour <span class="help-tip" tabindex="0"
+                                data-tooltip="Counts messages by weekday and UTC hour. Cell intensity is scaled against the busiest cell in the selected heatmap range.">?</span></h2>
                         <div id="messageHeatmapWeekControls" class="heatmap-week-controls" hidden>
                             <button id="messageHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
                             <span id="messageHeatmapWeekLabel" class="heatmap-week-label"></span>
@@ -2759,8 +2761,10 @@
                 <p class="sub tab-intro">One inventory for the server's soundboard, custom emojis, and stickers. Usage is tracked
                     from when collection was enabled for each media type.</p>
                 <div class="row tab-controls">
-                    <label for="mediaRange" style="margin:0">Period</label>
+                    <label for="mediaRange" style="margin:0">Period <span class="help-tip" tabindex="0"
+                            data-tooltip="Controls tracked sound, emoji, and sticker usage plus the previous-period comparison. Total media uses remains all-time.">?</span></label>
                     <select id="mediaRange" aria-label="Media analytics range">
+                        <option value="1">Last 1 day</option>
                         <option value="7">Last 7 days</option>
                         <option value="30" selected>Last 30 days</option>
                         <option value="90">Last 90 days</option>
@@ -3289,22 +3293,22 @@
         }
 
         document.addEventListener('pointerover', event => {
-            const anchor = event.target.closest?.('[data-tooltip]');
+            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
             if (anchor) showHelpTooltip(anchor);
         });
         document.addEventListener('pointerout', event => {
-            const anchor = event.target.closest?.('[data-tooltip]');
-            const nextAnchor = event.relatedTarget?.closest?.('[data-tooltip]');
+            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
+            const nextAnchor = event.relatedTarget?.closest?.('.help-tip[data-tooltip]');
             if (nextAnchor) showHelpTooltip(nextAnchor);
             else if (anchor) hideHelpTooltip(anchor);
         });
         document.addEventListener('focusin', event => {
-            const anchor = event.target.closest?.('[data-tooltip]');
+            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
             if (anchor) showHelpTooltip(anchor);
         });
         document.addEventListener('focusout', event => {
-            const anchor = event.target.closest?.('[data-tooltip]');
-            const nextAnchor = event.relatedTarget?.closest?.('[data-tooltip]');
+            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
+            const nextAnchor = event.relatedTarget?.closest?.('.help-tip[data-tooltip]');
             if (nextAnchor) showHelpTooltip(nextAnchor);
             else if (anchor) hideHelpTooltip(anchor);
         });
@@ -3351,7 +3355,6 @@
                 if (surface) {
                     surface.classList.add('tooltip-surface');
                     surface.dataset.baseTooltip = explanation;
-                    surface.dataset.tooltip = explanation;
                 }
             }
         }
@@ -4374,22 +4377,42 @@
         }
 
         // ---------- Voice ----------
+        function analyticsRangeLabel(value) {
+            if (String(value).toLowerCase() === 'all') return 'all time';
+            const days = Math.max(1, Number(value) || 30);
+            return `last ${days} ${days === 1 ? 'day' : 'days'}`;
+        }
+
+        function periodComparison(current, previous, comparable = true) {
+            if (!comparable || previous === null || previous === undefined) return 'No comparison';
+            const currentValue = Number(current) || 0;
+            const previousValue = Number(previous) || 0;
+            if (!previousValue) return currentValue ? 'New' : '0%';
+            const percent = Math.round((currentValue - previousValue) / previousValue * 100);
+            return `${percent > 0 ? '+' : ''}${percent}%`;
+        }
+
         async function loadVoice() {
             if (!state.guildId) return;
             await ensureAnalyticsChannelFilter('voiceGraphChannel', '/api/voice-channels');
             const data = await api(withGuild('/api/voice'));
             const voiceRange = document.getElementById('voiceGraphRange').value;
             const voiceChannelId = document.getElementById('voiceGraphChannel').value;
-            const filters = [];
-            if (voiceRange !== 'all') filters.push(`from=${encodeURIComponent(new Date(Date.now() - (Number(voiceRange) || 30) * 86400000).toISOString())}`);
+            const rangeLabel = analyticsRangeLabel(voiceRange);
+            const filters = [`days=${encodeURIComponent(voiceRange)}`];
             if (voiceChannelId) filters.push(`channelId=${encodeURIComponent(voiceChannelId)}`);
-            const analytics = await api(withGuild(`/api/voice-analytics${filters.length ? `?${filters.join('&')}` : ''}`));
+            const analytics = await api(withGuild(`/api/voice-analytics?${filters.join('&')}`));
+
+            document.getElementById('voiceRangeLabel').textContent = rangeLabel;
+            document.getElementById('voiceMinutesRangeLabel').textContent = rangeLabel;
 
             document.getElementById('voiceCards').innerHTML = [
+                statCard('Total voice time', formatDuration(analytics.totalAllTimeMs || 0), 'All tracked voice time, including the current duration of active sessions.'),
+                statCard(`Voice time · ${rangeLabel}`, formatDuration(analytics.totalMs), 'Voice duration inside the selected Period. Sessions crossing the boundary contribute only the time inside that range.'),
+                statCard('Vs previous period', periodComparison(analytics.totalMs, analytics.previousTotalMs, voiceRange !== 'all'), 'Compares voice time with the immediately preceding period of equal length. All time has no previous-period comparison.'),
                 statCard('In Voice Now', data.activeSessions.length),
                 statCard('Tracked Users', data.leaderboard.length),
-                statCard('Voice Time in Range', formatDuration(analytics.totalMs)),
-                statCard('Average Session', formatDuration(analytics.averageSessionMs))
+                statCard('Average Session', formatDuration(analytics.averageSessionMs), 'Average tracked session duration within the selected Period, including active sessions so far.')
             ].join('');
             renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.', document.getElementById('voiceGraphType').value, 'Voice sessions');
             renderActivityChart('voiceMinutesChart', analytics.minutesOverTime, 'No voice time in this range.', document.getElementById('voiceGraphType').value, 'Voice minutes');
@@ -4510,6 +4533,7 @@
             if (!state.guildId) return;
             await ensureAnalyticsChannelFilter('analyticsChannel', '/api/channels');
             const days = document.getElementById('analyticsDays').value;
+            const rangeLabel = analyticsRangeLabel(days);
             const channelId = document.getElementById('analyticsChannel').value;
             const memberId = document.getElementById('analyticsMember').value;
             const filters = `${channelId ? `&channelId=${encodeURIComponent(channelId)}` : ''}${memberId ? `&userId=${encodeURIComponent(memberId)}` : ''}`;
@@ -4523,11 +4547,15 @@
             if (previousMember && data.topUsers.some(user => user.id === previousMember)) memberSelect.value = previousMember;
             const comparison = data.comparison || {};
             const busiestHour = Number.isInteger(comparison.busiestHour) ? `${String(comparison.busiestHour).padStart(2, '0')}:00 UTC` : '-';
+            document.getElementById('messageRangeLabel').textContent = rangeLabel;
             document.getElementById('analyticsCards').innerHTML = [
-                statCard('Messages', data.messageCount), statCard('Unique Authors', data.uniqueAuthors),
+                statCard('Total messages', data.totalMessageCount, 'All tracked message events matching the selected channel and member filters.'),
+                statCard(`Messages · ${rangeLabel}`, data.messageCount, 'Tracked message events inside the selected Period and active filters.'),
+                statCard('Vs previous period', periodComparison(data.messageCount, comparison.previousMessageCount, days !== 'all'), 'Compares messages with the immediately preceding period of equal length. All time has no previous-period comparison.'),
+                statCard('Unique Authors', data.uniqueAuthors, 'Distinct members who sent at least one tracked message inside the selected Period.'),
                 statCard('Attachments', data.engagement?.attachments || 0), statCard('Replies', data.engagement?.replies || 0),
-                statCard('Change vs previous', `${comparison.changePercent > 0 ? '+' : ''}${comparison.changePercent || 0}%`),
-                statCard('Busiest hour', busiestHour), statCard('Busiest day', comparison.busiestDay?.date || '-')
+                statCard('Busiest hour', busiestHour, 'The UTC hour with the most tracked messages in the selected Period.'),
+                statCard('Busiest day', comparison.busiestDay?.date || '-', 'The calendar date with the most tracked messages in the selected Period.')
             ].join('');
             renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.', document.getElementById('analyticsGraphType').value, 'Messages');
             await loadActivityHeatmap('message');
@@ -5240,7 +5268,6 @@
                 input.disabled = !on;
                 surface.style.opacity = on ? '1' : '.55';
                 surface.dataset.disabledByGlobal = String(!on);
-                surface.dataset.tooltip = tooltip;
                 surface.setAttribute('aria-disabled', String(!on));
                 const help = surface.querySelector('[data-feature-help]');
                 if (help) help.dataset.tooltip = tooltip;
@@ -5453,10 +5480,6 @@
             return `<span class="trend ${escapeHtml(status)}" title="Compared with the previous equal period">${arrow}${escapeHtml(label)}</span>`;
         }
 
-        function trendStatCard(label, value, trend) {
-            return `<div class="stat-card"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value)}</div><div class="stat-trend">vs previous period ${trendHtml(trend)}</div></div>`;
-        }
-
         function topMembersHtml(members) {
             if (!members?.length) return '<span class="muted">No usage</span>';
             return members.slice(0, 3).map(member => `${withNicknameTitle(member.label, member.nickname)} <span class="muted">(${escapeHtml(member.count)})</span>`).join('<br>');
@@ -5592,22 +5615,25 @@
         async function loadSoundboard() {
             if (!state.guildId) return;
             const range = document.getElementById('mediaRange').value || '30';
-            const rangeLabel = range === 'all' ? 'all time' : `last ${range} days`;
+            const rangeLabel = analyticsRangeLabel(range);
             const data = await api(withGuild(`/api/media?days=${encodeURIComponent(range)}`));
             const soundsById = new Map((data.sounds || []).map(sound => [sound.id, sound.name]));
             const mediaPreview = (url, name, lottieUrl = '') => `<button class="media-preview-button" type="button" data-media-preview="${escapeHtml(url)}" data-media-name="${escapeHtml(name)}"${lottieUrl ? ` data-lottie-url="${escapeHtml(lottieUrl)}"` : ''} aria-label="Enlarge ${escapeHtml(name)}"><img class="media-thumb" src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy"></button>`;
             const soundPlayer = url => `<div class="sound-player"><button class="sound-play-toggle" type="button" aria-label="Play sound">▶</button><input class="sound-progress" type="range" min="0" max="100" step="0.1" value="0" aria-label="Sound position"><span class="sound-player-time">0:00 / 0:00</span><audio preload="metadata" src="${escapeHtml(url)}"></audio></div>`;
             const created = value => value ? escapeHtml(formatDateTime(value)) : '<span class="muted">Unknown</span>';
             const capacity = value => `${Number(value?.used) || 0} / ${Number(value?.total) || 0}`;
+            const totalMediaUses = (Number(data.summary?.totalPlays) || 0) + (Number(data.mediaUsage?.totalEmojiUses) || 0) + (Number(data.mediaUsage?.totalStickerUses) || 0);
+            const rangeMediaUses = (Number(data.summary?.plays) || 0) + (Number(data.mediaUsage?.emojiUses) || 0) + (Number(data.mediaUsage?.stickerUses) || 0);
+            const previousMediaUses = (Number(data.summary?.previousPlays) || 0) + (Number(data.mediaUsage?.previousEmojiUses) || 0) + (Number(data.mediaUsage?.previousStickerUses) || 0);
             document.getElementById('soundboardRangeLabel').textContent = rangeLabel;
             document.getElementById('soundboardCards').innerHTML = [
+                statCard('Total media uses', totalMediaUses, 'All tracked soundboard plays, custom emoji uses, and sticker uses combined.'),
+                statCard(`Media uses · ${rangeLabel}`, rangeMediaUses, 'Tracked soundboard plays, custom emoji uses, and sticker uses inside the selected Period.'),
+                statCard('Vs previous period', periodComparison(rangeMediaUses, previousMediaUses, range !== 'all'), 'Compares combined media usage with the immediately preceding period of equal length. All time has no comparison.'),
                 statCard('Soundboard sounds', data.sounds?.length || 0),
-                statCard('Static emoji slots', capacity(data.capacity?.staticEmojis)),
-                statCard('Animated emoji slots', capacity(data.capacity?.animatedEmojis)),
-                statCard('Sticker slots', capacity(data.capacity?.stickers)),
-                trendStatCard(`Sound plays · ${rangeLabel}`, data.summary?.plays || 0, data.summary?.trend),
-                trendStatCard(`Emoji uses · ${rangeLabel}`, data.mediaUsage?.emojiUses || 0, data.mediaUsage?.emojiTrend),
-                trendStatCard(`Sticker uses · ${rangeLabel}`, data.mediaUsage?.stickerUses || 0, data.mediaUsage?.stickerTrend)
+                statCard('Static emoji slots', capacity(data.capacity?.staticEmojis), 'Used versus available static emoji slots for the server’s current boost tier.'),
+                statCard('Animated emoji slots', capacity(data.capacity?.animatedEmojis), 'Used versus available animated emoji slots for the server’s current boost tier.'),
+                statCard('Sticker slots', capacity(data.capacity?.stickers), 'Used versus available sticker slots for the server’s current boost tier and features.')
             ].join('');
             renderActivityChart('soundboardActivityChart', data.summary?.byDay || [], `No soundboard plays recorded for ${rangeLabel}.`, document.getElementById('mediaGraphType').value, 'Sound plays');
             renderTable(document.getElementById('soundboardTable'), [

@@ -145,7 +145,7 @@ function getSoundboardSummary(guildId, days = 30) {
     }
     const itemDetails = summarizeMediaField(allRows.map(row => ({ ...row, soundIds: row.soundId ? [row.soundId] : [] })), 'soundIds', rangeDays, now);
     return {
-        rangeDays, plays: rows.length, previousPlays: previousRows.length,
+        rangeDays, totalPlays: allRows.length, plays: rows.length, previousPlays: previousRows.length,
         trend: trendDetails(rows.length, previousRows.length, rangeDays !== null),
         averagePerDay: Math.round(rows.length / Math.max(1, graphDays) * 100) / 100,
         byDay, itemDetails,
@@ -168,6 +168,8 @@ function getMediaUsageSummary(guildId, days = 30) {
     const emojiTotals = summarize(emojis), stickerTotals = summarize(stickers);
     return {
         rangeDays,
+        totalEmojiUses: allRows.reduce((total, row) => total + (Array.isArray(row.customEmojiIds) ? row.customEmojiIds.length : 0), 0),
+        totalStickerUses: allRows.reduce((total, row) => total + (Array.isArray(row.stickerIds) ? row.stickerIds.length : 0), 0),
         emojiUses: emojiTotals.current, previousEmojiUses: emojiTotals.previous, emojiTrend: emojiTotals.trend,
         stickerUses: stickerTotals.current, previousStickerUses: stickerTotals.previous, stickerTrend: stickerTotals.trend,
         emojis, stickers
@@ -197,14 +199,21 @@ function readEvents(guildId, category, from = 0, to = Date.now()) {
 }
 
 function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null) {
-    const safeDays = Math.max(1, Number(days) || 30);
-    const from = Date.now() - safeDays * 86400000;
+    const rangeDays = parseAnalyticsRange(days);
+    const now = Date.now();
+    const from = rangeDays === null ? 0 : now - rangeDays * 86400000;
     const normalizedChannelId = channelId ? String(channelId) : null;
     const normalizedUserId = userId ? String(userId) : null;
-    const messages = readEvents(guildId, 'messages', from).filter(row => (!normalizedChannelId || row.channelId === normalizedChannelId) && (!normalizedUserId || row.userId === normalizedUserId));
+    const matchesFilters = row => (!normalizedChannelId || row.channelId === normalizedChannelId) && (!normalizedUserId || row.userId === normalizedUserId);
+    const allMessages = readEvents(guildId, 'messages', 0).filter(matchesFilters);
+    const messages = allMessages.filter(row => new Date(row.at).getTime() >= from);
     const voice = readEvents(guildId, 'voice', from);
     const moderationRows = readEvents(guildId, 'moderation', from);
-    const previousMessages = readEvents(guildId, 'messages', from - safeDays * 86400000, from - 1).filter(row => (!normalizedChannelId || row.channelId === normalizedChannelId) && (!normalizedUserId || row.userId === normalizedUserId));
+    const previousFrom = rangeDays === null ? null : from - rangeDays * 86400000;
+    const previousMessages = previousFrom === null ? [] : allMessages.filter(row => {
+        const at = new Date(row.at).getTime();
+        return at >= previousFrom && at < from;
+    });
     const byDay = new Map(), channels = new Map(), users = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
     const engagement = { attachments: 0, embeds: 0, reactions: 0, replies: 0, threads: 0 };
     for (const row of messages) {
@@ -218,8 +227,10 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
         engagement.reactions += Number(row.reactions) || 0; engagement.replies += row.hasReply ? 1 : 0; engagement.threads += row.isThread ? 1 : 0;
     }
     const dailyMessages = [];
-    for (let offset = safeDays - 1; offset >= 0; offset--) {
-        const date = new Date(Date.now() - offset * 86400000).toISOString().slice(0, 10);
+    const earliestMessageAt = messages.length ? Math.min(...messages.map(row => new Date(row.at).getTime()).filter(Number.isFinite)) : now;
+    const graphDays = rangeDays === null ? Math.max(1, Math.ceil((now - earliestMessageAt) / 86400000) + 1) : rangeDays;
+    for (let offset = graphDays - 1; offset >= 0; offset--) {
+        const date = new Date(now - offset * 86400000).toISOString().slice(0, 10);
         dailyMessages.push({ date, count: byDay.get(date) || 0 });
     }
     const moderation = { joins: 0, leaves: 0, deletedMessages: 0, roleChanges: 0, inviteUses: 0 };
@@ -233,9 +244,9 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
     const busiestDay = dailyMessages.reduce((best, row) => row.count > best.count ? row : best, { date: null, count: 0 });
     const hourlyTotals = heatmap.reduce((totals, day) => day.map((count, hour) => totals[hour] + count), Array(24).fill(0));
     const busiestHour = hourlyTotals.indexOf(Math.max(...hourlyTotals));
-    const changePercent = previousMessages.length ? Math.round((messages.length - previousMessages.length) / previousMessages.length * 100) : (messages.length ? 100 : 0);
+    const changePercent = rangeDays === null ? null : previousMessages.length ? Math.round((messages.length - previousMessages.length) / previousMessages.length * 100) : (messages.length ? null : 0);
     return {
-        periodDays: safeDays, messageCount: messages.length,
+        periodDays: rangeDays, totalMessageCount: allMessages.length, messageCount: messages.length,
         voiceEvents: voice.length, uniqueAuthors: users.size,
         dailyMessages, engagement, heatmap, moderation,
         comparison: { previousMessageCount: previousMessages.length, changePercent, busiestDay, busiestHour },

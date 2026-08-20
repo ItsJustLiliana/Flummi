@@ -111,3 +111,18 @@ test('voice store tracks join/leave durations and leaderboard', () => {
         cleanupGuild(guildId);
     }
 });
+
+test('voice analytics include active sessions and clip them to the selected range', () => {
+    const guildId = `test-live-voice-range-${process.pid}`;
+    cleanupGuild(guildId);
+    try {
+        const now = Date.now();
+        startVoiceSession({ guildId, userId: 'live', channelId: '10', channelName: 'general-vc', at: new Date(now - 10 * 60000) });
+        const inRange = getVoiceAnalytics(guildId, new Date(now - 5 * 60000).toISOString(), new Date(now).toISOString());
+        const allTime = getVoiceAnalytics(guildId);
+        assert.ok(inRange.totalMs >= 4.9 * 60000 && inRange.totalMs <= 5.1 * 60000);
+        assert.ok(allTime.totalMs >= 9.9 * 60000 && allTime.totalMs <= 10.1 * 60000);
+    } finally {
+        cleanupGuild(guildId);
+    }
+});

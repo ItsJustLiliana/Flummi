@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { appendEvent, extractMessageMediaUsage, getMessageActivityHeatmap, summarizeMediaField, trendDetails } = require('../stores/analytics-store');
+const { appendEvent, extractMessageMediaUsage, getAnalyticsSummary, getMediaUsageSummary, getMessageActivityHeatmap, getSoundboardSummary, summarizeMediaField, trendDetails } = require('../stores/analytics-store');
 
 function cleanupGuild(guildId) {
     fs.rmSync(path.join(__dirname, '..', 'data', 'guilds', guildId), { recursive: true, force: true });
@@ -20,6 +20,29 @@ test('message activity heatmap supports exact ranges and channel and member filt
         const selectedWeek = getMessageActivityHeatmap(guildId, '2026-08-17T00:00:00.000Z', '2026-08-23T23:59:59.999Z', 'one', 'alice');
         assert.equal(allTime[1][8], 3);
         assert.equal(selectedWeek[1][8], 1);
+        assert.equal(getAnalyticsSummary(guildId, 7).totalMessageCount, 3);
+        assert.equal(getAnalyticsSummary(guildId, 'all').messageCount, 3);
+    } finally {
+        cleanupGuild(guildId);
+    }
+});
+
+test('media summaries expose all-time totals independently from the selected range', () => {
+    const guildId = `test-media-totals-${process.pid}`;
+    cleanupGuild(guildId);
+    try {
+        appendEvent(guildId, 'soundboard', { at: '2026-01-01T10:00:00.000Z', soundId: 'old' });
+        appendEvent(guildId, 'soundboard', { soundId: 'new' });
+        appendEvent(guildId, 'messages', { at: '2026-01-01T10:00:00.000Z', customEmojiIds: ['1', '1'], stickerIds: ['2'] });
+        appendEvent(guildId, 'messages', { customEmojiIds: ['1'], stickerIds: [] });
+        const sounds = getSoundboardSummary(guildId, 7);
+        const media = getMediaUsageSummary(guildId, 7);
+        assert.equal(sounds.totalPlays, 2);
+        assert.equal(sounds.plays, 1);
+        assert.equal(media.totalEmojiUses, 3);
+        assert.equal(media.emojiUses, 1);
+        assert.equal(media.totalStickerUses, 1);
+        assert.equal(media.stickerUses, 0);
     } finally {
         cleanupGuild(guildId);
     }

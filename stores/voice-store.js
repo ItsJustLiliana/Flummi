@@ -371,7 +371,13 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     const start = from ? new Date(from).getTime() : 0;
     const end = to ? new Date(to).getTime() : Date.now();
     const normalizedChannelId = channelId ? String(channelId) : null;
-    const history = readEvents(guildId, 'voice').filter(row => row.action === 'session-ended' && (!normalizedChannelId || row.channelId === normalizedChannelId) && new Date(row.startedAt).getTime() <= end && new Date(row.endedAt || Date.now()).getTime() >= start);
+    const completedHistory = readEvents(guildId, 'voice').filter(row => row.action === 'session-ended' && (!normalizedChannelId || row.channelId === normalizedChannelId) && new Date(row.startedAt).getTime() <= end && new Date(row.endedAt || Date.now()).getTime() >= start);
+    const liveHistory = Object.entries(stats.activeSessions).flatMap(([userId, session]) => {
+        const startedAt = new Date(session.startedAt).getTime();
+        if ((normalizedChannelId && String(session.channelId) !== normalizedChannelId) || !Number.isFinite(startedAt) || startedAt > end || Date.now() < start) return [];
+        return [{ action: 'session-ended', userId, channelId: String(session.channelId), channelName: session.channelName, startedAt: session.startedAt, endedAt: new Date(Math.min(Date.now(), end)).toISOString() }];
+    });
+    const history = [...completedHistory, ...liveHistory];
     const channels = new Map(), users = new Map(), daily = new Map(), dailyMinutes = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
     let totalMs = 0;
     for (const row of history) {
@@ -392,7 +398,7 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
         const started = new Date(rowStart); heatmap[started.getUTCDay()][started.getUTCHours()]++;
     }
     // A group session runs from the first join until the last leave while at least one tracked user remains in a channel.
-    const events = history.flatMap(row => [{ at: new Date(row.startedAt).getTime(), kind: 'join', channelId: row.channelId, channelName: row.channelName, userId: row.userId }, { at: new Date(row.endedAt).getTime(), kind: 'leave', channelId: row.channelId, channelName: row.channelName, userId: row.userId }]).sort((a, b) => a.at - b.at || (a.kind === 'leave' ? -1 : 1));
+    const events = completedHistory.flatMap(row => [{ at: new Date(row.startedAt).getTime(), kind: 'join', channelId: row.channelId, channelName: row.channelName, userId: row.userId }, { at: new Date(row.endedAt).getTime(), kind: 'leave', channelId: row.channelId, channelName: row.channelName, userId: row.userId }]).sort((a, b) => a.at - b.at || (a.kind === 'leave' ? -1 : 1));
     const active = new Map(), sessions = [];
     for (const event of events) {
         let state = active.get(event.channelId) || { users: new Set(), startedAt: null, participants: new Set(), channelName: event.channelName };

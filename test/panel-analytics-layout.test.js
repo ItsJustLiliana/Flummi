@@ -126,11 +126,30 @@ test('Voice and Server Media use matching top-level period controls', () => {
     for (const id of ['voice', 'soundboard']) {
         const markup = tabMarkup(id);
         assert.match(markup, /class="row tab-controls"/);
-        assert.match(markup, />Period<\/label>/);
+        assert.match(markup, />Period[\s\S]*?<\/label>/);
     }
     assert.match(tabMarkup('voice'), /<option value="all">All time<\/option>/);
     assert.match(tabMarkup('soundboard'), /id="mediaGraphType"/);
     assert.match(panelHtml, /document\.getElementById\('mediaGraphType'\)\.value/);
+});
+
+test('Messages, Voice, and Server Media share total, range, and previous-period cards', () => {
+    for (const id of ['analyticsDays', 'voiceGraphRange', 'mediaRange']) {
+        const selected = panelHtml.match(new RegExp(`<select id="${id}"[\\s\\S]*?<\\/select>`))?.[0] || '';
+        assert.match(selected, /<option value="30" selected>Last 30 days<\/option>/);
+    }
+    for (const label of ['Total messages', 'Total voice time', 'Total media uses']) assert.match(panelHtml, new RegExp(label));
+    assert.match(panelHtml, /statCard\('Vs previous period'/);
+    for (const id of ['messageRangeLabel', 'voiceRangeLabel', 'voiceMinutesRangeLabel', 'soundboardRangeLabel']) assert.match(panelHtml, new RegExp(`id="${id}"`));
+});
+
+test('help tooltips activate only from their question-mark controls', () => {
+    assert.doesNotMatch(panelHtml, /surface\.dataset\.tooltip/);
+    assert.doesNotMatch(panelHtml, /closest\?\.\('\[data-tooltip\]'\)/);
+    assert.match(panelHtml, /closest\?\.\('\.help-tip\[data-tooltip\]'\)/);
+    assert.match(panelHtml, /All tracked voice time, including the current duration of active sessions/);
+    assert.match(panelHtml, /immediately preceding period of equal length/);
+    assert.match(panelHtml, /Cell intensity is scaled against the busiest cell/);
 });
 
 test('audit log renders structured setting changes in their own column', () => {

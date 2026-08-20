@@ -1575,7 +1575,20 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/voice-analytics') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
-                const analytics = voiceStore.getVoiceAnalytics(guildId, requestUrl.searchParams.get('from'), requestUrl.searchParams.get('to'), requestUrl.searchParams.get('channelId'));
+                const requestedDays = requestUrl.searchParams.get('days');
+                const channelId = requestUrl.searchParams.get('channelId');
+                const now = Date.now();
+                const rangeDays = requestedDays === null ? undefined : requestedDays.toLowerCase() === 'all' ? null : Math.min(365, Math.max(1, Number(requestedDays) || 30));
+                const span = Number.isFinite(rangeDays) ? rangeDays * 86400000 : null;
+                const from = requestedDays === null ? requestUrl.searchParams.get('from') : span === null ? null : new Date(now - span).toISOString();
+                const to = requestedDays === null ? requestUrl.searchParams.get('to') : new Date(now).toISOString();
+                const analytics = voiceStore.getVoiceAnalytics(guildId, from, to, channelId);
+                if (requestedDays !== null) {
+                    const allTime = rangeDays === null ? analytics : voiceStore.getVoiceAnalytics(guildId, null, null, channelId);
+                    const previous = span === null ? null : voiceStore.getVoiceAnalytics(guildId, new Date(now - span * 2).toISOString(), new Date(now - span - 1).toISOString(), channelId);
+                    analytics.totalAllTimeMs = allTime.totalMs;
+                    analytics.previousTotalMs = previous?.totalMs ?? null;
+                }
                 const ids = [...analytics.userTotals.map(row => row.userId), ...analytics.groupSessions.flatMap(row => row.userIds)];
                 const labels = await resolveUserLabels(ids, guildId);
                 analytics.userTotals = analytics.userTotals.map(row => ({ ...row, label: labels[row.userId]?.tag || row.userId, nickname: labels[row.userId]?.nickname || null }));
@@ -1747,7 +1760,10 @@ function createServer() {
                     })).sort((a, b) => a.name.localeCompare(b.name)),
                     summary,
                     mediaUsage: {
-                        rangeDays: mediaUsage.rangeDays, emojiUses: mediaUsage.emojiUses, stickerUses: mediaUsage.stickerUses,
+                        rangeDays: mediaUsage.rangeDays,
+                        totalEmojiUses: mediaUsage.totalEmojiUses, totalStickerUses: mediaUsage.totalStickerUses,
+                        emojiUses: mediaUsage.emojiUses, previousEmojiUses: mediaUsage.previousEmojiUses,
+                        stickerUses: mediaUsage.stickerUses, previousStickerUses: mediaUsage.previousStickerUses,
                         emojiTrend: mediaUsage.emojiTrend, stickerTrend: mediaUsage.stickerTrend
                     },
                     capacity: {
@@ -1762,7 +1778,7 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/analytics') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
-                const days = Math.min(90, Math.max(1, Number(requestUrl.searchParams.get('days')) || 30));
+                const days = requestUrl.searchParams.get('days') || '30';
                 const analytics = analyticsStore.getAnalyticsSummary(guildId, days, requestUrl.searchParams.get('channelId'), requestUrl.searchParams.get('userId'));
                 if (!['developer', 'owner', 'manager'].includes(getPanelGuildRole(panelSession, guildId))) analytics.moderation = null;
                 sendJson(res, 200, analytics);

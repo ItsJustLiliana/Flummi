@@ -4221,11 +4221,12 @@
         async function loadTriggers() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/triggers'));
+            const triggers = Array.isArray(data?.triggers) ? data.triggers : [];
             const canManageTriggers = ['developer', 'owner', 'manager'].includes(state.role);
 
             document.getElementById('triggerCards').innerHTML = [
-                statCard('Triggers', `${data.triggers.length} / ${data.limit}`),
-                statCard('Total Uses Tracked', data.triggers.reduce((sum, t) => sum + (t.uses || 0), 0))
+                statCard('Triggers', `${triggers.length} / ${data?.limit ?? 0}`),
+                statCard('Total Uses Tracked', triggers.reduce((sum, t) => sum + (t.uses || 0), 0))
             ].join('');
 
             const triggerColumns = [
@@ -4242,7 +4243,7 @@
                 { label: 'Added By', key: 'addedByLabel', render: r => withNicknameTitle(r.addedByLabel, r.addedByNickname) },
                 { label: 'Added At', key: 'addedAt', render: r => escapeHtml(formatDateTime(r.addedAt)) }
             );
-            renderTable(document.getElementById('triggerTable'), triggerColumns, data.triggers, 'No triggers configured yet.');
+            renderTable(document.getElementById('triggerTable'), triggerColumns, triggers, 'No triggers configured yet.');
 
             renderTable(document.getElementById('triggerAudit'),
                 [
@@ -4351,10 +4352,12 @@
         async function loadShots() {
             if (!state.guildId) return;
             const data = await api(withGuild(`/api/shots?scope=${shotScopeSelect.value}`));
+            const leaderboard = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
+            const audit = Array.isArray(data?.audit) ? data.audit : [];
 
             document.getElementById('shotCards').innerHTML = [
-                statCard('Tracked Users', data.leaderboard.length),
-                statCard('Highest Total', data.leaderboard[0] ? `${data.leaderboard[0].total} (${data.leaderboard[0].label})` : 'N/A')
+                statCard('Tracked Users', leaderboard.length),
+                statCard('Highest Total', leaderboard[0] ? `${leaderboard[0].total} (${leaderboard[0].label})` : 'N/A')
             ].join('');
 
             renderTable(document.getElementById('shotLeaderboard'),
@@ -4363,7 +4366,7 @@
                     { label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
                     { label: 'Total', key: 'total' }
                 ],
-                data.leaderboard, 'No shot totals recorded yet.');
+                leaderboard, 'No shot totals recorded yet.');
 
             renderTable(document.getElementById('shotAudit'),
                 [
@@ -4373,7 +4376,7 @@
                     { label: 'Target', key: 'targetLabel', render: r => withNicknameTitle(r.targetLabel, r.targetNickname) },
                     { label: 'Change', key: 'newTotal', render: r => `${escapeHtml(r.previousTotal)} \u2192 ${escapeHtml(r.newTotal)}` }
                 ],
-                data.audit, 'No shot audit entries yet.');
+                audit, 'No shot audit entries yet.');
         }
 
         // ---------- Voice ----------
@@ -4396,23 +4399,55 @@
             if (!state.guildId) return;
             await ensureAnalyticsChannelFilter('voiceGraphChannel', '/api/voice-channels');
             const data = await api(withGuild('/api/voice'));
+            const activeSessions = Array.isArray(data?.activeSessions) ? data.activeSessions : [];
+            const leaderboard = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
+            const recentHistory = (Array.isArray(data?.recentHistory) ? data.recentHistory : []).map(row => ({
+                ...row,
+                withLabels: Array.isArray(row?.withLabels) ? row.withLabels : [],
+                withNicknames: Array.isArray(row?.withNicknames) ? row.withNicknames : []
+            }));
             const voiceRange = document.getElementById('voiceGraphRange').value;
             const voiceChannelId = document.getElementById('voiceGraphChannel').value;
             const rangeLabel = analyticsRangeLabel(voiceRange);
             const filters = [`days=${encodeURIComponent(voiceRange)}`];
+            const rangeDays = voiceRange === 'all' ? null : Math.max(1, Number(voiceRange) || 30);
+            const rangeNow = Date.now();
+            if (rangeDays !== null) {
+                filters.push(`from=${encodeURIComponent(new Date(rangeNow - rangeDays * 86400000).toISOString())}`);
+                filters.push(`to=${encodeURIComponent(new Date(rangeNow).toISOString())}`);
+            }
             if (voiceChannelId) filters.push(`channelId=${encodeURIComponent(voiceChannelId)}`);
-            const analytics = await api(withGuild(`/api/voice-analytics?${filters.join('&')}`));
+            const analyticsResponse = await api(withGuild(`/api/voice-analytics?${filters.join('&')}`));
+            const analytics = {
+                ...(analyticsResponse || {}),
+                activeOverTime: Array.isArray(analyticsResponse?.activeOverTime) ? analyticsResponse.activeOverTime : [],
+                minutesOverTime: Array.isArray(analyticsResponse?.minutesOverTime) ? analyticsResponse.minutesOverTime : [],
+                topChannels: Array.isArray(analyticsResponse?.topChannels) ? analyticsResponse.topChannels : [],
+                userTotals: Array.isArray(analyticsResponse?.userTotals) ? analyticsResponse.userTotals : [],
+                groupSessions: (Array.isArray(analyticsResponse?.groupSessions) ? analyticsResponse.groupSessions : []).map(row => ({ ...row, labels: Array.isArray(row?.labels) ? row.labels : [] }))
+            };
+            if (rangeDays !== null && analytics.previousTotalMs === undefined) {
+                const span = rangeDays * 86400000;
+                const previousFilters = [
+                    `from=${encodeURIComponent(new Date(rangeNow - span * 2).toISOString())}`,
+                    `to=${encodeURIComponent(new Date(rangeNow - span - 1).toISOString())}`
+                ];
+                if (voiceChannelId) previousFilters.push(`channelId=${encodeURIComponent(voiceChannelId)}`);
+                const previous = await api(withGuild(`/api/voice-analytics?${previousFilters.join('&')}`));
+                analytics.previousTotalMs = Number(previous?.totalMs) || 0;
+            }
+            const fallbackTotalVoiceMs = leaderboard.reduce((total, row) => total + (Number(row?.totalMs) || 0), 0);
 
             document.getElementById('voiceRangeLabel').textContent = rangeLabel;
             document.getElementById('voiceMinutesRangeLabel').textContent = rangeLabel;
 
             document.getElementById('voiceCards').innerHTML = [
-                statCard('Total voice time', formatDuration(analytics.totalAllTimeMs || 0), 'All tracked voice time, including the current duration of active sessions.'),
-                statCard(`Voice time · ${rangeLabel}`, formatDuration(analytics.totalMs), 'Voice duration inside the selected Period. Sessions crossing the boundary contribute only the time inside that range.'),
+                statCard('Total voice time', formatDuration(analytics.totalAllTimeMs ?? fallbackTotalVoiceMs), 'All tracked voice time, including the current duration of active sessions.'),
+                statCard(`Voice time · ${rangeLabel}`, formatDuration(Number(analytics.totalMs) || 0), 'Voice duration inside the selected Period. Sessions crossing the boundary contribute only the time inside that range.'),
                 statCard('Vs previous period', periodComparison(analytics.totalMs, analytics.previousTotalMs, voiceRange !== 'all'), 'Compares voice time with the immediately preceding period of equal length. All time has no previous-period comparison.'),
-                statCard('In Voice Now', data.activeSessions.length),
-                statCard('Tracked Users', data.leaderboard.length),
-                statCard('Average Session', formatDuration(analytics.averageSessionMs), 'Average tracked session duration within the selected Period, including active sessions so far.')
+                statCard('In Voice Now', activeSessions.length),
+                statCard('Tracked Users', leaderboard.length),
+                statCard('Average Session', formatDuration(Number(analytics.averageSessionMs) || 0), 'Average tracked session duration within the selected Period, including active sessions so far.')
             ].join('');
             renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.', document.getElementById('voiceGraphType').value, 'Voice sessions');
             renderActivityChart('voiceMinutesChart', analytics.minutesOverTime, 'No voice time in this range.', document.getElementById('voiceGraphType').value, 'Voice minutes');
@@ -4425,7 +4460,7 @@
                     { label: 'Since', key: 'startedAt', render: r => escapeHtml(formatDateTime(r.startedAt)) },
                     { label: 'Duration', key: 'durationMs', render: r => `<span data-live-duration="${escapeHtml(r.startedAt)}"></span>` }
                 ],
-                data.activeSessions, 'Nobody is in voice right now.');
+                activeSessions, 'Nobody is in voice right now.');
 
             renderTable(document.getElementById('voiceLeaderboard'),
                 [
@@ -4433,7 +4468,7 @@
                     { label: 'Total Time', key: 'totalMs', render: r => escapeHtml(r.totalFormatted) },
                     { label: 'In Voice', key: 'inVoice', render: r => r.inVoice ? '<span class="badge on">Now</span>' : '' }
                 ],
-                data.leaderboard, 'No voice activity tracked yet.');
+                leaderboard, 'No voice activity tracked yet.');
 
             renderTable(document.getElementById('voiceHistory'),
                 [
@@ -4443,7 +4478,7 @@
                     { label: 'Duration', key: 'durationMs', render: r => escapeHtml(r.durationFormatted) },
                     { label: 'With', sortable: false, render: r => r.withLabels.length ? r.withLabels.map((label, i) => withNicknameTitle(label, r.withNicknames?.[i])).join(', ') : '<span class="muted">Alone</span>' }
                 ],
-                data.recentHistory, 'No voice sessions recorded yet.');
+                recentHistory, 'No voice sessions recorded yet.');
 
             renderTable(document.getElementById('voiceTopChannels'), [{ label: 'Channel', key: 'channelName' }, { label: 'Total', key: 'totalMs', render: r => formatDuration(r.totalMs) }, { label: 'Sessions', key: 'sessions' }], analytics.topChannels, 'No channel activity in this range.');
             renderTable(document.getElementById('voiceUserTotals'), [{ label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'Week', key: 'weeklyMs', render: r => formatDuration(r.weeklyMs) }, { label: 'Month', key: 'monthlyMs', render: r => formatDuration(r.monthlyMs) }], analytics.userTotals, 'No user activity in this range.');
@@ -4499,8 +4534,9 @@
             }
 
             const data = await api(withGuild(`/api/voice-channel-members?channelId=${encodeURIComponent(channelId)}`));
-            const activeMembers = data.members.filter(member => member.inVoice);
-            const pastMembers = data.members.filter(member => !member.inVoice);
+            const members = Array.isArray(data?.members) ? data.members : [];
+            const activeMembers = members.filter(member => member.inVoice);
+            const pastMembers = members.filter(member => !member.inVoice);
 
             renderTable(activeContainer,
                 [
@@ -4537,7 +4573,14 @@
             const channelId = document.getElementById('analyticsChannel').value;
             const memberId = document.getElementById('analyticsMember').value;
             const filters = `${channelId ? `&channelId=${encodeURIComponent(channelId)}` : ''}${memberId ? `&userId=${encodeURIComponent(memberId)}` : ''}`;
-            const data = await api(withGuild(`/api/analytics?days=${encodeURIComponent(days)}${filters}`));
+            const analyticsResponse = await api(withGuild(`/api/analytics?days=${encodeURIComponent(days)}${filters}`));
+            const data = {
+                ...(analyticsResponse || {}),
+                topUsers: Array.isArray(analyticsResponse?.topUsers) ? analyticsResponse.topUsers : [],
+                topChannels: Array.isArray(analyticsResponse?.topChannels) ? analyticsResponse.topChannels : [],
+                dailyMessages: Array.isArray(analyticsResponse?.dailyMessages) ? analyticsResponse.dailyMessages : [],
+                heatmap: Array.isArray(analyticsResponse?.heatmap) ? analyticsResponse.heatmap : []
+            };
             const memberSelect = document.getElementById('analyticsMember');
             const previousMember = memberSelect.value;
             memberSelect.innerHTML = '<option value="">All members</option>';
@@ -4549,11 +4592,13 @@
             const busiestHour = Number.isInteger(comparison.busiestHour) ? `${String(comparison.busiestHour).padStart(2, '0')}:00 UTC` : '-';
             document.getElementById('messageRangeLabel').textContent = rangeLabel;
             document.getElementById('analyticsCards').innerHTML = [
-                statCard('Total messages', data.totalMessageCount, 'All tracked message events matching the selected channel and member filters.'),
-                statCard(`Messages · ${rangeLabel}`, data.messageCount, 'Tracked message events inside the selected Period and active filters.'),
+                statCard('Total messages', data.totalMessageCount ?? data.messageCount ?? 0, 'All tracked message events matching the selected channel and member filters.'),
+                statCard(`Messages · ${rangeLabel}`, data.messageCount ?? 0, 'Tracked message events inside the selected Period and active filters.'),
                 statCard('Vs previous period', periodComparison(data.messageCount, comparison.previousMessageCount, days !== 'all'), 'Compares messages with the immediately preceding period of equal length. All time has no previous-period comparison.'),
-                statCard('Unique Authors', data.uniqueAuthors, 'Distinct members who sent at least one tracked message inside the selected Period.'),
-                statCard('Attachments', data.engagement?.attachments || 0), statCard('Replies', data.engagement?.replies || 0),
+                statCard('Unique Authors', data.uniqueAuthors ?? 0, 'Distinct members who sent at least one tracked message inside the selected Period.'),
+                statCard('Attachments', data.engagement?.attachments || 0),
+                statCard('GIFs', data.engagement?.gifs || 0, 'GIF files and recognized GIF links or embeds inside the selected Period. A link and its Discord preview count once.'),
+                statCard('Replies', data.engagement?.replies || 0),
                 statCard('Busiest hour', busiestHour, 'The UTC hour with the most tracked messages in the selected Period.'),
                 statCard('Busiest day', comparison.busiestDay?.date || '-', 'The calendar date with the most tracked messages in the selected Period.')
             ].join('');
@@ -5012,11 +5057,12 @@
 
             try {
                 const data = await api(withGuild('/api/members'));
+                const members = Array.isArray(data?.members) ? data.members : [];
                 await populateGuildUserSelects();
                 const selectedUserId = profileUserSelect.value;
                 profileUserSelect.innerHTML = '<option value="">Select a server member</option>';
 
-                for (const member of data.members) {
+                for (const member of members) {
                     const option = document.createElement('option');
                     option.value = member.id;
                     option.textContent = member.nickname
@@ -5025,7 +5071,7 @@
                     profileUserSelect.appendChild(option);
                 }
 
-                if (selectedUserId && data.members.some(member => member.id === selectedUserId)) {
+                if (selectedUserId && members.some(member => member.id === selectedUserId)) {
                     profileUserSelect.value = selectedUserId;
                 }
             } catch (error) {
@@ -5047,19 +5093,20 @@
 
             try {
                 const data = await api(withGuild('/api/members'));
-                state.guildMembers = new Map(data.members.map(member => [String(member.id), member]));
+                const members = Array.isArray(data?.members) ? data.members : [];
+                state.guildMembers = new Map(members.map(member => [String(member.id), member]));
                 const selects = Array.from(document.querySelectorAll('.guild-user-select'));
 
                 for (const select of selects) {
                     const previous = select.value;
                     select.innerHTML = '<option value="">Select a server member</option>';
-                    for (const member of data.members) {
+                    for (const member of members) {
                         const option = document.createElement('option');
                         option.value = member.id;
                         option.textContent = member.nickname ? `${member.tag} (${member.nickname})` : member.tag;
                         select.appendChild(option);
                     }
-                    if (previous && data.members.some(member => member.id === previous)) select.value = previous;
+                    if (previous && members.some(member => member.id === previous)) select.value = previous;
                 }
             } catch (error) {
                 console.warn('Could not populate guild user selectors:', error.message);
@@ -5846,12 +5893,13 @@
 
         async function loadFileDirectory(relativePath = developerFiles.directory) {
             const data = await api(`/api/developer/files/list?path=${encodeURIComponent(relativePath || '')}`);
+            const entries = Array.isArray(data?.entries) ? data.entries : [];
             developerFiles.directory = data.path || '';
             developerFiles.writeAccess = data.writeAccess || developerFiles.writeAccess;
             document.getElementById('fileBrowserPath').textContent = `/${developerFiles.directory}`;
             document.getElementById('fileUp').disabled = !developerFiles.directory;
             const container = document.getElementById('fileBrowserList');
-            container.innerHTML = data.entries.length ? data.entries.map(entry => `
+            container.innerHTML = entries.length ? entries.map(entry => `
                 <button class="file-entry ${developerFiles.selected?.path === entry.path ? 'active' : ''}" type="button"
                     data-file-path="${escapeHtml(entry.path)}" data-file-type="${entry.type}" data-file-editable="${entry.editable}">
                     <span>${entry.type === 'directory' ? '📁' : entry.editable ? '📄' : '📦'}</span>
@@ -6050,8 +6098,9 @@
             if (!query) return;
             try {
                 const data = await api(`/api/developer/files/search?q=${encodeURIComponent(query)}`);
+                const results = Array.isArray(data?.results) ? data.results : [];
                 const container = document.getElementById('fileBrowserList');
-                container.innerHTML = data.results.length ? data.results.map(result => `<button class="file-entry" type="button" data-search-path="${escapeHtml(result.path)}" data-search-editable="${result.editable}"><span>🔎</span><span>${escapeHtml(result.path)}</span></button>`).join('') : '<div class="empty">No matching files.</div>';
+                container.innerHTML = results.length ? results.map(result => `<button class="file-entry" type="button" data-search-path="${escapeHtml(result.path)}" data-search-editable="${result.editable}"><span>🔎</span><span>${escapeHtml(result.path)}</span></button>`).join('') : '<div class="empty">No matching files.</div>';
                 container.querySelectorAll('[data-search-path]').forEach(button => button.addEventListener('click', () => openDeveloperFile(button.dataset.searchPath, button.dataset.searchEditable === 'true').catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'))));
             } catch (error) { setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'); }
         });

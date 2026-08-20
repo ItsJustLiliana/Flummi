@@ -12,7 +12,7 @@ test('message activity heatmap supports exact ranges and channel and member filt
     const guildId = `test-message-heatmap-${process.pid}`;
     cleanupGuild(guildId);
     try {
-        appendEvent(guildId, 'messages', { at: '2026-08-17T08:15:00.000Z', channelId: 'one', userId: 'alice' });
+        appendEvent(guildId, 'messages', { at: '2026-08-17T08:15:00.000Z', channelId: 'one', userId: 'alice', gifs: 2 });
         appendEvent(guildId, 'messages', { at: '2026-08-17T08:45:00.000Z', channelId: 'two', userId: 'bob' });
         appendEvent(guildId, 'messages', { at: '2026-08-10T08:15:00.000Z', channelId: 'one', userId: 'alice' });
 
@@ -21,6 +21,7 @@ test('message activity heatmap supports exact ranges and channel and member filt
         assert.equal(allTime[1][8], 3);
         assert.equal(selectedWeek[1][8], 1);
         assert.equal(getAnalyticsSummary(guildId, 7).totalMessageCount, 3);
+        assert.equal(getAnalyticsSummary(guildId, 7).engagement.gifs, 2);
         assert.equal(getAnalyticsSummary(guildId, 'all').messageCount, 3);
     } finally {
         cleanupGuild(guildId);
@@ -61,8 +62,21 @@ test('message media usage tracks repeated custom emojis and attached stickers', 
 test('message media usage ignores Unicode emoji and normal text', () => {
     assert.deepEqual(extractMessageMediaUsage({ content: 'hello 👋', stickers: new Map() }), {
         customEmojiIds: [],
-        stickerIds: []
+        stickerIds: [],
+        gifs: 0
     });
+});
+
+test('message media usage counts GIF links, attachments, and embeds without double-counting previews', () => {
+    assert.equal(extractMessageMediaUsage({
+        content: 'https://tenor.com/view/party-gif-123',
+        attachments: new Map([['a', { name: 'reaction.gif', contentType: 'image/gif', url: 'https://cdn.example/reaction.gif' }]]),
+        embeds: [{ type: 'gifv', url: 'https://tenor.com/view/party-gif-123' }]
+    }).gifs, 2);
+    assert.equal(extractMessageMediaUsage({
+        content: '',
+        embeds: [{ type: 'gifv', provider: { name: 'Giphy' }, url: 'https://giphy.com/gifs/example' }]
+    }).gifs, 1);
 });
 
 test('media usage summary includes trends, first and last use, averages, and top members', () => {

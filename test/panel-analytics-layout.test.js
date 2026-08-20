@@ -152,6 +152,13 @@ test('help tooltips activate only from their question-mark controls', () => {
     assert.match(panelHtml, /Cell intensity is scaled against the busiest cell/);
 });
 
+test('analytics tabs tolerate partial API responses and expose GIF counts', () => {
+    assert.match(panelHtml, /Array\.isArray\(data\?\.activeSessions\)/);
+    assert.match(panelHtml, /Array\.isArray\(analyticsResponse\?\.topUsers\)/);
+    assert.match(panelHtml, /statCard\('GIFs', data\.engagement\?\.gifs \|\| 0/);
+    assert.match(panelHtml, /A link and its Discord preview count once/);
+});
+
 test('audit log renders structured setting changes in their own column', () => {
     assert.match(panelHtml, /\{ label: 'Changes', key: 'changes'/);
     assert.match(panelHtml, /function renderAuditChanges\(changes\)/);

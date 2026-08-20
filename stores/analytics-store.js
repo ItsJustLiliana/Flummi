@@ -39,21 +39,38 @@ function appendEvent(guildId, category, event) {
 }
 
 function extractMessageMediaUsage(message) {
+    const isGifUrl = value => {
+        try {
+            const url = new URL(String(value || ''));
+            const host = url.hostname.toLowerCase();
+            return /\.gif$/i.test(url.pathname) || host === 'tenor.com' || host.endsWith('.tenor.com') || host === 'giphy.com' || host.endsWith('.giphy.com');
+        } catch {
+            return false;
+        }
+    };
+    const values = collection => collection && typeof collection.values === 'function' ? [...collection.values()] : Array.isArray(collection) ? collection : [];
+    const attachmentGifs = values(message?.attachments).filter(attachment => String(attachment?.contentType || '').toLowerCase() === 'image/gif' || isGifUrl(attachment?.url) || isGifUrl(attachment?.proxyURL) || /\.gif$/i.test(String(attachment?.name || ''))).length;
+    const contentGifUrls = Array.from(String(message?.content || '').matchAll(/https?:\/\/[^\s<>()]+/gi), match => match[0].replace(/[.,!?;:'"]+$/, '')).filter(isGifUrl);
+    const embedGifs = contentGifUrls.length ? 0 : values(message?.embeds).filter(embed => {
+        const provider = String(embed?.provider?.name || '').toLowerCase();
+        return embed?.type === 'gifv' || provider.includes('tenor') || provider.includes('giphy') || [embed?.url, embed?.image?.url, embed?.thumbnail?.url, embed?.video?.url].some(isGifUrl);
+    }).length;
     return {
         customEmojiIds: Array.from(String(message?.content || '').matchAll(/<a?:[^:>]+:(\d+)>/g), match => match[1]),
-        stickerIds: message?.stickers ? [...message.stickers.keys()].map(String) : []
+        stickerIds: message?.stickers ? [...message.stickers.keys()].map(String) : [],
+        gifs: attachmentGifs + contentGifUrls.length + embedGifs
     };
 }
 
 function recordMessageEvent({ guildId, channelId, channelName, userId, userTag, message }) {
-    const { customEmojiIds, stickerIds } = extractMessageMediaUsage(message);
+    const { customEmojiIds, stickerIds, gifs } = extractMessageMediaUsage(message);
     return appendEvent(guildId, 'messages', {
         type: 'message', channelId: String(channelId || ''), channelName: channelName || String(channelId || ''),
         userId: String(userId || ''), userTag: userTag || String(userId || ''),
         characters: String(message?.content || '').length, attachments: message?.attachments?.size || 0,
         embeds: message?.embeds?.length || 0, reactions: message?.reactions?.cache?.size || 0,
         hasReply: Boolean(message?.reference?.messageId), isThread: Boolean(message?.channel?.isThread?.()),
-        customEmojiIds, stickerIds
+        customEmojiIds, stickerIds, gifs
     });
 }
 
@@ -215,7 +232,7 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
         return at >= previousFrom && at < from;
     });
     const byDay = new Map(), channels = new Map(), users = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
-    const engagement = { attachments: 0, embeds: 0, reactions: 0, replies: 0, threads: 0 };
+    const engagement = { attachments: 0, embeds: 0, gifs: 0, reactions: 0, replies: 0, threads: 0 };
     for (const row of messages) {
         const day = row.at.slice(0, 10); byDay.set(day, (byDay.get(day) || 0) + 1);
         const channel = channels.get(row.channelId) || { id: row.channelId, name: row.channelName, count: 0 };
@@ -224,7 +241,8 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
         user.count++; users.set(row.userId, user);
         const date = new Date(row.at); heatmap[date.getUTCDay()][date.getUTCHours()]++;
         engagement.attachments += Number(row.attachments) || 0; engagement.embeds += Number(row.embeds) || 0;
-        engagement.reactions += Number(row.reactions) || 0; engagement.replies += row.hasReply ? 1 : 0; engagement.threads += row.isThread ? 1 : 0;
+        engagement.gifs += Number(row.gifs) || 0; engagement.reactions += Number(row.reactions) || 0;
+        engagement.replies += row.hasReply ? 1 : 0; engagement.threads += row.isThread ? 1 : 0;
     }
     const dailyMessages = [];
     const earliestMessageAt = messages.length ? Math.min(...messages.map(row => new Date(row.at).getTime()).filter(Number.isFinite)) : now;

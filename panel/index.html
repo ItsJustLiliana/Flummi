@@ -723,6 +723,10 @@
             gap: 16px;
         }
 
+        .two-col.media-table-chart {
+            grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+        }
+
         @media (max-width: 1000px) {
             .layout {
                 flex-direction: column;
@@ -748,7 +752,8 @@
         }
 
         @media (max-width: 860px) {
-            .two-col {
+            .two-col,
+            .two-col.media-table-chart {
                 grid-template-columns: 1fr;
             }
         }
@@ -1052,7 +1057,26 @@
             object-fit: contain;
             border: 1px solid var(--border);
             border-radius: 9px;
-            background: rgba(255, 255, 255, .045);
+            background-color: rgba(255, 255, 255, .045);
+            background-image: linear-gradient(45deg, rgba(255,255,255,.07) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.07) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,.07) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.07) 75%);
+            background-size: 14px 14px;
+            background-position: 0 0, 0 7px, 7px -7px, -7px 0;
+            transition: transform .16s ease, border-color .16s ease;
+        }
+
+        button.media-preview-button {
+            display: block;
+            min-height: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            cursor: zoom-in;
+        }
+
+        button.media-preview-button:hover .media-thumb,
+        button.media-preview-button:focus-visible .media-thumb {
+            transform: scale(1.08);
+            border-color: var(--accent);
         }
 
         .media-name {
@@ -1067,10 +1091,39 @@
             overflow-wrap: anywhere;
         }
 
-        .sound-preview {
-            width: min(250px, 42vw);
-            height: 34px;
-            vertical-align: middle;
+        .sound-player {
+            display: grid;
+            grid-template-columns: 34px minmax(95px, 1fr) 72px;
+            gap: 9px;
+            align-items: center;
+            width: min(270px, 48vw);
+            padding: 6px 9px;
+            border: 1px solid rgba(117, 207, 255, .2);
+            border-radius: 999px;
+            background: linear-gradient(135deg, rgba(78, 107, 255, .13), rgba(117, 207, 255, .06));
+        }
+
+        .sound-player button {
+            width: 32px;
+            min-height: 32px;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4e6bff, #75cfff);
+            color: #fff;
+        }
+
+        .sound-player input[type="range"] {
+            width: 100%;
+            min-width: 70px;
+            accent-color: #75cfff;
+        }
+
+        .sound-player-time {
+            color: var(--muted);
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+            text-align: right;
         }
 
         .category-chart {
@@ -1104,6 +1157,149 @@
         .category-chart-value {
             color: var(--muted);
             text-align: right;
+        }
+
+        .media-range-bar,
+        .media-view-toggle {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .media-range-bar {
+            justify-content: space-between;
+            margin: 12px 0 16px;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(14, 26, 54, .72);
+        }
+
+        .media-range-bar select {
+            width: auto;
+            min-width: 130px;
+        }
+
+        .media-view-toggle {
+            margin: 10px 0;
+        }
+
+        .media-view-toggle button.active {
+            border-color: var(--accent);
+            color: #fff;
+            background: rgba(117, 207, 255, .13);
+        }
+
+        .media-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+            gap: 10px;
+        }
+
+        .media-gallery-card {
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .025);
+        }
+
+        .media-gallery-card .media-thumb {
+            width: 100%;
+            height: 104px;
+        }
+
+        .media-gallery-card strong,
+        .media-gallery-card small {
+            display: block;
+            margin-top: 7px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-gallery-card small {
+            color: var(--muted);
+        }
+
+        .trend {
+            display: inline-block;
+            margin-left: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .trend.up { color: var(--ok); }
+        .trend.down { color: var(--danger); }
+        .trend.flat, .trend.unavailable { color: var(--muted); }
+        .trend.new { color: var(--accent); }
+
+        .stat-trend {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .media-preview-error {
+            display: grid;
+            place-items: center;
+            min-width: 92px;
+            min-height: 44px;
+            padding: 6px;
+            border: 1px dashed rgba(255, 77, 109, .42);
+            border-radius: 9px;
+            color: #ff9aae;
+            font-size: 11px;
+            text-align: center;
+        }
+
+        .media-lightbox {
+            width: min(560px, calc(100vw - 32px));
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: #0d1730;
+            color: var(--text);
+        }
+
+        .media-lightbox::backdrop {
+            background: rgba(3, 8, 20, .82);
+            backdrop-filter: blur(5px);
+        }
+
+        .media-lightbox-body {
+            position: relative;
+            display: grid;
+            place-items: center;
+            min-height: 360px;
+            padding: 54px 28px 28px;
+            background-color: #0d1730;
+            background-image: linear-gradient(45deg, rgba(255,255,255,.035) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.035) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,.035) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.035) 75%);
+            background-size: 22px 22px;
+            background-position: 0 0, 0 11px, 11px -11px, -11px 0;
+        }
+
+        .media-lightbox img {
+            width: min(400px, 75vw);
+            height: min(400px, 60vh);
+            object-fit: contain;
+        }
+
+        .media-lightbox-lottie {
+            width: min(400px, 75vw);
+            height: min(400px, 60vh);
+        }
+
+        .media-lightbox-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+        }
+
+        .media-lightbox-name {
+            margin: 14px 0 0;
+            font-weight: 700;
         }
 
         .badge.user {
@@ -2282,18 +2478,21 @@
 
             <section id="tab-soundboard" class="tab-panel">
                 <h2 style="font-size:20px;">Server Media</h2>
-                <p class="sub">One inventory for the server's soundboard, custom emojis, and stickers. Sound plays are
-                    tracked from the point analytics collection was enabled.</p>
+                <p class="sub">One inventory for the server's soundboard, custom emojis, and stickers. Usage is tracked
+                    from the point collection was enabled for each media type.</p>
+                <div class="media-range-bar">
+                    <span><strong>Analytics range</strong><br><span class="sub">Applies to every graph, usage count, average, and trend below.</span></span>
+                    <select id="mediaRange" aria-label="Media analytics range">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="all">All time</option>
+                    </select>
+                </div>
                 <div id="soundboardCards" class="card-grid"></div>
-                <div class="two-col">
-                    <div class="section">
-                        <h2>Media inventory</h2>
-                        <div id="mediaInventoryChart" class="category-chart"></div>
-                    </div>
-                    <div class="section">
-                        <h2>Soundboard activity — last 30 days</h2>
-                        <div id="soundboardActivityChart" class="analytics-chart"></div>
-                    </div>
+                <div class="section">
+                    <h2>Soundboard activity — <span id="soundboardRangeLabel">last 30 days</span></h2>
+                    <div id="soundboardActivityChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">
                     <h2>Soundboard sounds</h2>
@@ -2314,15 +2513,31 @@
                     <h2>Most active listeners</h2>
                     <div id="soundboardTopUsers" class="table-wrap"></div>
                 </div>
-                <div class="section">
-                    <h2>Custom emojis</h2>
-                    <p class="sub">Static and animated emoji previews, availability, restrictions, and creation details.</p>
-                    <div id="emojiTable" class="table-wrap"></div>
+                <div class="two-col media-table-chart">
+                    <div class="section">
+                        <h2>Custom emojis</h2>
+                        <p class="sub">Click an emoji to enlarge it.</p>
+                        <div class="media-view-toggle" data-view-toggle="emoji"><button class="secondary active" type="button" data-media-view="emoji" data-view-mode="table">Table</button><button class="secondary" type="button" data-media-view="emoji" data-view-mode="gallery">Gallery</button></div>
+                        <div id="emojiTable" class="table-wrap"></div>
+                        <div id="emojiGallery" class="media-gallery" hidden></div>
+                    </div>
+                    <div class="section">
+                        <h2>Most used emojis</h2>
+                        <div id="emojiUsageChart" class="category-chart"></div>
+                    </div>
                 </div>
-                <div class="section">
-                    <h2>Stickers</h2>
-                    <p class="sub">Sticker artwork and metadata. Lottie stickers link to their source because browsers cannot render the JSON animation in an image element.</p>
-                    <div id="stickerTable" class="table-wrap"></div>
+                <div class="two-col media-table-chart">
+                    <div class="section">
+                        <h2>Stickers</h2>
+                        <p class="sub">Click a sticker to enlarge it. Animated formats play in the enlarged preview.</p>
+                        <div class="media-view-toggle" data-view-toggle="sticker"><button class="secondary active" type="button" data-media-view="sticker" data-view-mode="table">Table</button><button class="secondary" type="button" data-media-view="sticker" data-view-mode="gallery">Gallery</button></div>
+                        <div id="stickerTable" class="table-wrap"></div>
+                        <div id="stickerGallery" class="media-gallery" hidden></div>
+                    </div>
+                    <div class="section">
+                        <h2>Most used stickers</h2>
+                        <div id="stickerUsageChart" class="category-chart"></div>
+                    </div>
                 </div>
             </section>
 
@@ -2434,6 +2649,7 @@
             aria-label="Close navigation"></button>
     </div>
 
+    <script src="/vendor/lottie.min.js"></script>
     <script>
         const state = {
             guildId: null,
@@ -2872,6 +3088,9 @@
             users: 'This tab does not refresh automatically, so your permission edits and selected member are not interrupted. Use Refresh when you want current data.',
             settings: 'This tab does not refresh automatically, so unsaved settings are never overwritten. Use Refresh to reload saved values.',
             messenger: 'This tab does not refresh automatically while you are composing a message. Use Refresh to reload available channels.',
+            triggers: 'This tab does not refresh automatically, so trigger drafts and edits are never overwritten. Use Refresh to reload saved triggers.',
+            profiles: 'This tab does not refresh automatically, so unsaved profile fields are never overwritten. Use Refresh to reload profile data.',
+            ai: 'This tab does not refresh automatically, so AI settings and panel navigation edits are never overwritten. Use Refresh to reload saved values.',
             experiments: 'This tab does not refresh automatically, so a pending experiment is not overwritten before you apply it.',
             reliability: 'This tab refreshes every 20 seconds while open. Its automatic Discord gateway and API checks update every 30 seconds.',
             logs: 'This tab refreshes every 20 seconds while open. Use Refresh now immediately after reproducing an error.',
@@ -3192,11 +3411,33 @@
             refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
         });
 
+        // Passive refreshes must never redraw tabs that contain unsaved editors. The short
+        // interaction grace period also prevents a background redraw while someone is using
+        // filters, search fields, players, or pagination elsewhere in the panel.
+        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'triggers', 'users', 'settings', 'profiles', 'ai', 'experiments']);
+        let lastPanelInteractionAt = 0;
+
+        function shouldSkipPassiveRefresh(tab = activeTab()) {
+            if (tabsExcludedFromAutoRefresh.has(tab)) return true;
+            const activePanel = document.getElementById(`tab-${tab}`);
+            const focusedControl = activePanel?.contains(document.activeElement)
+                && document.activeElement?.matches?.('input, select, textarea, button, [contenteditable="true"]');
+            return focusedControl || Date.now() - lastPanelInteractionAt < 15000 || Boolean(document.querySelector('dialog[open]'));
+        }
+
+        for (const eventName of ['input', 'change', 'pointerdown']) {
+            document.addEventListener(eventName, event => {
+                if (event.target.closest?.('.tab-panel.active') && event.target.closest?.('input, select, textarea, button, [contenteditable="true"]')) {
+                    lastPanelInteractionAt = Date.now();
+                }
+            }, true);
+        }
+
         let chartResizeTimer;
         window.addEventListener('resize', () => {
             clearTimeout(chartResizeTimer);
             chartResizeTimer = setTimeout(() => {
-                if (state.guildId) refreshActiveTab().catch(error => console.error(error));
+                if (state.guildId && !shouldSkipPassiveRefresh()) refreshActiveTab().catch(error => console.error(error));
             }, 120);
         });
 
@@ -3204,7 +3445,6 @@
         // Voice activity changes constantly, so it gets a much faster refresh than the rest.
         const AUTO_REFRESH_MS = 20000;
         const TAB_REFRESH_OVERRIDES = { voice: 5000 };
-        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'settings', 'users', 'experiments']);
         let autoRefreshBusy = false;
         let lastAutoRefreshAt = 0;
 
@@ -3215,7 +3455,7 @@
 
             const tab = activeTab();
 
-            if (tabsExcludedFromAutoRefresh.has(tab)) {
+            if (shouldSkipPassiveRefresh(tab)) {
                 return;
             }
 
@@ -4821,41 +5061,188 @@
             `;
         }
 
+        function formatAudioTime(seconds) {
+            const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+            return `${Math.floor(safe / 60)}:${String(Math.floor(safe % 60)).padStart(2, '0')}`;
+        }
+
+        let activeLottieAnimation = null;
+        const mediaViewModes = { emoji: 'table', sticker: 'table' };
+
+        function trendHtml(trend) {
+            const status = trend?.status || 'unavailable';
+            const label = status === 'new' ? 'New' : status === 'unavailable' ? 'No comparison' : `${Number(trend?.percent || 0) > 0 ? '+' : ''}${Number(trend?.percent || 0)}%`;
+            const arrow = status === 'up' ? '↑ ' : status === 'down' ? '↓ ' : '';
+            return `<span class="trend ${escapeHtml(status)}" title="Compared with the previous equal period">${arrow}${escapeHtml(label)}</span>`;
+        }
+
+        function trendStatCard(label, value, trend) {
+            return `<div class="stat-card"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value)}</div><div class="stat-trend">vs previous period ${trendHtml(trend)}</div></div>`;
+        }
+
+        function topMembersHtml(members) {
+            if (!members?.length) return '<span class="muted">No usage</span>';
+            return members.slice(0, 3).map(member => `${withNicknameTitle(member.label, member.nickname)} <span class="muted">(${escapeHtml(member.count)})</span>`).join('<br>');
+        }
+
+        function applyMediaView(kind, mode) {
+            mediaViewModes[kind] = mode;
+            document.getElementById(`${kind}Table`).hidden = mode !== 'table';
+            document.getElementById(`${kind}Gallery`).hidden = mode !== 'gallery';
+            document.querySelectorAll(`[data-media-view="${kind}"]`).forEach(button => button.classList.toggle('active', button.dataset.viewMode === mode));
+        }
+
+        function renderMediaGallery(containerId, rows, kind, mediaPreview) {
+            const container = document.getElementById(containerId);
+            if (!rows?.length) { container.innerHTML = `<div class="empty">No ${escapeHtml(kind)}s found.</div>`; return; }
+            container.innerHTML = rows.map(row => `<article class="media-gallery-card">
+                ${mediaPreview(row.previewUrl || row.url, row.name, row.lottieUrl)}
+                <strong>${escapeHtml(row.name)}</strong>
+                <small>${escapeHtml(row.uses)} uses · ${escapeHtml(row.averagePerDay)} / day</small>
+                <small>${trendHtml(row.trend)}</small>
+            </article>`).join('');
+        }
+
+        function updateSoundPlayer(audio) {
+            const player = audio.closest('.sound-player');
+            if (!player) return;
+            const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+            player.querySelector('.sound-progress').value = duration ? String(audio.currentTime / duration * 100) : '0';
+            player.querySelector('.sound-player-time').textContent = `${formatAudioTime(audio.currentTime)} / ${formatAudioTime(duration)}`;
+            const button = player.querySelector('.sound-play-toggle');
+            button.textContent = audio.paused ? '▶' : '❚❚';
+            button.setAttribute('aria-label', audio.paused ? 'Play sound' : 'Pause sound');
+        }
+
+        document.addEventListener('click', event => {
+            const preview = event.target.closest('[data-media-preview]');
+            if (preview) {
+                const dialog = document.getElementById('mediaLightbox');
+                const image = document.getElementById('mediaLightboxImage');
+                const lottieContainer = document.getElementById('mediaLightboxLottie');
+                document.getElementById('mediaLightboxError').hidden = true;
+                if (activeLottieAnimation) { activeLottieAnimation.destroy(); activeLottieAnimation = null; }
+                image.hidden = Boolean(preview.dataset.lottieUrl);
+                lottieContainer.hidden = !preview.dataset.lottieUrl;
+                if (preview.dataset.lottieUrl && window.lottie) {
+                    lottieContainer.replaceChildren();
+                    activeLottieAnimation = window.lottie.loadAnimation({ container: lottieContainer, renderer: 'svg', loop: true, autoplay: true, path: preview.dataset.lottieUrl });
+                    activeLottieAnimation.addEventListener('data_failed', () => {
+                        lottieContainer.hidden = true;
+                        document.getElementById('mediaLightboxError').hidden = false;
+                    });
+                } else {
+                    image.hidden = false;
+                    lottieContainer.hidden = true;
+                    image.src = preview.dataset.mediaPreview;
+                    image.alt = preview.dataset.mediaName || 'Media preview';
+                }
+                document.getElementById('mediaLightboxName').textContent = preview.dataset.mediaName || '';
+                dialog.showModal();
+                return;
+            }
+            if (event.target.id === 'mediaLightbox') {
+                event.target.close();
+                return;
+            }
+            const viewButton = event.target.closest('[data-media-view]');
+            if (viewButton) {
+                applyMediaView(viewButton.dataset.mediaView, viewButton.dataset.viewMode);
+                return;
+            }
+            const playButton = event.target.closest('.sound-play-toggle');
+            if (!playButton) return;
+            const audio = playButton.closest('.sound-player')?.querySelector('audio');
+            if (!audio) return;
+            document.querySelectorAll('.sound-player audio').forEach(other => { if (other !== audio) other.pause(); });
+            if (audio.paused) audio.play().catch(() => {}); else audio.pause();
+            updateSoundPlayer(audio);
+        });
+
+        document.addEventListener('input', event => {
+            if (!event.target.matches('.sound-progress')) return;
+            const audio = event.target.closest('.sound-player')?.querySelector('audio');
+            if (audio && Number.isFinite(audio.duration)) audio.currentTime = Number(event.target.value) / 100 * audio.duration;
+        });
+
+        for (const audioEvent of ['loadedmetadata', 'timeupdate', 'play', 'pause', 'ended']) {
+            document.addEventListener(audioEvent, event => {
+                if (event.target.matches('.sound-player audio')) updateSoundPlayer(event.target);
+            }, true);
+        }
+
+        document.addEventListener('error', event => {
+            if (event.target.matches('.media-thumb')) {
+                const button = event.target.closest('.media-preview-button');
+                event.target.hidden = true;
+                button.disabled = true;
+                button.insertAdjacentHTML('beforeend', '<span class="media-preview-error">Preview unavailable</span>');
+            } else if (event.target.id === 'mediaLightboxImage') {
+                event.target.hidden = true;
+                document.getElementById('mediaLightboxError').hidden = false;
+            } else if (event.target.matches('.sound-player audio')) {
+                const player = event.target.closest('.sound-player');
+                player.querySelector('button').disabled = true;
+                player.querySelector('.sound-player-time').textContent = 'Unavailable';
+            }
+        }, true);
+
+        document.addEventListener('close', event => {
+            if (event.target.id === 'mediaLightbox' && activeLottieAnimation) {
+                activeLottieAnimation.destroy();
+                activeLottieAnimation = null;
+            }
+        }, true);
+
+        function renderMediaUsageChart(containerId, rows, emptyMessage) {
+            const container = document.getElementById(containerId);
+            const values = [...(rows || [])].filter(row => row.uses > 0).sort((a, b) => b.uses - a.uses).slice(0, 10);
+            if (!values.length) {
+                container.innerHTML = `<div class="empty">${escapeHtml(emptyMessage)}</div>`;
+                return;
+            }
+            const maximum = Math.max(1, ...values.map(row => row.uses));
+            container.innerHTML = values.map(row => `
+                <div class="category-chart-row" title="${escapeHtml(row.name)}: ${escapeHtml(row.uses)} uses">
+                    <strong>${escapeHtml(row.name)}</strong>
+                    <div class="category-chart-track" role="img" aria-label="${escapeHtml(row.name)}: ${escapeHtml(row.uses)} uses">
+                        <div class="category-chart-fill" style="width:${Math.max(3, row.uses / maximum * 100)}%"></div>
+                    </div>
+                    <span class="category-chart-value">${escapeHtml(row.uses)}</span>
+                </div>`).join('');
+        }
+
         async function loadSoundboard() {
             if (!state.guildId) return;
-            const data = await api(withGuild('/api/media?days=30'));
+            const range = document.getElementById('mediaRange').value || '30';
+            const rangeLabel = range === 'all' ? 'all time' : `last ${range} days`;
+            const data = await api(withGuild(`/api/media?days=${encodeURIComponent(range)}`));
             const soundsById = new Map((data.sounds || []).map(sound => [sound.id, sound.name]));
-            const mediaPreview = (url, name) => `<img class="media-thumb" src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy">`;
-            const availability = value => value === false ? '<span class="badge off">No</span>' : '<span class="badge on">Yes</span>';
+            const mediaPreview = (url, name, lottieUrl = '') => `<button class="media-preview-button" type="button" data-media-preview="${escapeHtml(url)}" data-media-name="${escapeHtml(name)}"${lottieUrl ? ` data-lottie-url="${escapeHtml(lottieUrl)}"` : ''} aria-label="Enlarge ${escapeHtml(name)}"><img class="media-thumb" src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy"></button>`;
+            const soundPlayer = url => `<div class="sound-player"><button class="sound-play-toggle" type="button" aria-label="Play sound">▶</button><input class="sound-progress" type="range" min="0" max="100" step="0.1" value="0" aria-label="Sound position"><span class="sound-player-time">0:00 / 0:00</span><audio preload="metadata" src="${escapeHtml(url)}"></audio></div>`;
             const created = value => value ? escapeHtml(formatDateTime(value)) : '<span class="muted">Unknown</span>';
+            const capacity = value => `${Number(value?.used) || 0} / ${Number(value?.total) || 0}`;
+            document.getElementById('soundboardRangeLabel').textContent = rangeLabel;
             document.getElementById('soundboardCards').innerHTML = [
                 statCard('Soundboard sounds', data.sounds?.length || 0),
-                statCard('Custom emojis', data.emojis?.length || 0),
-                statCard('Stickers', data.stickers?.length || 0),
-                statCard('Sound plays · 30 days', data.summary?.plays || 0)
+                statCard('Static emoji slots', capacity(data.capacity?.staticEmojis)),
+                statCard('Animated emoji slots', capacity(data.capacity?.animatedEmojis)),
+                statCard('Sticker slots', capacity(data.capacity?.stickers)),
+                trendStatCard(`Sound plays · ${rangeLabel}`, data.summary?.plays || 0, data.summary?.trend),
+                trendStatCard(`Emoji uses · ${rangeLabel}`, data.mediaUsage?.emojiUses || 0, data.mediaUsage?.emojiTrend),
+                trendStatCard(`Sticker uses · ${rangeLabel}`, data.mediaUsage?.stickerUses || 0, data.mediaUsage?.stickerTrend)
             ].join('');
-            const inventory = [
-                { label: 'Soundboard', count: data.sounds?.length || 0 },
-                { label: 'Custom emojis', count: data.emojis?.length || 0 },
-                { label: 'Stickers', count: data.stickers?.length || 0 }
-            ];
-            const inventoryMaximum = Math.max(1, ...inventory.map(row => row.count));
-            document.getElementById('mediaInventoryChart').innerHTML = inventory.map(row => `
-                <div class="category-chart-row" title="${escapeHtml(row.label)}: ${escapeHtml(row.count)}">
-                    <strong>${escapeHtml(row.label)}</strong>
-                    <div class="category-chart-track" role="img" aria-label="${escapeHtml(row.label)}: ${escapeHtml(row.count)}">
-                        <div class="category-chart-fill" style="width:${Math.max(row.count ? 3 : 0, row.count / inventoryMaximum * 100)}%"></div>
-                    </div>
-                    <span class="category-chart-value">${escapeHtml(row.count)}</span>
-                </div>`).join('');
-            renderActivityChart('soundboardActivityChart', data.summary?.byDay || [], 'No soundboard plays recorded in the last 30 days.', 'bar', 'Sound plays');
+            renderActivityChart('soundboardActivityChart', data.summary?.byDay || [], `No soundboard plays recorded for ${rangeLabel}.`, 'bar', 'Sound plays');
             renderTable(document.getElementById('soundboardTable'), [
-                { label: 'Sound', key: 'name', render: r => `<div class="media-name">${r.emojiUrl ? mediaPreview(r.emojiUrl, '') : `<span style="font-size:24px">${escapeHtml(r.emoji || '🔊')}</span>`}<strong>${escapeHtml(r.name)}</strong></div>` },
-                { label: 'Preview', sortable: false, render: r => `<audio class="sound-preview" controls preload="none" src="${escapeHtml(r.url)}">Audio preview unavailable.</audio>` },
+                { label: 'Sound', key: 'name', render: r => `<div class="media-name">${r.emojiUrl ? mediaPreview(r.emojiUrl, r.emoji || r.name) : `<span style="font-size:24px">${escapeHtml(r.emoji || '🔊')}</span>`}<strong>${escapeHtml(r.name)}</strong></div>` },
+                { label: 'Preview', sortable: false, render: r => soundPlayer(r.url) },
                 { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
                 { label: 'Volume', key: 'volume', render: r => `${Math.round((r.volume ?? 1) * 100)}%` },
                 { label: 'Plays', key: 'uses' },
-                { label: 'Available', key: 'available', render: r => availability(r.available) },
+                { label: 'Trend', sortValue: r => r.trend?.percent, render: r => trendHtml(r.trend) },
+                { label: 'First used', key: 'firstUsed', render: r => created(r.firstUsed) },
+                { label: 'Last used', key: 'lastUsed', render: r => created(r.lastUsed) },
+                { label: 'Avg/day', key: 'averagePerDay' },
                 { label: 'Creator', key: 'creator', render: r => escapeHtml(r.creator || 'Unknown') },
                 { label: 'Created', key: 'createdAt', render: r => created(r.createdAt) }
             ], data.sounds, 'No guild soundboard sounds found.');
@@ -4866,23 +5253,40 @@
                 { label: 'Emoji', key: 'name', render: r => `<div class="media-name">${mediaPreview(r.url, `:${r.name}:`)}<strong>:${escapeHtml(r.name)}:</strong></div>` },
                 { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
                 { label: 'Type', key: 'animated', render: r => r.animated ? '<span class="badge manager">Animated</span>' : 'Static' },
-                { label: 'Available', key: 'available', render: r => availability(r.available) },
-                { label: 'Managed', key: 'managed', render: r => r.managed ? 'Yes' : 'No' },
-                { label: 'Role restrictions', key: 'roleCount', render: r => r.roleCount ? `${escapeHtml(r.roleCount)} role${r.roleCount === 1 ? '' : 's'}` : 'Everyone' },
+                { label: 'Uses', key: 'uses' },
+                { label: 'Trend', sortValue: r => r.trend?.percent, render: r => trendHtml(r.trend) },
+                { label: 'First used', key: 'firstUsed', render: r => created(r.firstUsed) },
+                { label: 'Last used', key: 'lastUsed', render: r => created(r.lastUsed) },
+                { label: 'Avg/day', key: 'averagePerDay' },
+                { label: 'Top members', sortable: false, render: r => topMembersHtml(r.topMembers) },
                 { label: 'Creator', key: 'creator', render: r => escapeHtml(r.creator || 'Unknown') },
                 { label: 'Created', key: 'createdAt', render: r => created(r.createdAt) }
             ], data.emojis || [], 'No custom emojis found.');
+            renderMediaUsageChart('emojiUsageChart', data.emojis, 'No emoji usage recorded yet.');
+            renderMediaGallery('emojiGallery', data.emojis, 'emoji', mediaPreview);
+            applyMediaView('emoji', mediaViewModes.emoji);
             renderTable(document.getElementById('stickerTable'), [
-                { label: 'Sticker', key: 'name', render: r => `<div class="media-name">${r.formatName === 'Lottie' ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">Lottie source</a>` : mediaPreview(r.url, r.name)}<strong>${escapeHtml(r.name)}</strong></div>` },
+                { label: 'Sticker', key: 'name', render: r => `<div class="media-name">${mediaPreview(r.previewUrl, r.name, r.lottieUrl)}<strong>${escapeHtml(r.name)}</strong></div>` },
                 { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
                 { label: 'Format', key: 'formatName' },
-                { label: 'Description', key: 'description', render: r => escapeHtml(r.description || '—') },
                 { label: 'Related emoji', key: 'tags', render: r => escapeHtml(r.tags || '—') },
-                { label: 'Available', key: 'available', render: r => availability(r.available) },
+                { label: 'Uses', key: 'uses' },
+                { label: 'Trend', sortValue: r => r.trend?.percent, render: r => trendHtml(r.trend) },
+                { label: 'First used', key: 'firstUsed', render: r => created(r.firstUsed) },
+                { label: 'Last used', key: 'lastUsed', render: r => created(r.lastUsed) },
+                { label: 'Avg/day', key: 'averagePerDay' },
+                { label: 'Top members', sortable: false, render: r => topMembersHtml(r.topMembers) },
                 { label: 'Creator', key: 'creator', render: r => escapeHtml(r.creator || 'Unknown') },
                 { label: 'Created', key: 'createdAt', render: r => created(r.createdAt) }
             ], data.stickers || [], 'No guild stickers found.');
+            renderMediaUsageChart('stickerUsageChart', data.stickers, 'No sticker usage recorded yet.');
+            renderMediaGallery('stickerGallery', data.stickers, 'sticker', mediaPreview);
+            applyMediaView('sticker', mediaViewModes.sticker);
         }
+
+        document.getElementById('mediaRange').addEventListener('change', () => {
+            loadSoundboard().catch(error => handleUiError(error, () => loadSoundboard().catch(handleUiError)));
+        });
 
         async function loadReliability() {
             if (!state.guildId) return;
@@ -5115,6 +5519,16 @@
             <p id="confirmDialogMessage" class="sub"></p>
             <div class="actions"><button id="confirmDialogCancel" class="secondary" type="button">Cancel</button><button
                     id="confirmDialogAccept" class="danger" type="button">Confirm</button></div>
+        </div>
+    </dialog>
+    <dialog id="mediaLightbox" class="media-lightbox">
+        <div class="media-lightbox-body">
+            <button class="media-lightbox-close secondary" type="button" aria-label="Close preview"
+                onclick="this.closest('dialog').close()">Close</button>
+            <img id="mediaLightboxImage" alt="">
+            <div id="mediaLightboxLottie" class="media-lightbox-lottie" hidden></div>
+            <div id="mediaLightboxError" class="media-preview-error" hidden>Preview unavailable</div>
+            <p id="mediaLightboxName" class="media-lightbox-name"></p>
         </div>
     </dialog>
 </body>

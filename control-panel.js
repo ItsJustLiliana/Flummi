@@ -37,6 +37,7 @@ const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
 const faviconPath = path.join(__dirname, 'panel', 'favicon.png');
 const brandingDir = path.join(__dirname, 'assets', 'branding');
+const lottiePlayerPath = path.join(__dirname, 'node_modules', 'lottie-web', 'build', 'player', 'lottie.min.js');
 const runtimeFilePath = path.join(__dirname, 'data', 'runtime', 'runtime.json');
 const updateStatusFilePath = path.join(__dirname, 'data', 'runtime', 'update-status.json');
 const dataDir = path.join(__dirname, 'data');
@@ -363,7 +364,9 @@ function sendAsset(res, filePath) {
         ? 'image/jpeg'
         : extension === '.png'
             ? 'image/png'
-            : 'application/octet-stream';
+            : extension === '.js'
+                ? 'text/javascript; charset=utf-8'
+                : 'application/octet-stream';
 
     res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=3600' });
     fs.createReadStream(filePath).pipe(res);
@@ -941,6 +944,12 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'GET' && requestUrl.pathname === '/vendor/lottie.min.js') {
+                if (!fs.existsSync(lottiePlayerPath)) { sendJson(res, 404, { error: 'Lottie player not found.' }); return; }
+                sendAsset(res, lottiePlayerPath);
+                return;
+            }
+
             let panelSession = null;
             if (requestUrl.pathname.startsWith('/api/')) {
                 panelSession = requirePanelAccess(req, res);
@@ -1326,30 +1335,59 @@ function createServer() {
                     guild.stickers.fetch()
                 ]);
                 const summary = analyticsStore.getSoundboardSummary(guildId, requestUrl.searchParams.get('days'));
-                const useCounts = new Map(summary.topSounds.map(row => [String(row.soundId), row.count]));
-                const userLabels = await resolveUserLabels(summary.topUsers.map(row => row.userId).filter(Boolean), guildId);
+                const mediaUsage = analyticsStore.getMediaUsageSummary(guildId, requestUrl.searchParams.get('days'));
+                const soundUsage = new Map(summary.itemDetails.map(row => [String(row.id), row]));
+                const emojiUsage = new Map(mediaUsage.emojis.map(row => [String(row.id), row]));
+                const stickerUsage = new Map(mediaUsage.stickers.map(row => [String(row.id), row]));
+                const trackedUserIds = [
+                    ...summary.topUsers.map(row => row.userId),
+                    ...mediaUsage.emojis.flatMap(row => row.topMembers.map(member => member.userId)),
+                    ...mediaUsage.stickers.flatMap(row => row.topMembers.map(member => member.userId))
+                ].filter(Boolean);
+                const userLabels = await resolveUserLabels(trackedUserIds, guildId);
                 const channelLabels = new Map(guild.channels.cache.map(channel => [String(channel.id), channel.name]));
+                const labelMembers = members => members.map(member => ({ ...member, label: userLabels[member.userId]?.tag || member.label || member.userId, nickname: userLabels[member.userId]?.nickname || null }));
                 summary.topUsers = summary.topUsers.map(row => ({ ...row, label: userLabels[row.userId]?.tag || row.userId || 'Unknown user', nickname: userLabels[row.userId]?.nickname || null }));
                 summary.topChannels = summary.topChannels.map(row => ({ ...row, name: channelLabels.get(String(row.channelId)) || row.channelId || 'Unknown channel' }));
+                const tier = Math.max(0, Math.min(3, Number(guild.premiumTier) || 0));
+                const emojiCapacity = [50, 100, 150, 250][tier];
+                const stickerCapacity = (guild.features || []).includes('MORE_STICKERS') ? 60 : [5, 15, 30, 60][tier];
                 sendJson(res, 200, {
                     sounds: [...sounds.values()].map(sound => ({
                         id: String(sound.soundId), name: sound.name, volume: sound.volume, emoji: sound.emoji?.name || null,
-                        emojiUrl: sound.emoji?.id ? sound.emoji.url : null, available: sound.available, uses: useCounts.get(String(sound.soundId)) || 0,
+                        emojiUrl: sound.emoji?.id ? sound.emoji.url : null, available: sound.available,
+                        ...(soundUsage.get(String(sound.soundId)) || { count: 0, previousCount: 0, firstUsed: null, lastUsed: null, averagePerDay: 0, trend: { status: 'flat', percent: 0 } }),
+                        uses: soundUsage.get(String(sound.soundId))?.count || 0,
                         url: sound.url, createdAt: sound.createdAt?.toISOString() || null, creator: sound.user?.tag || null
                     })).sort((a, b) => b.uses - a.uses || a.name.localeCompare(b.name)),
                     emojis: [...emojis.values()].map(emoji => ({
-                        id: String(emoji.id), name: emoji.name, url: emoji.imageURL({ size: 128 }), animated: emoji.animated,
+                        ...(emojiUsage.get(String(emoji.id)) || { count: 0, previousCount: 0, firstUsed: null, lastUsed: null, averagePerDay: 0, topMembers: [], trend: { status: 'flat', percent: 0 } }),
+                        id: String(emoji.id), name: emoji.name, url: emoji.imageURL({ extension: emoji.animated ? 'gif' : 'webp', size: 128 }), animated: emoji.animated,
                         available: emoji.available, managed: emoji.managed, requiresColons: emoji.requiresColons,
                         roleCount: emoji.roles?.cache?.size || 0, createdAt: emoji.createdAt?.toISOString() || null,
-                        creator: emoji.author?.tag || null
+                        creator: emoji.author?.tag || null, uses: emojiUsage.get(String(emoji.id))?.count || 0,
+                        topMembers: labelMembers(emojiUsage.get(String(emoji.id))?.topMembers || [])
                     })).sort((a, b) => a.name.localeCompare(b.name)),
                     stickers: [...stickers.values()].map(sticker => ({
+                        ...(stickerUsage.get(String(sticker.id)) || { count: 0, previousCount: 0, firstUsed: null, lastUsed: null, averagePerDay: 0, topMembers: [], trend: { status: 'flat', percent: 0 } }),
                         id: String(sticker.id), name: sticker.name, description: sticker.description || '', tags: sticker.tags || '',
-                        url: sticker.url, format: sticker.format, formatName: ({ 1: 'PNG', 2: 'APNG', 3: 'Lottie', 4: 'GIF' })[sticker.format] || 'Unknown',
+                        url: sticker.url, previewUrl: sticker.format === 3 ? `https://media.discordapp.net/stickers/${sticker.id}.png?size=320` : sticker.url,
+                        lottieUrl: sticker.format === 3 ? sticker.url : null,
+                        format: sticker.format, formatName: ({ 1: 'PNG', 2: 'APNG', 3: 'Lottie', 4: 'GIF' })[sticker.format] || 'Unknown',
                         type: sticker.type, available: sticker.available, createdAt: sticker.createdAt?.toISOString() || null,
-                        creator: sticker.user?.tag || null
+                        creator: sticker.user?.tag || null, uses: stickerUsage.get(String(sticker.id))?.count || 0,
+                        topMembers: labelMembers(stickerUsage.get(String(sticker.id))?.topMembers || [])
                     })).sort((a, b) => a.name.localeCompare(b.name)),
-                    summary
+                    summary,
+                    mediaUsage: {
+                        rangeDays: mediaUsage.rangeDays, emojiUses: mediaUsage.emojiUses, stickerUses: mediaUsage.stickerUses,
+                        emojiTrend: mediaUsage.emojiTrend, stickerTrend: mediaUsage.stickerTrend
+                    },
+                    capacity: {
+                        staticEmojis: { used: [...emojis.values()].filter(emoji => !emoji.animated).length, total: emojiCapacity },
+                        animatedEmojis: { used: [...emojis.values()].filter(emoji => emoji.animated).length, total: emojiCapacity },
+                        stickers: { used: stickers.size, total: stickerCapacity }
+                    }
                 });
                 return;
             }

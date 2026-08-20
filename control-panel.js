@@ -1326,6 +1326,49 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'GET' && requestUrl.pathname === '/api/analytics-summary') {
+                const guildId = requireGuildId(requestUrl, res);
+                if (!guildId) return;
+
+                const periodDays = 30;
+                const now = Date.now();
+                const messages = analyticsStore.getAnalyticsSummary(guildId, periodDays);
+                const voice = voiceStore.getVoiceAnalytics(
+                    guildId,
+                    new Date(now - periodDays * 86400000).toISOString(),
+                    new Date(now).toISOString()
+                );
+                const sounds = analyticsStore.getSoundboardSummary(guildId, periodDays);
+                const media = analyticsStore.getMediaUsageSummary(guildId, periodDays);
+                const shotLeaderboard = shotStore.getShotLeaderboard(guildId, 10000);
+
+                sendJson(res, 200, {
+                    periodDays,
+                    messages: {
+                        count: messages.messageCount,
+                        uniqueAuthors: messages.uniqueAuthors,
+                        changePercent: messages.comparison?.changePercent || 0
+                    },
+                    voice: {
+                        totalMs: voice.totalMs,
+                        sessions: voice.activeOverTime.reduce((total, row) => total + row.count, 0),
+                        activeMembers: voice.userTotals.length
+                    },
+                    media: {
+                        soundPlays: sounds.plays,
+                        emojiUses: media.emojiUses,
+                        stickerUses: media.stickerUses
+                    },
+                    shots: {
+                        total: shotLeaderboard.reduce((total, row) => total + row.total, 0),
+                        members: shotLeaderboard.length,
+                        highest: shotLeaderboard[0]?.total || 0
+                    },
+                    events: messages.moderation
+                });
+                return;
+            }
+
             if (req.method === 'GET' && ['/api/soundboard', '/api/media'].includes(requestUrl.pathname)) {
                 const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
                 const guild = client.guilds.cache.get(guildId); if (!guild) { sendJson(res, 404, { error: 'Guild is not available.' }); return; }

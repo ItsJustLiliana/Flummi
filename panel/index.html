@@ -1788,48 +1788,34 @@
                 <div id="overviewBanner"></div>
             </section>
 
-            <!-- Analytics -->
+            <!-- Stats and analytics summary -->
             <section id="tab-analytics" class="tab-panel">
-                <h2 style="font-size:20px;">Analytics</h2>
-                <p class="sub">Privacy-friendly event analytics. Message contents are never stored—only activity
-                    metadata.</p>
-                <div class="row"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays">
-                        <option value="1">1 day</option>
-                        <option value="7">1 week</option>
-                        <option value="30" selected>1 month</option>
-                        <option value="90">3 months</option>
-                    </select><select id="analyticsChannel" aria-label="Analytics channel">
-                        <option value="">All channels</option>
-                    </select><select id="analyticsMember" aria-label="Analytics member">
-                        <option value="">All members</option>
-                    </select><select id="analyticsGraphType" aria-label="Analytics graph type">
-                        <option value="bar">Bars</option>
-                        <option value="line">Line</option>
-                    </select></div>
-                <div class="card-grid" id="analyticsCards"></div>
-                <div class="section">
-                    <h2>Messages over time</h2>
-                    <div id="analyticsChart" class="analytics-chart"></div>
-                </div>
-                <div class="section">
-                    <h2>Message activity by day and hour</h2>
-                    <p class="sub">Darker/brighter cells show when messages are most active (UTC).</p>
-                    <div id="messageHeatmap" class="heatmap"></div>
+                <h2 style="font-size:20px;">Stats &amp; Analytics</h2>
+                <p class="sub">A quick 30-day snapshot across the server. Open each feature tab for its full analytics.</p>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Messages</h2>
+                        <div id="analyticsSummaryMessages" class="card-grid"></div>
+                    </div>
+                    <div class="section">
+                        <h2>Voice</h2>
+                        <div id="analyticsSummaryVoice" class="card-grid"></div>
+                    </div>
                 </div>
                 <div class="two-col">
                     <div class="section">
-                        <h2>Most active channels</h2>
-                        <div id="analyticsChannels" class="table-wrap"></div>
+                        <h2>Server Media</h2>
+                        <div id="analyticsSummaryMedia" class="card-grid"></div>
                     </div>
                     <div class="section">
-                        <h2>Most active members</h2>
-                        <div id="analyticsUsers" class="table-wrap"></div>
+                        <h2>Shots</h2>
+                        <div id="analyticsSummaryShots" class="card-grid"></div>
                     </div>
                 </div>
                 <div class="section">
-                    <h2>Moderation insights</h2>
-                    <p class="sub">Metadata only. New events are collected from this update onward.</p>
-                    <div id="moderationCards" class="card-grid"></div>
+                    <h2>Server Events</h2>
+                    <p class="sub">Metadata only. Message contents are never stored.</p>
+                    <div id="analyticsSummaryEvents" class="card-grid"></div>
                 </div>
             </section>
 
@@ -2039,39 +2025,48 @@
                 </div>
             </section>
 
-            <!-- Server stats -->
+            <!-- Messages -->
             <section id="tab-stats" class="tab-panel">
-                <h2 style="font-size:20px;">Message Analytics</h2>
-                <div class="card-grid" id="statsCards"></div>
+                <h2 style="font-size:20px;">Messages</h2>
+                <p class="sub">Detailed, privacy-friendly message activity. Message contents are never stored—only
+                    activity metadata.</p>
+                <div class="row"><label for="analyticsDays" style="margin:0">Period</label><select id="analyticsDays">
+                        <option value="1">1 day</option>
+                        <option value="7">1 week</option>
+                        <option value="30" selected>1 month</option>
+                        <option value="90">3 months</option>
+                    </select><select id="analyticsChannel" aria-label="Message channel">
+                        <option value="">All channels</option>
+                    </select><select id="analyticsMember" aria-label="Message member">
+                        <option value="">All members</option>
+                    </select><select id="analyticsGraphType" aria-label="Message graph type">
+                        <option value="bar">Bars</option>
+                        <option value="line">Line</option>
+                    </select></div>
+                <div class="card-grid" id="analyticsCards"></div>
                 <div class="section">
-                    <div class="row">
-                        <h2 style="margin:0">Messages over time</h2><select id="messageGraphRange">
-                            <option value="1">1 day</option>
-                            <option value="7">1 week</option>
-                            <option value="30" selected>1 month</option>
-                            <option value="90">3 months</option>
-                        </select><select id="messageGraphChannel" aria-label="Message channel">
-                            <option value="">All channels</option>
-                        </select><select id="messageGraphType" aria-label="Message graph type">
-                            <option value="bar">Bars</option>
-                            <option value="line">Line</option>
-                        </select>
-                    </div>
-                    <div id="messageActivityChart" class="analytics-chart"></div>
+                    <h2>Messages over time</h2>
+                    <div id="analyticsChart" class="analytics-chart"></div>
+                </div>
+                <div class="section">
+                    <h2>Message activity by day and hour</h2>
+                    <p class="sub">Darker/brighter cells show when messages are most active (UTC).</p>
+                    <div id="messageHeatmap" class="heatmap"></div>
                 </div>
                 <div class="two-col">
                     <div class="section">
-                        <h2>Messages by Channel</h2>
-                        <div id="statsChannels" class="table-wrap">
-                            <div class="empty">Loading...</div>
-                        </div>
+                        <h2>Most active channels</h2>
+                        <div id="analyticsChannels" class="table-wrap"></div>
                     </div>
                     <div class="section">
-                        <h2>Messages by User</h2>
-                        <div id="statsUsers" class="table-wrap">
-                            <div class="empty">Loading...</div>
-                        </div>
+                        <h2>Most active members</h2>
+                        <div id="analyticsUsers" class="table-wrap"></div>
                     </div>
+                </div>
+                <div class="section">
+                    <h2>Moderation insights</h2>
+                    <p class="sub">Metadata only. New events are collected from this update onward.</p>
+                    <div id="moderationCards" class="card-grid"></div>
                 </div>
             </section>
 
@@ -2615,12 +2610,12 @@
 
                 <nav class="tabs">
                     <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
-                    <button class="tab-btn" data-tab="analytics" type="button">Analytics</button>
+                    <button class="tab-btn" data-tab="analytics" type="button">Stats &amp; Analytics</button>
                     <button class="tab-btn" data-tab="messenger" data-developer-only type="button">Messenger</button>
                     <button class="tab-btn" data-tab="triggers" type="button">Triggers</button>
                     <button class="tab-btn" data-tab="shots" type="button">Shots</button>
                     <button class="tab-btn" data-tab="voice" type="button">Voice Analytics</button>
-                    <button class="tab-btn" data-tab="stats" type="button">Message Analytics</button>
+                    <button class="tab-btn" data-tab="stats" type="button">Messages</button>
                     <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
@@ -2640,7 +2635,7 @@
                     <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" alt=""><span
                             id="panelAccountName" class="account-name">Signed in</span></div>
                     <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
-                    <button id="refreshDiscordAccess" class="secondary" type="button"
+                    <button id="refreshDiscordAccess" class="secondary" type="button" data-actual-developer-only
                         style="width:100%;margin-top:8px">Refresh Discord access</button>
                 </div>
             </div>
@@ -4155,38 +4150,6 @@
         // ---------- Server stats ----------
         async function loadStats() {
             if (!state.guildId) return;
-            await ensureAnalyticsChannelFilter('messageGraphChannel', '/api/channels');
-            const data = await api(withGuild('/api/serverstats'));
-            const days = Number(document.getElementById('messageGraphRange').value) || 30;
-            const messageChannelId = document.getElementById('messageGraphChannel').value;
-            const channelQuery = messageChannelId ? `&channelId=${encodeURIComponent(messageChannelId)}` : '';
-            const analytics = await api(withGuild(`/api/analytics?days=${days}${channelQuery}`));
-
-            document.getElementById('statsCards').innerHTML = [
-                statCard('Total Messages Tracked', data.totalMessages),
-                statCard('Messages in Selected Range', analytics.messageCount),
-                statCard('Active Authors', analytics.uniqueAuthors)
-            ].join('');
-            renderActivityChart('messageActivityChart', analytics.dailyMessages, 'No messages in this range yet.', document.getElementById('messageGraphType').value, 'Messages');
-
-            renderTable(document.getElementById('statsChannels'),
-                [
-                    { label: 'Channel', key: 'name', render: r => `#${escapeHtml(r.name)}` },
-                    { label: 'Messages', key: 'count' }
-                ],
-                data.channels, 'No channel data yet.');
-
-            renderTable(document.getElementById('statsUsers'),
-                [
-                    { label: 'User', key: 'name', render: r => escapeHtml(r.name) },
-                    { label: 'Messages', key: 'count' }
-                ],
-                data.users, 'No user data yet.');
-        }
-
-        // ---------- Analytics ----------
-        async function loadAnalytics() {
-            if (!state.guildId) return;
             await ensureAnalyticsChannelFilter('analyticsChannel', '/api/channels');
             const days = document.getElementById('analyticsDays').value;
             const channelId = document.getElementById('analyticsChannel').value;
@@ -4219,13 +4182,37 @@
             renderTable(document.getElementById('analyticsUsers'), [{ label: 'Member', key: 'name', render: r => escapeHtml(r.name) }, { label: 'Messages', key: 'count' }], data.topUsers, 'No member activity yet.');
         }
 
-        document.getElementById('analyticsDays').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
-        document.getElementById('analyticsChannel').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
-        document.getElementById('analyticsMember').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
-        document.getElementById('analyticsGraphType').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
-        document.getElementById('messageGraphRange').addEventListener('change', () => loadStats().catch(error => console.error(error)));
-        document.getElementById('messageGraphChannel').addEventListener('change', () => loadStats().catch(error => console.error(error)));
-        document.getElementById('messageGraphType').addEventListener('change', () => loadStats().catch(error => console.error(error)));
+        // ---------- Analytics ----------
+        async function loadAnalytics() {
+            if (!state.guildId) return;
+            const data = await api(withGuild('/api/analytics-summary'));
+            document.getElementById('analyticsSummaryMessages').innerHTML = [
+                statCard('Messages', data.messages.count), statCard('Active Authors', data.messages.uniqueAuthors),
+                statCard('Change', `${data.messages.changePercent > 0 ? '+' : ''}${data.messages.changePercent}%`)
+            ].join('');
+            document.getElementById('analyticsSummaryVoice').innerHTML = [
+                statCard('Voice Time', formatDuration(data.voice.totalMs)), statCard('Sessions', data.voice.sessions),
+                statCard('Active Members', data.voice.activeMembers)
+            ].join('');
+            document.getElementById('analyticsSummaryMedia').innerHTML = [
+                statCard('Sound Plays', data.media.soundPlays), statCard('Emoji Uses', data.media.emojiUses),
+                statCard('Sticker Uses', data.media.stickerUses)
+            ].join('');
+            document.getElementById('analyticsSummaryShots').innerHTML = [
+                statCard('Total Shots', data.shots.total), statCard('Tracked Members', data.shots.members),
+                statCard('Highest Total', data.shots.highest)
+            ].join('');
+            document.getElementById('analyticsSummaryEvents').innerHTML = [
+                statCard('Member Joins', data.events.joins), statCard('Member Leaves', data.events.leaves),
+                statCard('Deleted Messages', data.events.deletedMessages), statCard('Role Changes', data.events.roleChanges),
+                statCard('Invite Uses', data.events.inviteUses)
+            ].join('');
+        }
+
+        document.getElementById('analyticsDays').addEventListener('change', () => loadStats().catch(error => console.error(error)));
+        document.getElementById('analyticsChannel').addEventListener('change', () => loadStats().catch(error => console.error(error)));
+        document.getElementById('analyticsMember').addEventListener('change', () => loadStats().catch(error => console.error(error)));
+        document.getElementById('analyticsGraphType').addEventListener('change', () => loadStats().catch(error => console.error(error)));
         document.getElementById('voiceGraphRange').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
         document.getElementById('voiceGraphChannel').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
         document.getElementById('voiceGraphType').addEventListener('change', () => loadVoice().catch(error => console.error(error)));

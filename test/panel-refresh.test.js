@@ -17,3 +17,7 @@ test('resize and timer refreshes both use the passive-refresh guard', () => {
     assert.match(panelHtml, /resize[\s\S]{0,500}!shouldSkipPassiveRefresh\(\)/);
     assert.match(panelHtml, /if \(shouldSkipPassiveRefresh\(tab\)\)/);
 });
+
+test('manual Discord access refresh is only visible to actual developers', () => {
+    assert.match(panelHtml, /<button id="refreshDiscordAccess"[^>]*data-actual-developer-only/);
+});

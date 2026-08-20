@@ -1748,6 +1748,14 @@
             background: #17233f;
         }
 
+        .heatmap-toolbar {
+            justify-content: flex-end;
+        }
+
+        .heatmap-toolbar h2 {
+            margin: 0 auto 0 0;
+        }
+
         .heatmap-week-label {
             color: var(--muted);
             font-size: 12px;
@@ -2102,14 +2110,7 @@
                     </select><select id="voiceGraphType" aria-label="Voice graph type">
                         <option value="bar">Bars</option>
                         <option value="line">Line</option>
-                    </select><select id="voiceHeatmapMode" aria-label="Voice heatmap period">
-                        <option value="all">Heatmap: all time</option>
-                        <option value="weekly">Heatmap: weekly</option>
-                    </select><div id="voiceHeatmapWeekControls" class="heatmap-week-controls" hidden>
-                        <button id="voiceHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
-                        <span id="voiceHeatmapWeekLabel" class="heatmap-week-label"></span>
-                        <button id="voiceHeatmapNextWeek" class="secondary" type="button" aria-label="Next week">&#8594;</button>
-                    </div></div>
+                    </select></div>
                 <div class="card-grid" id="voiceCards"></div>
                 <div class="section">
                     <div class="row">
@@ -2123,7 +2124,18 @@
                     <div id="voiceMinutesChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">
-                    <h2>Voice activity by day and hour</h2>
+                    <div class="row heatmap-toolbar">
+                        <h2>Voice activity by day and hour</h2>
+                        <div id="voiceHeatmapWeekControls" class="heatmap-week-controls" hidden>
+                            <button id="voiceHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
+                            <span id="voiceHeatmapWeekLabel" class="heatmap-week-label"></span>
+                            <button id="voiceHeatmapNextWeek" class="secondary" type="button" aria-label="Next week">&#8594;</button>
+                        </div>
+                        <select id="voiceHeatmapMode" aria-label="Voice heatmap period">
+                            <option value="all">All time</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                    </div>
                     <p class="sub">Session starts by hour (UTC).</p>
                     <div id="voiceHeatmap" class="heatmap"></div>
                 </div>
@@ -2206,21 +2218,25 @@
                     </select><select id="analyticsGraphType" aria-label="Message graph type">
                         <option value="bar">Bars</option>
                         <option value="line">Line</option>
-                    </select><select id="messageHeatmapMode" aria-label="Message heatmap period">
-                        <option value="all">Heatmap: all time</option>
-                        <option value="weekly">Heatmap: weekly</option>
-                    </select><div id="messageHeatmapWeekControls" class="heatmap-week-controls" hidden>
-                        <button id="messageHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
-                        <span id="messageHeatmapWeekLabel" class="heatmap-week-label"></span>
-                        <button id="messageHeatmapNextWeek" class="secondary" type="button" aria-label="Next week">&#8594;</button>
-                    </div></div>
+                    </select></div>
                 <div class="card-grid" id="analyticsCards"></div>
                 <div class="section">
                     <h2>Messages over time</h2>
                     <div id="analyticsChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">
-                    <h2>Message activity by day and hour</h2>
+                    <div class="row heatmap-toolbar">
+                        <h2>Message activity by day and hour</h2>
+                        <div id="messageHeatmapWeekControls" class="heatmap-week-controls" hidden>
+                            <button id="messageHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
+                            <span id="messageHeatmapWeekLabel" class="heatmap-week-label"></span>
+                            <button id="messageHeatmapNextWeek" class="secondary" type="button" aria-label="Next week">&#8594;</button>
+                        </div>
+                        <select id="messageHeatmapMode" aria-label="Message heatmap period">
+                            <option value="all">All time</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                    </div>
                     <p class="sub">Darker/brighter cells show when messages are most active (UTC).</p>
                     <div id="messageHeatmap" class="heatmap"></div>
                 </div>
@@ -2749,6 +2765,10 @@
                         <option value="30" selected>Last 30 days</option>
                         <option value="90">Last 90 days</option>
                         <option value="all">All time</option>
+                    </select>
+                    <select id="mediaGraphType" aria-label="Media graph type">
+                        <option value="bar">Bars</option>
+                        <option value="line">Line</option>
                     </select>
                 </div>
                 <div id="soundboardCards" class="card-grid"></div>
@@ -5589,7 +5609,7 @@
                 trendStatCard(`Emoji uses · ${rangeLabel}`, data.mediaUsage?.emojiUses || 0, data.mediaUsage?.emojiTrend),
                 trendStatCard(`Sticker uses · ${rangeLabel}`, data.mediaUsage?.stickerUses || 0, data.mediaUsage?.stickerTrend)
             ].join('');
-            renderActivityChart('soundboardActivityChart', data.summary?.byDay || [], `No soundboard plays recorded for ${rangeLabel}.`, 'bar', 'Sound plays');
+            renderActivityChart('soundboardActivityChart', data.summary?.byDay || [], `No soundboard plays recorded for ${rangeLabel}.`, document.getElementById('mediaGraphType').value, 'Sound plays');
             renderTable(document.getElementById('soundboardTable'), [
                 { label: 'Sound', key: 'name', render: r => `<div class="media-name">${r.emojiUrl ? mediaPreview(r.emojiUrl, r.emoji || r.name) : `<span style="font-size:24px">${escapeHtml(r.emoji || '🔊')}</span>`}<strong>${escapeHtml(r.name)}</strong></div>` },
                 { label: 'Preview', sortable: false, render: r => soundPlayer(r.url) },
@@ -5642,6 +5662,9 @@
         }
 
         document.getElementById('mediaRange').addEventListener('change', () => {
+            loadSoundboard().catch(error => handleUiError(error, () => loadSoundboard().catch(handleUiError)));
+        });
+        document.getElementById('mediaGraphType').addEventListener('change', () => {
             loadSoundboard().catch(error => handleUiError(error, () => loadSoundboard().catch(handleUiError)));
         });
 

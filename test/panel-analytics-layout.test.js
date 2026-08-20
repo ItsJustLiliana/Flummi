@@ -29,9 +29,10 @@ test('message and voice heatmaps offer all-time and navigable weekly modes', () 
         assert.match(panelHtml, new RegExp(`id="${kind}HeatmapPreviousWeek"`));
         assert.match(panelHtml, new RegExp(`id="${kind}HeatmapNextWeek"`));
         assert.match(panelHtml, new RegExp(`id="${kind}HeatmapWeekLabel"`));
+        assert.ok(panelHtml.indexOf(`id="${kind}HeatmapWeekControls"`) < panelHtml.indexOf(`id="${kind}HeatmapMode"`));
     }
-    assert.match(panelHtml, /<option value="all">Heatmap: all time<\/option>/);
-    assert.match(panelHtml, /<option value="weekly">Heatmap: weekly<\/option>/);
+    assert.match(panelHtml, /<option value="all">All time<\/option>/);
+    assert.match(panelHtml, /<option value="weekly">Weekly<\/option>/);
     assert.match(panelHtml, /function utcWeekRange\(offset = 0\)/);
     assert.match(panelServer, /requestUrl\.pathname === '\/api\/activity-heatmap'/);
 });
@@ -46,12 +47,14 @@ test('voice and message graph controls are centralized at the top of their tabs'
     }
     const voice = tabMarkup('voice');
     const messages = tabMarkup('stats');
-    for (const id of ['voiceGraphRange', 'voiceGraphChannel', 'voiceGraphType', 'voiceHeatmapMode']) {
+    for (const id of ['voiceGraphRange', 'voiceGraphChannel', 'voiceGraphType']) {
         assert.ok(voice.indexOf(`id="${id}"`) < voice.indexOf('<div class="section">'));
     }
-    for (const id of ['analyticsDays', 'analyticsChannel', 'analyticsMember', 'analyticsGraphType', 'messageHeatmapMode']) {
+    for (const id of ['analyticsDays', 'analyticsChannel', 'analyticsMember', 'analyticsGraphType']) {
         assert.ok(messages.indexOf(`id="${id}"`) < messages.indexOf('<div class="section">'));
     }
+    assert.ok(voice.indexOf('id="voiceHeatmapMode"') > voice.indexOf('Voice activity by day and hour'));
+    assert.ok(messages.indexOf('id="messageHeatmapMode"') > messages.indexOf('Message activity by day and hour'));
 });
 
 test('Stats & Analytics is a lightweight cross-feature summary', () => {
@@ -126,6 +129,8 @@ test('Voice and Server Media use matching top-level period controls', () => {
         assert.match(markup, />Period<\/label>/);
     }
     assert.match(tabMarkup('voice'), /<option value="all">All time<\/option>/);
+    assert.match(tabMarkup('soundboard'), /id="mediaGraphType"/);
+    assert.match(panelHtml, /document\.getElementById\('mediaGraphType'\)\.value/);
 });
 
 test('audit log renders structured setting changes in their own column', () => {

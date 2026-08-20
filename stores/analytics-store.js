@@ -53,13 +53,28 @@ function recordModerationEvent(guildId, event) { return appendEvent(guildId, 'mo
 function recordSoundboardEvent(guildId, event) { return appendEvent(guildId, 'soundboard', { type: 'soundboard', ...event }); }
 
 function getSoundboardSummary(guildId, days = 30) {
-    const rows = readEvents(guildId, 'soundboard', Date.now() - Math.max(1, Number(days) || 30) * 86400000);
-    const sounds = new Map(), channels = new Map();
+    const safeDays = Math.min(365, Math.max(1, Number(days) || 30));
+    const rows = readEvents(guildId, 'soundboard', Date.now() - safeDays * 86400000);
+    const sounds = new Map(), channels = new Map(), users = new Map(), daysByDate = new Map();
     for (const row of rows) {
         const sound = sounds.get(row.soundId) || { soundId: row.soundId, count: 0 }; sound.count++; sounds.set(row.soundId, sound);
-        const channel = channels.get(row.channelId) || { channelId: row.channelId, count: 0 }; channel.count++; channels.set(row.channelId, channel);
+        if (row.channelId) { const channel = channels.get(row.channelId) || { channelId: row.channelId, count: 0 }; channel.count++; channels.set(row.channelId, channel); }
+        if (row.userId) { const user = users.get(row.userId) || { userId: row.userId, count: 0 }; user.count++; users.set(row.userId, user); }
+        const date = String(row.at || '').slice(0, 10);
+        if (date) daysByDate.set(date, (daysByDate.get(date) || 0) + 1);
     }
-    return { plays: rows.length, topSounds: [...sounds.values()].sort((a, b) => b.count - a.count), topChannels: [...channels.values()].sort((a, b) => b.count - a.count) };
+    const byDay = [];
+    for (let offset = safeDays - 1; offset >= 0; offset--) {
+        const date = new Date(Date.now() - offset * 86400000).toISOString().slice(0, 10);
+        byDay.push({ date, count: daysByDate.get(date) || 0 });
+    }
+    return {
+        plays: rows.length,
+        byDay,
+        topSounds: [...sounds.values()].sort((a, b) => b.count - a.count),
+        topChannels: [...channels.values()].sort((a, b) => b.count - a.count),
+        topUsers: [...users.values()].sort((a, b) => b.count - a.count)
+    };
 }
 
 function listFiles(folder) {

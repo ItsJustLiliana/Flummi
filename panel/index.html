@@ -1045,6 +1045,67 @@
             color: #64b5f6;
         }
 
+        .media-thumb {
+            display: block;
+            width: 44px;
+            height: 44px;
+            object-fit: contain;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            background: rgba(255, 255, 255, .045);
+        }
+
+        .media-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 160px;
+        }
+
+        .media-name strong,
+        .media-name span {
+            overflow-wrap: anywhere;
+        }
+
+        .sound-preview {
+            width: min(250px, 42vw);
+            height: 34px;
+            vertical-align: middle;
+        }
+
+        .category-chart {
+            display: grid;
+            gap: 14px;
+            padding: 20px 18px;
+        }
+
+        .category-chart-row {
+            display: grid;
+            grid-template-columns: minmax(100px, 145px) 1fr 48px;
+            gap: 12px;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .category-chart-track {
+            height: 18px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(165, 177, 216, .12);
+        }
+
+        .category-chart-fill {
+            min-width: 2px;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #4e6bff, #83d9ff);
+        }
+
+        .category-chart-value {
+            color: var(--muted);
+            text-align: right;
+        }
+
         .badge.user {
             background: rgba(165, 177, 216, .12);
             color: var(--muted);
@@ -2220,12 +2281,23 @@
             </section>
 
             <section id="tab-soundboard" class="tab-panel">
-                <h2 style="font-size:20px;">Soundboard</h2>
-                <p class="sub">Guild soundboard sounds and tracked play activity. Sound plays are collected from this
-                    update onward.</p>
+                <h2 style="font-size:20px;">Server Media</h2>
+                <p class="sub">One inventory for the server's soundboard, custom emojis, and stickers. Sound plays are
+                    tracked from the point analytics collection was enabled.</p>
                 <div id="soundboardCards" class="card-grid"></div>
+                <div class="two-col">
+                    <div class="section">
+                        <h2>Media inventory</h2>
+                        <div id="mediaInventoryChart" class="category-chart"></div>
+                    </div>
+                    <div class="section">
+                        <h2>Soundboard activity — last 30 days</h2>
+                        <div id="soundboardActivityChart" class="analytics-chart"></div>
+                    </div>
+                </div>
                 <div class="section">
-                    <h2>Guild sounds</h2>
+                    <h2>Soundboard sounds</h2>
+                    <p class="sub">Use the player to preview the original sound directly from Discord's CDN.</p>
                     <div id="soundboardTable" class="table-wrap"></div>
                 </div>
                 <div class="two-col">
@@ -2237,6 +2309,20 @@
                         <h2>Most active voice channels</h2>
                         <div id="soundboardTopChannels" class="table-wrap"></div>
                     </div>
+                </div>
+                <div class="section">
+                    <h2>Most active listeners</h2>
+                    <div id="soundboardTopUsers" class="table-wrap"></div>
+                </div>
+                <div class="section">
+                    <h2>Custom emojis</h2>
+                    <p class="sub">Static and animated emoji previews, availability, restrictions, and creation details.</p>
+                    <div id="emojiTable" class="table-wrap"></div>
+                </div>
+                <div class="section">
+                    <h2>Stickers</h2>
+                    <p class="sub">Sticker artwork and metadata. Lottie stickers link to their source because browsers cannot render the JSON animation in an image element.</p>
+                    <div id="stickerTable" class="table-wrap"></div>
                 </div>
             </section>
 
@@ -2323,7 +2409,7 @@
                     <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
-                    <button class="tab-btn" data-tab="soundboard" type="button">Soundboard</button>
+                    <button class="tab-btn" data-tab="soundboard" type="button">Server Media</button>
                     <button class="tab-btn" data-tab="audit" type="button">Audit Log</button>
                     <hr class="tab-divider developer-nav" data-developer-only>
                     <div class="tab-group-label developer-nav" data-developer-only>Developer tools</div>
@@ -4737,12 +4823,65 @@
 
         async function loadSoundboard() {
             if (!state.guildId) return;
-            const data = await api(withGuild('/api/soundboard?days=30'));
+            const data = await api(withGuild('/api/media?days=30'));
             const soundsById = new Map((data.sounds || []).map(sound => [sound.id, sound.name]));
-            document.getElementById('soundboardCards').innerHTML = [statCard('Guild sounds', data.sounds?.length || 0), statCard('Plays in 30 days', data.summary?.plays || 0)].join('');
-            renderTable(document.getElementById('soundboardTable'), [{ label: 'Sound', key: 'name' }, { label: 'Emoji', key: 'emoji', render: r => r.emoji || '-' }, { label: 'Volume', key: 'volume', render: r => `${Math.round((r.volume || 1) * 100)}%` }, { label: 'Plays', key: 'uses' }, { label: 'Available', key: 'available', render: r => r.available ? '<span class="badge on">Yes</span>' : '<span class="badge off">No</span>' }], data.sounds, 'No guild soundboard sounds found.');
+            const mediaPreview = (url, name) => `<img class="media-thumb" src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy">`;
+            const availability = value => value === false ? '<span class="badge off">No</span>' : '<span class="badge on">Yes</span>';
+            const created = value => value ? escapeHtml(formatDateTime(value)) : '<span class="muted">Unknown</span>';
+            document.getElementById('soundboardCards').innerHTML = [
+                statCard('Soundboard sounds', data.sounds?.length || 0),
+                statCard('Custom emojis', data.emojis?.length || 0),
+                statCard('Stickers', data.stickers?.length || 0),
+                statCard('Sound plays · 30 days', data.summary?.plays || 0)
+            ].join('');
+            const inventory = [
+                { label: 'Soundboard', count: data.sounds?.length || 0 },
+                { label: 'Custom emojis', count: data.emojis?.length || 0 },
+                { label: 'Stickers', count: data.stickers?.length || 0 }
+            ];
+            const inventoryMaximum = Math.max(1, ...inventory.map(row => row.count));
+            document.getElementById('mediaInventoryChart').innerHTML = inventory.map(row => `
+                <div class="category-chart-row" title="${escapeHtml(row.label)}: ${escapeHtml(row.count)}">
+                    <strong>${escapeHtml(row.label)}</strong>
+                    <div class="category-chart-track" role="img" aria-label="${escapeHtml(row.label)}: ${escapeHtml(row.count)}">
+                        <div class="category-chart-fill" style="width:${Math.max(row.count ? 3 : 0, row.count / inventoryMaximum * 100)}%"></div>
+                    </div>
+                    <span class="category-chart-value">${escapeHtml(row.count)}</span>
+                </div>`).join('');
+            renderActivityChart('soundboardActivityChart', data.summary?.byDay || [], 'No soundboard plays recorded in the last 30 days.', 'bar', 'Sound plays');
+            renderTable(document.getElementById('soundboardTable'), [
+                { label: 'Sound', key: 'name', render: r => `<div class="media-name">${r.emojiUrl ? mediaPreview(r.emojiUrl, '') : `<span style="font-size:24px">${escapeHtml(r.emoji || '🔊')}</span>`}<strong>${escapeHtml(r.name)}</strong></div>` },
+                { label: 'Preview', sortable: false, render: r => `<audio class="sound-preview" controls preload="none" src="${escapeHtml(r.url)}">Audio preview unavailable.</audio>` },
+                { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
+                { label: 'Volume', key: 'volume', render: r => `${Math.round((r.volume ?? 1) * 100)}%` },
+                { label: 'Plays', key: 'uses' },
+                { label: 'Available', key: 'available', render: r => availability(r.available) },
+                { label: 'Creator', key: 'creator', render: r => escapeHtml(r.creator || 'Unknown') },
+                { label: 'Created', key: 'createdAt', render: r => created(r.createdAt) }
+            ], data.sounds, 'No guild soundboard sounds found.');
             renderTable(document.getElementById('soundboardTopSounds'), [{ label: 'Sound', key: 'soundId', render: r => escapeHtml(soundsById.get(r.soundId) || r.soundId) }, { label: 'Plays', key: 'count' }], data.summary?.topSounds || [], 'No plays recorded yet.');
-            renderTable(document.getElementById('soundboardTopChannels'), [{ label: 'Channel', key: 'channelId' }, { label: 'Plays', key: 'count' }], data.summary?.topChannels || [], 'No plays recorded yet.');
+            renderTable(document.getElementById('soundboardTopChannels'), [{ label: 'Channel', key: 'name', render: r => escapeHtml(r.name) }, { label: 'Plays', key: 'count' }], data.summary?.topChannels || [], 'No plays recorded yet.');
+            renderTable(document.getElementById('soundboardTopUsers'), [{ label: 'User', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'Plays', key: 'count' }], data.summary?.topUsers || [], 'No plays recorded yet.');
+            renderTable(document.getElementById('emojiTable'), [
+                { label: 'Emoji', key: 'name', render: r => `<div class="media-name">${mediaPreview(r.url, `:${r.name}:`)}<strong>:${escapeHtml(r.name)}:</strong></div>` },
+                { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
+                { label: 'Type', key: 'animated', render: r => r.animated ? '<span class="badge manager">Animated</span>' : 'Static' },
+                { label: 'Available', key: 'available', render: r => availability(r.available) },
+                { label: 'Managed', key: 'managed', render: r => r.managed ? 'Yes' : 'No' },
+                { label: 'Role restrictions', key: 'roleCount', render: r => r.roleCount ? `${escapeHtml(r.roleCount)} role${r.roleCount === 1 ? '' : 's'}` : 'Everyone' },
+                { label: 'Creator', key: 'creator', render: r => escapeHtml(r.creator || 'Unknown') },
+                { label: 'Created', key: 'createdAt', render: r => created(r.createdAt) }
+            ], data.emojis || [], 'No custom emojis found.');
+            renderTable(document.getElementById('stickerTable'), [
+                { label: 'Sticker', key: 'name', render: r => `<div class="media-name">${r.formatName === 'Lottie' ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">Lottie source</a>` : mediaPreview(r.url, r.name)}<strong>${escapeHtml(r.name)}</strong></div>` },
+                { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
+                { label: 'Format', key: 'formatName' },
+                { label: 'Description', key: 'description', render: r => escapeHtml(r.description || '—') },
+                { label: 'Related emoji', key: 'tags', render: r => escapeHtml(r.tags || '—') },
+                { label: 'Available', key: 'available', render: r => availability(r.available) },
+                { label: 'Creator', key: 'creator', render: r => escapeHtml(r.creator || 'Unknown') },
+                { label: 'Created', key: 'createdAt', render: r => created(r.createdAt) }
+            ], data.stickers || [], 'No guild stickers found.');
         }
 
         async function loadReliability() {

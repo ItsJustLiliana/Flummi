@@ -1317,13 +1317,40 @@ function createServer() {
                 return;
             }
 
-            if (req.method === 'GET' && requestUrl.pathname === '/api/soundboard') {
+            if (req.method === 'GET' && ['/api/soundboard', '/api/media'].includes(requestUrl.pathname)) {
                 const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
                 const guild = client.guilds.cache.get(guildId); if (!guild) { sendJson(res, 404, { error: 'Guild is not available.' }); return; }
-                const sounds = await guild.soundboardSounds.fetch();
+                const [sounds, emojis, stickers] = await Promise.all([
+                    guild.soundboardSounds.fetch(),
+                    guild.emojis.fetch(),
+                    guild.stickers.fetch()
+                ]);
                 const summary = analyticsStore.getSoundboardSummary(guildId, requestUrl.searchParams.get('days'));
                 const useCounts = new Map(summary.topSounds.map(row => [String(row.soundId), row.count]));
-                sendJson(res, 200, { sounds: [...sounds.values()].map(sound => ({ id: String(sound.soundId), name: sound.name, volume: sound.volume, emoji: sound.emoji?.name || null, available: sound.available, uses: useCounts.get(String(sound.soundId)) || 0 })).sort((a, b) => b.uses - a.uses || a.name.localeCompare(b.name)), summary });
+                const userLabels = await resolveUserLabels(summary.topUsers.map(row => row.userId).filter(Boolean), guildId);
+                const channelLabels = new Map(guild.channels.cache.map(channel => [String(channel.id), channel.name]));
+                summary.topUsers = summary.topUsers.map(row => ({ ...row, label: userLabels[row.userId]?.tag || row.userId || 'Unknown user', nickname: userLabels[row.userId]?.nickname || null }));
+                summary.topChannels = summary.topChannels.map(row => ({ ...row, name: channelLabels.get(String(row.channelId)) || row.channelId || 'Unknown channel' }));
+                sendJson(res, 200, {
+                    sounds: [...sounds.values()].map(sound => ({
+                        id: String(sound.soundId), name: sound.name, volume: sound.volume, emoji: sound.emoji?.name || null,
+                        emojiUrl: sound.emoji?.id ? sound.emoji.url : null, available: sound.available, uses: useCounts.get(String(sound.soundId)) || 0,
+                        url: sound.url, createdAt: sound.createdAt?.toISOString() || null, creator: sound.user?.tag || null
+                    })).sort((a, b) => b.uses - a.uses || a.name.localeCompare(b.name)),
+                    emojis: [...emojis.values()].map(emoji => ({
+                        id: String(emoji.id), name: emoji.name, url: emoji.imageURL({ size: 128 }), animated: emoji.animated,
+                        available: emoji.available, managed: emoji.managed, requiresColons: emoji.requiresColons,
+                        roleCount: emoji.roles?.cache?.size || 0, createdAt: emoji.createdAt?.toISOString() || null,
+                        creator: emoji.author?.tag || null
+                    })).sort((a, b) => a.name.localeCompare(b.name)),
+                    stickers: [...stickers.values()].map(sticker => ({
+                        id: String(sticker.id), name: sticker.name, description: sticker.description || '', tags: sticker.tags || '',
+                        url: sticker.url, format: sticker.format, formatName: ({ 1: 'PNG', 2: 'APNG', 3: 'Lottie', 4: 'GIF' })[sticker.format] || 'Unknown',
+                        type: sticker.type, available: sticker.available, createdAt: sticker.createdAt?.toISOString() || null,
+                        creator: sticker.user?.tag || null
+                    })).sort((a, b) => a.name.localeCompare(b.name)),
+                    summary
+                });
                 return;
             }
 

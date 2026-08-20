@@ -37,6 +37,7 @@ test('Stats & Analytics is a lightweight cross-feature summary', () => {
 test('sidebar uses the Flummi banner instead of the profile image and name lockup', () => {
     assert.match(panelHtml, /class="brand-banner" src="\/assets\/branding\/flummi-banner\.jpeg"/);
     assert.doesNotMatch(panelHtml, /class="brand-image"/);
+    assert.match(panelHtml, /\.brand \{[\s\S]*?width: calc\(100% \+ 36px\);[\s\S]*?margin: -22px -18px 0;/);
 });
 
 test('moderation analytics are withheld from regular-user API responses', () => {

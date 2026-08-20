@@ -114,15 +114,16 @@
 
         .brand {
             display: block;
-            width: 100%;
+            width: calc(100% + 36px);
+            margin: -22px -18px 0;
         }
 
         .brand-banner {
             display: block;
             width: 100%;
             aspect-ratio: 1744 / 608;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.18);
             object-fit: cover;
         }
 
@@ -822,7 +823,13 @@
 
             .brand {
                 width: min(52vw, 190px);
+                margin: 0;
                 min-width: 0;
+            }
+
+            .brand-banner {
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 8px;
             }
 
             .brand .sub {

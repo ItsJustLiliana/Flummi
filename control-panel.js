@@ -3,13 +3,14 @@ const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
-const { exec } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const { Client, GatewayIntentBits, ChannelType, PermissionsBitField, GuildVerificationLevel } = require('discord.js');
 const { installTimestampedConsole, readRecentLogs } = require('./utils/logger');
 const { readActivity, recordActivity } = require('./stores/activity-store');
 const { loadEnv } = require('./utils/env-loader');
 const { readConfig, saveConfig: saveLocalConfig } = require('./utils/config');
 const { buildFieldChanges } = require('./utils/audit-details');
+const { RepositoryFileError, RepositoryFileManager } = require('./services/repository-file-manager');
 const config = readConfig();
 const settingsStore = require('./stores/settings-store');
 const accessStore = require('./stores/access-store');
@@ -44,6 +45,10 @@ const lottiePlayerPath = path.join(__dirname, 'node_modules', 'lottie-web', 'bui
 const runtimeFilePath = path.join(__dirname, 'data', 'runtime', 'runtime.json');
 const updateStatusFilePath = path.join(__dirname, 'data', 'runtime', 'update-status.json');
 const dataDir = path.join(__dirname, 'data');
+const repositoryFileManager = new RepositoryFileManager({
+    rootDir: __dirname,
+    stateDir: path.join(dataDir, 'runtime', 'file-manager')
+});
 const panelSessionsFilePath = path.join(__dirname, 'data', 'runtime', 'panel-sessions.json');
 const panelSessions = new Map();
 const oauthStates = new Map();
@@ -101,9 +106,19 @@ function isPotentiallyTrustworthyRequest(req) {
 }
 
 function panelPublicUrl(req) {
+    const requestUrl = `${isSecureRequest(req) ? 'https' : 'http'}://${req.headers.host}`;
+    let requestHostname = '';
+    try { requestHostname = new URL(requestUrl).hostname.replace(/^\[|\]$/g, ''); } catch { /* invalid Host is handled by OAuth */ }
+    const configuredPrivateHost = String(process.env.PANEL_HOST || '').trim().replace(/^\[|\]$/g, '');
+    const isPrivatePanelHost = requestHostname === configuredPrivateHost
+        || ['localhost', '127.0.0.1', '::1'].includes(requestHostname.toLowerCase());
+
+    // Preserve the separately registered Tailscale/localhost OAuth callback.
+    if (isPrivatePanelHost) return requestUrl;
+
     const configured = process.env.PANEL_PUBLIC_URL || config.panel?.publicUrl;
     if (configured) return String(configured).replace(/\/$/, '');
-    return `${isSecureRequest(req) ? 'https' : 'http'}://${req.headers.host}`;
+    return requestUrl;
 }
 
 function sendRedirect(res, location) {
@@ -225,6 +240,54 @@ async function requireGuildManagerAccess(session, guildId, res, errorMessage) {
 
 async function requireSettingsAccess(session, guildId, res) {
     return requireGuildManagerAccess(session, guildId, res, 'Settings can only be changed by the server owner or a manager.');
+}
+
+const developerFileReauthMs = 30 * 60 * 1000;
+
+function normalizedRemoteAddress(req) {
+    return String(req.socket?.remoteAddress || '').replace(/^::ffff:/, '');
+}
+
+function isTailscaleAddress(address) {
+    const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(address);
+    if (!match) return false;
+    const first = Number(match[1]);
+    const second = Number(match[2]);
+    return first === 100 && second >= 64 && second <= 127;
+}
+
+function developerFileWriteStatus(req, session) {
+    const remoteAddress = normalizedRemoteAddress(req);
+    const throughCloudflare = Boolean(req.headers['cf-ray'] || req.headers['cf-connecting-ip']);
+    const privateConnection = !throughCloudflare && (
+        isTailscaleAddress(remoteAddress)
+        || ['127.0.0.1', '::1'].includes(remoteAddress)
+    );
+    const authenticatedAt = Number(session?.authenticatedAt) || 0;
+    const recentAuthentication = authenticatedAt > 0 && Date.now() - authenticatedAt <= developerFileReauthMs;
+    return { privateConnection, recentAuthentication, canWrite: privateConnection && recentAuthentication };
+}
+
+function requireDeveloperFileWriteAccess(req, session, res) {
+    const status = developerFileWriteStatus(req, session);
+    if (!status.privateConnection) {
+        sendJson(res, 403, { code: 'TAILSCALE_REQUIRED', error: 'File changes are only allowed through the direct Tailscale or localhost panel address.' });
+        return false;
+    }
+    if (!status.recentAuthentication) {
+        sendJson(res, 401, { code: 'REAUTH_REQUIRED', error: 'Refresh your Discord sign-in before changing repository files.' });
+        return false;
+    }
+    return true;
+}
+
+function runRepositoryTests() {
+    return new Promise(resolve => {
+        execFile(process.execPath, ['--test'], { cwd: __dirname, timeout: 120000, maxBuffer: 512 * 1024 }, (error, stdout, stderr) => {
+            const output = `${stdout || ''}${stderr || ''}`.slice(-200000);
+            resolve({ ok: !error, exitCode: Number.isInteger(error?.code) ? error.code : (error ? 1 : 0), output });
+        });
+    });
 }
 
 function serializeForInlineScript(value) {
@@ -986,7 +1049,7 @@ function createServer() {
                     }
 
                     const sessionToken = crypto.randomBytes(32).toString('hex');
-                    panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, isDeveloper, adminGuildIds, expiresAt: Date.now() + sessionDurationMs });
+                    panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, isDeveloper, adminGuildIds, authenticatedAt: Date.now(), expiresAt: Date.now() + sessionDurationMs });
                     if (record.previousSessionKey) panelSessions.delete(record.previousSessionKey);
                     persistPanelSessions();
                     const secure = record.redirectUri.startsWith('https://') ? '; Secure' : '';
@@ -1075,9 +1138,93 @@ function createServer() {
                     '/api/health', '/api/runtime', '/api/update-status', '/api/send'
                 ]);
                 if (developerPaths.has(requestUrl.pathname) && !requireDeveloperAccess(panelSession, res)) return;
+                if (requestUrl.pathname.startsWith('/api/developer/files') && !requireDeveloperAccess(panelSession, res)) return;
 
                 const requestedGuildId = requestUrl.searchParams.get('guildId');
                 if (requestedGuildId && !await requireGuildAccess(panelSession, requestedGuildId, res)) return;
+
+                if (req.method === 'GET' && requestUrl.pathname === '/api/developer/files/list') {
+                    const result = repositoryFileManager.list(requestUrl.searchParams.get('path') || '');
+                    sendJson(res, 200, { ...result, writeAccess: developerFileWriteStatus(req, panelSession) });
+                    return;
+                }
+
+                if (req.method === 'GET' && requestUrl.pathname === '/api/developer/files/read') {
+                    sendJson(res, 200, repositoryFileManager.read(requestUrl.searchParams.get('path')));
+                    return;
+                }
+
+                if (req.method === 'GET' && requestUrl.pathname === '/api/developer/files/search') {
+                    sendJson(res, 200, repositoryFileManager.search(requestUrl.searchParams.get('q')));
+                    return;
+                }
+
+                if (req.method === 'GET' && requestUrl.pathname === '/api/developer/files/download') {
+                    const file = repositoryFileManager.download(requestUrl.searchParams.get('path'));
+                    const filename = path.basename(file.path);
+                    res.writeHead(200, {
+                        'Content-Type': 'application/octet-stream',
+                        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+                        'Content-Length': file.buffer.length
+                    });
+                    res.end(file.buffer);
+                    return;
+                }
+
+                if (req.method === 'POST' && requestUrl.pathname.startsWith('/api/developer/files/')) {
+                    if (!requireDeveloperFileWriteAccess(req, panelSession, res)) return;
+                    const action = requestUrl.pathname.slice('/api/developer/files/'.length);
+                    const parsed = JSON.parse(await readBody(req, action === 'upload' ? 12 * 1024 * 1024 : 2 * 1024 * 1024) || '{}');
+
+                    if (action === 'save') {
+                        const result = repositoryFileManager.save(parsed.path, parsed.content, parsed.expectedHash, { force: parsed.force === true });
+                        auditPanelAction(panelSession, 'developer-file-save', `Saved ${result.path}`, { path: result.path, forced: parsed.force === true, backup: result.backup });
+                        sendJson(res, 200, { ok: true, ...result });
+                        return;
+                    }
+                    if (action === 'create') {
+                        const result = repositoryFileManager.create(parsed.path, parsed.type);
+                        auditPanelAction(panelSession, 'developer-file-create', `Created ${result.path}`, { path: result.path, fileType: result.type });
+                        sendJson(res, 201, { ok: true, ...result });
+                        return;
+                    }
+                    if (action === 'rename') {
+                        const result = repositoryFileManager.rename(parsed.path, parsed.destination);
+                        auditPanelAction(panelSession, 'developer-file-rename', `Renamed ${result.from} to ${result.path}`, { path: result.path, previousPath: result.from, backup: result.backup });
+                        sendJson(res, 200, { ok: true, ...result });
+                        return;
+                    }
+                    if (action === 'trash') {
+                        if (parsed.confirmation !== 'TRASH') throw new RepositoryFileError('Trash confirmation is required.', 'CONFIRMATION_REQUIRED');
+                        const result = repositoryFileManager.trash(parsed.path);
+                        auditPanelAction(panelSession, 'developer-file-trash', `Moved ${result.path} to recoverable trash`, { path: result.path, trashPath: result.trashPath });
+                        sendJson(res, 200, { ok: true, ...result });
+                        return;
+                    }
+                    if (action === 'upload') {
+                        const result = repositoryFileManager.upload(parsed.path, parsed.base64, parsed.expectedHash, { force: parsed.force === true });
+                        auditPanelAction(panelSession, 'developer-file-upload', `Uploaded ${result.path}`, { path: result.path, size: result.size, forced: parsed.force === true, backup: result.backup });
+                        sendJson(res, 200, { ok: true, ...result });
+                        return;
+                    }
+                    if (action === 'test') {
+                        const result = await runRepositoryTests();
+                        auditPanelAction(panelSession, 'developer-file-test', `Repository tests ${result.ok ? 'passed' : 'failed'}`, { exitCode: result.exitCode });
+                        sendJson(res, result.ok ? 200 : 422, result);
+                        return;
+                    }
+                    if (action === 'restart') {
+                        if (parsed.confirmation !== 'RESTART') throw new RepositoryFileError('Restart confirmation is required.', 'CONFIRMATION_REQUIRED');
+                        auditPanelAction(panelSession, 'developer-file-restart', 'Requested Flummi service restart');
+                        sendJson(res, 202, { ok: true, message: 'Flummi restart scheduled.' });
+                        const helper = path.join(__dirname, 'scripts', 'restart-flummi-service.js');
+                        spawn(process.execPath, [helper], { cwd: __dirname, detached: true, stdio: 'ignore' }).unref();
+                        return;
+                    }
+
+                    sendJson(res, 404, { error: 'Unknown file-manager action.' });
+                    return;
+                }
                 if (requestedGuildId && requestUrl.pathname === '/api/triggers' && req.method !== 'GET'
                     && !await requireGuildManagerAccess(panelSession, requestedGuildId, res, 'Triggers can only be managed by the server owner or a manager.')) return;
             }
@@ -2156,6 +2303,10 @@ function createServer() {
 
             sendJson(res, 404, { error: 'Not found.' });
         } catch (error) {
+            if (error instanceof RepositoryFileError) {
+                sendJson(res, error.statusCode, { error: error.message, code: error.code, ...error.details });
+                return;
+            }
             sendJson(res, 500, { error: error.message || 'Internal server error.' });
         }
     });

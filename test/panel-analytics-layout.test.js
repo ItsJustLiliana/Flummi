@@ -55,7 +55,7 @@ test('moderation analytics are withheld from regular-user API responses', () => 
 });
 
 test('every panel tab starts with a consistent description', () => {
-    for (const id of ['overview', 'analytics', 'messenger', 'triggers', 'shots', 'voice', 'stats', 'users', 'settings', 'pings', 'profiles', 'ai', 'logs', 'reliability', 'soundboard', 'audit', 'experiments']) {
+    for (const id of ['overview', 'analytics', 'messenger', 'triggers', 'shots', 'voice', 'stats', 'users', 'settings', 'pings', 'profiles', 'ai', 'files', 'logs', 'reliability', 'soundboard', 'audit', 'experiments']) {
         assert.match(tabMarkup(id), /<h2 style="font-size:20px;">[\s\S]*?<\/h2>\s*<p class="sub tab-intro">/, `${id} should have a top-level description`);
     }
 });

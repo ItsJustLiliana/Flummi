@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
@@ -31,4 +32,15 @@ test('Cloudflare Worker passes healthy responses and replaces tunnel failures', 
     } finally {
         global.fetch = originalFetch;
     }
+});
+
+test('cloudflared service keeps its tunnel token out of the process arguments', () => {
+    const service = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'cloudflared.service'), 'utf8');
+    const installer = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'install-cloudflared-user-service.sh'), 'utf8');
+
+    assert.match(service, /--token-file %h\/\.config\/cloudflared\/tunnel\.token/);
+    assert.doesNotMatch(service, /--token\s|\$\{TUNNEL_TOKEN\}/);
+    assert.match(service, /NoNewPrivileges=true/);
+    assert.match(installer, /chmod 600 "\$\{token_file\}"/);
+    assert.match(installer, /read -rsp/);
 });

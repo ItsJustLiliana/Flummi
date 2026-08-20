@@ -1747,6 +1747,103 @@
             border-radius: 3px;
             background: #17233f;
         }
+
+        .file-manager-layout {
+            display: grid;
+            grid-template-columns: minmax(250px, .75fr) minmax(0, 2fr);
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        .file-browser,
+        .file-editor-panel {
+            min-height: 640px;
+        }
+
+        .file-browser-list {
+            display: grid;
+            gap: 4px;
+            margin-top: 12px;
+            max-height: 540px;
+            overflow: auto;
+        }
+
+        .file-entry {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            background: transparent;
+            color: var(--text);
+            text-align: left;
+        }
+
+        .file-entry:hover,
+        .file-entry.active {
+            border-color: var(--border);
+            background: rgba(255, 255, 255, .045);
+        }
+
+        .file-entry-meta {
+            margin-left: auto;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .file-editor {
+            width: 100%;
+            min-height: 450px;
+            margin-top: 12px;
+            resize: vertical;
+            border-radius: 10px;
+            font: 13px/1.55 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+            tab-size: 4;
+            white-space: pre;
+        }
+
+        .file-editor-header,
+        .file-editor-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .file-editor-path {
+            overflow-wrap: anywhere;
+            font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        }
+
+        .file-diff {
+            max-height: 340px;
+            overflow: auto;
+            margin: 10px 0 0;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: #d8def5;
+            background: #090e1c;
+            font: 12px/1.5 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+            white-space: pre-wrap;
+        }
+
+        .file-diff .added { color: #8ce99a; }
+        .file-diff .removed { color: #ff9f9f; }
+        .syntax-keyword { color: #c792ea; font-weight: 650; }
+        .syntax-string { color: #c3e88d; }
+        .syntax-comment { color: #697998; font-style: italic; }
+        .syntax-number { color: #f78c6c; }
+        .syntax-tag { color: #89ddff; }
+        .file-runtime-output { min-height: 120px; max-height: 360px; }
+
+        @media (max-width: 900px) {
+            .file-manager-layout { grid-template-columns: 1fr; }
+            .file-browser, .file-editor-panel { min-height: auto; }
+        }
     </style>
 </head>
 
@@ -2461,6 +2558,84 @@
                 </div>
             </section>
 
+            <section id="tab-files" class="tab-panel">
+                <h2 style="font-size:20px;">Developer Files</h2>
+                <p class="sub tab-intro">Browse and edit the approved Flummi repository workspace. Secrets, runtime data,
+                    dependencies, Git internals, logs, and paths outside the project are blocked.</p>
+                <div class="banner ok">Opening a file takes a snapshot and never locks it. Flummi and other processes can
+                    continue writing. If a file changes after you open it, saving stops with a conflict instead of silently
+                    overwriting the newer version.</div>
+                <div id="fileManagerAccess" class="banner warn">Checking write access...</div>
+                <div class="file-manager-layout">
+                    <div class="section file-browser">
+                        <div class="file-editor-header">
+                            <h2 style="margin:0">Repository</h2>
+                            <span id="fileBrowserPath" class="badge">/</span>
+                        </div>
+                        <div class="row" style="margin-top:12px">
+                            <button id="fileRoot" class="secondary" type="button">Root</button>
+                            <button id="fileUp" class="secondary" type="button">Up</button>
+                            <button id="fileNew" class="secondary" type="button">New file</button>
+                            <button id="fileNewFolder" class="secondary" type="button">New folder</button>
+                        </div>
+                        <div class="row" style="margin-top:8px">
+                            <input id="fileSearch" type="search" placeholder="Search names and text" style="flex:1">
+                            <button id="fileSearchButton" class="secondary" type="button">Search</button>
+                        </div>
+                        <div class="row" style="margin-top:8px">
+                            <input id="fileUpload" type="file" style="flex:1">
+                            <button id="fileUploadButton" class="secondary" type="button">Upload here</button>
+                        </div>
+                        <div id="fileBrowserList" class="file-browser-list"><div class="empty">Loading...</div></div>
+                    </div>
+                    <div class="section file-editor-panel">
+                        <div class="file-editor-header">
+                            <div>
+                                <h2 id="fileEditorName" style="margin:0">Select a file</h2>
+                                <div id="fileEditorPath" class="sub file-editor-path">No file open</div>
+                            </div>
+                            <div id="fileEditorBadges" class="row"></div>
+                        </div>
+                        <textarea id="fileEditor" class="file-editor" spellcheck="false" disabled
+                            placeholder="Choose an editable text or code file."></textarea>
+                        <div class="file-editor-meta">
+                            <span id="fileEditorMeta" class="sub"></span>
+                            <span id="fileDirtyState" class="badge">No file</span>
+                        </div>
+                        <div class="actions">
+                            <button id="fileReload" class="secondary" type="button" disabled>Reload snapshot</button>
+                            <button id="filePreviewDiff" class="secondary" type="button" disabled>Preview changes</button>
+                            <button id="fileDownload" class="secondary" type="button" disabled>Download</button>
+                            <button id="fileRename" class="secondary" type="button" disabled>Rename</button>
+                            <button id="fileTrash" class="danger" type="button" disabled>Move to trash</button>
+                            <button id="fileSave" class="primary" type="button" disabled>Save with backup</button>
+                        </div>
+                        <p id="fileEditorStatus" class="status"></p>
+                        <details id="fileSyntaxDetails">
+                            <summary>Syntax-highlighted preview</summary>
+                            <pre id="fileSyntaxPreview" class="file-diff">No file selected.</pre>
+                        </details>
+                        <details id="fileDiffDetails">
+                            <summary>Draft and Git diff</summary>
+                            <pre id="fileDiff" class="file-diff">No file selected.</pre>
+                        </details>
+                    </div>
+                </div>
+                <div class="two-col" style="margin-top:16px">
+                    <div class="section">
+                        <h2>Validate changes</h2>
+                        <p class="sub">Run the repository test suite before restarting Flummi.</p>
+                        <button id="fileRunTests" class="secondary" type="button">Run tests</button>
+                    </div>
+                    <div class="section">
+                        <h2>Apply changes</h2>
+                        <p class="sub">Restarting applies server-side JavaScript changes and briefly disconnects the bot.</p>
+                        <button id="fileRestart" class="danger" type="button">Restart Flummi</button>
+                    </div>
+                </div>
+                <pre id="fileRuntimeOutput" class="file-diff file-runtime-output">No validation run yet.</pre>
+            </section>
+
             <section id="tab-logs" class="tab-panel">
                 <h2 style="font-size:20px;">Bot Logs <span class="help-tip" tabindex="0"
                         data-tooltip="Logs refresh every 20 seconds while this tab is open. Use Refresh now after reproducing an issue to see it immediately.">?</span>
@@ -2667,6 +2842,7 @@
                     <button class="tab-btn" data-tab="ai" data-developer-only type="button">AI &amp; System</button>
                     <button class="tab-btn" data-tab="reliability" data-developer-only
                         type="button">Reliability</button>
+                    <button class="tab-btn" data-tab="files" data-developer-only type="button">Developer Files</button>
                     <button class="tab-btn" data-tab="logs" data-developer-only type="button">Bot Logs</button>
                     <button class="tab-btn" data-tab="experiments" data-actual-developer-only
                         type="button">Experiments</button>
@@ -2937,6 +3113,8 @@
             if (!response.ok) {
                 const error = new Error(data.error || `Request failed (${response.status}).`);
                 error.status = response.status;
+                error.code = data.code || null;
+                error.data = data;
                 throw error;
             }
 
@@ -3126,6 +3304,7 @@
             triggers: 'This tab does not refresh automatically, so trigger drafts and edits are never overwritten. Use Refresh to reload saved triggers.',
             profiles: 'This tab does not refresh automatically, so unsaved profile fields are never overwritten. Use Refresh to reload profile data.',
             ai: 'This tab does not refresh automatically, so AI settings and panel navigation edits are never overwritten. Use Refresh to reload saved values.',
+            files: 'This tab never refreshes automatically. Open files are snapshots and are never locked; use Reload snapshot to fetch external changes.',
             experiments: 'This tab does not refresh automatically, so a pending experiment is not overwritten before you apply it.',
             reliability: 'This tab refreshes every 20 seconds while open. Its automatic Discord gateway and API checks update every 30 seconds.',
             logs: 'This tab refreshes every 20 seconds while open. Use Refresh now immediately after reproducing an error.',
@@ -3172,6 +3351,7 @@
             ai: loadAi,
             logs: loadLogs,
             reliability: loadReliability,
+            files: loadDeveloperFiles,
             soundboard: loadSoundboard,
             audit: loadAudit,
             experiments: loadExperiments
@@ -3208,7 +3388,7 @@
         }
 
         // Reorders the shared sidebar navigation. Developer tools can move only inside their protected group.
-        const defaultDeveloperTabOrder = ['messenger', 'profiles', 'ai', 'reliability', 'logs', 'experiments'];
+        const defaultDeveloperTabOrder = ['messenger', 'profiles', 'ai', 'reliability', 'files', 'logs', 'experiments'];
         const fixedDeveloperTabIds = new Set(defaultDeveloperTabOrder);
         let activeDeveloperTabOrder = [...defaultDeveloperTabOrder];
 
@@ -3319,7 +3499,7 @@
             if (state.accountUsername) {
                 document.getElementById('panelAccountName').innerHTML = `<span class="account-username">${escapeHtml(state.accountUsername)}</span><span class="account-role">${escapeHtml(roleLabel)}</span>`;
             }
-            const developerTabs = ['messenger', 'profiles', 'ai', 'reliability', 'logs'];
+            const developerTabs = ['messenger', 'profiles', 'ai', 'reliability', 'files', 'logs'];
             document.querySelectorAll('[data-developer-only]').forEach(element => { element.hidden = !isDeveloper; });
             developerTabs.forEach(tabId => {
                 const panel = document.getElementById(`tab-${tabId}`);
@@ -3450,7 +3630,7 @@
         // Passive refreshes must never redraw tabs that contain unsaved editors. The short
         // interaction grace period also prevents a background redraw while someone is using
         // filters, search fields, players, or pagination elsewhere in the panel.
-        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'triggers', 'users', 'settings', 'profiles', 'ai', 'experiments']);
+        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'triggers', 'users', 'settings', 'profiles', 'ai', 'files', 'experiments']);
         let lastPanelInteractionAt = 0;
 
         function shouldSkipPassiveRefresh(tab = activeTab()) {
@@ -5343,6 +5523,355 @@
         document.getElementById('createBackup').addEventListener('click', async () => { try { const result = await api(withGuild('/api/reliability/backup'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), `Backup created: ${result.backup}`, 'ok'); await loadReliability(); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
         document.getElementById('downloadReliabilityExport').addEventListener('click', () => { if (state.guildId) window.location.href = withGuild('/api/backup'); });
         document.getElementById('reconcileVoice').addEventListener('click', async () => { try { await api(withGuild('/api/reliability/reconcile-voice'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), 'Voice sessions reconciled with Discord.', 'ok'); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
+
+        // ---------- Developer files ----------
+        const developerFiles = {
+            initialized: false,
+            directory: '',
+            selected: null,
+            originalContent: '',
+            hash: null,
+            git: { status: '', diff: '' },
+            writeAccess: { privateConnection: false, recentAuthentication: false, canWrite: false }
+        };
+
+        const fileEditor = document.getElementById('fileEditor');
+
+        function fileIsDirty() {
+            return Boolean(developerFiles.selected?.editable) && fileEditor.value !== developerFiles.originalContent;
+        }
+
+        function formatFileSize(bytes) {
+            const value = Number(bytes) || 0;
+            if (value < 1024) return `${value} B`;
+            if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+            return `${(value / 1024 / 1024).toFixed(1)} MB`;
+        }
+
+        function updateFileWriteAccess() {
+            const access = developerFiles.writeAccess;
+            const banner = document.getElementById('fileManagerAccess');
+            if (access.canWrite) {
+                banner.className = 'banner ok';
+                banner.textContent = 'Write access active through the private Tailscale/localhost route. Recent Discord authentication expires after 30 minutes.';
+            } else if (!access.privateConnection) {
+                banner.className = 'banner warn';
+                banner.innerHTML = 'Read-only on the public Cloudflare route. Open this panel through <code>http://100.111.62.126:3789</code> to modify files.';
+            } else {
+                banner.className = 'banner warn';
+                banner.innerHTML = 'Private connection confirmed. <a href="/auth/login?refresh=1">Refresh Discord authentication</a> to enable file changes for 30 minutes.';
+            }
+            for (const id of ['fileNew', 'fileNewFolder', 'fileUploadButton', 'fileRunTests', 'fileRestart']) {
+                document.getElementById(id).disabled = !access.canWrite;
+            }
+            updateFileEditorControls();
+        }
+
+        function updateFileEditorControls() {
+            const selected = developerFiles.selected;
+            const editable = Boolean(selected?.editable);
+            const canWrite = developerFiles.writeAccess.canWrite;
+            fileEditor.disabled = !editable;
+            document.getElementById('fileReload').disabled = !editable;
+            document.getElementById('filePreviewDiff').disabled = !editable;
+            document.getElementById('fileDownload').disabled = !selected;
+            document.getElementById('fileRename').disabled = !selected || !canWrite;
+            document.getElementById('fileTrash').disabled = !selected || !canWrite;
+            document.getElementById('fileSave').disabled = !editable || !canWrite || !fileIsDirty();
+            const dirty = document.getElementById('fileDirtyState');
+            dirty.textContent = !selected ? 'No file' : fileIsDirty() ? 'Unsaved changes' : editable ? 'Saved snapshot' : 'Binary / read-only';
+            dirty.className = `badge ${fileIsDirty() ? 'manager' : ''}`;
+        }
+
+        function syntaxHighlighted(content, relativePath) {
+            const extension = String(relativePath || '').split('.').pop().toLowerCase();
+            let tokenPattern;
+            if (['html', 'svg'].includes(extension)) {
+                tokenPattern = /<!--[\s\S]*?-->|<\/?[A-Za-z][^>]*>|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g;
+            } else {
+                tokenPattern = /\/\*[\s\S]*?\*\/|\/\/[^\n]*|#[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b(?:async|await|break|case|catch|class|const|continue|default|delete|else|export|extends|false|finally|for|function|if|import|in|instanceof|let|new|null|return|static|switch|throw|true|try|typeof|undefined|var|while|yield)\b|\b\d+(?:\.\d+)?\b/g;
+            }
+            let output = '';
+            let cursor = 0;
+            for (const match of content.matchAll(tokenPattern)) {
+                output += escapeHtml(content.slice(cursor, match.index));
+                const token = match[0];
+                let className = 'syntax-keyword';
+                if (/^(?:\/\/|\/\*|#|<!--)/.test(token)) className = 'syntax-comment';
+                else if (/^["'`]/.test(token)) className = 'syntax-string';
+                else if (/^\d/.test(token)) className = 'syntax-number';
+                else if (/^</.test(token)) className = 'syntax-tag';
+                output += `<span class="${className}">${escapeHtml(token)}</span>`;
+                cursor = match.index + token.length;
+            }
+            return output + escapeHtml(content.slice(cursor));
+        }
+
+        function diffHtml(text) {
+            return String(text || '').split('\n').map(line => {
+                const className = line.startsWith('+') && !line.startsWith('+++') ? 'added'
+                    : line.startsWith('-') && !line.startsWith('---') ? 'removed' : '';
+                return `<span class="${className}">${escapeHtml(line)}</span>`;
+            }).join('\n');
+        }
+
+        function renderFilePreviews() {
+            if (!developerFiles.selected?.editable) {
+                document.getElementById('fileSyntaxPreview').textContent = developerFiles.selected ? 'Binary files are download-only.' : 'No file selected.';
+                document.getElementById('fileDiff').textContent = 'No editable file selected.';
+                return;
+            }
+            document.getElementById('fileSyntaxPreview').innerHTML = syntaxHighlighted(fileEditor.value, developerFiles.selected.path);
+            const original = developerFiles.originalContent.split('\n');
+            const draft = fileEditor.value.split('\n');
+            const draftLines = [];
+            const limit = Math.min(500, Math.max(original.length, draft.length));
+            for (let index = 0; index < limit; index += 1) {
+                if (original[index] === draft[index]) continue;
+                if (original[index] !== undefined) draftLines.push(`-${index + 1}: ${original[index]}`);
+                if (draft[index] !== undefined) draftLines.push(`+${index + 1}: ${draft[index]}`);
+            }
+            if (Math.max(original.length, draft.length) > limit) draftLines.push('... draft diff truncated ...');
+            const gitDiff = developerFiles.git?.diff || '';
+            const content = [
+                developerFiles.git?.status ? `Git status: ${developerFiles.git.status}` : 'Git status: clean or unavailable',
+                '',
+                'Draft versus opened snapshot:',
+                draftLines.join('\n') || 'No draft changes.',
+                '',
+                'Current working tree versus Git:',
+                gitDiff || 'No tracked Git diff.'
+            ].join('\n');
+            document.getElementById('fileDiff').innerHTML = diffHtml(content);
+        }
+
+        async function loadFileDirectory(relativePath = developerFiles.directory) {
+            const data = await api(`/api/developer/files/list?path=${encodeURIComponent(relativePath || '')}`);
+            developerFiles.directory = data.path || '';
+            developerFiles.writeAccess = data.writeAccess || developerFiles.writeAccess;
+            document.getElementById('fileBrowserPath').textContent = `/${developerFiles.directory}`;
+            document.getElementById('fileUp').disabled = !developerFiles.directory;
+            const container = document.getElementById('fileBrowserList');
+            container.innerHTML = data.entries.length ? data.entries.map(entry => `
+                <button class="file-entry ${developerFiles.selected?.path === entry.path ? 'active' : ''}" type="button"
+                    data-file-path="${escapeHtml(entry.path)}" data-file-type="${entry.type}" data-file-editable="${entry.editable}">
+                    <span>${entry.type === 'directory' ? '📁' : entry.editable ? '📄' : '📦'}</span>
+                    <span>${escapeHtml(entry.name)}</span>
+                    <span class="file-entry-meta">${entry.type === 'file' ? escapeHtml(formatFileSize(entry.size)) : ''}</span>
+                </button>`).join('') : '<div class="empty">This folder is empty.</div>';
+            container.querySelectorAll('[data-file-path]').forEach(button => button.addEventListener('click', () => {
+                if (button.dataset.fileType === 'directory') {
+                    loadFileDirectory(button.dataset.filePath).catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'));
+                } else {
+                    openDeveloperFile(button.dataset.filePath, button.dataset.fileEditable === 'true').catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'));
+                }
+            }));
+            updateFileWriteAccess();
+        }
+
+        async function openDeveloperFile(relativePath, editable = true) {
+            if (fileIsDirty() && !window.confirm('Discard the unsaved editor changes and open another file?')) return;
+            developerFiles.selected = { path: relativePath, editable };
+            document.getElementById('fileEditorName').textContent = relativePath.split('/').pop();
+            document.getElementById('fileEditorPath').textContent = relativePath;
+            document.getElementById('fileEditorStatus').textContent = '';
+            if (!editable) {
+                developerFiles.originalContent = '';
+                developerFiles.hash = null;
+                developerFiles.git = { status: '', diff: '' };
+                fileEditor.value = '';
+                document.getElementById('fileEditorMeta').textContent = 'Binary asset — viewing does not open or lock the file.';
+                renderFilePreviews();
+                updateFileEditorControls();
+                await loadFileDirectory();
+                return;
+            }
+            const data = await api(`/api/developer/files/read?path=${encodeURIComponent(relativePath)}`);
+            developerFiles.originalContent = data.content;
+            developerFiles.hash = data.hash;
+            developerFiles.git = data.git || { status: '', diff: '' };
+            fileEditor.value = data.content;
+            document.getElementById('fileEditorMeta').textContent = `${formatFileSize(data.size)} · modified ${formatDateTime(data.modifiedAt)} · snapshot ${data.hash.slice(0, 10)}`;
+            document.getElementById('fileEditorBadges').innerHTML = data.git?.status ? '<span class="badge manager">Git changes</span>' : '<span class="badge on">Git clean</span>';
+            renderFilePreviews();
+            updateFileEditorControls();
+            await loadFileDirectory();
+        }
+
+        async function loadDeveloperFiles() {
+            if (!developerFiles.initialized) {
+                developerFiles.initialized = true;
+                await loadFileDirectory('');
+            } else {
+                await loadFileDirectory(developerFiles.directory);
+            }
+        }
+
+        async function fileMutation(action, payload) {
+            try {
+                return await api(`/api/developer/files/${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (error) {
+                if (error.code === 'REAUTH_REQUIRED') {
+                    developerFiles.writeAccess.recentAuthentication = false;
+                    developerFiles.writeAccess.canWrite = false;
+                    updateFileWriteAccess();
+                }
+                throw error;
+            }
+        }
+
+        fileEditor.addEventListener('input', () => {
+            updateFileEditorControls();
+            renderFilePreviews();
+        });
+        fileEditor.addEventListener('keydown', event => {
+            if (event.key !== 'Tab') return;
+            event.preventDefault();
+            const start = fileEditor.selectionStart;
+            fileEditor.setRangeText('    ', start, fileEditor.selectionEnd, 'end');
+            fileEditor.dispatchEvent(new Event('input'));
+        });
+        window.addEventListener('beforeunload', event => {
+            if (!fileIsDirty()) return;
+            event.preventDefault();
+            event.returnValue = '';
+        });
+
+        document.getElementById('fileRoot').addEventListener('click', () => loadFileDirectory('').catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error')));
+        document.getElementById('fileUp').addEventListener('click', () => {
+            const parent = developerFiles.directory.split('/').slice(0, -1).join('/');
+            loadFileDirectory(parent).catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'));
+        });
+        document.getElementById('fileReload').addEventListener('click', () => {
+            if (!developerFiles.selected?.editable) return;
+            if (fileIsDirty() && !window.confirm('Discard your draft and reload the latest server version?')) return;
+            openDeveloperFile(developerFiles.selected.path, true).catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'));
+        });
+        document.getElementById('filePreviewDiff').addEventListener('click', () => {
+            renderFilePreviews();
+            document.getElementById('fileDiffDetails').open = true;
+        });
+        document.getElementById('fileDownload').addEventListener('click', () => {
+            if (developerFiles.selected) window.location.href = `/api/developer/files/download?path=${encodeURIComponent(developerFiles.selected.path)}`;
+        });
+        document.getElementById('fileSave').addEventListener('click', async () => {
+            const status = document.getElementById('fileEditorStatus');
+            if (!developerFiles.selected?.editable || !fileIsDirty()) return;
+            renderFilePreviews();
+            document.getElementById('fileDiffDetails').open = true;
+            if (!await confirmAction({ title: 'Save repository file?', message: `Save ${developerFiles.selected.path}? A timestamped backup will be created first.`, confirmLabel: 'Save file' })) return;
+            const save = async force => fileMutation('save', { path: developerFiles.selected.path, content: fileEditor.value, expectedHash: developerFiles.hash, force });
+            try {
+                let result;
+                try {
+                    result = await save(false);
+                } catch (error) {
+                    if (error.code !== 'FILE_CHANGED') throw error;
+                    const overwrite = await confirmAction({ title: 'File changed on the server', message: `${developerFiles.selected.path} changed after you opened it. Overwrite the newer version anyway? Its current content will be backed up.`, confirmLabel: 'Overwrite newer file' });
+                    if (!overwrite) return;
+                    result = await save(true);
+                }
+                developerFiles.originalContent = fileEditor.value;
+                developerFiles.hash = result.hash;
+                developerFiles.git = result.git || developerFiles.git;
+                setStatus(status, `Saved ${result.path}. Backup: ${result.backup || 'not needed'}.`, 'ok');
+                updateFileEditorControls();
+                renderFilePreviews();
+                await loadFileDirectory();
+            } catch (error) { setStatus(status, error.message, 'error'); }
+        });
+
+        async function createDeveloperPath(type) {
+            const name = window.prompt(type === 'directory' ? 'New folder name' : 'New file name');
+            if (!name) return;
+            const relativePath = developerFiles.directory ? `${developerFiles.directory}/${name}` : name;
+            try {
+                await fileMutation('create', { path: relativePath, type });
+                await loadFileDirectory();
+                if (type === 'file') await openDeveloperFile(relativePath, true);
+            } catch (error) { setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'); }
+        }
+        document.getElementById('fileNew').addEventListener('click', () => createDeveloperPath('file'));
+        document.getElementById('fileNewFolder').addEventListener('click', () => createDeveloperPath('directory'));
+        document.getElementById('fileRename').addEventListener('click', async () => {
+            if (!developerFiles.selected) return;
+            const destination = window.prompt('New repository path', developerFiles.selected.path);
+            if (!destination || destination === developerFiles.selected.path) return;
+            try {
+                const result = await fileMutation('rename', { path: developerFiles.selected.path, destination });
+                developerFiles.selected = null;
+                fileEditor.value = '';
+                await loadFileDirectory(developerFiles.directory);
+                setStatus(document.getElementById('fileEditorStatus'), `Renamed to ${result.path}.`, 'ok');
+                updateFileEditorControls();
+            } catch (error) { setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'); }
+        });
+        document.getElementById('fileTrash').addEventListener('click', async () => {
+            if (!developerFiles.selected) return;
+            if (!await confirmAction({ title: 'Move to recoverable trash?', message: `${developerFiles.selected.path} will leave the repository but remain recoverable in runtime trash.`, confirmLabel: 'Move to trash' })) return;
+            try {
+                const result = await fileMutation('trash', { path: developerFiles.selected.path, confirmation: 'TRASH' });
+                developerFiles.selected = null;
+                developerFiles.originalContent = '';
+                fileEditor.value = '';
+                setStatus(document.getElementById('fileEditorStatus'), `Moved to ${result.trashPath}.`, 'ok');
+                updateFileEditorControls();
+                renderFilePreviews();
+                await loadFileDirectory();
+            } catch (error) { setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'); }
+        });
+        document.getElementById('fileUploadButton').addEventListener('click', async () => {
+            const input = document.getElementById('fileUpload');
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 8 * 1024 * 1024) {
+                setStatus(document.getElementById('fileEditorStatus'), 'Uploads are limited to 8 MB.', 'error');
+                return;
+            }
+            const relativePath = developerFiles.directory ? `${developerFiles.directory}/${file.name}` : file.name;
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Could not read the upload.'));
+                reader.readAsDataURL(file);
+            });
+            try {
+                await fileMutation('upload', { path: relativePath, base64: String(dataUrl).split(',')[1] || '' });
+                input.value = '';
+                await loadFileDirectory();
+                setStatus(document.getElementById('fileEditorStatus'), `Uploaded ${relativePath}.`, 'ok');
+            } catch (error) { setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'); }
+        });
+        document.getElementById('fileSearchButton').addEventListener('click', async () => {
+            const query = document.getElementById('fileSearch').value.trim();
+            if (!query) return;
+            try {
+                const data = await api(`/api/developer/files/search?q=${encodeURIComponent(query)}`);
+                const container = document.getElementById('fileBrowserList');
+                container.innerHTML = data.results.length ? data.results.map(result => `<button class="file-entry" type="button" data-search-path="${escapeHtml(result.path)}" data-search-editable="${result.editable}"><span>🔎</span><span>${escapeHtml(result.path)}</span></button>`).join('') : '<div class="empty">No matching files.</div>';
+                container.querySelectorAll('[data-search-path]').forEach(button => button.addEventListener('click', () => openDeveloperFile(button.dataset.searchPath, button.dataset.searchEditable === 'true').catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'))));
+            } catch (error) { setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'); }
+        });
+        document.getElementById('fileSearch').addEventListener('keydown', event => { if (event.key === 'Enter') document.getElementById('fileSearchButton').click(); });
+        document.getElementById('fileRunTests').addEventListener('click', async () => {
+            const output = document.getElementById('fileRuntimeOutput');
+            output.textContent = 'Running tests...';
+            try {
+                const result = await fileMutation('test', {});
+                output.textContent = result.output || 'Tests passed.';
+            } catch (error) { output.textContent = error.data?.output || error.message; }
+        });
+        document.getElementById('fileRestart').addEventListener('click', async () => {
+            if (!await confirmAction({ title: 'Restart Flummi?', message: 'The bot and panel will disconnect briefly. Unsaved editor text will not be applied.', confirmLabel: 'Restart Flummi' })) return;
+            try {
+                const result = await fileMutation('restart', { confirmation: 'RESTART' });
+                document.getElementById('fileRuntimeOutput').textContent = `${result.message} Reconnect in a few seconds.`;
+            } catch (error) { document.getElementById('fileRuntimeOutput').textContent = error.message; }
+        });
 
         async function readImageUpload(inputId, clearId) {
             if (document.getElementById(clearId).checked) return null;

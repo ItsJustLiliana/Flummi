@@ -43,3 +43,11 @@ test('server-provided panel configuration is escaped before inline script inject
     assert.match(panelServer, /\.replace\(\/<\/g, '\\\\u003c'\)/);
     assert.match(panelServer, /serializeForInlineScript\(tabNames\)/);
 });
+
+test('developer file writes require developer access, Tailscale, and recent authentication', () => {
+    assert.match(panelServer, /pathname\.startsWith\('\/api\/developer\/files'\) && !requireDeveloperAccess/);
+    assert.match(panelServer, /function requireDeveloperFileWriteAccess\(req, session, res\)/);
+    assert.match(panelServer, /TAILSCALE_REQUIRED/);
+    assert.match(panelServer, /REAUTH_REQUIRED/);
+    assert.match(panelServer, /authenticatedAt: Date\.now\(\)/);
+});

@@ -8,7 +8,7 @@
         "openBrowserOnStart": false,
         "publicAccessEnabled": true,
         "publicUrl": "https://panel.example.com",
-        "tabOrder": ["overview", "analytics", "---", "stats", "voice", "soundboard", "users", "management", "settings", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "ai", "logs", "reliability"]
+        "tabOrder": ["overview", "analytics", "---", "stats", "voice", "soundboard", "users", "management", "management-moderation", "management-automod", "management-cases", "management-roles", "management-automation", "settings", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "ai", "logs", "reliability"]
     },
     "features": {
         "triggersEnabled": true,

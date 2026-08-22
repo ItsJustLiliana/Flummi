@@ -3002,6 +3002,7 @@
                 <h2 style="font-size:20px;">Moderation</h2>
                 <p class="sub tab-intro">Configure the defaults used for manual warnings, timeouts, kicks, bans, and
                     their case records.</p>
+                <div class="section module-page-switch" data-module-page-switch="moderation"><div class="management-module-heading"><div><h3>Moderation tools</h3><p class="sub">Allow managers to use moderation actions and commands.</p></div><button class="module-toggle" type="button" data-page-module-toggle="moderation">Off</button></div></div>
                 <div class="section">
                     <h2>Action defaults</h2>
                     <div class="two-col">
@@ -3040,6 +3041,7 @@
                 <h2 style="font-size:20px;">AutoMod &amp; Safety</h2>
                 <p class="sub tab-intro">Set the initial protection level, rollout mode, escalation behavior, and
                     staff log destination.</p>
+                <div class="section module-page-switch" data-module-page-switch="automod"><div class="management-module-heading"><div><h3>AutoMod engine</h3><p class="sub">Run the enabled safety filters on new messages.</p></div><button class="module-toggle" type="button" data-page-module-toggle="automod">Off</button></div></div>
                 <div class="section">
                     <h2>Protection defaults</h2>
                     <div class="two-col">
@@ -3074,6 +3076,7 @@
                 <h2 style="font-size:20px;">Cases &amp; Logs</h2>
                 <p class="sub tab-intro">Control where moderation cases are published and which server events are
                     included in the management timeline.</p>
+                <div class="section module-page-switch" data-module-page-switch="cases"><div class="management-module-heading"><div><h3>Cases and event logging</h3><p class="sub">Store the enabled moderation and server event records.</p></div><button class="module-toggle" type="button" data-page-module-toggle="cases">Off</button></div></div>
                 <div class="section">
                     <h2>Case history</h2>
                     <div class="two-col">
@@ -3105,6 +3108,7 @@
                 <h2 style="font-size:20px;">Roles &amp; Onboarding</h2>
                 <p class="sub tab-intro">Prepare automatic and interactive role assignment for new and returning
                     members.</p>
+                <div class="section module-page-switch" data-module-page-switch="roles"><div class="management-module-heading"><div><h3>Role management</h3><p class="sub">Enable autoroles, restored roles, and member role menus.</p></div><button class="module-toggle" type="button" data-page-module-toggle="roles">Off</button></div></div>
                 <div class="section">
                     <h2>Role assignment</h2>
                     <div class="two-col">
@@ -3135,6 +3139,7 @@
                 <h2 style="font-size:20px;">Automation</h2>
                 <p class="sub tab-intro">Enable the automation families that managers can later populate with
                     individual rules and schedules.</p>
+                <div class="section module-page-switch" data-module-page-switch="automation"><div class="management-module-heading"><div><h3>Automation runtime</h3><p class="sub">Run enabled welcome, scheduling, and cleanup modules.</p></div><button class="module-toggle" type="button" data-page-module-toggle="automation">Off</button></div></div>
                 <div class="section">
                     <h2>Available automation</h2>
                     <div class="two-col">
@@ -3798,17 +3803,17 @@
                     <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
                     <div id="managementNavGroup" class="management-nav-group" data-manager-only>
                         <button id="managementNavToggle" class="tab-btn management-parent" data-tab="management" data-manager-only
-                            type="button" aria-expanded="false" aria-controls="managementSubnav">Management</button>
-                        <div id="managementSubnav" class="management-subnav" hidden>
-                            <button class="tab-btn" data-tab="management-moderation" data-management-module="moderation" data-manager-only hidden
+                            type="button" aria-expanded="true" aria-controls="managementSubnav">Management</button>
+                        <div id="managementSubnav" class="management-subnav">
+                            <button class="tab-btn" data-tab="management-moderation" data-management-module="moderation" data-manager-only
                                 type="button">Moderation</button>
-                            <button class="tab-btn" data-tab="management-automod" data-management-module="automod" data-manager-only hidden
+                            <button class="tab-btn" data-tab="management-automod" data-management-module="automod" data-manager-only
                                 type="button">AutoMod &amp; Safety</button>
-                            <button class="tab-btn" data-tab="management-cases" data-management-module="cases" data-manager-only hidden
+                            <button class="tab-btn" data-tab="management-cases" data-management-module="cases" data-manager-only
                                 type="button">Cases &amp; Logs</button>
-                            <button class="tab-btn" data-tab="management-roles" data-management-module="roles" data-manager-only hidden
+                            <button class="tab-btn" data-tab="management-roles" data-management-module="roles" data-manager-only
                                 type="button">Roles &amp; Onboarding</button>
-                            <button class="tab-btn" data-tab="management-automation" data-management-module="automation" data-manager-only hidden
+                            <button class="tab-btn" data-tab="management-automation" data-management-module="automation" data-manager-only
                                 type="button">Automation</button>
                         </div>
                     </div>
@@ -4700,6 +4705,13 @@
             const nav = document.querySelector('.tabs');
             const managementGroup = document.getElementById('managementNavGroup');
             const seen = new Set();
+            const requestedManagementOrder = order.filter(tabId => managementChildTabIds.has(tabId));
+            const managementOrder = [...new Set([...requestedManagementOrder, ...managementChildTabIds])];
+            const managementSubnav = document.getElementById('managementSubnav');
+            for (const tabId of managementOrder) {
+                const child = tabButtons.find(button => button.dataset.tab === tabId);
+                if (child) managementSubnav.appendChild(child);
+            }
             const effectiveOrder = order.filter(tabId => !managementChildTabIds.has(tabId));
             if (!effectiveOrder.includes('management')) {
                 const settingsIndex = effectiveOrder.indexOf('settings');
@@ -4726,8 +4738,6 @@
                 }
 
                 if (fixedDeveloperTabIds.has(tabId)) continue;
-                if (managementChildTabIds.has(tabId)) continue;
-
                 const btn = tabButtons.find(b => b.dataset.tab === tabId);
 
                 if (btn && !seen.has(tabId)) {
@@ -6542,23 +6552,67 @@
             return tabButtons.find(button => button.dataset.tab === tabId)?.textContent.trim() || tabId;
         }
 
+        function normalizeEditableTabOrder(order) {
+            const children = [...new Set([...order.filter(entry => managementChildTabIds.has(entry)), ...managementChildTabIds])];
+            const topLevel = order.filter(entry => !managementChildTabIds.has(entry));
+            let managementIndex = topLevel.indexOf('management');
+            if (managementIndex < 0) {
+                const settingsIndex = topLevel.indexOf('settings');
+                managementIndex = settingsIndex < 0 ? topLevel.length : settingsIndex;
+                topLevel.splice(managementIndex, 0, 'management');
+            }
+            topLevel.splice(managementIndex + 1, 0, ...children);
+            return topLevel;
+        }
+
+        function moveEditableTab(index, direction) {
+            editableTabOrder = normalizeEditableTabOrder(editableTabOrder);
+            const entry = editableTabOrder[index];
+            if (managementChildTabIds.has(entry)) {
+                const children = editableTabOrder.filter(value => managementChildTabIds.has(value));
+                const targetChild = children[children.indexOf(entry) + direction];
+                if (!targetChild) return;
+                const targetIndex = editableTabOrder.indexOf(targetChild);
+                [editableTabOrder[index], editableTabOrder[targetIndex]] = [editableTabOrder[targetIndex], editableTabOrder[index]];
+                return;
+            }
+            const units = [];
+            for (let cursor = 0; cursor < editableTabOrder.length;) {
+                if (editableTabOrder[cursor] === 'management') {
+                    const values = [editableTabOrder[cursor++]];
+                    while (managementChildTabIds.has(editableTabOrder[cursor])) values.push(editableTabOrder[cursor++]);
+                    units.push(values);
+                } else {
+                    units.push([editableTabOrder[cursor++]]);
+                }
+            }
+            const unitIndex = units.findIndex(unit => unit.includes(entry));
+            const targetIndex = unitIndex + direction;
+            if (unitIndex < 0 || targetIndex < 0 || targetIndex >= units.length) return;
+            [units[unitIndex], units[targetIndex]] = [units[targetIndex], units[unitIndex]];
+            editableTabOrder = units.flat();
+        }
+
         function renderTabOrderEditor() {
+            editableTabOrder = normalizeEditableTabOrder(editableTabOrder);
             const container = document.getElementById('tabOrderEditor');
             container.innerHTML = editableTabOrder.length ? `<table><tbody>${editableTabOrder.map((entry, index) => {
                 const divider = isDividerToken(entry);
                 const title = isTitleToken(entry);
+                const managementChild = managementChildTabIds.has(entry);
                 const content = divider
                     ? '<span class="muted">──── Divider ────</span>'
                     : title
                         ? `<div class="row"><span class="badge manager">Category</span><input data-tab-title-index="${index}" maxlength="60" value="${escapeHtml(titleFromToken(entry))}" aria-label="Category title" style="flex:1"></div>`
-                        : `<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name">`;
-                return `<tr><td>${content}</td><td style="width:1%;white-space:nowrap"><button class="secondary" type="button" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" type="button" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> <button class="danger" type="button" data-tab-order="remove" data-index="${index}">Remove</button></td></tr>`;
+                        : `<div class="row">${managementChild ? '<span class="badge manager">Management</span>' : ''}<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name" style="flex:1"></div>`;
+                const requiredManagement = entry === 'management' || managementChild;
+                return `<tr data-tab-order-entry="${escapeHtml(entry)}"><td>${content}</td><td style="width:1%;white-space:nowrap"><button class="secondary" type="button" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" type="button" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> ${requiredManagement ? '' : `<button class="danger" type="button" data-tab-order="remove" data-index="${index}">Remove</button>`}</td></tr>`;
             }).join('')}</tbody></table>` : '<div class="empty">No tabs configured.</div>';
             container.querySelectorAll('[data-tab-order]').forEach(button => button.addEventListener('click', () => {
                 const index = Number(button.dataset.index); const action = button.dataset.tabOrder;
                 if (action === 'remove') editableTabOrder.splice(index, 1);
-                if (action === 'up' && index > 0) [editableTabOrder[index - 1], editableTabOrder[index]] = [editableTabOrder[index], editableTabOrder[index - 1]];
-                if (action === 'down' && index < editableTabOrder.length - 1) [editableTabOrder[index + 1], editableTabOrder[index]] = [editableTabOrder[index], editableTabOrder[index + 1]];
+                if (action === 'up') moveEditableTab(index, -1);
+                if (action === 'down') moveEditableTab(index, 1);
                 renderTabOrderEditor();
             }));
             container.querySelectorAll('[data-tab-name]').forEach(input => input.addEventListener('input', () => { editableTabNames[input.dataset.tabName] = input.value; }));
@@ -6595,16 +6649,15 @@
         function setManagementExpanded(expanded) {
             const toggle = document.getElementById('managementNavToggle');
             const subnav = document.getElementById('managementSubnav');
-            const hasEnabledModules = Object.values(state.management?.modules || {}).some(Boolean);
-            const open = Boolean(expanded) && hasEnabledModules;
+            const open = Boolean(expanded);
             toggle.setAttribute('aria-expanded', String(open));
             subnav.hidden = !open;
         }
 
         function applyManagementNavigation() {
-            const modules = state.management?.modules || {};
             for (const button of document.querySelectorAll('[data-management-module][data-tab]')) {
-                button.hidden = modules[button.dataset.managementModule] !== true;
+                button.hidden = false;
+                button.dataset.moduleEnabled = String(state.management?.modules?.[button.dataset.managementModule] === true);
             }
             const activeManagementChild = document.querySelector('.management-subnav .tab-btn.active:not([hidden])');
             const rememberedOpen = document.getElementById('managementNavToggle').getAttribute('aria-expanded') === 'true';
@@ -6621,9 +6674,18 @@
                 return `<article class="management-module-card" data-enabled="${enabled}" data-management-card="${escapeHtml(key)}">
                     <div class="management-module-heading"><h3>${escapeHtml(definition.title)}</h3><button class="module-toggle" type="button" data-toggle-management="${escapeHtml(key)}" aria-pressed="${enabled}">${enabled ? 'On' : 'Off'}</button></div>
                     <p class="sub">${escapeHtml(definition.description)}</p>
-                    <div class="actions"><button class="secondary" type="button" data-open-management="${escapeHtml(key)}" ${enabled ? '' : 'disabled'}>Open settings</button></div>
+                    <div class="actions"><button class="secondary" type="button" data-open-management="${escapeHtml(key)}">Open settings</button></div>
                 </article>`;
             }).join('');
+            for (const page of document.querySelectorAll('[data-module-page-switch]')) {
+                const key = page.dataset.modulePageSwitch;
+                const enabled = modules[key] === true;
+                page.dataset.enabled = String(enabled);
+                const toggle = page.querySelector('[data-page-module-toggle]');
+                toggle.disabled = false;
+                toggle.setAttribute('aria-pressed', String(enabled));
+                toggle.textContent = enabled ? 'On' : 'Off';
+            }
         }
 
         function setManagementChannelOptions(channels) {
@@ -6728,6 +6790,22 @@
             applyManagementNavigation();
         }
 
+        async function toggleManagementModule(moduleKey, statusField) {
+            const definition = managementModuleDefinitions[moduleKey];
+            if (!definition || !state.management) return;
+            const nextEnabled = state.management.modules[moduleKey] !== true;
+            state.management.modules[moduleKey] = nextEnabled;
+            try {
+                await persistManagement(statusField);
+                setManagementExpanded(true);
+                if (statusField) setStatus(statusField, `${definition.title} turned ${nextEnabled ? 'on' : 'off'}.`, 'ok');
+            } catch (error) {
+                state.management.modules[moduleKey] = !nextEnabled;
+                renderManagementCards();
+                if (statusField) setStatus(statusField, error.message, 'error');
+            }
+        }
+
         document.getElementById('managementModuleCards').addEventListener('click', async event => {
             const toggle = event.target.closest('[data-toggle-management]');
             const open = event.target.closest('[data-open-management]');
@@ -6737,22 +6815,14 @@
                 return;
             }
             if (!toggle) return;
-            const moduleKey = toggle.dataset.toggleManagement;
-            const definition = managementModuleDefinitions[moduleKey];
-            if (!definition || !state.management) return;
-            const nextEnabled = state.management.modules[moduleKey] !== true;
             toggle.disabled = true;
-            state.management.modules[moduleKey] = nextEnabled;
-            try {
-                await persistManagement(document.getElementById('managementModuleStatus'));
-                if (nextEnabled) setManagementExpanded(true);
-                setStatus(document.getElementById('managementModuleStatus'), `${definition.title} turned ${nextEnabled ? 'on' : 'off'}.`, 'ok');
-            } catch (error) {
-                state.management.modules[moduleKey] = !nextEnabled;
-                renderManagementCards();
-                setStatus(document.getElementById('managementModuleStatus'), error.message, 'error');
-            }
+            await toggleManagementModule(toggle.dataset.toggleManagement, document.getElementById('managementModuleStatus'));
         });
+
+        document.querySelectorAll('[data-page-module-toggle]').forEach(button => button.addEventListener('click', async () => {
+            button.disabled = true;
+            await toggleManagementModule(button.dataset.pageModuleToggle, document.getElementById(managementStatusIds?.[button.dataset.pageModuleToggle] || 'managementModuleStatus'));
+        }));
 
         function collectManagementSection(section) {
             if (section === 'moderation') {
@@ -6911,16 +6981,16 @@
                 ...new Set(configuredDeveloperOrder),
                 ...defaultDeveloperTabOrder.filter(tabId => !configuredDeveloperOrder.includes(tabId))
             ];
-            const sharedConfiguredOrder = configuredTabOrder.filter(entry => !fixedDeveloperTabIds.has(entry) && !managementChildTabIds.has(entry));
+            const sharedConfiguredOrder = configuredTabOrder.filter(entry => !fixedDeveloperTabIds.has(entry));
             const configuredTabs = new Set(sharedConfiguredOrder.filter(tabId => !isDividerToken(tabId) && !isTitleToken(tabId)));
             // Older saved configurations predate newer tabs. Keep their custom order and dividers,
             // then append every newly available tab so it can be positioned and renamed normally.
-            editableTabOrder = [
+            editableTabOrder = normalizeEditableTabOrder([
                 ...sharedConfiguredOrder,
                 ...tabButtons
                     .map(button => button.dataset.tab)
-                    .filter(tabId => !fixedDeveloperTabIds.has(tabId) && !managementChildTabIds.has(tabId) && !configuredTabs.has(tabId))
-            ];
+                    .filter(tabId => !fixedDeveloperTabIds.has(tabId) && !configuredTabs.has(tabId))
+            ]);
             editableTabNames = { ...(configData.panel?.tabNames || {}) };
             renderTabOrderEditor();
             renderDeveloperTabOrderEditor();

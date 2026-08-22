@@ -99,9 +99,9 @@ test('global feature switches control tabs and override server overview statuses
     assert.match(panelHtml, /const globalState = button\.dataset\.globalDisabled === 'true' \? ', globally disabled' : ''/);
 });
 
-test('management modules use on-off cards and enabled nested sidebar tabs', () => {
+test('management pages stay in the nested sidebar while their modules can be toggled', () => {
     assert.match(panelHtml, /id="managementNavToggle"[\s\S]*?aria-controls="managementSubnav"/);
-    assert.match(panelHtml, /id="managementSubnav" class="management-subnav" hidden/);
+    assert.match(panelHtml, /id="managementSubnav" class="management-subnav"/);
     for (const module of ['moderation', 'automod', 'cases', 'roles', 'automation']) {
         assert.match(panelHtml, new RegExp(`data-management-module="${module}"`));
         assert.match(panelHtml, new RegExp(`${module}: \\{ tab: 'management-${module}'`));
@@ -109,8 +109,14 @@ test('management modules use on-off cards and enabled nested sidebar tabs', () =
     assert.match(panelHtml, /data-toggle-management="\$\{escapeHtml\(key\)\}"/);
     assert.match(panelHtml, /class="module-toggle"[\s\S]*?aria-pressed="\$\{enabled\}"/);
     assert.match(panelHtml, /state\.management\.modules\[moduleKey\] = nextEnabled/);
-    assert.match(panelHtml, /button\.hidden = modules\[button\.dataset\.managementModule\] !== true/);
+    assert.match(panelHtml, /button\.hidden = false/);
+    assert.match(panelHtml, /data-page-module-toggle="moderation"/);
     assert.match(panelHtml, /tabId === 'management' \? managementGroup : btn/);
+    assert.match(panelHtml, /function normalizeEditableTabOrder\(order\)/);
+    assert.match(panelHtml, /requestedManagementOrder = order\.filter\(tabId => managementChildTabIds\.has\(tabId\)\)/);
+    assert.match(panelHtml, /managementSubnav\.appendChild\(child\)/);
+    assert.match(panelHtml, /data-tab-order-entry="\$\{escapeHtml\(entry\)\}"/);
+    assert.match(panelHtml, /<span class="badge manager">Management<\/span>/);
 });
 
 test('management configuration remains manager-only and saves through guild settings', () => {

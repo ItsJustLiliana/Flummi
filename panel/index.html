@@ -1926,55 +1926,234 @@
             margin-bottom: 16px;
         }
 
-        .home-shell { min-height:100vh; min-height:100dvh; background:radial-gradient(circle at 12% 5%,#23376b 0,transparent 34%),var(--bg); color:var(--text); }
-        .home-nav { height:76px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:24px; padding:0 max(24px,5vw); border-bottom:1px solid var(--border); background:rgba(11,16,32,.82); backdrop-filter:blur(18px); position:sticky; top:0; z-index:5; }
-        .home-brand { display:flex; align-items:center; gap:12px; font-size:20px; font-weight:800; }
-        .home-brand img { width:42px; height:42px; object-fit:contain; }
-        .home-nav-links { display:flex; justify-content:center; gap:8px; }
-        .home-nav-links button { width:auto; border:0; background:transparent; color:var(--muted); }
-        .home-nav-links button.active,.home-nav-links button:hover { color:var(--text); background:#ffffff0d; }
-        .home-account { display:flex; justify-content:flex-end; align-items:center; gap:10px; }
-        .home-account img { width:34px; height:34px; border-radius:50%; }
-        .home-main { width:min(1100px,calc(100% - 40px)); margin:0 auto; padding:76px 0; }
-        .home-hero { text-align:center; margin:0 auto 52px; max-width:680px; }
-        .home-hero h1 { font-size:clamp(38px,7vw,72px); margin:0 0 14px; letter-spacing:-.05em; }
-        .home-hero p { font-size:18px; line-height:1.65; }
-        .home-login { width:min(360px,100%); margin:34px auto 0; display:block; padding:14px 20px; border-radius:12px; background:#5865f2; color:#fff; text-align:center; text-decoration:none; font-weight:800; }
-        .guild-group { margin-top:34px; }
-        .guild-group h2 { font-size:14px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; }
-        .home-guild-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
-        .home-guild-card { display:flex; align-items:center; gap:14px; text-align:left; min-height:84px; padding:16px; border:1px solid var(--border); background:linear-gradient(145deg,#151f3a,#10182e); }
-        .home-guild-card:hover { transform:translateY(-2px); border-color:#5865f2; }
-        .home-guild-icon { width:48px; height:48px; border-radius:14px; display:grid; place-items:center; background:#26365e; font-weight:800; overflow:hidden; flex:none; }
-        .home-guild-icon img { width:100%; height:100%; object-fit:cover; }
-        .home-view { max-width:850px; margin:0 auto; }
-        .home-panel { padding:28px; border:1px solid var(--border); border-radius:18px; background:#111a33; }
-        .dashboard-home-button { margin-left:auto; width:auto; padding:8px 12px; }
-        @media (max-width:700px) { .home-nav{grid-template-columns:auto 1fr;padding:0 16px}.home-nav-links{order:3;grid-column:1/-1;background:#0b1020;padding:8px}.home-main{padding-top:54px}.home-account .account-name{display:none} }
+        .home-shell {
+            min-height: 100vh;
+            min-height: 100dvh;
+            color: var(--text);
+            background:
+                radial-gradient(900px 520px at 8% 2%, rgba(54, 93, 180, .3), transparent 66%),
+                radial-gradient(760px 520px at 92% 22%, rgba(88, 101, 242, .12), transparent 70%),
+                linear-gradient(180deg, #080d1c 0%, #090e1e 58%, #070b17 100%);
+        }
+
+        .home-shell::before {
+            position: fixed;
+            inset: 76px 0 0;
+            pointer-events: none;
+            content: "";
+            opacity: .18;
+            background-image: linear-gradient(rgba(255, 255, 255, .022) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .022) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: linear-gradient(to bottom, black, transparent 75%);
+        }
+
+        .home-nav {
+            min-height: 76px;
+            border-bottom: 1px solid rgba(102, 130, 190, .18);
+            background: rgba(7, 12, 27, .82);
+            backdrop-filter: blur(22px);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+
+        .home-nav-inner {
+            width: min(1280px, calc(100% - 48px));
+            min-height: 76px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .home-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 11px;
+            width: max-content;
+            color: var(--text);
+            font-size: 19px;
+            font-weight: 850;
+            letter-spacing: -.02em;
+        }
+
+        .home-brand img { width: 42px; height: 42px; object-fit: contain; filter: drop-shadow(0 7px 14px rgba(27, 80, 166, .28)); }
+        .home-nav-links { display: flex; justify-content: center; gap: 5px; padding: 5px; border: 1px solid rgba(102, 130, 190, .12); border-radius: 13px; background: rgba(255, 255, 255, .025); }
+        .home-nav-links button { width: auto; min-height: 36px; padding: 8px 13px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
+        .home-nav-links button.active, .home-nav-links button:hover { color: var(--text); background: rgba(255, 255, 255, .075); }
+        .home-account { display: flex; justify-content: flex-end; align-items: center; min-width: 0; }
+        .home-account > div { display: flex; align-items: center; min-width: 0; }
+        .home-account-card { gap: 9px; padding: 5px 5px 5px 7px; border: 1px solid rgba(102, 130, 190, .2); border-radius: 14px; background: rgba(17, 26, 51, .74); box-shadow: 0 12px 30px rgba(0, 0, 0, .18); }
+        .home-account img { width: 34px; height: 34px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 10px; object-fit: cover; }
+        .home-account .account-name { max-width: 150px; font-size: 13px; }
+
+        .home-auth-button,
+        .home-logout-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: auto;
+            min-height: 38px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .home-auth-button { padding: 9px 15px; color: #fff; border: 1px solid #7480ff; background: linear-gradient(135deg, #6673f2, #5865d8); box-shadow: 0 10px 24px rgba(88, 101, 242, .24); }
+        .home-auth-button:hover { color: #fff; transform: translateY(-1px); filter: brightness(1.08); }
+        .home-auth-button::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, .13); }
+        .home-logout-button { min-height: 34px; padding: 7px 10px; border: 0; border-left: 1px solid rgba(102, 130, 190, .18); border-radius: 0 9px 9px 0; color: var(--muted); background: transparent; }
+        .home-logout-button:hover { color: var(--text); background: rgba(255, 255, 255, .05); }
+
+        .home-main { position: relative; z-index: 1; width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: clamp(48px, 7vw, 82px) 0 88px; }
+        .home-view { width: 100%; margin: 0 auto; }
+        .home-view-narrow { max-width: 820px; }
+        .home-hero { max-width: 760px; margin: 0 auto 48px; text-align: center; }
+        .home-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 18px; color: #9aabda; font-size: 12px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+        .home-eyebrow::before { content: ""; width: 26px; height: 1px; background: #7586c5; }
+        .home-hero h1 { max-width: 720px; margin: 0 auto 17px; font-size: clamp(40px, 5vw, 62px); line-height: 1.02; letter-spacing: -.055em; }
+        .home-hero p { max-width: 610px; margin: 0 auto; font-size: 17px; line-height: 1.65; }
+        .home-server-summary { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; padding: 7px 11px; border: 1px solid rgba(102, 130, 190, .16); border-radius: 999px; background: rgba(17, 26, 51, .55); color: var(--muted); font-size: 12px; font-weight: 700; }
+        .home-server-summary::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #55d69e; box-shadow: 0 0 0 4px rgba(85, 214, 158, .1); }
+        .home-login { width: max-content; max-width: 100%; margin: 28px auto 0; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 13px 19px; border: 1px solid #7480ff; border-radius: 12px; background: linear-gradient(135deg, #6673f2, #5865d8); box-shadow: 0 18px 38px rgba(88, 101, 242, .25); color: #fff; text-align: center; text-decoration: none; font-weight: 850; }
+        .home-login:hover { color: #fff; transform: translateY(-2px); filter: brightness(1.08); }
+        .home-login::after { content: "→"; font-size: 18px; }
+
+        .guild-group { margin-top: 30px; }
+        .guild-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+        .guild-group h2 { margin: 0; color: #a5b3dc; font-size: 12px; text-transform: uppercase; letter-spacing: .14em; }
+        .guild-count { color: var(--muted); font-size: 12px; font-weight: 700; }
+        .home-guild-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+        .home-guild-card { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 15px; min-height: 96px; padding: 17px 18px; overflow: hidden; border: 1px solid rgba(102, 130, 190, .2); border-radius: 16px; background: linear-gradient(145deg, rgba(21, 31, 58, .94), rgba(13, 21, 42, .92)); box-shadow: 0 16px 38px rgba(0, 0, 0, .14); text-align: left; }
+        .home-guild-card::before { position: absolute; inset: 0 auto 0 0; width: 3px; content: ""; opacity: 0; background: linear-gradient(#7e8cff, #4eb8ff); transition: opacity .2s ease; }
+        .home-guild-card:hover { transform: translateY(-3px); border-color: rgba(116, 128, 255, .62); box-shadow: 0 20px 44px rgba(0, 0, 0, .24); }
+        .home-guild-card:hover::before { opacity: 1; }
+        .home-guild-icon { width: 54px; height: 54px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 15px; display: grid; place-items: center; overflow: hidden; flex: none; background: #26365e; color: #fff; font-weight: 850; }
+        .home-guild-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .home-guild-copy { display: grid; gap: 6px; min-width: 0; }
+        .home-guild-name { overflow: hidden; color: var(--text); font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+        .home-guild-role { width: max-content; padding: 3px 7px; border: 1px solid rgba(102, 130, 190, .18); border-radius: 999px; background: rgba(88, 101, 242, .08); color: #a9b7df; font-size: 11px; font-weight: 750; text-transform: capitalize; }
+        .home-guild-arrow { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: rgba(255, 255, 255, .04); color: #8fa1d4; font-size: 18px; }
+        .home-guild-card:hover .home-guild-arrow { color: #fff; background: rgba(88, 101, 242, .22); }
+
+        .home-panel { padding: clamp(24px, 4vw, 36px); border: 1px solid rgba(102, 130, 190, .2); border-radius: 20px; background: linear-gradient(145deg, rgba(17, 26, 51, .94), rgba(12, 19, 38, .94)); box-shadow: 0 22px 56px rgba(0, 0, 0, .2); }
+        .home-page-heading { max-width: 760px; margin-bottom: 24px; }
+        .home-page-heading h1 { margin-bottom: 9px; font-size: clamp(30px, 4vw, 44px); letter-spacing: -.045em; }
+        .home-page-heading .sub { max-width: 680px; font-size: 15px; line-height: 1.65; }
+
+        .developer-command-bar { display: flex; align-items: end; gap: 12px; margin-bottom: 18px; padding: 15px; border: 1px solid rgba(102, 130, 190, .18); border-radius: 16px; background: rgba(12, 19, 38, .64); }
+        .developer-command-bar .field { min-width: min(100%, 300px); flex: 1; }
+        .developer-command-bar .secondary { width: auto; flex: none; }
+        .developer-overview-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 18px; }
+        .developer-overview-card { min-width: 0; padding: 20px; border: 1px solid rgba(102, 130, 190, .18); border-radius: 17px; background: linear-gradient(145deg, rgba(20, 30, 56, .82), rgba(12, 19, 38, .82)); }
+        .developer-overview-card h2 { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; font-size: 16px; }
+        .developer-overview-card .sub { min-height: 42px; line-height: 1.55; }
+        .developer-card-icon { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid rgba(116, 128, 255, .22); border-radius: 9px; background: rgba(88, 101, 242, .12); color: #aab5ff; font-size: 14px; }
+        .developer-overview-card .actions { margin-top: 16px; }
+        .developer-overview-card .actions button { width: auto; }
+        .developer-security-note { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; color: #8fa2d2; font-size: 12px; }
+        .developer-security-note::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #55d69e; }
+        .developer-tool-shell { overflow: hidden; border: 1px solid rgba(102, 130, 190, .2); border-radius: 19px; background: rgba(9, 15, 31, .76); }
+        .developer-tool-nav { display: flex; gap: 7px; padding: 11px; overflow-x: auto; border-bottom: 1px solid rgba(102, 130, 190, .16); background: rgba(17, 26, 51, .62); scrollbar-width: thin; }
+        .developer-tool-nav .tab-btn { width: auto; min-width: max-content; margin: 0; padding: 9px 12px; border: 1px solid transparent; border-radius: 9px; color: var(--muted); background: transparent; font-size: 12px; }
+        .developer-tool-nav .tab-btn.active { color: #fff; border-color: rgba(116, 128, 255, .28); background: rgba(88, 101, 242, .16); }
+        .developer-panel-host { padding: clamp(18px, 3vw, 28px); }
+        .developer-panel-host .tab-panel { max-width: none; padding: 0; }
+        .developer-panel-host .tab-panel > h2 { font-size: 22px !important; }
+        .developer-panel-host .tab-intro { margin-bottom: 20px; }
+        .feedback-collection { margin-top: 15px; }
+        .dashboard-home-button { margin-left: auto; width: auto; padding: 8px 12px; }
+
+        @media (max-width: 820px) {
+            .home-nav-inner { width: min(100% - 28px, 1280px); grid-template-columns: auto 1fr; gap: 12px; padding: 10px 0; }
+            .home-nav-links { order: 3; grid-column: 1 / -1; justify-content: stretch; overflow-x: auto; }
+            .home-nav-links button { flex: 1; white-space: nowrap; }
+            .home-main { width: min(100% - 28px, 1180px); padding-top: 44px; }
+            .developer-overview-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 600px) {
+            .home-brand span { display: none; }
+            .home-account .account-name { display: none; }
+            .home-account-card { padding-left: 5px; }
+            .home-hero { margin-bottom: 36px; }
+            .home-hero h1 { font-size: 40px; }
+            .home-guild-grid { grid-template-columns: 1fr; }
+            .developer-command-bar { align-items: stretch; flex-direction: column; }
+            .developer-command-bar .field, .developer-command-bar .secondary { width: 100%; }
+        }
     </style>
 </head>
 
 <body>
     <div id="homeShell" class="home-shell">
         <header class="home-nav">
-            <div class="home-brand"><img src="/assets/branding/flummi.png" alt=""><span>Flummi</span></div>
-            <nav class="home-nav-links" aria-label="Main navigation">
-                <button class="active" data-home-view="servers" type="button">Home</button>
-                <button id="homeFeedbackNav" data-home-view="feedback" type="button" hidden>Feedback</button>
-                <button id="homeDeveloperNav" data-home-view="developer" type="button" hidden>Developer tools</button>
-            </nav>
-            <div class="home-account">
-                <div id="homeSignedOut"><a class="secondary" href="/auth/login">Log in</a></div>
-                <div id="homeSignedIn" hidden><img id="homeAvatar" src="/assets/branding/flummi.png" alt=""><span id="homeUsername" class="account-name"></span><button id="homeLogout" class="secondary" type="button">Log out</button></div>
+            <div class="home-nav-inner">
+                <div class="home-brand"><img src="/assets/branding/flummi.png" alt=""><span>Flummi</span></div>
+                <nav class="home-nav-links" aria-label="Main navigation">
+                    <button class="active" data-home-view="servers" type="button">Home</button>
+                    <button id="homeFeedbackNav" data-home-view="feedback" type="button" hidden>Feedback</button>
+                    <button id="homeDeveloperNav" data-home-view="developer" type="button" hidden>Developer tools</button>
+                </nav>
+                <div class="home-account">
+                    <div id="homeSignedOut"><a class="home-auth-button" href="/auth/login">Log in with Discord</a></div>
+                    <div id="homeSignedIn" class="home-account-card" hidden><img id="homeAvatar" src="/assets/branding/flummi.png" alt=""><span id="homeUsername" class="account-name"></span><button id="homeLogout" class="home-logout-button" type="button">Log out</button></div>
+                </div>
             </div>
         </header>
         <div class="home-main" role="main" aria-label="Flummi home">
             <section id="homeViewServers" class="home-view">
-                <div class="home-hero"><h1>Your servers.<br>One happy bot.</h1><p class="sub">Choose a server to open its Flummi dashboard.</p><a id="homeLoginCta" class="home-login" href="/auth/login">Log in with Discord</a></div>
+                <div class="home-hero">
+                    <span class="home-eyebrow">Your Flummi workspace</span>
+                    <h1>Your servers.<br>One happy bot.</h1>
+                    <p class="sub">Choose a shared server and jump straight into its controls, activity, and settings.</p>
+                    <span id="homeServerSummary" class="home-server-summary" hidden></span>
+                    <a id="homeLoginCta" class="home-login" href="/auth/login">Continue with Discord</a>
+                </div>
                 <div id="homeGuilds" hidden></div>
             </section>
-            <section id="homeViewFeedback" class="home-view" hidden><div class="home-panel"><h1>Feedback</h1><p class="sub">Tell us what would make Flummi better.</p><textarea id="homeFeedbackMessage" maxlength="2000" placeholder="Share an idea, issue, or improvement..."></textarea><div class="actions"><span id="homeFeedbackStatus" class="status"></span><button id="submitHomeFeedback" class="primary" type="button">Send feedback</button></div></div></section>
-            <section id="homeViewDeveloper" class="home-view" hidden><div class="home-panel"><h1>Developer tools</h1><p class="sub">Open a server to use developer tools, review collected feedback, or promote the tested Tailscale release to the public site.</p><div class="actions"><button id="openDeveloperPanel" class="secondary" type="button">Open dashboard tools</button><button id="loadFeedbackCollection" class="secondary" type="button">Feedback collection</button><button id="promoteLiveRelease" class="primary" type="button">Promote to live</button></div><p id="releaseStatus" class="status"></p><div id="feedbackCollection" class="table-wrap" style="margin-top:18px"></div></div></section>
+            <section id="homeViewFeedback" class="home-view home-view-narrow" hidden>
+                <div class="home-page-heading"><span class="home-eyebrow">Help shape Flummi</span><h1>Feedback</h1><p class="sub">Found something confusing, broken, or worth improving? Send it straight to the people building Flummi.</p></div>
+                <div class="home-panel"><label for="homeFeedbackMessage">Your feedback</label><textarea id="homeFeedbackMessage" maxlength="2000" placeholder="Share an idea, issue, or improvement..."></textarea><div class="actions"><span id="homeFeedbackStatus" class="status"></span><button id="submitHomeFeedback" class="primary" type="button">Send feedback</button></div></div>
+            </section>
+            <section id="homeViewDeveloper" class="home-view" hidden>
+                <div class="home-page-heading"><span class="home-eyebrow">Private workspace</span><h1>Developer tools</h1><p class="sub">Manage Flummi's platform, inspect runtime health, work with repository files, and promote a tested staging release—all without entering a server dashboard.</p></div>
+                <div class="developer-command-bar">
+                    <div class="field"><label for="homeDeveloperGuild">Server context</label><select id="homeDeveloperGuild"><option value="">Select a server</option></select></div>
+                    <button id="refreshDeveloperTool" class="secondary" type="button">Refresh current tool</button>
+                </div>
+                <div class="developer-overview-grid">
+                    <section class="developer-overview-card">
+                        <h2><span class="developer-card-icon">↗</span>Release center</h2>
+                        <p class="sub">Publish the exact commit you approved on private Tailscale staging to the live Flummi service.</p>
+                        <div class="actions"><button id="promoteLiveRelease" class="primary" type="button">Promote staging to live</button></div>
+                        <p id="releaseStatus" class="status"></p>
+                        <p class="developer-security-note">Requires Tailscale and a recent Discord login</p>
+                    </section>
+                    <section class="developer-overview-card">
+                        <h2><span class="developer-card-icon">✦</span>Feedback inbox</h2>
+                        <p class="sub">Review product ideas and issue reports submitted from the public feedback page.</p>
+                        <div class="actions"><button id="loadFeedbackCollection" class="secondary" type="button">Load feedback</button></div>
+                        <div id="feedbackCollection" class="table-wrap feedback-collection"></div>
+                    </section>
+                </div>
+                <section class="developer-tool-shell" aria-label="Developer workspace">
+                    <nav id="homeDeveloperTabs" class="developer-tool-nav" aria-label="Developer tools">
+                        <button class="tab-btn" data-tab="messenger" data-developer-only type="button">Messenger</button>
+                        <button class="tab-btn" data-tab="profiles" data-developer-only type="button">Profiles</button>
+                        <button class="tab-btn" data-tab="ai" data-developer-only type="button">AI &amp; System</button>
+                        <button class="tab-btn" data-tab="global" data-developer-only type="button">Global Settings</button>
+                        <button class="tab-btn" data-tab="reliability" data-developer-only type="button">Reliability</button>
+                        <button class="tab-btn" data-tab="files" data-developer-only type="button">Developer Files</button>
+                        <button class="tab-btn" data-tab="logs" data-developer-only type="button">Bot Logs</button>
+                        <button class="tab-btn" data-tab="experiments" data-actual-developer-only type="button">Experiments</button>
+                    </nav>
+                    <div id="homeDeveloperPanelHost" class="developer-panel-host"></div>
+                </section>
+            </section>
         </div>
     </div>
     <div id="dashboardLayout" class="layout" hidden>
@@ -2477,8 +2656,8 @@
                 </div>
                 <div id="developerTabOrder" class="section">
                     <h2>Panel Tab Order</h2>
-                    <p class="sub">Move tabs with the arrows. Add divider lines or your own category titles. Developer
-                        tools always stay together in their protected group.</p>
+                    <p class="sub">Move dashboard tabs with the arrows, or add divider lines and category titles.
+                        Developer tools are managed separately on the top-level Developer tools page.</p>
                     <div id="tabOrderEditor" class="table-wrap"></div>
                     <div class="row" style="margin-top:12px"><input id="tabTitleInput" type="text" maxlength="60"
                             placeholder="Category title, e.g. Moderation" style="flex:1"><button id="addTabTitle"
@@ -2486,13 +2665,11 @@
                             class="secondary" type="button">Add divider</button></div>
                     <div class="section" style="margin-top:16px">
                         <h2>Developer tools</h2>
-                        <p class="sub">Rename these pages or reorder them inside the protected group. They cannot be
-                            moved
-                            into the public navigation.</p>
+                        <p class="sub">Rename or reorder the tools shown in the top-level developer workspace. They
+                            remain visible only to configured developers.</p>
                         <div id="developerTabOrderEditor" class="table-wrap"></div>
                     </div>
-                    <div class="actions"><span class="sub">The Developer tools group itself always stays together at the
-                            bottom.</span><button id="saveTabOrder" class="primary" type="button">Save tab
+                    <div class="actions"><span class="sub">Dashboard and developer navigation are saved together.</span><button id="saveTabOrder" class="primary" type="button">Save tab
                             order</button></div>
                     <p id="tabOrderStatus" class="status"></p>
                 </div>
@@ -3001,7 +3178,6 @@
                 <nav class="tabs" aria-label="Dashboard sections">
                     <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
                     <button class="tab-btn" data-tab="analytics" type="button">Stats &amp; Analytics</button>
-                    <button class="tab-btn" data-tab="messenger" data-developer-only type="button">Messenger</button>
                     <button class="tab-btn" data-tab="triggers" type="button">Triggers</button>
                     <button class="tab-btn" data-tab="shots" type="button">Shots</button>
                     <button class="tab-btn" data-tab="voice" type="button">Voice Analytics</button>
@@ -3011,17 +3187,6 @@
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                     <button class="tab-btn" data-tab="soundboard" type="button">Server Media</button>
                     <button class="tab-btn" data-tab="audit" data-manager-only type="button">Audit Log</button>
-                    <hr class="tab-divider developer-nav" data-developer-only>
-                    <div class="tab-group-label developer-nav" data-developer-only>Developer tools</div>
-                    <button class="tab-btn" data-tab="profiles" data-developer-only type="button">Profiles</button>
-                    <button class="tab-btn" data-tab="ai" data-developer-only type="button">AI &amp; System</button>
-                    <button class="tab-btn" data-tab="global" data-developer-only type="button">Global Settings</button>
-                    <button class="tab-btn" data-tab="reliability" data-developer-only
-                        type="button">Reliability</button>
-                    <button class="tab-btn" data-tab="files" data-developer-only type="button">Developer Files</button>
-                    <button class="tab-btn" data-tab="logs" data-developer-only type="button">Bot Logs</button>
-                    <button class="tab-btn" data-tab="experiments" data-actual-developer-only
-                        type="button">Experiments</button>
                 </nav>
                 <div class="sidebar-footer">
                     <div class="sidebar-actions">
@@ -3551,8 +3716,13 @@
                 tabPanels.forEach(p => p.classList.remove('active'));
                 btn.classList.add('active');
                 document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-                localStorage.setItem('flummi.activeTab', btn.dataset.tab);
-                if (!document.getElementById('dashboardLayout').hidden && state.guildId) history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(btn.dataset.tab)}`);
+                const developerTool = fixedDeveloperTabIds.has(btn.dataset.tab);
+                localStorage.setItem(developerTool ? 'flummi.developerTab' : 'flummi.activeTab', btn.dataset.tab);
+                if (developerTool && !document.getElementById('homeViewDeveloper').hidden) {
+                    history.replaceState(null, '', `/?view=developer&tool=${encodeURIComponent(btn.dataset.tab)}`);
+                } else if (!document.getElementById('dashboardLayout').hidden && state.guildId) {
+                    history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(btn.dataset.tab)}`);
+                }
                 lastAutoRefreshAt = Date.now();
 
                 const loader = tabLoaders[btn.dataset.tab];
@@ -3575,10 +3745,16 @@
             }
         }
 
-        // Reorders the shared sidebar navigation. Developer tools can move only inside their protected group.
+        // Server tabs stay in the dashboard sidebar. Developer tools have their own top-level workspace.
         const defaultDeveloperTabOrder = ['messenger', 'profiles', 'ai', 'global', 'reliability', 'files', 'logs', 'experiments'];
         const fixedDeveloperTabIds = new Set(defaultDeveloperTabOrder);
         let activeDeveloperTabOrder = [...defaultDeveloperTabOrder];
+
+        const developerPanelHost = document.getElementById('homeDeveloperPanelHost');
+        for (const tabId of defaultDeveloperTabOrder) {
+            const panel = document.getElementById(`tab-${tabId}`);
+            if (panel) developerPanelHost.appendChild(panel);
+        }
 
         function isDividerToken(value) {
             return typeof value === 'string' && /^-{2,}$/.test(value.trim());
@@ -3608,11 +3784,7 @@
         }
 
         function organizeDeveloperNav() {
-            const nav = document.querySelector('.tabs');
-            const divider = nav.querySelector('.developer-nav.tab-divider');
-            const label = nav.querySelector('.developer-nav.tab-group-label');
-            if (divider) nav.appendChild(divider);
-            if (label) nav.appendChild(label);
+            const nav = document.getElementById('homeDeveloperTabs');
             for (const tabId of activeDeveloperTabOrder) {
                 const button = tabButtons.find(candidate => candidate.dataset.tab === tabId);
                 if (button) nav.appendChild(button);
@@ -3762,17 +3934,18 @@
         }
 
         // ---------- Guild loading ----------
-        function showHomeView(name = 'servers') {
+        function showHomeView(name = 'servers', developerTool = null) {
             document.getElementById('homeShell').hidden = false;
             document.getElementById('dashboardLayout').hidden = true;
-            history.replaceState(null, '', '/');
+            history.replaceState(null, '', name === 'servers' ? '/' : `/?view=${encodeURIComponent(name)}`);
             for (const button of document.querySelectorAll('[data-home-view]')) button.classList.toggle('active', button.dataset.homeView === name);
             for (const view of ['servers', 'feedback', 'developer']) document.getElementById(`homeView${view[0].toUpperCase()}${view.slice(1)}`).hidden = view !== name;
+            if (name === 'developer') activateDeveloperWorkspace(developerTool).catch(handleUiError);
         }
 
         function guildCard(row) {
             const icon = row.iconUrl ? `<img src="${escapeHtml(row.iconUrl)}" alt="">` : escapeHtml(row.name.slice(0, 2).toUpperCase());
-            return `<button class="home-guild-card" type="button" data-open-guild="${escapeHtml(row.id)}"><span class="home-guild-icon">${icon}</span><span><strong>${escapeHtml(row.name)}</strong><span class="sub" style="display:block;margin-top:4px">${escapeHtml(row.role || 'user')}</span></span></button>`;
+            return `<button class="home-guild-card" type="button" data-open-guild="${escapeHtml(row.id)}"><span class="home-guild-icon">${icon}</span><span class="home-guild-copy"><strong class="home-guild-name">${escapeHtml(row.name)}</strong><span class="home-guild-role">${escapeHtml(row.role || 'user')}</span></span><span class="home-guild-arrow" aria-hidden="true">→</span></button>`;
         }
 
         function renderHomeGuilds(rows) {
@@ -3781,7 +3954,40 @@
             container.hidden = false;
             const admins = rows.filter(row => row.isAdmin);
             const others = rows.filter(row => !row.isAdmin);
-            container.innerHTML = `${admins.length ? `<section class="guild-group"><h2>Admin</h2><div class="home-guild-grid">${admins.map(guildCard).join('')}</div></section>` : ''}${others.length ? `<section class="guild-group"><h2>Your servers</h2><div class="home-guild-grid">${others.map(guildCard).join('')}</div></section>` : ''}${rows.length ? '' : '<div class="home-panel empty">No servers shared with Flummi were found.</div>'}`;
+            const summary = document.getElementById('homeServerSummary');
+            summary.hidden = false;
+            summary.textContent = `${rows.length} shared ${rows.length === 1 ? 'server' : 'servers'} available`;
+            container.innerHTML = `${admins.length ? `<section class="guild-group"><div class="guild-group-heading"><h2>Admin access</h2><span class="guild-count">${admins.length} ${admins.length === 1 ? 'server' : 'servers'}</span></div><div class="home-guild-grid">${admins.map(guildCard).join('')}</div></section>` : ''}${others.length ? `<section class="guild-group"><div class="guild-group-heading"><h2>Your servers</h2><span class="guild-count">${others.length} ${others.length === 1 ? 'server' : 'servers'}</span></div><div class="home-guild-grid">${others.map(guildCard).join('')}</div></section>` : ''}${rows.length ? '' : '<div class="home-panel empty">No servers shared with Flummi were found.</div>'}`;
+        }
+
+        async function activateDeveloperWorkspace(preferredTab = null) {
+            if (state.actualRole !== 'developer') {
+                showHomeView('servers');
+                return;
+            }
+
+            fillGuildSelect(state.guilds);
+            const selector = document.getElementById('homeDeveloperGuild');
+            const rememberedGuild = localStorage.getItem('flummi.guildId');
+            const selectedGuild = state.guilds.some(guild => String(guild.id) === String(rememberedGuild))
+                ? String(rememberedGuild)
+                : String(state.guilds[0]?.id || '');
+            selector.innerHTML = state.guilds.length
+                ? state.guilds.map(guild => `<option value="${escapeHtml(guild.id)}">${escapeHtml(guild.name)}</option>`).join('')
+                : '<option value="">No server context available</option>';
+            selector.value = selectedGuild;
+            guildSelect.value = selectedGuild;
+            state.guildId = selectedGuild || null;
+            if (state.guildId) {
+                state.role = state.guildRoles.get(String(state.guildId)) || state.role;
+                localStorage.setItem('flummi.guildId', state.guildId);
+            }
+            applyAccessVisibility();
+
+            const requestedTool = preferredTab || new URLSearchParams(window.location.search).get('tool') || localStorage.getItem('flummi.developerTab') || 'global';
+            const button = tabButtons.find(candidate => candidate.dataset.tab === requestedTool && fixedDeveloperTabIds.has(candidate.dataset.tab) && !candidate.hidden)
+                || tabButtons.find(candidate => candidate.dataset.tab === 'global');
+            if (button) button.click();
         }
 
         async function openDashboard(guildId, tab = null) {
@@ -3791,14 +3997,13 @@
             if (!state.guildId) return;
             state.role = state.guildRoles.get(String(state.guildId)) || state.role;
             localStorage.setItem('flummi.guildId', state.guildId);
-            if (tab) {
-                const button = tabButtons.find(candidate => candidate.dataset.tab === tab && !candidate.hidden);
-                if (button) button.click();
-            }
             applyAccessVisibility();
             document.getElementById('homeShell').hidden = true;
             document.getElementById('dashboardLayout').hidden = false;
-            const selectedTab = tab || activeTab();
+            const rememberedDashboardTab = localStorage.getItem('flummi.activeTab');
+            const selectedTab = [tab, rememberedDashboardTab, 'overview'].find(candidate => candidate && !fixedDeveloperTabIds.has(candidate) && tabButtons.some(button => button.dataset.tab === candidate && !button.hidden)) || 'overview';
+            const button = tabButtons.find(candidate => candidate.dataset.tab === selectedTab);
+            if (button) button.click();
             history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(selectedTab)}`);
             await refreshActiveTab();
         }
@@ -3809,7 +4014,20 @@
             if (card) openDashboard(card.dataset.openGuild).catch(handleUiError);
         });
         document.getElementById('dashboardHome').addEventListener('click', () => showHomeView('servers'));
-        document.getElementById('openDeveloperPanel').addEventListener('click', () => openDashboard(localStorage.getItem('flummi.guildId'), 'global').catch(handleUiError));
+        document.getElementById('homeDeveloperGuild').addEventListener('change', event => {
+            const guildId = event.target.value;
+            guildSelect.value = guildId;
+            state.guildId = guildId || null;
+            if (state.guildId) {
+                state.role = state.guildRoles.get(String(state.guildId)) || state.role;
+                localStorage.setItem('flummi.guildId', state.guildId);
+            }
+            applyAccessVisibility();
+            refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
+        });
+        document.getElementById('refreshDeveloperTool').addEventListener('click', () => {
+            refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
+        });
 
         function fillGuildSelect(rows) {
             guildSelect.innerHTML = '';
@@ -6540,7 +6758,12 @@
             loadInviteLink().catch(error => console.error(error));
             const requestedGuild = requestedParams.get('guildId');
             const requestedTab = requestedParams.get('tab');
-            if (requestedGuild && state.guilds.some(guild => guild.id === requestedGuild)) await openDashboard(requestedGuild, requestedTab);
+            const requestedView = requestedParams.get('view');
+            if (requestedGuild && state.guilds.some(guild => guild.id === requestedGuild)) {
+                await openDashboard(requestedGuild, requestedTab);
+            } else if (requestedView === 'feedback' || (requestedView === 'developer' && state.actualRole === 'developer')) {
+                showHomeView(requestedView, requestedParams.get('tool'));
+            }
         }
 
         initializePanel().catch(error => handleUiError(error, () => initializePanel().catch(handleUiError)));

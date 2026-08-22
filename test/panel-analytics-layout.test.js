@@ -68,8 +68,8 @@ test('Stats & Analytics is a lightweight cross-feature summary', () => {
     assert.match(panelHtml, /data-tab="stats"[^>]*>Messages<\/button>/);
 });
 
-test('sidebar uses the Flummi profile image and name lockup', () => {
-    assert.match(panelHtml, /class="brand-image" src="\/assets\/branding\/flummi-pfp\.jpeg"/);
+test('sidebar uses the canonical Flummi logo and name lockup', () => {
+    assert.match(panelHtml, /class="brand-image" src="\/assets\/branding\/flummi\.png"/);
     assert.match(panelHtml, /<h1>Flummi<\/h1>/);
     assert.match(panelHtml, /<p class="sub">Dashboard<\/p>/);
     assert.doesNotMatch(panelHtml, /class="brand-banner"/);

@@ -26,6 +26,7 @@ const pingMetricsStore = require('./stores/ping-metrics-store');
 const aiHealthStore = require('./stores/ai-health-store');
 const userConversationStore = require('./stores/user-conversation-store');
 const profileStore = require('./stores/profile-store');
+const feedbackStore = require('./stores/feedback-store');
 const { getAiConfig, buildTextModelCandidates, buildVisionModelCandidates } = require('./services/ai-chat');
 const readyEvent = require('./events/ready');
 
@@ -177,16 +178,17 @@ function getPanelGuildRole(session, guildId) {
 function canAccessGuild(session, guildId) {
     if (!session || !guildId) return false;
     if (hasDeveloperView(session)) return true;
-    return Array.isArray(session.adminGuildIds) && session.adminGuildIds.includes(String(guildId));
+    const sharedGuildIds = Array.isArray(session.sharedGuildIds) ? session.sharedGuildIds : session.adminGuildIds;
+    return Array.isArray(sharedGuildIds) && sharedGuildIds.includes(String(guildId));
 }
 
 async function hasCurrentGuildAccess(session, guildId) {
     if (!canAccessGuild(session, guildId)) return false;
     if (hasDeveloperView(session)) return true;
     try {
-        const guild = await client.guilds.fetch(String(guildId));
-        const member = await guild.members.fetch(String(session.userId));
-        return member.permissions.has(PermissionsBitField.Flags.Administrator);
+        const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
+        const member = guild.members.cache.get(String(session.userId)) || await guild.members.fetch(String(session.userId));
+        return Boolean(member);
     } catch {
         return false;
     }
@@ -194,14 +196,14 @@ async function hasCurrentGuildAccess(session, guildId) {
 
 async function requireGuildAccess(session, guildId, res) {
     if (await hasCurrentGuildAccess(session, guildId)) return true;
-    const previouslyAllowed = Array.isArray(session?.adminGuildIds) && session.adminGuildIds.includes(String(guildId));
+    const previouslyAllowed = Array.isArray(session?.sharedGuildIds) && session.sharedGuildIds.includes(String(guildId));
     if (!isDeveloperSession(session) && previouslyAllowed) {
         panelSessions.delete(session.key);
         persistPanelSessions();
-        sendJson(res, 401, { error: 'Your Discord Administrator access changed. Sign in again to refresh access.' });
+        sendJson(res, 401, { error: 'Your Discord server access changed. Sign in again to refresh access.' });
         return false;
     }
-    sendJson(res, 403, { error: 'You do not have administrator access to this server.' });
+    sendJson(res, 403, { error: 'You are not a member of this server.' });
     return false;
 }
 
@@ -214,7 +216,7 @@ function requireDeveloperAccess(session, res) {
 async function canManageGuildManagers(session, guildId) {
     if (hasDeveloperView(session)) return true;
     try {
-        const guild = await client.guilds.fetch(String(guildId));
+        const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
         accessStore.setGuildOwner(guild.id, guild.ownerId);
         return String(guild.ownerId) === String(session?.userId);
     } catch {
@@ -231,7 +233,7 @@ async function requireManagerManagementAccess(session, guildId, res) {
 async function requireGuildManagerAccess(session, guildId, res, errorMessage) {
     if (hasDeveloperView(session)) return true;
     try {
-        const guild = await client.guilds.fetch(String(guildId));
+        const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
         accessStore.setGuildOwner(guild.id, guild.ownerId);
     } catch {
         sendJson(res, 403, { error: 'Could not verify your settings role for this server.' });
@@ -598,8 +600,14 @@ async function listGuilds(session) {
             .map(result => result.guild);
 
     return permitted
-        .map(guild => ({ id: guild.id, name: guild.name, role: getPanelGuildRole(session, guild.id) }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .map(guild => ({
+            id: guild.id,
+            name: guild.name,
+            role: getPanelGuildRole(session, guild.id),
+            isAdmin: hasDeveloperView(session) || (Array.isArray(session.adminGuildIds) && session.adminGuildIds.includes(String(guild.id))),
+            iconUrl: guild.iconURL({ size: 128, extension: 'png' }) || null
+        }))
+        .sort((a, b) => Number(b.isAdmin) - Number(a.isAdmin) || a.name.localeCompare(b.name));
 }
 
 const memberCacheTtlMs = 5 * 60 * 1000;
@@ -1081,14 +1089,17 @@ function createServer() {
 
                     await client.guilds.fetch();
                     const availableGuildIds = new Set(client.guilds.cache.keys());
+                    const sharedGuildIds = userGuilds
+                        .map(guild => String(guild.id))
+                        .filter(guildId => availableGuildIds.has(guildId));
                     adminGuildIds = adminGuildIds.filter(guildId => availableGuildIds.has(guildId));
-                    if (!isDeveloper && adminGuildIds.length === 0) {
-                        sendHtml(res, loginPage('No shared server was found where you have Administrator permission.'));
+                    if (!isDeveloper && sharedGuildIds.length === 0) {
+                        sendHtml(res, loginPage('No server shared with Flummi was found.'));
                         return;
                     }
 
                     const sessionToken = crypto.randomBytes(32).toString('hex');
-                    panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, isDeveloper, adminGuildIds, authenticatedAt: Date.now(), expiresAt: Date.now() + sessionDurationMs });
+                    panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, isDeveloper, sharedGuildIds, adminGuildIds, authenticatedAt: Date.now(), expiresAt: Date.now() + sessionDurationMs });
                     if (record.previousSessionKey) panelSessions.delete(record.previousSessionKey);
                     persistPanelSessions();
                     const secure = record.redirectUri.startsWith('https://') ? '; Secure' : '';
@@ -1105,10 +1116,14 @@ function createServer() {
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/auth/me') {
-                const session = requirePanelAccess(req, res);
-                if (!session) return;
+                const session = sessionFor(req);
+                if (!session) {
+                    sendJson(res, 200, { authenticated: false });
+                    return;
+                }
                 const avatarUrl = session.avatar ? `https://cdn.discordapp.com/avatars/${session.userId}/${session.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${Number(session.userId) % 5}.png`;
                 sendJson(res, 200, {
+                    authenticated: true,
                     user: { id: session.userId, username: session.username, avatarUrl },
                     role: hasDeveloperView(session) ? 'developer' : (getPreviewPanelRole(session) || 'user'),
                     actualRole: isDeveloperSession(session) ? 'developer' : 'admin',
@@ -1132,10 +1147,6 @@ function createServer() {
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/') {
-                if (!sessionFor(req)) {
-                    sendHtml(res, loginPage());
-                    return;
-                }
                 const html = fs.readFileSync(indexPath, 'utf8');
                 const tabOrder = Array.isArray(config.panel?.tabOrder) ? config.panel.tabOrder : [];
                 const tabNames = config.panel?.tabNames && typeof config.panel.tabNames === 'object' ? config.panel.tabNames : {};
@@ -1177,7 +1188,7 @@ function createServer() {
                     '/api/bot-profile', '/api/bot-profile/application', '/api/bot-profile/guild', '/api/config',
                     '/api/data-tools', '/api/backup', '/api/data-tools/reset', '/api/reliability',
                     '/api/ai-health', '/api/reliability/backup', '/api/reliability/reconcile-voice',
-                    '/api/health', '/api/runtime', '/api/update-status', '/api/send'
+                    '/api/health', '/api/runtime', '/api/update-status', '/api/send', '/api/release/promote'
                 ]);
                 if (developerPaths.has(requestUrl.pathname) && !requireDeveloperAccess(panelSession, res)) return;
                 if (requestUrl.pathname.startsWith('/api/developer/files') && !requireDeveloperAccess(panelSession, res)) return;
@@ -1347,6 +1358,7 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/audit') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
+                if (!await requireGuildManagerAccess(panelSession, guildId, res, 'The audit log is only available to the server owner or a manager.')) return;
                 const entries = readActivity()
                     .filter(entry => String(entry.guildId || '') === String(guildId) && entry.source === 'panel')
                     .slice(0, 100);
@@ -1642,6 +1654,24 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'POST' && requestUrl.pathname === '/api/feedback') {
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                if (!String(parsed.message || '').trim()) {
+                    sendJson(res, 400, { error: 'Feedback cannot be empty.' });
+                    return;
+                }
+                const feedback = feedbackStore.addFeedback({ userId: panelSession.userId, username: panelSession.username, message: parsed.message });
+                auditPanelAction(panelSession, 'feedback-submit', 'Submitted product feedback', { feedbackId: feedback.id });
+                sendJson(res, 201, { ok: true, feedback });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/feedback') {
+                if (!requireDeveloperAccess(panelSession, res)) return;
+                sendJson(res, 200, { feedback: feedbackStore.readFeedback() });
+                return;
+            }
+
             if (req.method === 'GET' && requestUrl.pathname === '/api/activity-heatmap') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
@@ -1666,7 +1696,7 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
 
-                const periodDays = 30;
+                const periodDays = Math.min(365, Math.max(1, Number(requestUrl.searchParams.get('days')) || 30));
                 const canViewModeration = ['developer', 'owner', 'manager'].includes(getPanelGuildRole(panelSession, guildId));
                 const now = Date.now();
                 const messages = analyticsStore.getAnalyticsSummary(guildId, periodDays);
@@ -1684,12 +1714,17 @@ function createServer() {
                     messages: {
                         count: messages.messageCount,
                         uniqueAuthors: messages.uniqueAuthors,
-                        changePercent: messages.comparison?.changePercent || 0
+                        changePercent: messages.comparison?.changePercent ?? null,
+                        busiestHour: messages.comparison?.busiestHour ?? null,
+                        activity: messages.dailyMessages
                     },
                     voice: {
                         totalMs: voice.totalMs,
                         sessions: voice.activeOverTime.reduce((total, row) => total + row.count, 0),
-                        activeMembers: voice.userTotals.length
+                        activeMembers: voice.userTotals.length,
+                        averageSessionMs: voice.averageSessionMs,
+                        busiestHour: voice.busiestHour,
+                        activity: voice.activeOverTime
                     },
                     media: {
                         soundPlays: sounds.plays,
@@ -2398,6 +2433,19 @@ function createServer() {
                     allowEveryoneMentions
                 );
                 sendJson(res, 200, { ok: true, message: result });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/release/promote') {
+                if (!requireDeveloperFileWriteAccess(req, panelSession, res)) return;
+                const helper = path.join(__dirname, 'deploy', 'promote-live.sh');
+                if (!fs.existsSync(helper)) {
+                    sendJson(res, 500, { error: 'The live promotion helper is not installed.' });
+                    return;
+                }
+                auditPanelAction(panelSession, 'release-promote', 'Requested promotion of the tested Tailscale release to live');
+                sendJson(res, 202, { ok: true, message: 'Live promotion started. The public service will restart when the copy is complete.' });
+                spawn('bash', [helper], { cwd: __dirname, detached: true, stdio: 'ignore' }).unref();
                 return;
             }
 

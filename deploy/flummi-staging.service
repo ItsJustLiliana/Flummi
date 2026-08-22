@@ -1,0 +1,15 @@
+[Unit]
+Description=Flummi Tailscale staging
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/projects/Flummi-staging
+Environment=PANEL_HOST=127.0.0.1
+Environment=PANEL_PORT=3790
+ExecStart=/usr/bin/node scripts/start.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

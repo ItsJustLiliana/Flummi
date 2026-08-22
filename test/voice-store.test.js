@@ -126,3 +126,19 @@ test('voice analytics include active sessions and clip them to the selected rang
         cleanupGuild(guildId);
     }
 });
+
+test('voice range totals merge overlapping members so one day cannot exceed 24 hours', () => {
+    const guildId = `test-overlapping-voice-range-${process.pid}`;
+    cleanupGuild(guildId);
+    try {
+        const now = Date.now();
+        const startedAt = new Date(now - 10 * 60000);
+        startVoiceSession({ guildId, userId: 'one', channelId: '10', channelName: 'general-vc', at: startedAt });
+        startVoiceSession({ guildId, userId: 'two', channelId: '10', channelName: 'general-vc', at: startedAt });
+        const analytics = getVoiceAnalytics(guildId, new Date(now - 5 * 60000).toISOString(), new Date(now).toISOString());
+        assert.ok(analytics.totalMs >= 4.9 * 60000 && analytics.totalMs <= 5.1 * 60000);
+        assert.ok(analytics.participantTotalMs >= 9.8 * 60000 && analytics.participantTotalMs <= 10.2 * 60000);
+    } finally {
+        cleanupGuild(guildId);
+    }
+});

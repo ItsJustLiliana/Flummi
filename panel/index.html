@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -135,7 +135,6 @@
         }
 
         .sidebar-account {
-            margin-top: auto;
             padding-top: 16px;
             border-top: 1px solid var(--border);
             flex-shrink: 0;
@@ -1917,12 +1916,69 @@
                 min-height: auto;
             }
         }
+
+        .sidebar-footer {
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer .sidebar-actions {
+            margin-bottom: 16px;
+        }
+
+        .home-shell { min-height:100vh; min-height:100dvh; background:radial-gradient(circle at 12% 5%,#23376b 0,transparent 34%),var(--bg); color:var(--text); }
+        .home-nav { height:76px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:24px; padding:0 max(24px,5vw); border-bottom:1px solid var(--border); background:rgba(11,16,32,.82); backdrop-filter:blur(18px); position:sticky; top:0; z-index:5; }
+        .home-brand { display:flex; align-items:center; gap:12px; font-size:20px; font-weight:800; }
+        .home-brand img { width:42px; height:42px; object-fit:contain; }
+        .home-nav-links { display:flex; justify-content:center; gap:8px; }
+        .home-nav-links button { width:auto; border:0; background:transparent; color:var(--muted); }
+        .home-nav-links button.active,.home-nav-links button:hover { color:var(--text); background:#ffffff0d; }
+        .home-account { display:flex; justify-content:flex-end; align-items:center; gap:10px; }
+        .home-account img { width:34px; height:34px; border-radius:50%; }
+        .home-main { width:min(1100px,calc(100% - 40px)); margin:0 auto; padding:76px 0; }
+        .home-hero { text-align:center; margin:0 auto 52px; max-width:680px; }
+        .home-hero h1 { font-size:clamp(38px,7vw,72px); margin:0 0 14px; letter-spacing:-.05em; }
+        .home-hero p { font-size:18px; line-height:1.65; }
+        .home-login { width:min(360px,100%); margin:34px auto 0; display:block; padding:14px 20px; border-radius:12px; background:#5865f2; color:#fff; text-align:center; text-decoration:none; font-weight:800; }
+        .guild-group { margin-top:34px; }
+        .guild-group h2 { font-size:14px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; }
+        .home-guild-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
+        .home-guild-card { display:flex; align-items:center; gap:14px; text-align:left; min-height:84px; padding:16px; border:1px solid var(--border); background:linear-gradient(145deg,#151f3a,#10182e); }
+        .home-guild-card:hover { transform:translateY(-2px); border-color:#5865f2; }
+        .home-guild-icon { width:48px; height:48px; border-radius:14px; display:grid; place-items:center; background:#26365e; font-weight:800; overflow:hidden; flex:none; }
+        .home-guild-icon img { width:100%; height:100%; object-fit:cover; }
+        .home-view { max-width:850px; margin:0 auto; }
+        .home-panel { padding:28px; border:1px solid var(--border); border-radius:18px; background:#111a33; }
+        .dashboard-home-button { margin-left:auto; width:auto; padding:8px 12px; }
+        @media (max-width:700px) { .home-nav{grid-template-columns:auto 1fr;padding:0 16px}.home-nav-links{order:3;grid-column:1/-1;background:#0b1020;padding:8px}.home-main{padding-top:54px}.home-account .account-name{display:none} }
     </style>
 </head>
 
 <body>
-    <div class="layout">
-        <main class="content">
+    <div id="homeShell" class="home-shell">
+        <header class="home-nav">
+            <div class="home-brand"><img src="/assets/branding/flummi-pfp.jpeg" alt=""><span>Flummi</span></div>
+            <nav class="home-nav-links" aria-label="Main navigation">
+                <button class="active" data-home-view="servers" type="button">Home</button>
+                <button id="homeFeedbackNav" data-home-view="feedback" type="button" hidden>Feedback</button>
+                <button id="homeDeveloperNav" data-home-view="developer" type="button" hidden>Developer tools</button>
+            </nav>
+            <div class="home-account">
+                <div id="homeSignedOut"><a class="secondary" href="/auth/login">Log in</a></div>
+                <div id="homeSignedIn" hidden><img id="homeAvatar" src="/assets/branding/flummi-pfp.jpeg" alt=""><span id="homeUsername" class="account-name"></span><button id="homeLogout" class="secondary" type="button">Log out</button></div>
+            </div>
+        </header>
+        <div class="home-main" role="main" aria-label="Flummi home">
+            <section id="homeViewServers" class="home-view">
+                <div class="home-hero"><h1>Your servers.<br>One happy bot.</h1><p class="sub">Choose a server to open its Flummi dashboard.</p><a id="homeLoginCta" class="home-login" href="/auth/login">Log in with Discord</a></div>
+                <div id="homeGuilds" hidden></div>
+            </section>
+            <section id="homeViewFeedback" class="home-view" hidden><div class="home-panel"><h1>Feedback</h1><p class="sub">Tell us what would make Flummi better.</p><textarea id="homeFeedbackMessage" maxlength="2000" placeholder="Share an idea, issue, or improvement..."></textarea><div class="actions"><span id="homeFeedbackStatus" class="status"></span><button id="submitHomeFeedback" class="primary" type="button">Send feedback</button></div></div></section>
+            <section id="homeViewDeveloper" class="home-view" hidden><div class="home-panel"><h1>Developer tools</h1><p class="sub">Open a server to use developer tools, review collected feedback, or promote the tested Tailscale release to the public site.</p><div class="actions"><button id="openDeveloperPanel" class="secondary" type="button">Open dashboard tools</button><button id="loadFeedbackCollection" class="secondary" type="button">Feedback collection</button><button id="promoteLiveRelease" class="primary" type="button">Promote to live</button></div><p id="releaseStatus" class="status"></p><div id="feedbackCollection" class="table-wrap" style="margin-top:18px"></div></div></section>
+        </div>
+    </div>
+    <div id="dashboardLayout" class="layout" hidden>
+        <main class="content" aria-label="Selected server dashboard">
             <div id="pageNotice" class="page-notice" hidden>
                 <span id="pageNoticeMessage"></span>
                 <button id="pageNoticeAction" class="secondary" type="button" hidden>Try again</button>
@@ -1940,54 +1996,16 @@
                     <div class="section overview-details">
                         <h2>Server Details</h2>
                         <div id="overviewDetails"></div>
+                        <h2 style="margin-top:22px">Features</h2>
+                        <div id="overviewFeatures" class="card-grid"></div>
                     </div>
                 </div>
                 <div class="card-grid" id="overviewCards"></div>
-                <div class="two-col">
-                    <div class="section">
-                        <div class="row">
-                            <h2 style="margin:0">Messages</h2><select id="overviewMessageRange">
-                                <option value="1">1 day</option>
-                                <option value="7" selected>1 week</option>
-                                <option value="30">1 month</option>
-                                <option value="90">3 months</option>
-                            </select><select id="overviewMessageType">
-                                <option value="bar">Bars</option>
-                                <option value="line">Line</option>
-                            </select>
-                        </div>
-                        <div id="overviewMessageChart" class="analytics-chart compact"></div>
-                        <div class="chart-caption"><span>Earlier</span><span>Now</span></div>
-                    </div>
-                    <div class="section">
-                        <div class="row">
-                            <h2 style="margin:0">Voice sessions</h2><select id="overviewVoiceRange">
-                                <option value="1">1 day</option>
-                                <option value="7" selected>1 week</option>
-                                <option value="30">1 month</option>
-                                <option value="90">3 months</option>
-                            </select><select id="overviewVoiceType">
-                                <option value="bar">Bars</option>
-                                <option value="line">Line</option>
-                            </select>
-                        </div>
-                        <div id="overviewVoiceChart" class="analytics-chart compact"></div>
-                        <div class="chart-caption"><span>Earlier</span><span>Now</span></div>
-                    </div>
-                </div>
-                <div class="two-col">
-                    <div class="section">
-                        <h2>Top Shot Totals</h2>
-                        <div id="overviewShots" class="table-wrap">
-                            <div class="empty">Loading...</div>
-                        </div>
-                    </div>
-                    <div class="section">
+                <div class="section">
                         <h2>Top Message Channels</h2>
                         <div id="overviewChannels" class="table-wrap">
                             <div class="empty">Loading...</div>
                         </div>
-                    </div>
                 </div>
                 <div id="overviewBanner"></div>
             </section>
@@ -1997,6 +2015,8 @@
                 <h2 style="font-size:20px;">Stats &amp; Analytics</h2>
                 <p class="sub tab-intro">A quick 30-day snapshot across the server. Open each feature tab for its full
                     analytics.</p>
+                <div class="row tab-controls"><label for="analyticsSummaryRange">Period</label><select id="analyticsSummaryRange"><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select><label for="analyticsSummaryGraphType">Graph</label><select id="analyticsSummaryGraphType"><option value="bar">Bars</option><option value="line">Line</option></select></div>
+                <div class="two-col"><div class="section"><h2>Message activity</h2><div id="analyticsSummaryMessageChart" class="analytics-chart compact"></div></div><div class="section"><h2>Voice sessions</h2><div id="analyticsSummaryVoiceChart" class="analytics-chart compact"></div></div></div>
                 <div class="two-col">
                     <div class="section">
                         <h2>Messages</h2>
@@ -2050,7 +2070,7 @@
                     <textarea id="imageUrls" placeholder="https://..." style="min-height: 80px;"></textarea>
 
                     <div class="checkbox-row" style="margin-top: 10px;">
-                        <input id="allowEveryone" type="checkbox" />
+                        <input id="allowEveryone" type="checkbox">
                         <label for="allowEveryone" style="margin: 0;">Allow @everyone / @here mentions</label>
                     </div>
 
@@ -2147,8 +2167,7 @@
                     rankings.</p>
                 <div class="row tab-controls"><label for="voiceGraphRange" style="margin:0">Period <span
                             class="help-tip" tabindex="0"
-                            data-tooltip="Controls the date range for voice totals, comparisons, charts, and rankings. Total voice time remains all-time; the heatmap has its own range control.">?</span></label><select
-                        id="voiceGraphRange">
+                            data-tooltip="Controls the date range for voice totals, comparisons, charts, and rankings. Total voice time remains all-time; the heatmap has its own range control.">?</span></label><select id="voiceGraphRange">
                         <option value="1">Last 1 day</option>
                         <option value="7">Last 7 days</option>
                         <option value="30" selected>Last 30 days</option>
@@ -2265,8 +2284,7 @@
                     activity metadata.</p>
                 <div class="row tab-controls"><label for="analyticsDays" style="margin:0">Period <span class="help-tip"
                             tabindex="0"
-                            data-tooltip="Controls message totals, the previous-period comparison, charts, and rankings. Total messages remains all-time; the heatmap has its own range control.">?</span></label><select
-                        id="analyticsDays">
+                            data-tooltip="Controls message totals, the previous-period comparison, charts, and rankings. Total messages remains all-time; the heatmap has its own range control.">?</span></label><select id="analyticsDays">
                         <option value="1">Last 1 day</option>
                         <option value="7">Last 7 days</option>
                         <option value="30" selected>Last 30 days</option>
@@ -2362,15 +2380,15 @@
                     <h2>Guild Settings</h2>
                     <div class="two-col">
                         <div class="checkbox-row">
-                            <input id="setBotEnabled" type="checkbox" />
+                            <input id="setBotEnabled" type="checkbox">
                             <label for="setBotEnabled" style="margin:0;">Bot enabled</label>
                         </div>
                         <div class="checkbox-row">
-                            <input id="setTriggersEnabled" type="checkbox" />
+                            <input id="setTriggersEnabled" type="checkbox">
                             <label for="setTriggersEnabled" style="margin:0;">Triggers enabled</label>
                         </div>
                         <div class="checkbox-row">
-                            <input id="setCooldownEnabled" type="checkbox" />
+                            <input id="setCooldownEnabled" type="checkbox">
                             <label for="setCooldownEnabled" style="margin:0;">Trigger action cooldown enabled</label>
                         </div>
                         <div class="field">
@@ -2378,7 +2396,7 @@
                             <input id="setCooldownSeconds" type="number" min="0" max="3600">
                         </div>
                         <div class="checkbox-row">
-                            <input id="setExactMatch" type="checkbox" />
+                            <input id="setExactMatch" type="checkbox">
                             <label for="setExactMatch" style="margin:0;">Require exact trigger match</label>
                         </div>
                         <div class="field">
@@ -2403,8 +2421,7 @@
                                 for="guildFeatureShots" style="margin:0">Shot system</label></div>
                     </div>
                     <div class="actions">
-                        <span class="sub">Changes apply immediately to the selected guild.</span>
-                        <button id="saveSettings" class="primary" type="button">Save settings</button>
+                        <span class="sub">Toggles save immediately. Number fields save when you press Enter.</span>
                     </div>
                     <p id="settingsStatus" class="status"></p>
                 </div>
@@ -2488,7 +2505,7 @@
                                 id="importTriggers" type="file" accept="application/json" hidden></label></div>
                     <p id="triggerExportStatus" class="status"></p>
                     <div id="storageDetails" class="table-wrap"></div>
-                    <div class="row" style="margin-top:12px"><input id="resetDataUser" placeholder="User ID"><select
+                    <div class="row" style="margin-top:12px"><input id="resetDataUser" type="text" placeholder="User ID"><select
                             id="resetDataStore">
                             <option value="memory">AI memory</option>
                             <option value="profile">Profile</option>
@@ -2571,7 +2588,7 @@
                             </select></div>
                         <div class="field"><label>Activity text <span class="help-tip" tabindex="0"
                                     data-tooltip="The short custom status line shown on the bot profile. Keep it clear and under Discord’s 128-character limit.">?</span></label><input
-                                id="presenceActivityText" maxlength="128" placeholder="for /help"></div>
+                                id="presenceActivityText" type="text" maxlength="128" placeholder="for /help"></div>
                         <div class="checkbox-row"><input id="presenceActivityEnabled" type="checkbox"><label
                                 for="presenceActivityEnabled" style="margin:0">Show activity <span class="help-tip"
                                     tabindex="0"
@@ -2585,7 +2602,7 @@
                             data-tooltip="Use exact OpenRouter model IDs. Vision models are for image messages; fallback models are tried in order after a model error or rate limit. More history and output tokens use more AI context.">?</span>
                     </h2>
                     <div class="two-col">
-                        <div class="field"><label>Text model</label><input id="aiTextModel"></div>
+                        <div class="field"><label>Text model</label><input id="aiTextModel" type="text"></div>
                         <div class="field"><label>OpenRouter base URL</label><input id="aiBaseUrl" type="url"></div>
                         <div class="field"><label>Vision models (one per line)</label><textarea
                                 id="aiVisionModels"></textarea></div>
@@ -2627,7 +2644,7 @@
                         <div class="field"><label for="appProfileDescription">App description</label><textarea
                                 id="appProfileDescription" maxlength="400"
                                 placeholder="What does Flummi do?"></textarea></div>
-                        <div class="field"><label for="appProfileTags">App tags</label><input id="appProfileTags"
+                        <div class="field"><label for="appProfileTags">App tags</label><input id="appProfileTags" type="text"
                                 maxlength="104" placeholder="analytics, community, moderation"><span
                                 class="sub">Comma-separated; maximum 5 tags of 20 characters.</span></div>
                         <div class="field"><label for="appProfileIcon">App icon</label><input id="appProfileIcon"
@@ -2648,7 +2665,7 @@
                     <p class="sub">Customises how Flummi appears only in the guild selected in the sidebar. Discord must
                         allow the matching profile field for the bot.</p>
                     <div class="two-col">
-                        <div class="field"><label for="guildBotNick">Nickname</label><input id="guildBotNick"
+                        <div class="field"><label for="guildBotNick">Nickname</label><input id="guildBotNick" type="text"
                                 maxlength="32" placeholder="Flummi"></div>
                         <div class="field"><label for="guildBotBio">Server bio</label><textarea id="guildBotBio"
                                 maxlength="190" placeholder="A custom bio for this server"></textarea></div>
@@ -2917,7 +2934,7 @@
                 </div>
             </section>
 
-            <section id="tab-audit" class="tab-panel">
+            <section id="tab-audit" class="tab-panel" data-manager-only>
                 <h2 style="font-size:20px;">Audit Log</h2>
                 <p class="sub tab-intro">Confirmed panel changes for the selected server, including who performed them.
                 </p>
@@ -2968,11 +2985,12 @@
 
         <aside class="sidebar">
             <div class="brand">
-                <img class="brand-image" src="/assets/branding/flummi.png" alt="Flummi">
+                <img class="brand-image" src="/assets/branding/flummi-pfp.jpeg" alt="Flummi">
                 <div class="brand-copy">
                     <h1>Flummi</h1>
                     <p class="sub">Dashboard</p>
                 </div>
+                <button id="dashboardHome" class="secondary dashboard-home-button" type="button">Home</button>
             </div>
 
             <button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-expanded="false"
@@ -2980,19 +2998,7 @@
                     aria-hidden="true">☰</span><span>Menu</span></button>
 
             <div id="mobileSidebarContent" class="mobile-sidebar-content">
-                <div class="field">
-                    <label for="guild">Guild</label>
-                    <select id="guild"></select>
-                </div>
-
-                <div class="sidebar-actions">
-                    <button id="refreshAll" class="secondary" type="button"
-                        title="Refresh the current tab now. Most tabs update every 20 seconds; Voice updates every 5 seconds. Reliability’s automatic Discord API check runs every 30 seconds.">Refresh</button>
-                    <a id="inviteLink" class="secondary invite-btn" href="#" target="_blank" rel="noopener">Invite
-                        bot</a>
-                </div>
-
-                <nav class="tabs">
+                <nav class="tabs" aria-label="Dashboard sections">
                     <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
                     <button class="tab-btn" data-tab="analytics" type="button">Stats &amp; Analytics</button>
                     <button class="tab-btn" data-tab="messenger" data-developer-only type="button">Messenger</button>
@@ -3004,7 +3010,7 @@
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                     <button class="tab-btn" data-tab="soundboard" type="button">Server Media</button>
-                    <button class="tab-btn" data-tab="audit" type="button">Audit Log</button>
+                    <button class="tab-btn" data-tab="audit" data-manager-only type="button">Audit Log</button>
                     <hr class="tab-divider developer-nav" data-developer-only>
                     <div class="tab-group-label developer-nav" data-developer-only>Developer tools</div>
                     <button class="tab-btn" data-tab="profiles" data-developer-only type="button">Profiles</button>
@@ -3017,15 +3023,23 @@
                     <button class="tab-btn" data-tab="experiments" data-actual-developer-only
                         type="button">Experiments</button>
                 </nav>
-                <div id="panelAccount" class="sidebar-account" hidden>
-                    <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" alt=""><span
-                            id="panelAccountName" class="account-name">Signed in</span></div>
-                    <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
-                    <button id="refreshDiscordAccess" class="secondary" type="button" data-actual-developer-only
-                        style="width:100%;margin-top:8px">Refresh Discord access</button>
+                <div class="sidebar-footer">
+                    <div class="sidebar-actions">
+                        <button id="refreshAll" class="secondary" type="button"
+                            title="Refresh the current tab now. Most tabs update every 20 seconds; Voice updates every 5 seconds.">Refresh</button>
+                        <a id="inviteLink" class="secondary invite-btn" href="#" target="_blank" rel="noopener">Invite bot</a>
+                    </div>
+                    <div id="panelAccount" class="sidebar-account" hidden>
+                        <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" src="/assets/branding/flummi-pfp.jpeg" alt=""><span
+                                id="panelAccountName" class="account-name">Signed in</span></div>
+                        <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
+                        <button id="refreshDiscordAccess" class="secondary" type="button" data-actual-developer-only
+                            style="width:100%;margin-top:8px">Refresh Discord access</button>
+                    </div>
                 </div>
             </div>
         </aside>
+        <select id="guild" hidden aria-hidden="true" tabindex="-1"></select>
         <button id="mobileMenuBackdrop" class="mobile-menu-backdrop" type="button"
             aria-label="Close navigation"></button>
     </div>
@@ -3033,7 +3047,9 @@
     <script src="/vendor/lottie.min.js"></script>
     <script>
         const state = {
+            authenticated: false,
             guildId: null,
+            guilds: [],
             channels: [],
             guildMembers: new Map(),
             role: 'admin',
@@ -3536,6 +3552,7 @@
                 btn.classList.add('active');
                 document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
                 localStorage.setItem('flummi.activeTab', btn.dataset.tab);
+                if (!document.getElementById('dashboardLayout').hidden && state.guildId) history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(btn.dataset.tab)}`);
                 lastAutoRefreshAt = Date.now();
 
                 const loader = tabLoaders[btn.dataset.tab];
@@ -3650,6 +3667,8 @@
 
         async function loadPanelAccount() {
             const data = await api('/auth/me');
+            state.authenticated = data.authenticated === true;
+            if (!state.authenticated) return false;
             state.role = ['developer', 'owner', 'manager', 'user'].includes(data.role) ? data.role : 'user';
             state.actualRole = data.actualRole === 'developer' ? 'developer' : 'admin';
             state.accountUsername = data.user.username;
@@ -3658,6 +3677,14 @@
             avatar.alt = `${data.user.username}'s Discord avatar`;
             document.getElementById('panelAccount').hidden = false;
             applyAccessVisibility();
+            document.getElementById('homeSignedOut').hidden = true;
+            document.getElementById('homeSignedIn').hidden = false;
+            document.getElementById('homeAvatar').src = data.user.avatarUrl;
+            document.getElementById('homeUsername').textContent = data.user.username;
+            document.getElementById('homeFeedbackNav').hidden = false;
+            document.getElementById('homeDeveloperNav').hidden = state.actualRole !== 'developer';
+            document.getElementById('homeLoginCta').hidden = true;
+            return true;
         }
 
         function applyAccessVisibility() {
@@ -3735,6 +3762,55 @@
         }
 
         // ---------- Guild loading ----------
+        function showHomeView(name = 'servers') {
+            document.getElementById('homeShell').hidden = false;
+            document.getElementById('dashboardLayout').hidden = true;
+            history.replaceState(null, '', '/');
+            for (const button of document.querySelectorAll('[data-home-view]')) button.classList.toggle('active', button.dataset.homeView === name);
+            for (const view of ['servers', 'feedback', 'developer']) document.getElementById(`homeView${view[0].toUpperCase()}${view.slice(1)}`).hidden = view !== name;
+        }
+
+        function guildCard(row) {
+            const icon = row.iconUrl ? `<img src="${escapeHtml(row.iconUrl)}" alt="">` : escapeHtml(row.name.slice(0, 2).toUpperCase());
+            return `<button class="home-guild-card" type="button" data-open-guild="${escapeHtml(row.id)}"><span class="home-guild-icon">${icon}</span><span><strong>${escapeHtml(row.name)}</strong><span class="sub" style="display:block;margin-top:4px">${escapeHtml(row.role || 'user')}</span></span></button>`;
+        }
+
+        function renderHomeGuilds(rows) {
+            state.guilds = rows;
+            const container = document.getElementById('homeGuilds');
+            container.hidden = false;
+            const admins = rows.filter(row => row.isAdmin);
+            const others = rows.filter(row => !row.isAdmin);
+            container.innerHTML = `${admins.length ? `<section class="guild-group"><h2>Admin</h2><div class="home-guild-grid">${admins.map(guildCard).join('')}</div></section>` : ''}${others.length ? `<section class="guild-group"><h2>Your servers</h2><div class="home-guild-grid">${others.map(guildCard).join('')}</div></section>` : ''}${rows.length ? '' : '<div class="home-panel empty">No servers shared with Flummi were found.</div>'}`;
+        }
+
+        async function openDashboard(guildId, tab = null) {
+            fillGuildSelect(state.guilds);
+            guildSelect.value = String(guildId || state.guilds[0]?.id || '');
+            state.guildId = guildSelect.value || null;
+            if (!state.guildId) return;
+            state.role = state.guildRoles.get(String(state.guildId)) || state.role;
+            localStorage.setItem('flummi.guildId', state.guildId);
+            if (tab) {
+                const button = tabButtons.find(candidate => candidate.dataset.tab === tab && !candidate.hidden);
+                if (button) button.click();
+            }
+            applyAccessVisibility();
+            document.getElementById('homeShell').hidden = true;
+            document.getElementById('dashboardLayout').hidden = false;
+            const selectedTab = tab || activeTab();
+            history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(selectedTab)}`);
+            await refreshActiveTab();
+        }
+
+        document.querySelectorAll('[data-home-view]').forEach(button => button.addEventListener('click', () => showHomeView(button.dataset.homeView)));
+        document.getElementById('homeGuilds').addEventListener('click', event => {
+            const card = event.target.closest('[data-open-guild]');
+            if (card) openDashboard(card.dataset.openGuild).catch(handleUiError);
+        });
+        document.getElementById('dashboardHome').addEventListener('click', () => showHomeView('servers'));
+        document.getElementById('openDeveloperPanel').addEventListener('click', () => openDashboard(localStorage.getItem('flummi.guildId'), 'global').catch(handleUiError));
+
         function fillGuildSelect(rows) {
             guildSelect.innerHTML = '';
             state.guildRoles = new Map(rows.map(row => [String(row.id), row.role || 'user']));
@@ -4164,18 +4240,20 @@
         async function loadOverview() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/overview'));
-            const messageDays = Number(document.getElementById('overviewMessageRange').value) || 7;
-            const voiceDays = Number(document.getElementById('overviewVoiceRange').value) || 7;
-            const [messageGraph, voiceGraph] = await Promise.all([
-                api(withGuild(`/api/analytics?days=${messageDays}`)),
-                api(withGuild(`/api/voice-analytics?from=${encodeURIComponent(new Date(Date.now() - voiceDays * 86400000).toISOString())}`))
-            ]);
             const overviewCards = document.getElementById('overviewCards');
             const banner = document.getElementById('overviewBanner');
 
             renderGuildHeader('guildHeader', data.guildInfo);
             renderOverviewQuad('overviewQuad', data.guildInfo, data.totalMessages);
             renderOverviewDetails('overviewDetails', data.guildInfo);
+            const localFeatures = data.settings?.features || {};
+            const featureRows = [
+                ['Bot', data.settings?.botEnabled], ['Triggers', data.settings?.triggersEnabled],
+                ['AI conversations', localFeatures.aiConversationsEnabled], ['AI attachments', localFeatures.aiAttachmentsEnabled],
+                ['Image search', localFeatures.aiImageSearchEnabled], ['Ping responses', localFeatures.pingResponsesEnabled],
+                ['Save pings', localFeatures.pingRequestSaveEnabled], ['Shots', localFeatures.shotsEnabled]
+            ];
+            document.getElementById('overviewFeatures').innerHTML = featureRows.map(([label, enabled]) => statCard(label, enabled === false ? 'Off' : 'On')).join('');
 
             if (data.missingPermissions && data.missingPermissions.length > 0) {
                 banner.innerHTML = `<div class="banner warn">Bot is missing permissions in this server: <strong>${escapeHtml(data.missingPermissions.join(', '))}</strong>. <a href="${escapeHtml(data.inviteUrl)}" target="_blank" rel="noopener">Click here to reinvite with the correct permissions</a>.</div>`;
@@ -4190,16 +4268,6 @@
                 statCard('Total Voice Time Tracked', data.totalVoiceFormatted),
                 statCard('Managers', data.managerCount)
             ].join('');
-
-            renderActivityChart('overviewMessageChart', messageGraph.dailyMessages, 'No messages tracked yet.', document.getElementById('overviewMessageType').value, 'Messages');
-            renderActivityChart('overviewVoiceChart', voiceGraph.activeOverTime, 'No voice sessions tracked yet.', document.getElementById('overviewVoiceType').value, 'Voice sessions');
-
-            renderTable(document.getElementById('overviewShots'),
-                [
-                    { label: 'User', render: r => withNicknameTitle(r.label, r.nickname) },
-                    { label: 'Shots', key: 'total' }
-                ],
-                data.shotLeaderboard, 'No shots tracked yet.');
 
             renderTable(document.getElementById('overviewChannels'),
                 [
@@ -4535,11 +4603,12 @@
 
             document.getElementById('voiceCards').innerHTML = [
                 statCard('Total voice time', formatDuration(analytics.totalAllTimeMs ?? fallbackTotalVoiceMs), 'All tracked voice time, including the current duration of active sessions.'),
-                statCard(`Voice time · ${rangeLabel}`, formatDuration(Number(analytics.totalMs) || 0), 'Voice duration inside the selected Period. Sessions crossing the boundary contribute only the time inside that range.'),
+                statCard(`Voice time · ${rangeLabel}`, formatDuration(Number(analytics.totalMs) || 0), 'Time with at least one member in voice inside the selected Period. Overlapping members never make one day exceed 24 hours.'),
                 statCard('Vs previous period', periodComparison(analytics.totalMs, analytics.previousTotalMs, voiceRange !== 'all'), 'Compares voice time with the immediately preceding period of equal length. All time has no previous-period comparison.'),
                 statCard('In Voice Now', activeSessions.length),
                 statCard('Tracked Users', leaderboard.length),
-                statCard('Average Session', formatDuration(Number(analytics.averageSessionMs) || 0), 'Average tracked session duration within the selected Period, including active sessions so far.')
+                statCard('Average Session', formatDuration(Number(analytics.averageSessionMs) || 0), 'Average tracked session duration within the selected Period, including active sessions so far.'),
+                statCard('Busiest hour', Number.isInteger(analytics.busiestHour) ? `${String(analytics.busiestHour).padStart(2, '0')}:00 UTC` : '-', 'The UTC hour with the most voice sessions starting in the selected Period.')
             ].join('');
             renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.', document.getElementById('voiceGraphType').value, 'Voice sessions');
             renderActivityChart('voiceMinutesChart', analytics.minutesOverTime, 'No voice time in this range.', document.getElementById('voiceGraphType').value, 'Voice minutes');
@@ -4691,8 +4760,7 @@
                 statCard('Attachments', data.engagement?.attachments || 0),
                 statCard('GIFs', data.engagement?.gifs || 0, 'GIF files and recognized GIF links or embeds inside the selected Period. A link and its Discord preview count once.'),
                 statCard('Replies', data.engagement?.replies || 0),
-                statCard('Busiest hour', busiestHour, 'The UTC hour with the most tracked messages in the selected Period.'),
-                statCard('Busiest day', comparison.busiestDay?.date || '-', 'The calendar date with the most tracked messages in the selected Period.')
+                statCard('Busiest hour', busiestHour, 'The UTC hour with the most tracked messages in the selected Period.')
             ].join('');
             renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.', document.getElementById('analyticsGraphType').value, 'Messages');
             await loadActivityHeatmap('message');
@@ -4703,14 +4771,17 @@
         // ---------- Analytics ----------
         async function loadAnalytics() {
             if (!state.guildId) return;
-            const data = await api(withGuild('/api/analytics-summary'));
+            const days = document.getElementById('analyticsSummaryRange').value;
+            const data = await api(withGuild(`/api/analytics-summary?days=${encodeURIComponent(days)}`));
             document.getElementById('analyticsSummaryMessages').innerHTML = [
                 statCard('Messages', data.messages.count), statCard('Active Authors', data.messages.uniqueAuthors),
-                statCard('Change', `${data.messages.changePercent > 0 ? '+' : ''}${data.messages.changePercent}%`)
+                statCard('Change', data.messages.changePercent === null ? 'New' : `${data.messages.changePercent > 0 ? '+' : ''}${data.messages.changePercent}%`),
+                statCard('Busiest hour', Number.isInteger(data.messages.busiestHour) ? `${String(data.messages.busiestHour).padStart(2, '0')}:00 UTC` : '-')
             ].join('');
             document.getElementById('analyticsSummaryVoice').innerHTML = [
                 statCard('Voice Time', formatDuration(data.voice.totalMs)), statCard('Sessions', data.voice.sessions),
-                statCard('Active Members', data.voice.activeMembers)
+                statCard('Active Members', data.voice.activeMembers),
+                statCard('Average session', formatDuration(data.voice.averageSessionMs))
             ].join('');
             document.getElementById('analyticsSummaryMedia').innerHTML = [
                 statCard('Sound Plays', data.media.soundPlays), statCard('Emoji Uses', data.media.emojiUses),
@@ -4726,7 +4797,13 @@
                 statCard('Deleted Messages', moderation.deletedMessages || 0), statCard('Role Changes', moderation.roleChanges || 0),
                 statCard('Invite Uses', moderation.inviteUses || 0)
             ].join('');
+            const graphType = document.getElementById('analyticsSummaryGraphType').value;
+            renderActivityChart('analyticsSummaryMessageChart', data.messages.activity || [], 'No messages in this period.', graphType, 'Messages');
+            renderActivityChart('analyticsSummaryVoiceChart', data.voice.activity || [], 'No voice sessions in this period.', graphType, 'Voice sessions');
         }
+
+        document.getElementById('analyticsSummaryRange').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
+        document.getElementById('analyticsSummaryGraphType').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
 
         document.getElementById('analyticsDays').addEventListener('change', () => loadStats().catch(error => console.error(error)));
         document.getElementById('analyticsChannel').addEventListener('change', () => loadStats().catch(error => console.error(error)));
@@ -4735,10 +4812,6 @@
         document.getElementById('voiceGraphRange').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
         document.getElementById('voiceGraphChannel').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
         document.getElementById('voiceGraphType').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
-        document.getElementById('overviewMessageRange').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
-        document.getElementById('overviewMessageType').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
-        document.getElementById('overviewVoiceRange').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
-        document.getElementById('overviewVoiceType').addEventListener('change', () => loadOverview().catch(error => console.error(error)));
 
         // ---------- Users & permissions ----------
         const memberActionStatusField = document.getElementById('memberActionStatus');
@@ -4759,7 +4832,7 @@
                     : '<span class="badge user">User</span>';
             }
 
-            return `<select data-role-select data-user-id="${escapeHtml(member.id)}">` +
+            return `<select data-role-select data-user-id="${escapeHtml(member.id)}" data-current-role="${escapeHtml(member.role)}">` +
                 `<option value="user"${member.role === 'user' ? ' selected' : ''}>User</option>` +
                 `<option value="manager"${member.role === 'manager' ? ' selected' : ''}>Manager</option>` +
                 '</select>';
@@ -4818,17 +4891,23 @@
 
             const userId = select.dataset.userId;
             const role = select.value;
+            const previousRole = select.dataset.currentRole || (role === 'manager' ? 'user' : 'manager');
             const confirmed = await confirmAction({ title: 'Change member role?', message: `Change ${userId} to ${role}? This changes their Flummi permissions for this server.`, confirmLabel: 'Change role' });
-            if (!confirmed) { await loadServerMembers(); return; }
+            if (!confirmed) { select.value = previousRole; return; }
 
+            select.disabled = true;
+            setStatus(memberActionStatusField, `Saving ${role} role...`);
             api(withGuild('/api/members/role'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, role })
             }).then(() => {
+                select.dataset.currentRole = role;
+                select.disabled = false;
                 setStatus(memberActionStatusField, `Updated role for ${userId} to ${role}.`, 'ok');
-                loadServerMembers().catch(error => console.error(error));
             }).catch(error => {
+                select.value = previousRole;
+                select.disabled = false;
                 setStatus(memberActionStatusField, error.message, 'error');
             });
         });
@@ -5449,11 +5528,6 @@
             } catch (error) { setStatus(status, error.message, 'error'); }
         });
 
-        document.getElementById('saveSettings').addEventListener('click', async () => {
-            if (!await confirmAction({ title: 'Save server settings?', message: 'These feature and trigger settings apply immediately to the selected server.', confirmLabel: 'Save settings', danger: false })) return;
-            saveSettings().catch(error => setStatus(document.getElementById('settingsStatus'), error.message, 'error'));
-        });
-
         async function saveSettings() {
             const statusField = document.getElementById('settingsStatus');
 
@@ -5498,8 +5572,16 @@
                 body: JSON.stringify(payload)
             });
 
-            setStatus(statusField, 'Guild settings saved.', 'ok');
+            setStatus(statusField, 'Saved.', 'ok');
         }
+
+        const instantSettingIds = ['setBotEnabled', 'setTriggersEnabled', 'setCooldownEnabled', 'setExactMatch', 'guildFeatureAiConversations', 'guildFeatureAiAttachments', 'guildFeatureAiImageSearch', 'guildFeaturePingResponses', 'guildFeaturePingSave', 'guildFeatureShots'];
+        instantSettingIds.forEach(id => document.getElementById(id).addEventListener('change', () => saveSettings().catch(error => setStatus(document.getElementById('settingsStatus'), error.message, 'error'))));
+        ['setCooldownSeconds', 'setMaxTriggerLength'].forEach(id => document.getElementById(id).addEventListener('keydown', event => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            saveSettings().catch(error => setStatus(document.getElementById('settingsStatus'), error.message, 'error'));
+        }));
 
         document.getElementById('saveGlobalFeatures').addEventListener('click', async () => {
             const statusField = document.getElementById('globalFeatureStatus');
@@ -6403,6 +6485,43 @@
             document.getElementById('experimentPanelRole').disabled = !event.target.checked;
         });
 
+        document.getElementById('submitHomeFeedback').addEventListener('click', async () => {
+            const field = document.getElementById('homeFeedbackMessage');
+            const status = document.getElementById('homeFeedbackStatus');
+            try {
+                await api('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: field.value }) });
+                field.value = '';
+                setStatus(status, 'Thanks — your feedback was sent.', 'ok');
+            } catch (error) { setStatus(status, error.message, 'error'); }
+        });
+
+        document.getElementById('loadFeedbackCollection').addEventListener('click', async () => {
+            const container = document.getElementById('feedbackCollection');
+            try {
+                const data = await api('/api/feedback');
+                renderTable(container, [
+                    { label: 'From', key: 'username' },
+                    { label: 'Feedback', key: 'message' },
+                    { label: 'Received', key: 'createdAt', render: row => formatDateTime(row.createdAt) }
+                ], data.feedback || [], 'No feedback collected yet.');
+            } catch (error) { container.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`; }
+        });
+
+        document.getElementById('promoteLiveRelease').addEventListener('click', async () => {
+            const status = document.getElementById('releaseStatus');
+            if (!await confirmAction({ title: 'Promote tested release?', message: 'This copies the Tailscale staging release to production and restarts the live Flummi service.', confirmLabel: 'Promote to live' })) return;
+            try {
+                const result = await api('/api/release/promote', { method: 'POST' });
+                setStatus(status, result.message || 'Promotion started.', 'ok');
+            } catch (error) { setStatus(status, error.message, 'error'); }
+        });
+
+        async function logoutToHome() {
+            await fetch('/auth/logout', { method: 'POST' });
+            window.location.assign('/');
+        }
+        document.getElementById('homeLogout').addEventListener('click', logoutToHome);
+
         // ---------- Init ----------
         const rememberedTab = localStorage.getItem('flummi.activeTab');
         const rememberedButton = tabButtons.find(button => button.dataset.tab === rememberedTab);
@@ -6412,11 +6531,16 @@
         }
 
         async function initializePanel() {
-            await loadPanelAccount();
-            await Promise.all([
-                loadInviteLink().catch(error => console.error(error)),
-                loadGuilds()
-            ]);
+            const requestedParams = new URLSearchParams(window.location.search);
+            const authenticated = await loadPanelAccount();
+            showHomeView('servers');
+            if (!authenticated) return;
+            const data = await api('/api/guilds');
+            renderHomeGuilds(data.guilds || []);
+            loadInviteLink().catch(error => console.error(error));
+            const requestedGuild = requestedParams.get('guildId');
+            const requestedTab = requestedParams.get('tab');
+            if (requestedGuild && state.guilds.some(guild => guild.id === requestedGuild)) await openDashboard(requestedGuild, requestedTab);
         }
 
         initializePanel().catch(error => handleUiError(error, () => initializePanel().catch(handleUiError)));
@@ -6434,7 +6558,7 @@
         <div class="media-lightbox-body">
             <button class="media-lightbox-close secondary" type="button" aria-label="Close preview"
                 onclick="this.closest('dialog').close()">Close</button>
-            <img id="mediaLightboxImage" alt="">
+            <img id="mediaLightboxImage" src="/assets/branding/flummi-pfp.jpeg" alt="">
             <div id="mediaLightboxLottie" class="media-lightbox-lottie" hidden></div>
             <div id="mediaLightboxError" class="media-preview-error" hidden>Preview unavailable</div>
             <p id="mediaLightboxName" class="media-lightbox-name"></p>

@@ -379,12 +379,14 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     });
     const history = [...completedHistory, ...liveHistory];
     const channels = new Map(), users = new Map(), daily = new Map(), dailyMinutes = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
-    let totalMs = 0;
+    let participantTotalMs = 0;
+    const occupiedIntervals = [];
     for (const row of history) {
         const rowStart = Math.max(start, new Date(row.startedAt).getTime());
         const rowEnd = Math.min(end, new Date(row.endedAt || Date.now()).getTime());
         const ms = Math.max(0, rowEnd - rowStart);
-        totalMs += ms;
+        participantTotalMs += ms;
+        if (ms > 0) occupiedIntervals.push([rowStart, rowEnd]);
         const channel = channels.get(row.channelId) || { channelId: row.channelId, channelName: row.channelName, totalMs: 0, sessions: 0 };
         channel.totalMs += ms; channel.sessions++; channels.set(row.channelId, channel);
         const user = users.get(row.userId) || { userId: row.userId, weeklyMs: 0, monthlyMs: 0, totalMs: 0 };
@@ -429,7 +431,18 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
         activeOverTime.push({ date, count: daily.get(date) || 0 });
         minutesOverTime.push({ date, count: dailyMinutes.get(date) || 0 });
     }
-    return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime, minutesOverTime, heatmap, totalMs, averageSessionMs: history.length ? Math.round(totalMs / history.length) : 0, groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100) };
+    occupiedIntervals.sort((left, right) => left[0] - right[0]);
+    let totalMs = 0;
+    let occupiedStart = null, occupiedEnd = null;
+    for (const [intervalStart, intervalEnd] of occupiedIntervals) {
+        if (occupiedStart === null) { occupiedStart = intervalStart; occupiedEnd = intervalEnd; continue; }
+        if (intervalStart <= occupiedEnd) occupiedEnd = Math.max(occupiedEnd, intervalEnd);
+        else { totalMs += occupiedEnd - occupiedStart; occupiedStart = intervalStart; occupiedEnd = intervalEnd; }
+    }
+    if (occupiedStart !== null) totalMs += occupiedEnd - occupiedStart;
+    const hourlyTotals = heatmap.reduce((totals, day) => day.map((count, hour) => totals[hour] + count), Array(24).fill(0));
+    const busiestHour = history.length ? hourlyTotals.indexOf(Math.max(...hourlyTotals)) : null;
+    return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime, minutesOverTime, heatmap, busiestHour, totalMs, participantTotalMs, averageSessionMs: history.length ? Math.round(participantTotalMs / history.length) : 0, groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100) };
 }
 
 function getVoiceActivityHeatmap(guildId, from = null, to = null, channelId = null) {

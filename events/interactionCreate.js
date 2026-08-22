@@ -53,6 +53,10 @@ module.exports = {
     name: 'interactionCreate',
 
     async execute(interaction) {
+        if (interaction.isStringSelectMenu()) {
+            const { handleRoleSelect } = require('../services/role-service');
+            if (await handleRoleSelect(interaction)) return;
+        }
         if (interaction.isButton()) {
             if (interaction.customId.startsWith('voicetime-channel-history:')) {
                 if (!interaction.guildId || !isManager(interaction.user.id, interaction.guildId)) {

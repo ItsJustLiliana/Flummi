@@ -1,0 +1,2 @@
+const { logConfiguredEvent } = require('../services/event-log-service');
+module.exports = { name: 'roleUpdate', execute(oldRole, newRole) { if (oldRole.name !== newRole.name || oldRole.color !== newRole.color || oldRole.permissions.bitfield !== newRole.permissions.bitfield) logConfiguredEvent(newRole.guild.id, 'member', { type: 'role-update', summary: `Role updated: ${oldRole.name} → ${newRole.name}`, metadata: { roleId: newRole.id } }); } };

@@ -30,6 +30,9 @@ const profileStore = require('./stores/profile-store');
 const feedbackStore = require('./stores/feedback-store');
 const { getAiConfig, buildTextModelCandidates, buildVisionModelCandidates } = require('./services/ai-chat');
 const readyEvent = require('./events/ready');
+const moderationStore = require('./stores/moderation-store');
+const { executeModerationAction, parseDuration } = require('./services/moderation-service');
+const { publishRoleMenu } = require('./services/role-service');
 
 installTimestampedConsole();
 loadEnv();
@@ -69,8 +72,51 @@ const settingAuditLabels = {
     'features.aiImageSearchEnabled': 'AI image search',
     'features.pingResponsesEnabled': 'Ping responses',
     'features.pingRequestSaveEnabled': 'Save ping requests',
-    'features.shotsEnabled': 'Shots'
+    'features.shotsEnabled': 'Shots',
+    'management.modules.moderation': 'Moderation module',
+    'management.modules.automod': 'AutoMod & Safety module',
+    'management.modules.cases': 'Cases & Logs module',
+    'management.modules.roles': 'Roles & Onboarding module',
+    'management.modules.automation': 'Automation module',
+    'management.moderation.requireReason': 'Require moderation reasons',
+    'management.moderation.notifyMember': 'Notify moderated members',
+    'management.moderation.defaultTimeoutMinutes': 'Default timeout duration',
+    'management.automod.preset': 'AutoMod preset',
+    'management.automod.mode': 'AutoMod mode',
+    'management.automod.escalationEnabled': 'AutoMod escalation',
+    'management.automod.logChannelId': 'AutoMod log channel',
+    'management.automod.action': 'AutoMod action',
+    'management.automod.timeoutMinutes': 'AutoMod timeout duration',
+    'management.automod.blockedTerms': 'AutoMod blocked terms',
+    'management.automod.allowedDomains': 'AutoMod allowed domains',
+    'management.automod.allowedInviteCodes': 'AutoMod allowed invite codes',
+    'management.automod.ignoredChannelIds': 'AutoMod ignored channels',
+    'management.automod.ignoredRoleIds': 'AutoMod ignored roles',
+    'management.cases.logChannelId': 'Case log channel',
+    'management.cases.retentionDays': 'Case retention',
+    'management.cases.logMessageChanges': 'Log message changes',
+    'management.cases.logMemberChanges': 'Log member changes',
+    'management.roles.autoroleId': 'Autorole',
+    'management.roles.autoroleDelayMinutes': 'Autorole delay',
+    'management.roles.persistRoles': 'Persist member roles',
+    'management.roles.interactiveRoles': 'Interactive roles',
+    'management.roles.selfAssignableRoleIds': 'Self-assignable roles',
+    'management.roles.onboardingChannelId': 'Role-menu channel',
+    'management.automation.welcomeEnabled': 'Welcome automation',
+    'management.automation.goodbyeEnabled': 'Goodbye automation',
+    'management.automation.welcomeChannelId': 'Welcome channel',
+    'management.automation.goodbyeChannelId': 'Goodbye channel',
+    'management.automation.scheduledMessagesEnabled': 'Scheduled messages',
+    'management.automation.autoPurgeEnabled': 'Automatic purge'
 };
+for (const [key, label] of Object.entries({ badWords: 'Bad words', serverInvites: 'Discord invites', externalLinks: 'External links', messageSpam: 'Fast message spam', duplicateSpam: 'Repeated messages', mentionSpam: 'Mention spam', capsSpam: 'Excessive capitals', emojiSpam: 'Emoji spam', zalgoSpam: 'Zalgo text' })) {
+    settingAuditLabels[`management.automod.rules.${key}.enabled`] = `${label} enabled`;
+    settingAuditLabels[`management.automod.rules.${key}.action`] = `${label} action`;
+    settingAuditLabels[`management.automod.rules.${key}.limit`] = `${label} limit`;
+    settingAuditLabels[`management.automod.rules.${key}.windowSeconds`] = `${label} window`;
+    settingAuditLabels[`management.automod.rules.${key}.ignoredChannelIds`] = `${label} ignored channels`;
+    settingAuditLabels[`management.automod.rules.${key}.ignoredRoleIds`] = `${label} ignored roles`;
+}
 
 function sessionKey(token) {
     return crypto.createHash('sha256').update(String(token)).digest('hex');
@@ -1870,6 +1916,52 @@ function createServer() {
                     settings: settingsStore.readSettings(guildId),
                     globalFeatures: config.features || {}
                 });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/management/cases') {
+                const guildId = requireGuildId(requestUrl, res);
+                if (!guildId) return;
+                if (!await requireGuildManagerAccess(panelSession, guildId, res, 'Cases and event logs are only available to managers.')) return;
+                const userId = requestUrl.searchParams.get('userId');
+                const cases = userId ? moderationStore.getMemberCases(guildId, userId, { limit: 200 }) : moderationStore.readCases(guildId).slice(0, 200);
+                sendJson(res, 200, { cases, events: moderationStore.readEvents(guildId, { limit: 200 }) });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/management/action') {
+                const guildId = requireGuildId(requestUrl, res);
+                if (!guildId) return;
+                if (!await requireGuildManagerAccess(panelSession, guildId, res, 'Moderation actions are only available to managers.')) return;
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                const allowed = new Set(['warn', 'note', 'timeout', 'untimeout', 'kick', 'ban', 'tempban', 'unban', 'softban', 'purge', 'lock', 'unlock', 'slowmode']);
+                if (!allowed.has(parsed.action)) return sendJson(res, 400, { error: 'Unknown moderation action.' });
+                const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
+                const channel = parsed.channelId ? (guild.channels.cache.get(String(parsed.channelId)) || await guild.channels.fetch(String(parsed.channelId)).catch(() => null)) : null;
+                const durationMs = parsed.duration ? parseDuration(parsed.duration) : null;
+                if (parsed.duration && durationMs === null) return sendJson(res, 400, { error: 'Invalid duration. Use 30m, 2h or 7d.' });
+                try {
+                    const entry = await executeModerationAction({ guild, action: parsed.action, actorId: panelSession.userId, actorLabel: panelSession.userTag || panelSession.userId, targetId: parsed.targetId, reason: parsed.reason, durationMs, channel, count: parsed.count, seconds: parsed.seconds });
+                    auditPanelAction(panelSession, 'moderation-action', `${entry.action} created case ${entry.id}`, { guildId, caseId: entry.id, targetId: entry.targetId });
+                    sendJson(res, 200, { ok: true, case: entry });
+                } catch (error) {
+                    sendJson(res, 400, { error: error.message });
+                }
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/management/roles/publish') {
+                const guildId = requireGuildId(requestUrl, res);
+                if (!guildId) return;
+                if (!await requireGuildManagerAccess(panelSession, guildId, res, 'Role menus can only be published by managers.')) return;
+                try {
+                    const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
+                    const message = await publishRoleMenu(guild);
+                    auditPanelAction(panelSession, 'role-menu-publish', `Published role menu ${message.id}`, { guildId, channelId: message.channelId });
+                    sendJson(res, 200, { ok: true, messageId: message.id, channelId: message.channelId });
+                } catch (error) {
+                    sendJson(res, 400, { error: error.message });
+                }
                 return;
             }
 

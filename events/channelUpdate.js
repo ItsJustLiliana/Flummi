@@ -1,0 +1,2 @@
+const { logConfiguredEvent } = require('../services/event-log-service');
+module.exports = { name: 'channelUpdate', execute(oldChannel, newChannel) { if (newChannel.guildId && (oldChannel.name !== newChannel.name || oldChannel.parentId !== newChannel.parentId)) logConfiguredEvent(newChannel.guildId, 'member', { type: 'channel-update', channelId: newChannel.id, summary: `Channel updated: ${oldChannel.name} → ${newChannel.name}` }); } };

@@ -656,6 +656,13 @@ module.exports = {
             console.warn('Failed to update server stats:', error);
         }
 
+        try {
+            const { handleMessage } = require('../services/automod-service');
+            if (await handleMessage(message)) return;
+        } catch (error) {
+            console.warn('AutoMod check failed:', error);
+        }
+
         const content = message.content.trim();
 
         if (/@(?:everyone|here)\b/i.test(content)) {

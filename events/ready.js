@@ -5,6 +5,10 @@ const { pruneAnalytics } = require('../stores/analytics-store');
 const { readConfig } = require('../utils/config');
 const { snapshotGuildInvites } = require('../services/invite-tracker');
 const { setGuildOwner } = require('../stores/access-store');
+const { processExpiredCases } = require('../services/moderation-service');
+const { processAutomation } = require('../services/automation-service');
+const { pruneModerationData } = require('../stores/moderation-store');
+const { readSettings } = require('../stores/settings-store');
 
 function getVoiceStateData(voiceState) {
     return {
@@ -94,9 +98,15 @@ module.exports = {
             for (const guild of client.guilds.cache.values()) reconcileVoiceSessions(guild);
         }, 60000).unref();
 
+        setInterval(() => processExpiredCases(client).catch(error => console.warn(`Moderation timer failed: ${error.message}`)), 60000).unref();
+        setInterval(() => processAutomation(client).catch(error => console.warn(`Automation timer failed: ${error.message}`)), 60000).unref();
+
         setInterval(() => {
             const retentionDays = readConfig().analytics?.retentionDays || 365;
-            for (const guild of client.guilds.cache.values()) pruneAnalytics(guild.id, retentionDays);
+            for (const guild of client.guilds.cache.values()) {
+                pruneAnalytics(guild.id, retentionDays);
+                pruneModerationData(guild.id, readSettings(guild.id).management.cases.retentionDays);
+            }
         }, 24 * 60 * 60 * 1000).unref();
 
         applyConfiguredPresence(client);

@@ -369,6 +369,139 @@
             background: linear-gradient(90deg, rgba(78, 107, 255, .42), rgba(117, 207, 255, .23));
         }
 
+        .management-nav-group {
+            display: grid;
+            gap: 4px;
+        }
+
+        .management-nav-group > .tab-btn {
+            width: 100%;
+        }
+
+        .management-parent {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .management-parent::after {
+            content: "›";
+            color: var(--muted);
+            font-size: 18px;
+            line-height: 1;
+            transform: rotate(0deg);
+            transition: transform 160ms ease;
+        }
+
+        .management-parent[aria-expanded="true"]::after {
+            transform: rotate(90deg);
+        }
+
+        .management-subnav {
+            display: grid;
+            gap: 3px;
+            margin: 0 0 4px 12px;
+            padding-left: 9px;
+            border-left: 1px solid rgba(117, 207, 255, .22);
+        }
+
+        .management-subnav[hidden] {
+            display: none;
+        }
+
+        .management-subnav .tab-btn {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 12px;
+        }
+
+        .management-module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+            gap: 14px;
+        }
+
+        .management-module-card {
+            display: flex;
+            min-height: 190px;
+            flex-direction: column;
+            gap: 12px;
+            padding: 18px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(18, 29, 57, .96), rgba(10, 17, 35, .94));
+            transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+        }
+
+        .management-module-card[data-enabled="true"] {
+            border-color: rgba(117, 207, 255, .42);
+            box-shadow: 0 14px 32px rgba(5, 12, 30, .24);
+        }
+
+        .management-module-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(117, 207, 255, .5);
+        }
+
+        .management-module-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .management-module-heading h3 {
+            margin: 0;
+            color: var(--text);
+            font-size: 16px;
+        }
+
+        .management-module-card .sub {
+            flex: 1;
+            margin: 0;
+            line-height: 1.55;
+        }
+
+        .module-toggle {
+            min-width: 58px;
+            padding: 6px 10px;
+            border-color: rgba(143, 158, 195, .32);
+            border-radius: 999px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .module-toggle[aria-pressed="true"] {
+            border-color: rgba(89, 222, 178, .48);
+            color: #aaf4d9;
+            background: rgba(43, 190, 140, .16);
+        }
+
+        .management-module-card .actions {
+            margin-top: auto;
+        }
+
+        .management-editor-note {
+            padding: 12px 14px;
+            border: 1px solid rgba(117, 207, 255, .2);
+            border-radius: 12px;
+            color: var(--muted);
+            background: rgba(117, 207, 255, .06);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .automation-rule-list { display: grid; gap: 12px; margin-top: 10px; }
+        .automation-rule { padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: rgba(10, 17, 35, .55); }
+        .automation-rule .actions { margin-top: 10px; }
+        .automod-rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; }
+        .automod-rule-card { padding: 16px; border: 1px solid var(--border); border-radius: 15px; background: rgba(10, 17, 35, .58); }
+        .automod-rule-card[data-enabled="true"] { border-color: rgba(117, 207, 255, .4); }
+        .automod-rule-card .management-module-heading { margin-bottom: 8px; }
+        .automod-rule-card .sub { min-height: 42px; margin-bottom: 12px; }
+        .automod-rule-card details { margin-top: 12px; }
+
         #dashboardLayout .tab-btn[data-global-disabled="true"]::after {
             display: inline-grid;
             width: 18px;
@@ -2856,6 +2989,173 @@
                 </div>
             </section>
 
+            <!-- Management modules -->
+            <section id="tab-management" class="tab-panel" data-manager-only>
+                <h2 style="font-size:20px;">Management</h2>
+                <p class="sub tab-intro">Choose the server-management modules Flummi should expose. Enabled modules
+                    appear directly beneath Management in the sidebar.</p>
+                <div id="managementModuleCards" class="management-module-grid"></div>
+                <p id="managementModuleStatus" class="status" aria-live="polite"></p>
+            </section>
+
+            <section id="tab-management-moderation" class="tab-panel" data-manager-only>
+                <h2 style="font-size:20px;">Moderation</h2>
+                <p class="sub tab-intro">Configure the defaults used for manual warnings, timeouts, kicks, bans, and
+                    their case records.</p>
+                <div class="section">
+                    <h2>Action defaults</h2>
+                    <div class="two-col">
+                        <div class="checkbox-row"><input id="managementRequireReason" type="checkbox"><label
+                                for="managementRequireReason" style="margin:0">Require a reason for moderator
+                                actions</label></div>
+                        <div class="checkbox-row"><input id="managementNotifyMember" type="checkbox"><label
+                                for="managementNotifyMember" style="margin:0">Notify the affected member by
+                                DM</label></div>
+                        <div class="field"><label for="managementDefaultTimeout">Default timeout
+                                (minutes)</label><input id="managementDefaultTimeout" type="number" min="1"
+                                max="40320"></div>
+                    </div>
+                    <p class="management-editor-note">These defaults are shared by the future dashboard actions and
+                        slash commands, so moderators get the same safe workflow everywhere.</p>
+                    <div class="actions"><span id="managementModerationStatus" class="status"></span><button
+                            class="primary" type="button" data-save-management="moderation">Save moderation
+                            settings</button></div>
+                </div>
+                <div class="section">
+                    <h2>Run moderation action</h2>
+                    <p class="sub">Actions use Discord permission and role-hierarchy checks and always create a case.</p>
+                    <div class="two-col">
+                        <div class="field"><label for="managementAction">Action</label><select id="managementAction"><option value="warn">Warn</option><option value="note">Private note</option><option value="timeout">Timeout</option><option value="untimeout">Remove timeout</option><option value="kick">Kick</option><option value="ban">Ban</option><option value="tempban">Temporary ban</option><option value="unban">Unban by ID</option><option value="softban">Softban</option><option value="purge">Purge messages</option><option value="lock">Lock channel</option><option value="unlock">Unlock channel</option><option value="slowmode">Set slowmode</option></select></div>
+                        <div class="field"><label for="managementActionTarget">Member/user ID</label><input id="managementActionTarget" inputmode="numeric" placeholder="Required for member actions"></div>
+                        <div class="field"><label for="managementActionChannel">Channel</label><select id="managementActionChannel" data-management-channel><option value="">No channel selected</option></select></div>
+                        <div class="field"><label for="managementActionDuration">Duration</label><input id="managementActionDuration" placeholder="30m, 2h or 7d"></div>
+                        <div class="field"><label for="managementActionNumber">Count / slowmode seconds</label><input id="managementActionNumber" type="number" min="0" max="21600" value="20"></div>
+                        <div class="field"><label for="managementActionReason">Reason</label><input id="managementActionReason" maxlength="1000" placeholder="Why is this action needed?"></div>
+                    </div>
+                    <div class="actions"><span id="managementActionStatus" class="status"></span><button class="primary" id="managementRunAction" type="button">Run action</button></div>
+                </div>
+            </section>
+
+            <section id="tab-management-automod" class="tab-panel" data-manager-only>
+                <h2 style="font-size:20px;">AutoMod &amp; Safety</h2>
+                <p class="sub tab-intro">Set the initial protection level, rollout mode, escalation behavior, and
+                    staff log destination.</p>
+                <div class="section">
+                    <h2>Protection defaults</h2>
+                    <div class="two-col">
+                        <div class="field"><label for="managementAutomodPreset">Preset</label><select
+                                id="managementAutomodPreset"><option value="relaxed">Relaxed</option><option
+                                    value="balanced">Balanced</option><option value="strict">Strict</option></select>
+                        </div>
+                        <div class="field"><label for="managementAutomodMode">Mode</label><select
+                                id="managementAutomodMode"><option value="test">Test mode (log only)</option><option
+                                    value="enforce">Enforce rules</option></select></div>
+                        <div class="field"><label for="managementAutomodLogChannel">AutoMod log channel</label><select
+                                id="managementAutomodLogChannel" data-management-channel><option value="">No channel
+                                    selected</option></select></div>
+                        <div class="checkbox-row"><input id="managementAutomodEscalation" type="checkbox"><label
+                                for="managementAutomodEscalation" style="margin:0">Escalate repeated
+                                violations</label></div>
+                        <div class="field"><label for="managementAutomodAction">Action</label><select id="managementAutomodAction"><option value="delete">Delete message</option><option value="warn">Delete + warn case</option><option value="timeout">Delete + timeout</option></select></div>
+                        <div class="field"><label for="managementAutomodTimeout">Timeout (minutes)</label><input id="managementAutomodTimeout" type="number" min="1" max="40320"></div>
+                    </div>
+                    <div class="field"><label for="managementBlockedTerms">Blocked words or phrases (one per line)</label><textarea id="managementBlockedTerms" rows="5" maxlength="10000"></textarea></div>
+                    <div class="two-col"><div class="field"><label for="managementAllowedDomains">Allowed external domains (one per line)</label><textarea id="managementAllowedDomains" rows="4" placeholder="example.com"></textarea></div><div class="field"><label for="managementAllowedInvites">Allowed Discord invite codes (one per line)</label><textarea id="managementAllowedInvites" rows="4" placeholder="my-server"></textarea></div></div>
+                    <div class="two-col"><div class="field"><label for="managementIgnoredChannels">Ignored channel IDs (one per line)</label><textarea id="managementIgnoredChannels" rows="4"></textarea></div><div class="field"><label for="managementIgnoredRoles">Ignored role IDs (one per line)</label><textarea id="managementIgnoredRoles" rows="4"></textarea></div></div>
+                    <h3 style="margin-top:22px">Individual filters</h3><p class="sub">Every filter can use the default action or override it. Filter-specific exceptions are combined with the global exceptions above.</p>
+                    <div id="managementAutomodRules" class="automod-rule-grid"></div>
+                    <div class="actions"><span id="managementAutomodStatus" class="status"></span><button
+                            class="primary" type="button" data-save-management="automod">Save AutoMod
+                            settings</button></div>
+                </div>
+            </section>
+
+            <section id="tab-management-cases" class="tab-panel" data-manager-only>
+                <h2 style="font-size:20px;">Cases &amp; Logs</h2>
+                <p class="sub tab-intro">Control where moderation cases are published and which server events are
+                    included in the management timeline.</p>
+                <div class="section">
+                    <h2>Case history</h2>
+                    <div class="two-col">
+                        <div class="field"><label for="managementCaseLogChannel">Moderation log channel</label><select
+                                id="managementCaseLogChannel" data-management-channel><option value="">No channel
+                                    selected</option></select></div>
+                        <div class="field"><label for="managementCaseRetention">Retention (days)</label><input
+                                id="managementCaseRetention" type="number" min="1" max="3650"></div>
+                        <div class="checkbox-row"><input id="managementLogMessageChanges" type="checkbox"><label
+                                for="managementLogMessageChanges" style="margin:0">Log deleted and edited
+                                messages</label></div>
+                        <div class="checkbox-row"><input id="managementLogMemberChanges" type="checkbox"><label
+                                for="managementLogMemberChanges" style="margin:0">Log joins, leaves, roles, and
+                                timeouts</label></div>
+                    </div>
+                    <div class="actions"><span id="managementCasesStatus" class="status"></span><button
+                            class="primary" type="button" data-save-management="cases">Save case and log
+                            settings</button></div>
+                </div>
+                <div class="section">
+                    <div class="section-title-row"><div><h2>Case &amp; event timeline</h2><p class="sub">Stored separately from analytics and visible only to managers.</p></div><button id="managementRefreshCases" class="secondary" type="button">Refresh</button></div>
+                    <div class="field"><label for="managementCaseUserFilter">Filter cases by user ID</label><input id="managementCaseUserFilter" inputmode="numeric" placeholder="Leave empty for all cases"></div>
+                    <h3>Cases</h3><div id="managementCasesTable" class="table-wrap"><div class="empty">Open this tab to load cases.</div></div>
+                    <h3 style="margin-top:20px">Events</h3><div id="managementEventsTable" class="table-wrap"><div class="empty">Open this tab to load events.</div></div>
+                </div>
+            </section>
+
+            <section id="tab-management-roles" class="tab-panel" data-manager-only>
+                <h2 style="font-size:20px;">Roles &amp; Onboarding</h2>
+                <p class="sub tab-intro">Prepare automatic and interactive role assignment for new and returning
+                    members.</p>
+                <div class="section">
+                    <h2>Role assignment</h2>
+                    <div class="two-col">
+                        <div class="field"><label for="managementAutoroleId">Autorole ID</label><input
+                                id="managementAutoroleId" type="text" inputmode="numeric" placeholder="Discord role ID">
+                        </div>
+                        <div class="field"><label for="managementAutoroleDelay">Delay after joining
+                                (minutes)</label><input id="managementAutoroleDelay" type="number" min="0"
+                                max="10080"></div>
+                        <div class="checkbox-row"><input id="managementPersistRoles" type="checkbox"><label
+                                for="managementPersistRoles" style="margin:0">Restore managed roles after a member
+                                rejoins</label></div>
+                        <div class="checkbox-row"><input id="managementInteractiveRoles" type="checkbox"><label
+                                for="managementInteractiveRoles" style="margin:0">Allow button and select-menu
+                                roles</label></div>
+                        <div class="field"><label for="managementSelfRoles">Self-assignable role IDs (one per line)</label><textarea id="managementSelfRoles" rows="5"></textarea></div>
+                        <div class="field"><label for="managementOnboardingChannel">Role-menu channel</label><select id="managementOnboardingChannel" data-management-channel><option value="">No channel selected</option></select></div>
+                    </div>
+                    <div class="field"><label for="managementOnboardingTitle">Role-menu title</label><input id="managementOnboardingTitle" maxlength="256"></div>
+                    <div class="field"><label for="managementOnboardingMessage">Role-menu message</label><textarea id="managementOnboardingMessage" rows="4" maxlength="2000"></textarea></div>
+                    <div class="actions"><span id="managementRolesStatus" class="status"></span><button id="managementPublishRoles" class="secondary" type="button">Publish role menu</button><button
+                            class="primary" type="button" data-save-management="roles">Save role
+                            settings</button></div>
+                </div>
+            </section>
+
+            <section id="tab-management-automation" class="tab-panel" data-manager-only>
+                <h2 style="font-size:20px;">Automation</h2>
+                <p class="sub tab-intro">Enable the automation families that managers can later populate with
+                    individual rules and schedules.</p>
+                <div class="section">
+                    <h2>Available automation</h2>
+                    <div class="two-col">
+                        <div class="checkbox-row"><input id="managementWelcomeEnabled" type="checkbox"><label
+                                for="managementWelcomeEnabled" style="margin:0">Welcome messages</label></div>
+                        <div class="checkbox-row"><input id="managementGoodbyeEnabled" type="checkbox"><label for="managementGoodbyeEnabled" style="margin:0">Goodbye messages</label></div>
+                        <div class="checkbox-row"><input id="managementScheduledMessages" type="checkbox"><label
+                                for="managementScheduledMessages" style="margin:0">Scheduled messages</label></div>
+                        <div class="checkbox-row"><input id="managementAutoPurge" type="checkbox"><label
+                                for="managementAutoPurge" style="margin:0">Automatic channel cleanup</label></div>
+                    </div>
+                    <div class="two-col"><div class="field"><label for="managementWelcomeChannel">Welcome channel</label><select id="managementWelcomeChannel" data-management-channel><option value="">No channel selected</option></select></div><div class="field"><label for="managementGoodbyeChannel">Goodbye channel</label><select id="managementGoodbyeChannel" data-management-channel><option value="">No channel selected</option></select></div></div>
+                    <div class="two-col"><div class="field"><label for="managementWelcomeMessage">Welcome message</label><textarea id="managementWelcomeMessage" rows="4"></textarea><small>Variables: {user}, {username}, {server}</small></div><div class="field"><label for="managementGoodbyeMessage">Goodbye message</label><textarea id="managementGoodbyeMessage" rows="4"></textarea><small>Variables: {username}, {server}</small></div></div>
+                    <div class="section-title-row" style="margin-top:18px"><div><h3>Scheduled messages</h3><p class="sub">Send a message repeatedly at a safe interval.</p></div><button id="managementAddSchedule" class="secondary" type="button">Add schedule</button></div><div id="managementSchedules" class="automation-rule-list"></div>
+                    <div class="section-title-row" style="margin-top:22px"><div><h3>Auto-purge rules</h3><p class="sub">Keep the newest messages and clean older, unpinned messages.</p></div><button id="managementAddPurgeRule" class="secondary" type="button">Add purge rule</button></div><div id="managementPurgeRules" class="automation-rule-list"></div>
+                    <div class="actions"><span id="managementAutomationStatus" class="status"></span><button
+                            class="primary" type="button" data-save-management="automation">Save automation
+                            settings</button></div>
+                </div>
+            </section>
+
             <!-- Settings -->
             <section id="tab-settings" class="tab-panel">
                 <h2 style="font-size:20px;">Settings</h2>
@@ -3485,8 +3785,7 @@
 
             <div id="mobileSidebarContent" class="mobile-sidebar-content">
                 <div class="dashboard-search-shell">
-                    <label for="dashboardSearch">Find a dashboard feature or setting</label>
-                    <div class="developer-search-wrap"><input id="dashboardSearch" type="search" autocomplete="off" placeholder="Search triggers, permissions, voice, settings..."></div>
+                    <div class="developer-search-wrap"><input id="dashboardSearch" type="search" autocomplete="off" aria-label="Search dashboard features and settings" placeholder="Search triggers, permissions, voice, settings..."></div>
                     <div id="dashboardSearchResults" class="developer-search-results" hidden></div>
                 </div>
                 <nav class="tabs" aria-label="Dashboard sections">
@@ -3497,6 +3796,22 @@
                     <button class="tab-btn" data-tab="voice" type="button">Voice Analytics</button>
                     <button class="tab-btn" data-tab="stats" type="button">Messages</button>
                     <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
+                    <div id="managementNavGroup" class="management-nav-group" data-manager-only>
+                        <button id="managementNavToggle" class="tab-btn management-parent" data-tab="management" data-manager-only
+                            type="button" aria-expanded="false" aria-controls="managementSubnav">Management</button>
+                        <div id="managementSubnav" class="management-subnav" hidden>
+                            <button class="tab-btn" data-tab="management-moderation" data-management-module="moderation" data-manager-only hidden
+                                type="button">Moderation</button>
+                            <button class="tab-btn" data-tab="management-automod" data-management-module="automod" data-manager-only hidden
+                                type="button">AutoMod &amp; Safety</button>
+                            <button class="tab-btn" data-tab="management-cases" data-management-module="cases" data-manager-only hidden
+                                type="button">Cases &amp; Logs</button>
+                            <button class="tab-btn" data-tab="management-roles" data-management-module="roles" data-manager-only hidden
+                                type="button">Roles &amp; Onboarding</button>
+                            <button class="tab-btn" data-tab="management-automation" data-management-module="automation" data-manager-only hidden
+                                type="button">Automation</button>
+                        </div>
+                    </div>
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                     <button class="tab-btn" data-tab="soundboard" type="button">Server Media</button>
@@ -3535,6 +3850,7 @@
             role: 'admin',
             actualRole: 'admin',
             globalFeatures: {},
+            management: null,
             accountUsername: '',
             guildRoles: new Map(),
             canManageManagers: false
@@ -4014,6 +4330,12 @@
             voice: 'This tab refreshes every 5 seconds while open so live voice sessions and durations stay current.',
             users: 'This tab does not refresh automatically, so your permission edits and selected member are not interrupted. Use Refresh when you want current data.',
             settings: 'This tab does not refresh automatically, so unsaved settings are never overwritten. Use Refresh to reload saved values.',
+            management: 'Management modules are saved per server. Enabled modules appear beneath Management in the sidebar.',
+            'management-moderation': 'This editor does not refresh automatically, so pending moderation settings are not overwritten.',
+            'management-automod': 'This editor does not refresh automatically, so pending AutoMod settings are not overwritten.',
+            'management-cases': 'This editor does not refresh automatically, so pending case and logging settings are not overwritten.',
+            'management-roles': 'This editor does not refresh automatically, so pending role settings are not overwritten.',
+            'management-automation': 'This editor does not refresh automatically, so pending automation settings are not overwritten.',
             messenger: 'This tab does not refresh automatically while you are composing a message. Use Refresh to reload available channels.',
             triggers: 'This tab does not refresh automatically, so trigger drafts and edits are never overwritten. Use Refresh to reload saved triggers.',
             profiles: 'This tab does not refresh automatically, so unsaved profile fields are never overwritten. Use Refresh to reload profile data.',
@@ -4051,6 +4373,30 @@
         document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileMenu(false); });
         mobileMenuMedia.addEventListener('change', () => setMobileMenu(false));
         const defaultTabLabels = Object.fromEntries(tabButtons.map(button => [button.dataset.tab, button.textContent.trim()]));
+        const managementModuleDefinitions = {
+            moderation: { tab: 'management-moderation', title: 'Moderation', description: 'Warnings, timeouts, kicks, bans, purge tools, and safe action defaults.' },
+            automod: { tab: 'management-automod', title: 'AutoMod & Safety', description: 'Spam protection, rule presets, test mode, escalation, and raid safety.' },
+            cases: { tab: 'management-cases', title: 'Cases & Logs', description: 'Searchable moderation cases, event logging, retention, and staff channels.' },
+            roles: { tab: 'management-roles', title: 'Roles & Onboarding', description: 'Autoroles, persistent roles, and button or select-menu role assignment.' },
+            automation: { tab: 'management-automation', title: 'Automation', description: 'Welcome flows, scheduled messages, cleanup, and reusable server routines.' }
+        };
+        const automodRuleDefinitions = {
+            badWords: { title: 'Bad words', description: 'Block configured words and phrases.', limit: 'Matches allowed', fixedLimit: true },
+            serverInvites: { title: 'Discord invites', description: 'Stop unauthorized server invitation links.', limit: 'Invites per message' },
+            externalLinks: { title: 'External links', description: 'Stop links outside the allowed-domain list.', limit: 'Links per message' },
+            messageSpam: { title: 'Fast message spam', description: 'Limit how many messages a member can send in a window.', limit: 'Messages', window: true },
+            duplicateSpam: { title: 'Repeated messages', description: 'Detect repeated identical messages.', limit: 'Repeated messages', window: true },
+            mentionSpam: { title: 'Mention spam', description: 'Limit combined user and role mentions.', limit: 'Mentions per message' },
+            capsSpam: { title: 'Excessive capitals', description: 'Detect messages mostly written in capitals.', limit: 'Capital letters (%)', min: 50 },
+            emojiSpam: { title: 'Emoji spam', description: 'Limit Unicode and custom Discord emoji.', limit: 'Emoji per message' },
+            zalgoSpam: { title: 'Zalgo text', description: 'Detect excessive combining characters.', limit: 'Combining marks' }
+        };
+        const automodPresetLimits = {
+            relaxed: { serverInvites: 3, externalLinks: 3, messageSpam: 8, duplicateSpam: 4, mentionSpam: 8, capsSpam: 90, emojiSpam: 16, zalgoSpam: 18 },
+            balanced: { serverInvites: 2, externalLinks: 2, messageSpam: 6, duplicateSpam: 3, mentionSpam: 6, capsSpam: 80, emojiSpam: 12, zalgoSpam: 12 },
+            strict: { serverInvites: 1, externalLinks: 1, messageSpam: 5, duplicateSpam: 2, mentionSpam: 4, capsSpam: 70, emojiSpam: 8, zalgoSpam: 8 }
+        };
+        const managementChildTabIds = new Set(Object.values(managementModuleDefinitions).map(definition => definition.tab));
         const tabLoaders = {
             overview: loadOverview,
             analytics: loadAnalytics,
@@ -4060,6 +4406,12 @@
             voice: loadVoice,
             stats: loadStats,
             users: loadUsers,
+            management: loadManagement,
+            'management-moderation': loadManagement,
+            'management-automod': loadManagement,
+            'management-cases': async () => { await loadManagement(); await loadManagementTimeline(); },
+            'management-roles': loadManagement,
+            'management-automation': loadManagement,
             profiles: loadProfilesTab,
             settings: loadSettings,
             pings: loadPingRequests,
@@ -4075,7 +4427,16 @@
 
         tabButtons.forEach(btn => {
             btn.addEventListener('click', () => {
-                setMobileMenu(false);
+                const isManagementParent = btn.dataset.tab === 'management';
+                if (isManagementParent) {
+                    setManagementExpanded(document.getElementById('managementNavToggle').getAttribute('aria-expanded') !== 'true');
+                } else if (btn.dataset.managementModule) {
+                    setManagementExpanded(true);
+                }
+                const keepMobileManagementOpen = isManagementParent
+                    && mobileMenuMedia.matches
+                    && document.getElementById('managementNavToggle').getAttribute('aria-expanded') === 'true';
+                if (!keepMobileManagementOpen) setMobileMenu(false);
                 tabButtons.forEach(b => b.classList.remove('active'));
                 tabPanels.forEach(p => p.classList.remove('active'));
                 btn.classList.add('active');
@@ -4159,7 +4520,8 @@
             const nav = document.querySelector('#dashboardLayout .tabs');
             if (!nav) return;
             const children = Array.from(nav.children);
-            const visibleButton = node => node.matches?.('.tab-btn') && !node.hidden;
+            const visibleButton = node => (node.matches?.('.tab-btn') && !node.hidden)
+                || (node.matches?.('.management-nav-group') && !node.hidden && !node.querySelector('.management-parent')?.hidden);
             for (const [index, item] of children.entries()) {
                 if (!item.matches('[data-generated-nav]')) continue;
                 if (item.classList.contains('tab-group-label')) {
@@ -4191,6 +4553,12 @@
             voice: 'voice call channel sessions time leaderboard activity',
             stats: 'messages chat activity heatmap channels members analytics',
             users: 'users members permissions roles manager access commands block allow',
+            management: 'management moderation automod safety cases logs roles onboarding automation modules features on off',
+            'management-moderation': 'moderation warn timeout kick ban purge reason notify member',
+            'management-automod': 'automod safety spam raid preset test enforce escalation',
+            'management-cases': 'cases logs retention deleted edited messages joins leaves roles timeouts',
+            'management-roles': 'roles onboarding autorole persistent interactive buttons select menu',
+            'management-automation': 'automation welcome goodbye scheduled messages purge cleanup',
             settings: 'settings configuration bot features limits cooldown server',
             pings: 'ping requests mentions inbox saved',
             soundboard: 'server media emoji emojis sticker stickers gif gifs soundboard',
@@ -4330,8 +4698,14 @@
             }
 
             const nav = document.querySelector('.tabs');
+            const managementGroup = document.getElementById('managementNavGroup');
             const seen = new Set();
-            const configuredDeveloperTabs = order.filter(tabId => fixedDeveloperTabIds.has(tabId));
+            const effectiveOrder = order.filter(tabId => !managementChildTabIds.has(tabId));
+            if (!effectiveOrder.includes('management')) {
+                const settingsIndex = effectiveOrder.indexOf('settings');
+                effectiveOrder.splice(settingsIndex >= 0 ? settingsIndex : effectiveOrder.length, 0, 'management');
+            }
+            const configuredDeveloperTabs = effectiveOrder.filter(tabId => fixedDeveloperTabIds.has(tabId));
             activeDeveloperTabOrder = [
                 ...new Set(configuredDeveloperTabs),
                 ...defaultDeveloperTabOrder.filter(tabId => !configuredDeveloperTabs.includes(tabId))
@@ -4339,7 +4713,7 @@
 
             nav.querySelectorAll('[data-generated-nav]').forEach(element => element.remove());
 
-            for (const tabId of order) {
+            for (const tabId of effectiveOrder) {
                 if (isDividerToken(tabId)) {
                     nav.appendChild(createTabDivider());
                     continue;
@@ -4352,18 +4726,19 @@
                 }
 
                 if (fixedDeveloperTabIds.has(tabId)) continue;
+                if (managementChildTabIds.has(tabId)) continue;
 
                 const btn = tabButtons.find(b => b.dataset.tab === tabId);
 
                 if (btn && !seen.has(tabId)) {
-                    nav.appendChild(btn);
+                    nav.appendChild(tabId === 'management' ? managementGroup : btn);
                     seen.add(tabId);
                 }
             }
 
             for (const btn of tabButtons) {
-                if (!fixedDeveloperTabIds.has(btn.dataset.tab) && !seen.has(btn.dataset.tab)) {
-                    nav.appendChild(btn);
+                if (!fixedDeveloperTabIds.has(btn.dataset.tab) && !managementChildTabIds.has(btn.dataset.tab) && !seen.has(btn.dataset.tab)) {
+                    nav.appendChild(btn.dataset.tab === 'management' ? managementGroup : btn);
                 }
             }
 
@@ -4454,6 +4829,12 @@
             document.querySelectorAll('[data-audit-only]').forEach(element => { element.hidden = !canViewAudit; });
             document.getElementById('memberPermissionsSection').hidden = state.role === 'user';
             applyGlobalFeatureNavigation();
+            if (canAccessSettings && state.management) {
+                applyManagementNavigation();
+            } else {
+                document.querySelectorAll('[data-management-module][data-tab]').forEach(button => { button.hidden = true; });
+                setManagementExpanded(false);
+            }
 
             organizeDeveloperNav();
 
@@ -4569,6 +4950,7 @@
             state.role = state.guildRoles.get(String(state.guildId)) || state.role;
             localStorage.setItem('flummi.guildId', state.guildId);
             applyAccessVisibility();
+            if (state.role !== 'user') await loadManagement();
             document.getElementById('homeShell').hidden = true;
             document.getElementById('dashboardLayout').hidden = false;
             const rememberedDashboardTab = localStorage.getItem('flummi.activeTab');
@@ -4649,11 +5031,14 @@
             await refreshActiveTab();
         }
 
-        guildSelect.addEventListener('change', () => {
+        guildSelect.addEventListener('change', async () => {
             state.guildId = guildSelect.value || null;
             if (state.guildId) state.role = state.guildRoles.get(String(state.guildId)) || state.role;
+            state.management = null;
+            managementChannelsGuildId = null;
             applyAccessVisibility();
             if (state.guildId) localStorage.setItem('flummi.guildId', state.guildId);
+            if (state.guildId && state.role !== 'user') await loadManagement();
             refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
         });
 
@@ -4664,7 +5049,7 @@
         // Passive refreshes must never redraw tabs that contain unsaved editors. The short
         // interaction grace period also prevents a background redraw while someone is using
         // filters, search fields, players, or pagination elsewhere in the panel.
-        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'triggers', 'users', 'settings', 'profiles', 'ai', 'global', 'files', 'experiments']);
+        const tabsExcludedFromAutoRefresh = new Set(['messenger', 'triggers', 'users', 'settings', 'management', 'management-moderation', 'management-automod', 'management-cases', 'management-roles', 'management-automation', 'profiles', 'ai', 'global', 'files', 'experiments']);
         let lastPanelInteractionAt = 0;
 
         function shouldSkipPassiveRefresh(tab = activeTab()) {
@@ -6204,6 +6589,274 @@
             }));
         }
 
+        let managementChannelsGuildId = null;
+        let managementChannels = [];
+
+        function setManagementExpanded(expanded) {
+            const toggle = document.getElementById('managementNavToggle');
+            const subnav = document.getElementById('managementSubnav');
+            const hasEnabledModules = Object.values(state.management?.modules || {}).some(Boolean);
+            const open = Boolean(expanded) && hasEnabledModules;
+            toggle.setAttribute('aria-expanded', String(open));
+            subnav.hidden = !open;
+        }
+
+        function applyManagementNavigation() {
+            const modules = state.management?.modules || {};
+            for (const button of document.querySelectorAll('[data-management-module][data-tab]')) {
+                button.hidden = modules[button.dataset.managementModule] !== true;
+            }
+            const activeManagementChild = document.querySelector('.management-subnav .tab-btn.active:not([hidden])');
+            const rememberedOpen = document.getElementById('managementNavToggle').getAttribute('aria-expanded') === 'true';
+            setManagementExpanded(Boolean(activeManagementChild) || rememberedOpen);
+            updateTabNavigationStructure();
+            dashboardSearch?.update();
+        }
+
+        function renderManagementCards() {
+            const container = document.getElementById('managementModuleCards');
+            const modules = state.management?.modules || {};
+            container.innerHTML = Object.entries(managementModuleDefinitions).map(([key, definition]) => {
+                const enabled = modules[key] === true;
+                return `<article class="management-module-card" data-enabled="${enabled}" data-management-card="${escapeHtml(key)}">
+                    <div class="management-module-heading"><h3>${escapeHtml(definition.title)}</h3><button class="module-toggle" type="button" data-toggle-management="${escapeHtml(key)}" aria-pressed="${enabled}">${enabled ? 'On' : 'Off'}</button></div>
+                    <p class="sub">${escapeHtml(definition.description)}</p>
+                    <div class="actions"><button class="secondary" type="button" data-open-management="${escapeHtml(key)}" ${enabled ? '' : 'disabled'}>Open settings</button></div>
+                </article>`;
+            }).join('');
+        }
+
+        function setManagementChannelOptions(channels) {
+            managementChannels = channels || [];
+            for (const select of document.querySelectorAll('[data-management-channel]')) {
+                const selected = select.value;
+                select.innerHTML = '<option value="">No channel selected</option>' + (channels || []).map(channel => `<option value="${escapeHtml(channel.id)}">#${escapeHtml(channel.name)}</option>`).join('');
+                select.value = Array.from(select.options).some(option => option.value === selected) ? selected : '';
+            }
+        }
+
+        function managementChannelOptions(selected = '') {
+            return '<option value="">Choose a channel</option>' + managementChannels.map(channel => `<option value="${escapeHtml(channel.id)}" ${channel.id === selected ? 'selected' : ''}>#${escapeHtml(channel.name)}</option>`).join('');
+        }
+
+        function renderAutomationRules() {
+            const schedules = state.management?.automation?.schedules || [];
+            const purges = state.management?.automation?.purgeRules || [];
+            document.getElementById('managementSchedules').innerHTML = schedules.length ? schedules.map((rule, index) => `<div class="automation-rule" data-schedule-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="5" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="field"><label>Message</label><textarea data-rule-message rows="3" maxlength="1800">${escapeHtml(rule.message)}</textarea></div><div class="actions"><button class="danger" type="button" data-remove-schedule="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No scheduled messages yet.</div>';
+            document.getElementById('managementPurgeRules').innerHTML = purges.length ? purges.map((rule, index) => `<div class="automation-rule" data-purge-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Keep newest messages</label><input data-rule-keep type="number" min="0" max="100" value="${Number(rule.keepMessages) || 0}"></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="10" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="actions"><button class="danger" type="button" data-remove-purge="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No auto-purge rules yet.</div>';
+        }
+
+        function renderAutomodRules() {
+            const rules = state.management?.automod?.rules || {};
+            document.getElementById('managementAutomodRules').innerHTML = Object.entries(automodRuleDefinitions).map(([key, definition]) => {
+                const rule = rules[key] || { enabled: false, action: 'inherit', limit: 1, windowSeconds: 8, ignoredChannelIds: [], ignoredRoleIds: [] };
+                return `<article class="automod-rule-card" data-automod-rule="${escapeHtml(key)}" data-enabled="${rule.enabled === true}">
+                    <div class="management-module-heading"><h3>${escapeHtml(definition.title)}</h3><button class="module-toggle" type="button" data-automod-toggle aria-pressed="${rule.enabled === true}">${rule.enabled ? 'On' : 'Off'}</button></div>
+                    <p class="sub">${escapeHtml(definition.description)}</p>
+                    <div class="field"><label>Action</label><select data-automod-action><option value="inherit" ${rule.action === 'inherit' ? 'selected' : ''}>Use default action</option><option value="delete" ${rule.action === 'delete' ? 'selected' : ''}>Delete message</option><option value="warn" ${rule.action === 'warn' ? 'selected' : ''}>Delete + warn</option><option value="timeout" ${rule.action === 'timeout' ? 'selected' : ''}>Delete + timeout</option></select></div>
+                    ${definition.fixedLimit ? '' : `<div class="two-col"><div class="field"><label>${escapeHtml(definition.limit)}</label><input data-automod-limit type="number" min="${definition.min || 1}" max="100" value="${Number(rule.limit) || 1}"></div>${definition.window ? `<div class="field"><label>Window (seconds)</label><input data-automod-window type="number" min="2" max="300" value="${Number(rule.windowSeconds) || 8}"></div>` : ''}</div>`}
+                    <details><summary>Filter exceptions</summary><div class="field"><label>Ignored channel IDs</label><textarea data-automod-channels rows="3">${escapeHtml((rule.ignoredChannelIds || []).join('\n'))}</textarea></div><div class="field"><label>Ignored role IDs</label><textarea data-automod-roles rows="3">${escapeHtml((rule.ignoredRoleIds || []).join('\n'))}</textarea></div></details>
+                </article>`;
+            }).join('');
+        }
+
+        function hydrateManagementEditors() {
+            const management = state.management;
+            if (!management) return;
+            document.getElementById('managementRequireReason').checked = management.moderation.requireReason;
+            document.getElementById('managementNotifyMember').checked = management.moderation.notifyMember;
+            document.getElementById('managementDefaultTimeout').value = management.moderation.defaultTimeoutMinutes;
+            document.getElementById('managementAutomodPreset').value = management.automod.preset;
+            document.getElementById('managementAutomodMode').value = management.automod.mode;
+            document.getElementById('managementAutomodEscalation').checked = management.automod.escalationEnabled;
+            document.getElementById('managementAutomodLogChannel').value = management.automod.logChannelId || '';
+            document.getElementById('managementAutomodAction').value = management.automod.action || 'delete';
+            document.getElementById('managementAutomodTimeout').value = management.automod.timeoutMinutes || 10;
+            document.getElementById('managementBlockedTerms').value = (management.automod.blockedTerms || []).join('\n');
+            document.getElementById('managementAllowedDomains').value = (management.automod.allowedDomains || []).join('\n');
+            document.getElementById('managementAllowedInvites').value = (management.automod.allowedInviteCodes || []).join('\n');
+            document.getElementById('managementIgnoredChannels').value = (management.automod.ignoredChannelIds || []).join('\n');
+            document.getElementById('managementIgnoredRoles').value = (management.automod.ignoredRoleIds || []).join('\n');
+            renderAutomodRules();
+            document.getElementById('managementCaseLogChannel').value = management.cases.logChannelId || '';
+            document.getElementById('managementCaseRetention').value = management.cases.retentionDays;
+            document.getElementById('managementLogMessageChanges').checked = management.cases.logMessageChanges;
+            document.getElementById('managementLogMemberChanges').checked = management.cases.logMemberChanges;
+            document.getElementById('managementAutoroleId').value = management.roles.autoroleId || '';
+            document.getElementById('managementAutoroleDelay').value = management.roles.autoroleDelayMinutes;
+            document.getElementById('managementPersistRoles').checked = management.roles.persistRoles;
+            document.getElementById('managementInteractiveRoles').checked = management.roles.interactiveRoles;
+            document.getElementById('managementSelfRoles').value = (management.roles.selfAssignableRoleIds || []).join('\n');
+            document.getElementById('managementOnboardingChannel').value = management.roles.onboardingChannelId || '';
+            document.getElementById('managementOnboardingTitle').value = management.roles.onboardingTitle || '';
+            document.getElementById('managementOnboardingMessage').value = management.roles.onboardingMessage || '';
+            document.getElementById('managementWelcomeEnabled').checked = management.automation.welcomeEnabled;
+            document.getElementById('managementGoodbyeEnabled').checked = management.automation.goodbyeEnabled;
+            document.getElementById('managementScheduledMessages').checked = management.automation.scheduledMessagesEnabled;
+            document.getElementById('managementAutoPurge').checked = management.automation.autoPurgeEnabled;
+            document.getElementById('managementWelcomeChannel').value = management.automation.welcomeChannelId || '';
+            document.getElementById('managementWelcomeMessage').value = management.automation.welcomeMessage || '';
+            document.getElementById('managementGoodbyeChannel').value = management.automation.goodbyeChannelId || '';
+            document.getElementById('managementGoodbyeMessage').value = management.automation.goodbyeMessage || '';
+            renderAutomationRules();
+        }
+
+        async function persistManagement(statusField) {
+            const result = await api(withGuild('/api/settings'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ management: state.management })
+            });
+            state.management = result.settings.management;
+            renderManagementCards();
+            applyManagementNavigation();
+            hydrateManagementEditors();
+            if (statusField) setStatus(statusField, 'Saved.', 'ok');
+        }
+
+        async function loadManagement() {
+            if (!state.guildId || state.role === 'user') return;
+            const settingsData = await api(withGuild('/api/settings'));
+            state.management = settingsData.settings.management;
+            if (managementChannelsGuildId !== state.guildId) {
+                const channelData = await api(withGuild('/api/channels'));
+                setManagementChannelOptions(channelData.channels || []);
+                managementChannelsGuildId = state.guildId;
+            }
+            hydrateManagementEditors();
+            renderManagementCards();
+            applyManagementNavigation();
+        }
+
+        document.getElementById('managementModuleCards').addEventListener('click', async event => {
+            const toggle = event.target.closest('[data-toggle-management]');
+            const open = event.target.closest('[data-open-management]');
+            if (open) {
+                const definition = managementModuleDefinitions[open.dataset.openManagement];
+                tabButtons.find(button => button.dataset.tab === definition?.tab && !button.hidden)?.click();
+                return;
+            }
+            if (!toggle) return;
+            const moduleKey = toggle.dataset.toggleManagement;
+            const definition = managementModuleDefinitions[moduleKey];
+            if (!definition || !state.management) return;
+            const nextEnabled = state.management.modules[moduleKey] !== true;
+            toggle.disabled = true;
+            state.management.modules[moduleKey] = nextEnabled;
+            try {
+                await persistManagement(document.getElementById('managementModuleStatus'));
+                if (nextEnabled) setManagementExpanded(true);
+                setStatus(document.getElementById('managementModuleStatus'), `${definition.title} turned ${nextEnabled ? 'on' : 'off'}.`, 'ok');
+            } catch (error) {
+                state.management.modules[moduleKey] = !nextEnabled;
+                renderManagementCards();
+                setStatus(document.getElementById('managementModuleStatus'), error.message, 'error');
+            }
+        });
+
+        function collectManagementSection(section) {
+            if (section === 'moderation') {
+                const timeout = document.getElementById('managementDefaultTimeout');
+                if (!timeout.checkValidity()) throw new Error('Default timeout must be between 1 and 40320 minutes.');
+                state.management.moderation = { requireReason: document.getElementById('managementRequireReason').checked, notifyMember: document.getElementById('managementNotifyMember').checked, defaultTimeoutMinutes: Number(timeout.value) };
+            } else if (section === 'automod') {
+                const rules = Object.fromEntries([...document.querySelectorAll('[data-automod-rule]')].map(card => {
+                    const key = card.dataset.automodRule;
+                    const oldRule = state.management.automod.rules[key];
+                    return [key, { enabled: card.querySelector('[data-automod-toggle]').getAttribute('aria-pressed') === 'true', action: card.querySelector('[data-automod-action]').value, limit: Number(card.querySelector('[data-automod-limit]')?.value || oldRule.limit), windowSeconds: Number(card.querySelector('[data-automod-window]')?.value || oldRule.windowSeconds), ignoredChannelIds: card.querySelector('[data-automod-channels]').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean), ignoredRoleIds: card.querySelector('[data-automod-roles]').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean) }];
+                }));
+                state.management.automod = { preset: document.getElementById('managementAutomodPreset').value, mode: document.getElementById('managementAutomodMode').value, escalationEnabled: document.getElementById('managementAutomodEscalation').checked, logChannelId: document.getElementById('managementAutomodLogChannel').value, action: document.getElementById('managementAutomodAction').value, timeoutMinutes: Number(document.getElementById('managementAutomodTimeout').value), blockedTerms: textLines('managementBlockedTerms'), allowedDomains: textLines('managementAllowedDomains'), allowedInviteCodes: textLines('managementAllowedInvites'), ignoredChannelIds: textLines('managementIgnoredChannels'), ignoredRoleIds: textLines('managementIgnoredRoles'), rules };
+            } else if (section === 'cases') {
+                const retention = document.getElementById('managementCaseRetention');
+                if (!retention.checkValidity()) throw new Error('Retention must be between 1 and 3650 days.');
+                state.management.cases = { logChannelId: document.getElementById('managementCaseLogChannel').value, retentionDays: Number(retention.value), logMessageChanges: document.getElementById('managementLogMessageChanges').checked, logMemberChanges: document.getElementById('managementLogMemberChanges').checked };
+            } else if (section === 'roles') {
+                const roleId = document.getElementById('managementAutoroleId').value.trim();
+                const delay = document.getElementById('managementAutoroleDelay');
+                if (roleId && !/^\d{16,22}$/.test(roleId)) throw new Error('Autorole ID must be a valid Discord role ID.');
+                if (!delay.checkValidity()) throw new Error('Autorole delay must be between 0 and 10080 minutes.');
+                state.management.roles = { autoroleId: roleId, autoroleDelayMinutes: Number(delay.value), persistRoles: document.getElementById('managementPersistRoles').checked, interactiveRoles: document.getElementById('managementInteractiveRoles').checked, selfAssignableRoleIds: textLines('managementSelfRoles'), onboardingChannelId: document.getElementById('managementOnboardingChannel').value, onboardingTitle: document.getElementById('managementOnboardingTitle').value, onboardingMessage: document.getElementById('managementOnboardingMessage').value };
+            } else if (section === 'automation') {
+                const schedules = [...document.querySelectorAll('[data-schedule-row]')].map((row, index) => ({ id: row.querySelector('[data-rule-id]').value.trim() || `schedule-${index + 1}`, enabled: row.querySelector('[data-rule-enabled]').checked, channelId: row.querySelector('[data-rule-channel]').value, message: row.querySelector('[data-rule-message]').value.trim(), intervalMinutes: Number(row.querySelector('[data-rule-interval]').value) }));
+                const purgeRules = [...document.querySelectorAll('[data-purge-row]')].map((row, index) => ({ id: row.querySelector('[data-rule-id]').value.trim() || `purge-${index + 1}`, enabled: row.querySelector('[data-rule-enabled]').checked, channelId: row.querySelector('[data-rule-channel]').value, keepMessages: Number(row.querySelector('[data-rule-keep]').value), intervalMinutes: Number(row.querySelector('[data-rule-interval]').value) }));
+                state.management.automation = { welcomeEnabled: document.getElementById('managementWelcomeEnabled').checked, goodbyeEnabled: document.getElementById('managementGoodbyeEnabled').checked, scheduledMessagesEnabled: document.getElementById('managementScheduledMessages').checked, autoPurgeEnabled: document.getElementById('managementAutoPurge').checked, welcomeChannelId: document.getElementById('managementWelcomeChannel').value, welcomeMessage: document.getElementById('managementWelcomeMessage').value, goodbyeChannelId: document.getElementById('managementGoodbyeChannel').value, goodbyeMessage: document.getElementById('managementGoodbyeMessage').value, schedules, purgeRules };
+            }
+        }
+
+        function textLines(id) {
+            return document.getElementById(id).value.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+        }
+
+        document.getElementById('managementAutomodRules').addEventListener('click', event => {
+            const button = event.target.closest('[data-automod-toggle]');
+            if (!button) return;
+            const enabled = button.getAttribute('aria-pressed') !== 'true';
+            button.setAttribute('aria-pressed', String(enabled));
+            button.textContent = enabled ? 'On' : 'Off';
+            button.closest('[data-automod-rule]').dataset.enabled = String(enabled);
+        });
+
+        document.getElementById('managementAutomodPreset').addEventListener('change', event => {
+            const limits = automodPresetLimits[event.target.value];
+            for (const [key, limit] of Object.entries(limits || {})) {
+                const input = document.querySelector(`[data-automod-rule="${key}"] [data-automod-limit]`);
+                if (input) input.value = limit;
+            }
+        });
+
+        document.getElementById('managementAddSchedule').addEventListener('click', () => { state.management.automation.schedules.push({ id: `schedule-${Date.now()}`, enabled: true, channelId: '', message: '', intervalMinutes: 1440 }); renderAutomationRules(); });
+        document.getElementById('managementAddPurgeRule').addEventListener('click', () => { state.management.automation.purgeRules.push({ id: `purge-${Date.now()}`, enabled: true, channelId: '', keepMessages: 20, intervalMinutes: 1440 }); renderAutomationRules(); });
+        document.getElementById('managementSchedules').addEventListener('click', event => { const button = event.target.closest('[data-remove-schedule]'); if (!button) return; state.management.automation.schedules.splice(Number(button.dataset.removeSchedule), 1); renderAutomationRules(); });
+        document.getElementById('managementPurgeRules').addEventListener('click', event => { const button = event.target.closest('[data-remove-purge]'); if (!button) return; state.management.automation.purgeRules.splice(Number(button.dataset.removePurge), 1); renderAutomationRules(); });
+
+        const managementStatusIds = { moderation: 'managementModerationStatus', automod: 'managementAutomodStatus', cases: 'managementCasesStatus', roles: 'managementRolesStatus', automation: 'managementAutomationStatus' };
+        document.querySelectorAll('[data-save-management]').forEach(button => button.addEventListener('click', async () => {
+            const section = button.dataset.saveManagement;
+            const status = document.getElementById(managementStatusIds[section]);
+            try {
+                collectManagementSection(section);
+                await persistManagement(status);
+            } catch (error) {
+                setStatus(status, error.message, 'error');
+            }
+        }));
+
+        async function loadManagementTimeline() {
+            if (!state.guildId || state.role === 'user') return;
+            const filter = document.getElementById('managementCaseUserFilter').value.trim();
+            const suffix = filter ? `&userId=${encodeURIComponent(filter)}` : '';
+            const data = await api(`${withGuild('/api/management/cases')}${suffix}`);
+            document.getElementById('managementCasesTable').innerHTML = data.cases.length ? `<table><thead><tr><th>Case</th><th>Action</th><th>Target</th><th>Reason</th><th>Status</th><th>Created</th></tr></thead><tbody>${data.cases.map(entry => `<tr><td><code>${escapeHtml(entry.id)}</code></td><td>${escapeHtml(entry.action)}</td><td>${escapeHtml(entry.targetLabel || entry.targetId || '—')}</td><td>${escapeHtml(entry.reason)}</td><td>${escapeHtml(entry.status)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No cases found.</div>';
+            document.getElementById('managementEventsTable').innerHTML = data.events.length ? `<table><thead><tr><th>Event</th><th>User</th><th>Summary</th><th>Created</th></tr></thead><tbody>${data.events.map(entry => `<tr><td>${escapeHtml(entry.type)}</td><td>${escapeHtml(entry.userId || '—')}</td><td>${escapeHtml(entry.summary)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No events found.</div>';
+        }
+
+        document.getElementById('managementRefreshCases').addEventListener('click', () => loadManagementTimeline().catch(error => setStatus(document.getElementById('managementCasesStatus'), error.message, 'error')));
+        document.getElementById('managementCaseUserFilter').addEventListener('change', () => loadManagementTimeline().catch(() => {}));
+
+        document.getElementById('managementRunAction').addEventListener('click', async () => {
+            const status = document.getElementById('managementActionStatus');
+            const action = document.getElementById('managementAction').value;
+            const targetId = document.getElementById('managementActionTarget').value.trim();
+            const memberActions = !['purge', 'lock', 'unlock', 'slowmode'].includes(action);
+            if (memberActions && !/^\d{16,22}$/.test(targetId)) return setStatus(status, 'Enter a valid Discord user ID.', 'error');
+            try {
+                const number = Number(document.getElementById('managementActionNumber').value);
+                const result = await api(withGuild('/api/management/action'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, targetId: memberActions ? targetId : null, channelId: document.getElementById('managementActionChannel').value, duration: document.getElementById('managementActionDuration').value.trim(), reason: document.getElementById('managementActionReason').value.trim(), count: number, seconds: number }) });
+                setStatus(status, `Done. Case ${result.case.id} created.`, 'ok');
+                await loadManagementTimeline();
+            } catch (error) { setStatus(status, error.message, 'error'); }
+        });
+
+        document.getElementById('managementPublishRoles').addEventListener('click', async () => {
+            const status = document.getElementById('managementRolesStatus');
+            try {
+                collectManagementSection('roles');
+                await persistManagement();
+                const result = await api(withGuild('/api/management/roles/publish'), { method: 'POST' });
+                setStatus(status, `Role menu published in channel ${result.channelId}.`, 'ok');
+            } catch (error) { setStatus(status, error.message, 'error'); }
+        });
+
         async function loadSettings() {
             if (!state.guildId) return;
             const data = await api(withGuild('/api/settings'));
@@ -6258,7 +6911,7 @@
                 ...new Set(configuredDeveloperOrder),
                 ...defaultDeveloperTabOrder.filter(tabId => !configuredDeveloperOrder.includes(tabId))
             ];
-            const sharedConfiguredOrder = configuredTabOrder.filter(entry => !fixedDeveloperTabIds.has(entry));
+            const sharedConfiguredOrder = configuredTabOrder.filter(entry => !fixedDeveloperTabIds.has(entry) && !managementChildTabIds.has(entry));
             const configuredTabs = new Set(sharedConfiguredOrder.filter(tabId => !isDividerToken(tabId) && !isTitleToken(tabId)));
             // Older saved configurations predate newer tabs. Keep their custom order and dividers,
             // then append every newly available tab so it can be positioned and renamed normally.
@@ -6266,7 +6919,7 @@
                 ...sharedConfiguredOrder,
                 ...tabButtons
                     .map(button => button.dataset.tab)
-                    .filter(tabId => !fixedDeveloperTabIds.has(tabId) && !configuredTabs.has(tabId))
+                    .filter(tabId => !fixedDeveloperTabIds.has(tabId) && !managementChildTabIds.has(tabId) && !configuredTabs.has(tabId))
             ];
             editableTabNames = { ...(configData.panel?.tabNames || {}) };
             renderTabOrderEditor();

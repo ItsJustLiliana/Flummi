@@ -99,6 +99,43 @@ test('global feature switches control tabs and override server overview statuses
     assert.match(panelHtml, /const globalState = button\.dataset\.globalDisabled === 'true' \? ', globally disabled' : ''/);
 });
 
+test('management modules use on-off cards and enabled nested sidebar tabs', () => {
+    assert.match(panelHtml, /id="managementNavToggle"[\s\S]*?aria-controls="managementSubnav"/);
+    assert.match(panelHtml, /id="managementSubnav" class="management-subnav" hidden/);
+    for (const module of ['moderation', 'automod', 'cases', 'roles', 'automation']) {
+        assert.match(panelHtml, new RegExp(`data-management-module="${module}"`));
+        assert.match(panelHtml, new RegExp(`${module}: \\{ tab: 'management-${module}'`));
+    }
+    assert.match(panelHtml, /data-toggle-management="\$\{escapeHtml\(key\)\}"/);
+    assert.match(panelHtml, /class="module-toggle"[\s\S]*?aria-pressed="\$\{enabled\}"/);
+    assert.match(panelHtml, /state\.management\.modules\[moduleKey\] = nextEnabled/);
+    assert.match(panelHtml, /button\.hidden = modules\[button\.dataset\.managementModule\] !== true/);
+    assert.match(panelHtml, /tabId === 'management' \? managementGroup : btn/);
+});
+
+test('management configuration remains manager-only and saves through guild settings', () => {
+    assert.match(panelHtml, /id="tab-management"[^>]*data-manager-only/);
+    assert.match(panelHtml, /id="tab-management-automod"[^>]*data-manager-only/);
+    assert.match(panelHtml, /body: JSON\.stringify\(\{ management: state\.management \}\)/);
+    assert.match(panelServer, /requireSettingsAccess\(panelSession, guildId, res\)/);
+    assert.match(panelServer, /'management\.modules\.moderation': 'Moderation module'/);
+});
+
+test('management modules include live actions, case timelines, AutoMod rules, role menus, and automation rules', () => {
+    assert.match(panelHtml, /id="managementRunAction"/);
+    assert.match(panelHtml, /id="managementCasesTable"/);
+    assert.match(panelHtml, /id="managementBlockedTerms"/);
+    assert.match(panelHtml, /id="managementAutomodRules"/);
+    assert.match(panelHtml, /externalLinks: \{ title: 'External links'/);
+    assert.match(panelHtml, /data-automod-toggle/);
+    assert.match(panelHtml, /id="managementPublishRoles"/);
+    assert.match(panelHtml, /id="managementSchedules"/);
+    assert.match(panelServer, /\/api\/management\/cases/);
+    assert.match(panelServer, /\/api\/management\/action/);
+    assert.match(panelServer, /\/api\/management\/roles\/publish/);
+    assert.match(panelServer, /Cases and event logs are only available to managers/);
+});
+
 test('GitHub update status compares staged and live commits and records promotions', () => {
     for (const id of ['updateStatusCards', 'releaseComparisonStatus', 'stagedCommitList']) {
         assert.match(panelHtml, new RegExp(`id="${id}"`));

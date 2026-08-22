@@ -795,6 +795,7 @@ async function buildOverview(guildId) {
 
     return {
         settings,
+        globalFeatures: config.features || {},
         guildInfo,
         triggerCount: triggers.length,
         triggerLimit: triggerStore.getTriggerLimit(guildId),
@@ -1128,6 +1129,7 @@ function createServer() {
                     user: { id: session.userId, username: session.username, avatarUrl },
                     role: hasDeveloperView(session) ? 'developer' : (getPreviewPanelRole(session) || 'user'),
                     actualRole: isDeveloperSession(session) ? 'developer' : 'admin',
+                    globalFeatures: config.features || {},
                     privateConnection: developerFileWriteStatus(req, session).privateConnection,
                     previewAdminView: Boolean(getPreviewPanelRole(session)),
                     previewPanelRole: getPreviewPanelRole(session),

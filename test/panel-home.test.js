@@ -48,7 +48,8 @@ test('feedback exposes its rate limit and developer-only delete flow', () => {
 test('feedback, manager audit, autosave, and staged promotion are enforced', () => {
     assert.match(panelServer, /pathname === '\/api\/feedback'/);
     assert.match(panelServer, /The audit log is only available to the server owner or a manager/);
-    assert.match(panelHtml, /data-tab="audit" data-manager-only/);
+    assert.match(panelHtml, /data-tab="audit" data-audit-only/);
+    assert.match(panelHtml, /document\.querySelectorAll\('\[data-audit-only\]'\)\.forEach\(element => \{ element\.hidden = !canViewAudit; \}\)/);
     assert.doesNotMatch(panelHtml, /id="saveSettings"/);
     assert.match(panelHtml, /instantSettingIds/);
     assert.match(panelServer, /pathname === '\/api\/release\/promote'/);
@@ -84,6 +85,20 @@ test('dashboard and developer searches recommend matching boxes and fade unrelat
     assert.match(panelHtml, /#dashboardLayout \.tabs \.tab-btn\.search-muted \{ opacity: \.34/);
 });
 
+test('global feature switches control tabs and override server overview statuses', () => {
+    assert.match(panelServer, /globalFeatures: config\.features \|\| \{\}/);
+    assert.match(panelHtml, /const globalFeatureTabs = \{[\s\S]*?triggers: 'triggersEnabled'[\s\S]*?shots: 'shotsEnabled'[\s\S]*?pings: 'pingRequestSaveEnabled'/);
+    assert.match(panelHtml, /const hide = globallyDisabled && !developerView/);
+    assert.match(panelHtml, /button\.dataset\.globalDisabled = String\(globallyDisabled && developerView\)/);
+    assert.match(panelHtml, /\.tab-btn\[data-global-disabled="true"\]::after/);
+    assert.match(panelHtml, /globallyDisabled \? 'Off \(global\)'/);
+    assert.match(panelHtml, /saved server setting is/);
+    assert.match(panelHtml, /\.table-wrap td code \{[\s\S]*?white-space: nowrap/);
+    assert.match(panelHtml, /function updateTabNavigationStructure\(\)/);
+    assert.match(panelHtml, /item\.hidden = !hasBefore \|\| !hasAfter/);
+    assert.match(panelHtml, /const globalState = button\.dataset\.globalDisabled === 'true' \? ', globally disabled' : ''/);
+});
+
 test('GitHub update status compares staged and live commits and records promotions', () => {
     for (const id of ['updateStatusCards', 'releaseComparisonStatus', 'stagedCommitList']) {
         assert.match(panelHtml, new RegExp(`id="${id}"`));
@@ -115,6 +130,15 @@ test('landing, developer tools, and dashboard adapt to touch screens and tablets
     assert.match(panelHtml, /@media \(max-width: 600px\)[\s\S]*?\.developer-search-result \{ grid-template-columns: minmax\(0, 1fr\)/);
     assert.match(panelHtml, /@media \(max-width: 420px\)[\s\S]*?\.home-nav-inner/);
     assert.match(panelHtml, /@media \(prefers-reduced-motion: reduce\)/);
+    const sidebarStart = panelHtml.indexOf('<aside class="sidebar">');
+    const sidebarEnd = panelHtml.indexOf('</aside>', sidebarStart);
+    const sidebar = panelHtml.slice(sidebarStart, sidebarEnd);
+    assert.ok(sidebar.indexOf('id="dashboardHome"') < sidebar.indexOf('id="mobileMenuToggle"'));
+    assert.ok(sidebar.indexOf('id="dashboardSearch"') < sidebar.indexOf('<nav class="tabs"'));
+    assert.ok(sidebar.indexOf('<nav class="tabs"') < sidebar.indexOf('class="sidebar-footer"'));
+    assert.match(panelHtml, /\.sidebar \{[\s\S]*?overflow: hidden/);
+    assert.match(panelHtml, /\.tabs \{[\s\S]*?flex: 1 1 auto;[\s\S]*?overflow-y: auto/);
+    assert.match(panelHtml, /#dashboardLayout \.brand \{ width: 100%; padding: 0; border-bottom: 0; \}/);
 });
 
 test('Tailscale-only features are disabled and explained on public sessions', () => {

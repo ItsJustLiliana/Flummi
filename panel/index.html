@@ -94,7 +94,7 @@
             position: sticky;
             top: 0;
             height: 100vh;
-            overflow-y: auto;
+            overflow: hidden;
         }
 
         .mobile-menu-toggle,
@@ -331,9 +331,13 @@
         .tabs {
             display: flex;
             flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
             gap: 4px;
             margin-top: 4px;
             padding: 10px;
+            overflow-y: auto;
+            overscroll-behavior-y: contain;
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--border);
             border-radius: 14px;
@@ -363,6 +367,22 @@
 
         .tab-btn.active:hover {
             background: linear-gradient(90deg, rgba(78, 107, 255, .42), rgba(117, 207, 255, .23));
+        }
+
+        #dashboardLayout .tab-btn[data-global-disabled="true"]::after {
+            display: inline-grid;
+            width: 18px;
+            height: 18px;
+            margin-left: auto;
+            place-items: center;
+            flex: 0 0 auto;
+            border: 1px solid rgba(255, 191, 91, .42);
+            border-radius: 50%;
+            content: "!";
+            color: var(--warning);
+            background: rgba(255, 191, 91, .1);
+            font-size: 11px;
+            font-weight: 900;
         }
 
         .tab-divider {
@@ -726,6 +746,13 @@
             margin-left: 8px;
         }
 
+        .table-wrap td code {
+            display: inline-block;
+            white-space: nowrap;
+            overflow-wrap: normal;
+            word-break: normal;
+        }
+
         .section {
             background: linear-gradient(145deg, rgba(14, 26, 54, .94), rgba(10, 19, 40, .94));
             border: 1px solid var(--border);
@@ -882,7 +909,7 @@
                 padding: 16px 12px calc(22px + env(safe-area-inset-bottom));
                 flex-direction: column;
                 gap: 14px;
-                overflow-y: auto;
+                overflow: hidden;
                 overscroll-behavior: contain;
                 scrollbar-gutter: stable;
                 border-top: 1px solid var(--border);
@@ -902,7 +929,11 @@
                 flex-direction: column;
                 gap: 6px;
                 padding: 0;
-                flex: 0 0 auto;
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior-y: contain;
+                -webkit-overflow-scrolling: touch;
             }
 
             .tab-btn {
@@ -920,8 +951,15 @@
 
             .sidebar-account {
                 padding-top: 12px;
-                margin-top: auto;
                 padding-bottom: max(2px, env(safe-area-inset-bottom));
+            }
+
+            .sidebar-footer {
+                flex: 0 0 auto;
+                margin-top: 0;
+                padding-top: 12px;
+                border-top: 1px solid var(--border);
+                background: linear-gradient(180deg, rgba(11, 19, 40, .88), #0b1328 24%);
             }
 
             .mobile-menu-backdrop {
@@ -1614,6 +1652,12 @@
             outline-offset: 2px;
         }
 
+        .help-tip.global-warning {
+            border-color: rgba(255, 191, 91, .58);
+            color: var(--warning);
+            background: rgba(255, 191, 91, .1);
+        }
+
         .empty {
             padding: 22px 16px;
             color: var(--muted);
@@ -2145,9 +2189,9 @@
         .developer-search-target { animation: developer-search-pulse 1.4s ease; }
         @keyframes developer-search-pulse { 0%, 100% { box-shadow: none; } 35% { box-shadow: 0 0 0 4px rgba(117, 207, 255, .2); } }
 
-        .dashboard-search-shell { position: relative; z-index: 12; width: min(760px, 100%); margin: 0 auto 22px; }
+        .dashboard-search-shell { position: relative; z-index: 12; width: 100%; margin: 0; flex: 0 0 auto; }
         .dashboard-search-shell label { display: block; margin-bottom: 7px; color: #91a0cc; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
-        .dashboard-search-shell .developer-search-results { margin: 8px 0 0; }
+        .dashboard-search-shell .developer-search-results { position: absolute; top: 100%; left: 0; right: 0; margin: 8px 0 0; }
         .release-commit-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 15px 0 10px; }
         .release-commit-summary h3 { margin: 0; font-size: 14px; }
         .release-commit-table code { color: #a9ddff; font-weight: 800; }
@@ -2182,12 +2226,14 @@
             border-bottom: 1px solid rgba(102, 130, 190, .14);
         }
 
+        .dashboard-nav-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
         #dashboardLayout .brand-image { filter: drop-shadow(0 7px 14px rgba(27, 80, 166, .28)); }
         #dashboardLayout .brand h1 { font-weight: 850; letter-spacing: -.02em; }
         #dashboardLayout .brand .sub { color: #8394c5; font-size: 11px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
         #dashboardLayout .dashboard-home-button { border-color: rgba(102, 130, 190, .18); background: rgba(255, 255, 255, .035); }
         #dashboardLayout .tabs { gap: 5px; padding: 6px; border-color: rgba(102, 130, 190, .14); border-radius: 15px; background: rgba(255, 255, 255, .025); }
-        #dashboardLayout .tab-btn { min-height: 38px; padding: 9px 11px; border-radius: 9px; color: #91a0cc; font-weight: 700; }
+        #dashboardLayout .tab-btn { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 9px 11px; border-radius: 9px; color: #91a0cc; font-weight: 700; }
         #dashboardLayout .tab-btn:hover { color: var(--text); background: rgba(255, 255, 255, .055); }
         #dashboardLayout .tab-btn.active { border-color: rgba(116, 128, 255, .24); background: rgba(88, 101, 242, .15); box-shadow: inset 3px 0 #7586ff; }
         #dashboardLayout .sidebar-footer { padding-top: 3px; }
@@ -2224,7 +2270,7 @@
         .developer-panel-host .secondary { border-color: rgba(102, 130, 190, .22); background: rgba(13, 22, 43, .88); }
         #dashboardLayout .secondary:hover,
         .developer-panel-host .secondary:hover { border-color: rgba(116, 128, 255, .46); background: rgba(27, 39, 70, .9); }
-        .dashboard-home-button { margin-left: auto; width: auto; padding: 8px 12px; }
+        .dashboard-home-button { width: auto; padding: 8px 12px; }
 
         @media (min-width: 821px) and (max-width: 1000px) {
             #dashboardLayout { flex-direction: column; }
@@ -2268,7 +2314,12 @@
             .developer-overview-grid { grid-template-columns: 1fr; }
             #dashboardLayout { flex-direction: column; }
             #dashboardLayout .sidebar { width: 100%; height: auto; min-height: 68px; padding: 10px 12px; }
+            #dashboardLayout .brand { width: 100%; padding: 0; border-bottom: 0; }
+            #dashboardLayout .brand-copy { margin-right: auto; }
+            #dashboardLayout .dashboard-nav-actions { margin-left: 8px; }
             #dashboardLayout .content { width: 100%; padding: 18px 12px 30px; }
+            #dashboardLayout .dashboard-search-shell label { margin-bottom: 6px; font-size: 11px; }
+            #dashboardLayout .dashboard-search-shell .developer-search-results { max-height: min(320px, 45dvh); overflow-y: auto; }
         }
 
         @media (max-width: 600px) {
@@ -2289,6 +2340,15 @@
             .developer-search-result { grid-template-columns: minmax(0, 1fr); gap: 3px; }
             .developer-search-result span { white-space: normal; }
             .release-commit-summary { align-items: flex-start; flex-direction: column; }
+        }
+
+        @media (max-width: 460px) {
+            #dashboardLayout .brand h1 { font-size: 18px; }
+            #dashboardLayout .brand-copy .sub { display: none; }
+            #dashboardLayout .brand-image { width: 36px; height: 36px; }
+            #dashboardLayout .dashboard-nav-actions { gap: 6px; }
+            #dashboardLayout .dashboard-home-button { min-height: 42px; padding-inline: 10px; }
+            #dashboardLayout .mobile-menu-toggle { padding-inline: 10px; }
         }
 
         @media (max-width: 420px) {
@@ -2404,11 +2464,6 @@
     </div>
     <div id="dashboardLayout" class="layout" hidden>
         <main class="content" aria-label="Selected server dashboard">
-            <div class="dashboard-search-shell">
-                <label for="dashboardSearch">Find a dashboard feature or setting</label>
-                <div class="developer-search-wrap"><input id="dashboardSearch" type="search" autocomplete="off" placeholder="Search triggers, permissions, voice, settings..."></div>
-                <div id="dashboardSearchResults" class="developer-search-results" hidden></div>
-            </div>
             <div id="pageNotice" class="page-notice" hidden>
                 <span id="pageNoticeMessage"></span>
                 <button id="pageNoticeAction" class="secondary" type="button" hidden>Try again</button>
@@ -3364,7 +3419,7 @@
                 </div>
             </section>
 
-            <section id="tab-audit" class="tab-panel" data-manager-only>
+            <section id="tab-audit" class="tab-panel" data-audit-only>
                 <h2 style="font-size:20px;">Audit Log</h2>
                 <p class="sub tab-intro">Confirmed panel changes for the selected server, including who performed them.
                 </p>
@@ -3420,14 +3475,20 @@
                     <h1>Flummi</h1>
                     <p class="sub">Dashboard</p>
                 </div>
-                <button id="dashboardHome" class="secondary dashboard-home-button" type="button">Home</button>
+                <div class="dashboard-nav-actions">
+                    <button id="dashboardHome" class="secondary dashboard-home-button" type="button">Home</button>
+                    <button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-expanded="false"
+                        aria-controls="mobileSidebarContent"><span class="mobile-menu-icon"
+                            aria-hidden="true">☰</span><span>Menu</span></button>
+                </div>
             </div>
 
-            <button id="mobileMenuToggle" class="mobile-menu-toggle" type="button" aria-expanded="false"
-                aria-controls="mobileSidebarContent"><span class="mobile-menu-icon"
-                    aria-hidden="true">☰</span><span>Menu</span></button>
-
             <div id="mobileSidebarContent" class="mobile-sidebar-content">
+                <div class="dashboard-search-shell">
+                    <label for="dashboardSearch">Find a dashboard feature or setting</label>
+                    <div class="developer-search-wrap"><input id="dashboardSearch" type="search" autocomplete="off" placeholder="Search triggers, permissions, voice, settings..."></div>
+                    <div id="dashboardSearchResults" class="developer-search-results" hidden></div>
+                </div>
                 <nav class="tabs" aria-label="Dashboard sections">
                     <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
                     <button class="tab-btn" data-tab="analytics" type="button">Stats &amp; Analytics</button>
@@ -3439,7 +3500,7 @@
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                     <button class="tab-btn" data-tab="soundboard" type="button">Server Media</button>
-                    <button class="tab-btn" data-tab="audit" data-manager-only type="button">Audit Log</button>
+                    <button class="tab-btn" data-tab="audit" data-audit-only type="button">Audit Log</button>
                 </nav>
                 <div class="sidebar-footer">
                     <div class="sidebar-actions">
@@ -3473,6 +3534,7 @@
             guildMembers: new Map(),
             role: 'admin',
             actualRole: 'admin',
+            globalFeatures: {},
             accountUsername: '',
             guildRoles: new Map(),
             canManageManagers: false
@@ -3580,14 +3642,14 @@
                 const head = columns.map((col, index) => {
                     const sortable = isColumnSortable(col);
                     const arrow = state.sortIndex === index ? (state.sortDir === 1 ? ' \u25b2' : ' \u25bc') : '';
-                    return `<th${sortable ? ` data-sort-index="${index}" class="sortable"` : ''}>${escapeHtml(col.label)}${arrow}</th>`;
+                    return `<th scope="col"${sortable ? ` data-sort-index="${index}" class="sortable"` : ''}>${escapeHtml(col.label)}${arrow}</th>`;
                 }).join('');
                 const body = pageRows.map((row, index) => {
                     const cells = columns.map(col => `<td>${col.render ? col.render(row, index) : escapeHtml(row[col.key])}</td>`).join('');
                     return `<tr>${cells}</tr>`;
                 }).join('');
 
-                const pagination = rows.length > pageSize ? `<div class="table-toolbar" style="justify-content:flex-end"><button data-role="table-prev" class="secondary" ${state.page === 0 ? 'disabled' : ''}>Previous</button><span class="sub">Page ${state.page + 1} / ${pageCount}</span><button data-role="table-next" class="secondary" ${state.page >= pageCount - 1 ? 'disabled' : ''}>Next</button></div>` : '';
+                const pagination = rows.length > pageSize ? `<div class="table-toolbar" style="justify-content:flex-end"><button type="button" data-role="table-prev" class="secondary" ${state.page === 0 ? 'disabled' : ''}>Previous</button><span class="sub">Page ${state.page + 1} / ${pageCount}</span><button type="button" data-role="table-next" class="secondary" ${state.page >= pageCount - 1 ? 'disabled' : ''}>Next</button></div>` : '';
                 container.innerHTML = `${searchBar}<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${pagination}`;
             }
 
@@ -3631,8 +3693,9 @@
             updateLiveDurations();
         }
 
-        function statCard(label, value, tooltip = '') {
-            const help = tooltip ? ` <span class="help-tip" tabindex="0" data-tooltip="${escapeHtml(tooltip)}">?</span>` : '';
+        function statCard(label, value, tooltip = '', helpSymbol = '?') {
+            const warningClass = helpSymbol === '!' ? ' global-warning' : '';
+            const help = tooltip ? ` <span class="help-tip${warningClass}" tabindex="0" data-tooltip="${escapeHtml(tooltip)}">${escapeHtml(helpSymbol)}</span>` : '';
             return `<div class="stat-card"><div class="label">${escapeHtml(label)}${help}</div><div class="value">${escapeHtml(value)}</div></div>`;
         }
 
@@ -3828,7 +3891,7 @@
             uiTooltip.classList.remove('visible');
         }
 
-        const tooltipAnchorSelector = '.help-tip[data-tooltip], [data-tailscale-disabled="true"][data-tooltip]';
+        const tooltipAnchorSelector = '.help-tip[data-tooltip], [data-tailscale-disabled="true"][data-tooltip], .tab-btn[data-global-disabled="true"][data-tooltip]';
 
         document.addEventListener('pointerover', event => {
             const anchor = event.target.closest?.(tooltipAnchorSelector);
@@ -4092,6 +4155,25 @@
             }
         }
 
+        function updateTabNavigationStructure() {
+            const nav = document.querySelector('#dashboardLayout .tabs');
+            if (!nav) return;
+            const children = Array.from(nav.children);
+            const visibleButton = node => node.matches?.('.tab-btn') && !node.hidden;
+            for (const [index, item] of children.entries()) {
+                if (!item.matches('[data-generated-nav]')) continue;
+                if (item.classList.contains('tab-group-label')) {
+                    const nextBoundary = children.findIndex((node, nextIndex) => nextIndex > index && node.matches('[data-generated-nav]'));
+                    const end = nextBoundary === -1 ? children.length : nextBoundary;
+                    item.hidden = !children.slice(index + 1, end).some(visibleButton);
+                    continue;
+                }
+                const hasBefore = children.slice(0, index).some(visibleButton);
+                const hasAfter = children.slice(index + 1).some(visibleButton);
+                item.hidden = !hasBefore || !hasAfter;
+            }
+        }
+
         function normalizedSearchText(value) {
             return String(value || '').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
         }
@@ -4161,7 +4243,9 @@
                     const tabMatches = matches.length > 0 || aliasMatches;
                     button.classList.toggle('search-muted', Boolean(query) && !tabMatches);
                     button.classList.toggle('search-match', Boolean(query) && tabMatches);
-                    button.setAttribute('aria-label', query ? `${button.textContent.trim()}, ${tabMatches ? 'contains matches' : 'no matches'}` : button.textContent.trim());
+                    const globalState = button.dataset.globalDisabled === 'true' ? ', globally disabled' : '';
+                    const searchState = query ? `, ${tabMatches ? 'contains matches' : 'no matches'}` : '';
+                    button.setAttribute('aria-label', `${button.textContent.trim()}${globalState}${searchState}`);
 
                     const seenLabels = new Set();
                     for (const surface of matches) {
@@ -4284,6 +4368,7 @@
             }
 
             organizeDeveloperNav();
+            updateTabNavigationStructure();
         }
 
         async function loadPanelAccount() {
@@ -4293,6 +4378,7 @@
             state.privateConnection = data.privateConnection === true;
             state.role = ['developer', 'owner', 'manager', 'user'].includes(data.role) ? data.role : 'user';
             state.actualRole = data.actualRole === 'developer' ? 'developer' : 'admin';
+            state.globalFeatures = data.globalFeatures || {};
             state.accountUsername = data.user.username;
             const avatar = document.getElementById('panelAccountAvatar');
             avatar.src = data.user.avatarUrl;
@@ -4312,10 +4398,40 @@
             return true;
         }
 
+        const globalFeatureTabs = {
+            triggers: 'triggersEnabled',
+            shots: 'shotsEnabled',
+            pings: 'pingRequestSaveEnabled'
+        };
+
+        function applyGlobalFeatureNavigation() {
+            const developerView = state.role === 'developer';
+            for (const [tabId, featureKey] of Object.entries(globalFeatureTabs)) {
+                const button = tabButtons.find(candidate => candidate.dataset.tab === tabId);
+                const panel = document.getElementById(`tab-${tabId}`);
+                const globallyDisabled = state.globalFeatures?.[featureKey] === false;
+                const hide = globallyDisabled && !developerView;
+                if (button) {
+                    button.hidden = hide;
+                    button.dataset.globalDisabled = String(globallyDisabled && developerView);
+                    if (globallyDisabled && developerView) {
+                        button.dataset.tooltip = `${defaultTabLabels[tabId]} is temporarily disabled in Global Feature Settings.`;
+                        button.setAttribute('aria-label', `${defaultTabLabels[tabId]} — globally disabled`);
+                    } else {
+                        delete button.dataset.tooltip;
+                        button.removeAttribute('aria-label');
+                    }
+                }
+                if (panel) panel.hidden = hide;
+            }
+            updateTabNavigationStructure();
+        }
+
         function applyAccessVisibility() {
             const isDeveloper = state.role === 'developer';
             const isActualDeveloper = state.actualRole === 'developer';
             const canAccessSettings = isDeveloper || state.role === 'owner' || state.role === 'manager';
+            const canViewAudit = isDeveloper || state.role === 'owner' || state.role === 'manager';
             const canManageTriggers = canAccessSettings;
             const roleName = `${state.role[0].toUpperCase()}${state.role.slice(1)}`;
             const roleLabel = isActualDeveloper && !isDeveloper ? `${roleName} preview` : roleName;
@@ -4335,7 +4451,9 @@
             document.getElementById('tab-settings').hidden = !canAccessSettings;
             document.querySelectorAll('[data-trigger-manager-only]').forEach(element => { element.hidden = !canManageTriggers; });
             document.querySelectorAll('[data-manager-only]').forEach(element => { element.hidden = !canAccessSettings; });
+            document.querySelectorAll('[data-audit-only]').forEach(element => { element.hidden = !canViewAudit; });
             document.getElementById('memberPermissionsSection').hidden = state.role === 'user';
+            applyGlobalFeatureNavigation();
 
             organizeDeveloperNav();
 
@@ -4918,13 +5036,23 @@
             renderOverviewQuad('overviewQuad', data.guildInfo, data.totalMessages);
             renderOverviewDetails('overviewDetails', data.guildInfo);
             const localFeatures = data.settings?.features || {};
+            state.globalFeatures = data.globalFeatures || state.globalFeatures || {};
+            applyGlobalFeatureNavigation();
             const featureRows = [
-                ['Bot', data.settings?.botEnabled], ['Triggers', data.settings?.triggersEnabled],
-                ['AI conversations', localFeatures.aiConversationsEnabled], ['AI attachments', localFeatures.aiAttachmentsEnabled],
-                ['Image search', localFeatures.aiImageSearchEnabled], ['Ping responses', localFeatures.pingResponsesEnabled],
-                ['Save pings', localFeatures.pingRequestSaveEnabled], ['Shots', localFeatures.shotsEnabled]
+                ['Bot', data.settings?.botEnabled, null], ['Triggers', data.settings?.triggersEnabled, 'triggersEnabled'],
+                ['AI conversations', localFeatures.aiConversationsEnabled, 'aiConversationsEnabled'], ['AI attachments', localFeatures.aiAttachmentsEnabled, 'aiAttachmentsEnabled'],
+                ['Image search', localFeatures.aiImageSearchEnabled, 'aiImageSearchEnabled'], ['Ping responses', localFeatures.pingResponsesEnabled, 'pingResponsesEnabled'],
+                ['Save pings', localFeatures.pingRequestSaveEnabled, 'pingRequestSaveEnabled'], ['Shots', localFeatures.shotsEnabled, 'shotsEnabled']
             ];
-            document.getElementById('overviewFeatures').innerHTML = featureRows.map(([label, enabled]) => statCard(label, enabled === false ? 'Off' : 'On')).join('');
+            document.getElementById('overviewFeatures').innerHTML = featureRows.map(([label, enabled, globalKey]) => {
+                const globallyDisabled = globalKey && state.globalFeatures?.[globalKey] === false;
+                return statCard(
+                    label,
+                    globallyDisabled ? 'Off (global)' : (enabled === false ? 'Off' : 'On'),
+                    globallyDisabled ? `${label} is temporarily disabled in Global Feature Settings. The saved server setting is ${enabled === false ? 'off' : 'on'}.` : '',
+                    globallyDisabled ? '!' : '?'
+                );
+            }).join('');
 
             if (data.missingPermissions && data.missingPermissions.length > 0) {
                 banner.innerHTML = `<div class="banner warn">Bot is missing permissions in this server: <strong>${escapeHtml(data.missingPermissions.join(', '))}</strong>. <a href="${escapeHtml(data.inviteUrl)}" target="_blank" rel="noopener">Click here to reinvite with the correct permissions</a>.</div>`;
@@ -5076,7 +5204,7 @@
                 { label: 'Uses', key: 'uses' }
             ];
             if (canManageTriggers) {
-                triggerColumns.push({ label: 'Manage', sortable: false, render: r => `<button class="secondary" data-trigger-manage="${escapeHtml(r.trigger)}">Manage</button>` });
+                triggerColumns.push({ label: 'Manage', sortable: false, render: r => `<button class="secondary" type="button" data-trigger-manage="${escapeHtml(r.trigger)}">Manage</button>` });
             }
             triggerColumns.push(
                 { label: 'Added By', key: 'addedByLabel', render: r => withNicknameTitle(r.addedByLabel, r.addedByNickname) },
@@ -6039,7 +6167,7 @@
                     : title
                         ? `<div class="row"><span class="badge manager">Category</span><input data-tab-title-index="${index}" maxlength="60" value="${escapeHtml(titleFromToken(entry))}" aria-label="Category title" style="flex:1"></div>`
                         : `<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name">`;
-                return `<tr><td>${content}</td><td style="width:1%;white-space:nowrap"><button class="secondary" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> <button class="danger" data-tab-order="remove" data-index="${index}">Remove</button></td></tr>`;
+                return `<tr><td>${content}</td><td style="width:1%;white-space:nowrap"><button class="secondary" type="button" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" type="button" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> <button class="danger" type="button" data-tab-order="remove" data-index="${index}">Remove</button></td></tr>`;
             }).join('')}</tbody></table>` : '<div class="empty">No tabs configured.</div>';
             container.querySelectorAll('[data-tab-order]').forEach(button => button.addEventListener('click', () => {
                 const index = Number(button.dataset.index); const action = button.dataset.tabOrder;
@@ -6146,6 +6274,17 @@
         }
 
         function syncGlobalFeatureState() {
+            state.globalFeatures = {
+                ...state.globalFeatures,
+                triggersEnabled: document.getElementById('featureTriggers').checked,
+                aiConversationsEnabled: document.getElementById('featureAiConversations').checked,
+                aiAttachmentsEnabled: document.getElementById('featureAiAttachments').checked,
+                aiImageSearchEnabled: document.getElementById('featureAiImageSearch').checked,
+                pingResponsesEnabled: document.getElementById('featurePingResponses').checked,
+                pingRequestSaveEnabled: document.getElementById('featurePingSave').checked,
+                shotsEnabled: document.getElementById('featureShots').checked
+            };
+            applyGlobalFeatureNavigation();
             const pairs = [
                 ['featureTriggers', 'setTriggersEnabled'],
                 ['featureAiConversations', 'guildFeatureAiConversations'], ['featureAiAttachments', 'guildFeatureAiAttachments'],

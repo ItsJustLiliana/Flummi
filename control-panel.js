@@ -9,6 +9,7 @@ const { installTimestampedConsole, readRecentLogs } = require('./utils/logger');
 const { readActivity, recordActivity } = require('./stores/activity-store');
 const { loadEnv } = require('./utils/env-loader');
 const { readConfig, saveConfig: saveLocalConfig } = require('./utils/config');
+const { applyConfiguredPresence } = require('./utils/presence');
 const { buildFieldChanges } = require('./utils/audit-details');
 const { RepositoryFileError, RepositoryFileManager, isSensitivePath } = require('./services/repository-file-manager');
 const { buildReleaseStatus } = require('./services/release-status');
@@ -515,12 +516,14 @@ let client = createClient(membersIntentEnabled);
 async function loginClient() {
     try {
         await client.login(botToken);
+        applyConfiguredPresence(client);
     } catch (error) {
         if (membersIntentEnabled && /disallowed intents/i.test(error.message)) {
             console.warn('Server Members Intent is not enabled for this bot in the Discord Developer Portal. Starting without it - the Server Members list will be unavailable until it is enabled.');
             membersIntentEnabled = false;
             client = createClient(membersIntentEnabled);
             await client.login(botToken);
+            applyConfiguredPresence(client);
             return;
         }
 
@@ -2424,6 +2427,10 @@ function createServer() {
                 Object.assign(config, updates);
                 config.commandPermissions = { ...(config.commandPermissions || {}), dashboard: 'user' };
                 saveConfig(config);
+                if (updates.presence) {
+                    applyConfiguredPresence(client);
+                    console.log('Applied updated Discord presence to the control panel connection.');
+                }
                 auditPanelAction(panelSession, 'config', 'Global configuration updated from the panel');
                 if (changesPublicAccess && previousPublicAccess !== (config.panel?.publicAccessEnabled !== false)) {
                     auditPanelAction(panelSession, 'public-site-access', config.panel.publicAccessEnabled

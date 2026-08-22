@@ -372,6 +372,7 @@
         .management-nav-group {
             display: grid;
             gap: 4px;
+            position: relative;
         }
 
         .management-nav-group > .tab-btn {
@@ -381,19 +382,39 @@
         .management-parent {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            padding-right: 44px;
         }
 
-        .management-parent::after {
-            content: "›";
+        .nested-nav-toggle {
+            position: absolute;
+            top: 4px;
+            right: 5px;
+            z-index: 2;
+            display: grid;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            place-items: center;
+            border-color: transparent;
+            border-radius: 9px;
+            background: transparent;
             color: var(--muted);
+        }
+
+        .nested-nav-toggle:hover {
+            border-color: rgba(117, 207, 255, .28);
+            background: rgba(117, 207, 255, .1);
+            color: var(--text);
+        }
+
+        .nested-nav-toggle span {
             font-size: 18px;
             line-height: 1;
             transform: rotate(0deg);
             transition: transform 160ms ease;
         }
 
-        .management-parent[aria-expanded="true"]::after {
+        .nested-nav-toggle[aria-expanded="true"] span {
             transform: rotate(90deg);
         }
 
@@ -3796,7 +3817,8 @@
                 <nav class="tabs" aria-label="Dashboard sections">
                     <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
                     <div id="analyticsNavGroup" class="management-nav-group">
-                        <button id="analyticsNavToggle" class="tab-btn management-parent" data-tab="analytics" type="button" aria-expanded="true" aria-controls="analyticsSubnav">Stats &amp; Analytics</button>
+                        <button id="analyticsNavPage" class="tab-btn management-parent" data-tab="analytics" type="button">Stats &amp; Analytics</button>
+                        <button id="analyticsNavToggle" class="nested-nav-toggle" type="button" aria-expanded="true" aria-controls="analyticsSubnav" aria-label="Collapse Analytics tabs"><span aria-hidden="true">›</span></button>
                         <div id="analyticsSubnav" class="management-subnav">
                             <button class="tab-btn" data-tab="stats" data-analytics-child type="button">Messages</button>
                             <button class="tab-btn" data-tab="voice" data-analytics-child type="button">Voice Analytics</button>
@@ -3807,8 +3829,8 @@
                     <button class="tab-btn" data-tab="shots" type="button">Shots</button>
                     <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
                     <div id="managementNavGroup" class="management-nav-group" data-manager-only>
-                        <button id="managementNavToggle" class="tab-btn management-parent" data-tab="management" data-manager-only
-                            type="button" aria-expanded="true" aria-controls="managementSubnav">Management</button>
+                        <button id="managementNavPage" class="tab-btn management-parent" data-tab="management" data-manager-only type="button">Management</button>
+                        <button id="managementNavToggle" class="nested-nav-toggle" type="button" aria-expanded="true" aria-controls="managementSubnav" aria-label="Collapse Management tabs"><span aria-hidden="true">›</span></button>
                         <div id="managementSubnav" class="management-subnav">
                             <button class="tab-btn" data-tab="management-moderation" data-management-module="moderation" data-manager-only
                                 type="button">Moderation</button>
@@ -4440,24 +4462,23 @@
             experiments: loadExperiments
         };
 
+        document.getElementById('analyticsNavToggle').addEventListener('click', event => {
+            event.stopPropagation();
+            setAnalyticsExpanded(event.currentTarget.getAttribute('aria-expanded') !== 'true');
+        });
+        document.getElementById('managementNavToggle').addEventListener('click', event => {
+            event.stopPropagation();
+            setManagementExpanded(event.currentTarget.getAttribute('aria-expanded') !== 'true');
+        });
+
         tabButtons.forEach(btn => {
             btn.addEventListener('click', () => {
-                const isManagementParent = btn.dataset.tab === 'management';
-                const isAnalyticsParent = btn.dataset.tab === 'analytics';
-                if (isManagementParent) {
-                    setManagementExpanded(document.getElementById('managementNavToggle').getAttribute('aria-expanded') !== 'true');
-                } else if (isAnalyticsParent) {
-                    setAnalyticsExpanded(document.getElementById('analyticsNavToggle').getAttribute('aria-expanded') !== 'true');
-                } else if (btn.dataset.managementModule) {
+                if (btn.dataset.managementModule) {
                     setManagementExpanded(true);
                 } else if (btn.hasAttribute('data-analytics-child')) {
                     setAnalyticsExpanded(true);
                 }
-                const keepMobileNestedGroupOpen = (isManagementParent
-                    && mobileMenuMedia.matches
-                    && document.getElementById('managementNavToggle').getAttribute('aria-expanded') === 'true')
-                    || (isAnalyticsParent && mobileMenuMedia.matches && document.getElementById('analyticsNavToggle').getAttribute('aria-expanded') === 'true');
-                if (!keepMobileNestedGroupOpen) setMobileMenu(false);
+                setMobileMenu(false);
                 tabButtons.forEach(b => b.classList.remove('active'));
                 tabPanels.forEach(p => p.classList.remove('active'));
                 btn.classList.add('active');
@@ -5463,12 +5484,7 @@
             ];
             document.getElementById('overviewFeatures').innerHTML = featureRows.map(([label, enabled, globalKey]) => {
                 const globallyDisabled = globalKey && state.globalFeatures?.[globalKey] === false;
-                return statCard(
-                    label,
-                    globallyDisabled ? 'Off (global)' : (enabled === false ? 'Off' : 'On'),
-                    globallyDisabled ? `${label} is temporarily disabled in Global Feature Settings. The saved server setting is ${enabled === false ? 'off' : 'on'}.` : '',
-                    globallyDisabled ? '!' : '?'
-                );
+                return statCard(label, globallyDisabled || enabled === false ? 'Off' : 'On');
             }).join('');
 
             if (data.missingPermissions && data.missingPermissions.length > 0) {
@@ -6678,6 +6694,7 @@
             const subnav = document.getElementById('analyticsSubnav');
             const open = Boolean(expanded);
             toggle.setAttribute('aria-expanded', String(open));
+            toggle.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} Analytics tabs`);
             subnav.hidden = !open;
         }
 
@@ -6686,6 +6703,7 @@
             const subnav = document.getElementById('managementSubnav');
             const open = Boolean(expanded);
             toggle.setAttribute('aria-expanded', String(open));
+            toggle.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} Management tabs`);
             subnav.hidden = !open;
         }
 

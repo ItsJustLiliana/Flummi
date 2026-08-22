@@ -85,18 +85,25 @@ test('dashboard and developer searches recommend matching boxes and fade unrelat
     assert.match(panelHtml, /#dashboardLayout \.tabs \.tab-btn\.search-muted \{ opacity: \.34/);
 });
 
-test('global feature switches control tabs and override server overview statuses', () => {
+test('global feature switches quietly control tabs and effective overview statuses', () => {
     assert.match(panelServer, /globalFeatures: config\.features \|\| \{\}/);
     assert.match(panelHtml, /const globalFeatureTabs = \{[\s\S]*?triggers: 'triggersEnabled'[\s\S]*?shots: 'shotsEnabled'[\s\S]*?pings: 'pingRequestSaveEnabled'/);
     assert.match(panelHtml, /const hide = globallyDisabled && !developerView/);
     assert.match(panelHtml, /button\.dataset\.globalDisabled = String\(globallyDisabled && developerView\)/);
     assert.match(panelHtml, /\.tab-btn\[data-global-disabled="true"\]::after/);
-    assert.match(panelHtml, /globallyDisabled \? 'Off \(global\)'/);
-    assert.match(panelHtml, /saved server setting is/);
+    assert.match(panelHtml, /statCard\(label, globallyDisabled \|\| enabled === false \? 'Off' : 'On'\)/);
+    assert.doesNotMatch(panelHtml, /Off \(global\)/);
+    assert.doesNotMatch(panelHtml, /saved server setting is/);
     assert.match(panelHtml, /\.table-wrap td code \{[\s\S]*?white-space: nowrap/);
     assert.match(panelHtml, /function updateTabNavigationStructure\(\)/);
     assert.match(panelHtml, /item\.hidden = !hasBefore \|\| !hasAfter/);
     assert.match(panelHtml, /const globalState = button\.dataset\.globalDisabled === 'true' \? ', globally disabled' : ''/);
+});
+
+test('presence updates are applied to both Discord gateway connections', () => {
+    assert.match(panelServer, /const \{ applyConfiguredPresence \} = require\('\.\/utils\/presence'\)/);
+    assert.match(panelServer, /await client\.login\(botToken\);\s*applyConfiguredPresence\(client\)/);
+    assert.match(panelServer, /if \(updates\.presence\) \{\s*applyConfiguredPresence\(client\)/);
 });
 
 test('management pages stay in the nested sidebar while their modules can be toggled', () => {
@@ -119,6 +126,7 @@ test('management pages stay in the nested sidebar while their modules can be tog
 });
 
 test('message, voice, and server media tabs are nested and sortable under Analytics', () => {
+    assert.match(panelHtml, /id="analyticsNavPage"[^>]*data-tab="analytics"/);
     assert.match(panelHtml, /id="analyticsNavToggle"[\s\S]*?aria-controls="analyticsSubnav"/);
     const analyticsGroup = panelHtml.slice(panelHtml.indexOf('id="analyticsNavGroup"'), panelHtml.indexOf('id="managementNavGroup"'));
     for (const tab of ['stats', 'voice', 'soundboard']) assert.match(analyticsGroup, new RegExp(`data-tab="${tab}"[^>]*data-analytics-child`));
@@ -126,6 +134,9 @@ test('message, voice, and server media tabs are nested and sortable under Analyt
     assert.match(panelHtml, /parent: 'analytics', label: 'Analytics'/);
     assert.match(panelHtml, /setAnalyticsExpanded\(true\)/);
     assert.match(panelHtml, /if \(state\.role !== 'user'\) setManagementExpanded\(true\)/);
+    assert.match(panelHtml, /class="nested-nav-toggle"/);
+    assert.match(panelHtml, /analyticsNavToggle'\)\.addEventListener\('click'/);
+    assert.match(panelHtml, /Collapse' : 'Expand'\} Analytics tabs/);
 });
 
 test('management configuration remains manager-only and saves through guild settings', () => {

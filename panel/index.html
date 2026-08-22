@@ -255,8 +255,8 @@
         select:focus,
         input:focus,
         textarea:focus,
-        button:focus,
-        .invite-btn:focus {
+        button:focus-visible,
+        .invite-btn:focus-visible {
             outline: none;
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(117, 207, 255, .18);
@@ -282,15 +282,20 @@
         }
 
         .primary {
-            background: linear-gradient(135deg, var(--accent-2), var(--accent));
-            border-color: transparent;
+            background: linear-gradient(135deg, #6673f2, #75cfff);
+            border: 1px solid rgba(255, 255, 255, .16);
             color: #071225;
-            font-weight: 600;
-            box-shadow: 0 5px 14px rgba(78, 107, 255, .2);
+            font-weight: 750;
+            box-shadow: 0 8px 22px rgba(78, 107, 255, .2);
         }
 
         .primary:hover {
             background: linear-gradient(135deg, #6980ff, #9ae3ff);
+        }
+
+        .primary:focus:not(:focus-visible) {
+            border-color: rgba(255, 255, 255, .16);
+            box-shadow: 0 8px 22px rgba(78, 107, 255, .2);
         }
 
         .secondary {
@@ -772,7 +777,7 @@
             }
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 820px) {
             :root {
                 --sidebar-width: 100%;
             }
@@ -802,6 +807,7 @@
                 max-width: 100%;
                 overflow-x: auto;
                 overscroll-behavior-x: contain;
+                -webkit-overflow-scrolling: touch;
             }
 
             .sidebar {
@@ -957,6 +963,12 @@
                 min-width: 0;
             }
 
+            select,
+            input,
+            textarea {
+                font-size: 16px;
+            }
+
             .actions>button {
                 flex: 1 1 150px;
             }
@@ -966,7 +978,7 @@
             }
 
             .table-toolbar {
-                min-width: 600px;
+                left: 0;
             }
 
             .heatmap {
@@ -982,6 +994,8 @@
 
             .section:has(.heatmap) {
                 overflow-x: auto;
+                overscroll-behavior-x: contain;
+                -webkit-overflow-scrolling: touch;
             }
 
             .analytics-chart {
@@ -992,6 +1006,38 @@
 
             .analytics-chart.compact {
                 height: 82px;
+            }
+
+            .sound-player {
+                grid-template-columns: 34px minmax(0, 1fr) 58px;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .sound-player input[type="range"] {
+                min-width: 0;
+            }
+
+            .guild-header .guild-info {
+                gap: 12px;
+                padding: 0 13px 14px;
+            }
+
+            .guild-header .guild-meta {
+                min-width: 0;
+            }
+
+            .guild-header .guild-meta h2,
+            .guild-header .guild-meta p {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .confirm-dialog,
+            .media-lightbox {
+                max-height: calc(100dvh - 24px);
+                overflow-y: auto;
             }
 
             .help-tip::after {
@@ -1451,6 +1497,7 @@
             border-radius: 6px;
             padding: 1px 6px;
             font-size: 12px;
+            overflow-wrap: anywhere;
         }
 
         .checkbox-row {
@@ -2065,14 +2112,163 @@
         .developer-panel-host .tab-panel > h2 { font-size: 22px !important; }
         .developer-panel-host .tab-intro { margin-bottom: 20px; }
         .feedback-collection { margin-top: 15px; }
+        .feedback-limit-note { margin: 9px 0 0; color: #8495c4; font-size: 12px; }
+        .feedback-delete { width: auto; padding: 6px 9px; font-size: 12px; white-space: nowrap; }
+        [data-tailscale-disabled="true"] { opacity: .42; filter: saturate(.42); cursor: not-allowed; }
+        [data-tailscale-disabled="true"] button,
+        [data-tailscale-disabled="true"] input,
+        [data-tailscale-disabled="true"] select,
+        [data-tailscale-disabled="true"] textarea { cursor: not-allowed; }
+        .file-entry[data-tailscale-disabled="true"] { border-color: rgba(145, 160, 204, .12); background: rgba(10, 16, 32, .45); }
+        .status-refresh-button { width: auto; margin-left: 10px; padding: 6px 10px; border: 1px solid rgba(116, 128, 255, .38); border-radius: 8px; background: rgba(88, 101, 242, .14); color: #dbe0ff; font-size: 12px; font-weight: 800; vertical-align: middle; }
+        .status-refresh-button:hover { background: rgba(88, 101, 242, .25); }
+        .banner-with-action { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+        .banner-with-action .secondary { width: auto; flex: none; }
+        .feedback-login-panel { display: grid; justify-items: start; gap: 12px; }
+        .feedback-login-panel .home-auth-button { margin-top: 4px; }
+
+        .developer-search-field { flex: 1.35 !important; }
+        .developer-search-wrap { position: relative; }
+        .developer-search-wrap::before { position: absolute; left: 12px; top: 50%; content: "⌕"; color: #8394c5; font-size: 18px; transform: translateY(-51%); pointer-events: none; }
+        .developer-search-wrap input { width: 100%; padding-left: 37px; }
+        .developer-search-results { margin: -6px 0 18px; overflow: hidden; border: 1px solid rgba(102, 130, 190, .18); border-radius: 14px; background: rgba(10, 17, 35, .9); box-shadow: 0 18px 42px rgba(0, 0, 0, .2); }
+        .developer-search-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; padding: 11px 13px; border: 0; border-bottom: 1px solid rgba(102, 130, 190, .12); border-radius: 0; background: transparent; text-align: left; }
+        .developer-search-result:last-child { border-bottom: 0; }
+        .developer-search-result:hover { background: rgba(88, 101, 242, .1); }
+        .developer-search-result strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .developer-search-result span { color: #8fa1d4; font-size: 11px; font-weight: 800; }
+        .developer-search-empty { padding: 13px; color: var(--muted); font-size: 13px; }
+        .developer-tool-nav .tab-btn.search-muted { opacity: .34; filter: saturate(.4); }
+        .developer-tool-nav .tab-btn.search-match { border-color: rgba(117, 207, 255, .34); }
+        #dashboardLayout .tabs .tab-btn.search-muted { opacity: .34; filter: saturate(.4); }
+        #dashboardLayout .tabs .tab-btn.search-match { border-color: rgba(117, 207, 255, .34); }
+        .developer-search-target { animation: developer-search-pulse 1.4s ease; }
+        @keyframes developer-search-pulse { 0%, 100% { box-shadow: none; } 35% { box-shadow: 0 0 0 4px rgba(117, 207, 255, .2); } }
+
+        .dashboard-search-shell { position: relative; z-index: 12; width: min(760px, 100%); margin: 0 auto 22px; }
+        .dashboard-search-shell label { display: block; margin-bottom: 7px; color: #91a0cc; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
+        .dashboard-search-shell .developer-search-results { margin: 8px 0 0; }
+        .release-commit-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 15px 0 10px; }
+        .release-commit-summary h3 { margin: 0; font-size: 14px; }
+        .release-commit-table code { color: #a9ddff; font-weight: 800; }
+
+        #dashboardLayout {
+            background:
+                radial-gradient(900px 520px at 8% 2%, rgba(54, 93, 180, .3), transparent 66%),
+                radial-gradient(760px 520px at 92% 22%, rgba(88, 101, 242, .12), transparent 70%),
+                linear-gradient(180deg, #080d1c 0%, #090e1e 58%, #070b17 100%);
+        }
+
+        #dashboardLayout .content {
+            position: relative;
+            padding: 34px clamp(20px, 3.6vw, 58px) 70px;
+            background:
+                linear-gradient(rgba(255, 255, 255, .018) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, .018) 1px, transparent 1px);
+            background-size: 48px 48px;
+        }
+
+        #dashboardLayout .sidebar {
+            width: 290px;
+            padding: 20px 18px;
+            border-right: 1px solid rgba(102, 130, 190, .18);
+            background: rgba(7, 12, 27, .9);
+            backdrop-filter: blur(22px);
+        }
+
+        #dashboardLayout .brand {
+            min-height: 50px;
+            padding: 5px 4px 12px;
+            border-bottom: 1px solid rgba(102, 130, 190, .14);
+        }
+
+        #dashboardLayout .brand-image { filter: drop-shadow(0 7px 14px rgba(27, 80, 166, .28)); }
+        #dashboardLayout .brand h1 { font-weight: 850; letter-spacing: -.02em; }
+        #dashboardLayout .brand .sub { color: #8394c5; font-size: 11px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
+        #dashboardLayout .dashboard-home-button { border-color: rgba(102, 130, 190, .18); background: rgba(255, 255, 255, .035); }
+        #dashboardLayout .tabs { gap: 5px; padding: 6px; border-color: rgba(102, 130, 190, .14); border-radius: 15px; background: rgba(255, 255, 255, .025); }
+        #dashboardLayout .tab-btn { min-height: 38px; padding: 9px 11px; border-radius: 9px; color: #91a0cc; font-weight: 700; }
+        #dashboardLayout .tab-btn:hover { color: var(--text); background: rgba(255, 255, 255, .055); }
+        #dashboardLayout .tab-btn.active { border-color: rgba(116, 128, 255, .24); background: rgba(88, 101, 242, .15); box-shadow: inset 3px 0 #7586ff; }
+        #dashboardLayout .sidebar-footer { padding-top: 3px; }
+        #dashboardLayout .sidebar-actions { padding-bottom: 16px; border-bottom: 1px solid rgba(102, 130, 190, .14); }
+        #dashboardLayout .sidebar-account { border-top: 0; }
+        #dashboardLayout .account-avatar { border-radius: 10px; border-color: rgba(255, 255, 255, .13); }
+
+        #dashboardLayout .tab-panel { width: min(1440px, 100%); margin: 0 auto; }
+        #dashboardLayout .tab-panel > h2 { margin-bottom: 6px; font-size: clamp(24px, 3vw, 32px) !important; letter-spacing: -.035em; }
+        #dashboardLayout .tab-intro { margin-bottom: 22px; color: #91a0cc; font-size: 14px; line-height: 1.6; }
+        #dashboardLayout .section,
+        #dashboardLayout .stat-card,
+        #dashboardLayout .chart-card,
+        #dashboardLayout .table-wrap,
+        .developer-panel-host .section,
+        .developer-panel-host .stat-card,
+        .developer-panel-host .chart-card {
+            border-color: rgba(102, 130, 190, .18);
+            background: linear-gradient(145deg, rgba(18, 28, 53, .9), rgba(10, 17, 35, .9));
+            box-shadow: 0 15px 36px rgba(0, 0, 0, .13);
+        }
+
+        #dashboardLayout select,
+        #dashboardLayout input,
+        #dashboardLayout textarea,
+        .developer-panel-host select,
+        .developer-panel-host input,
+        .developer-panel-host textarea {
+            border-color: rgba(102, 130, 190, .22);
+            background: rgba(7, 13, 29, .78);
+        }
+
+        #dashboardLayout .secondary,
+        .developer-panel-host .secondary { border-color: rgba(102, 130, 190, .22); background: rgba(13, 22, 43, .88); }
+        #dashboardLayout .secondary:hover,
+        .developer-panel-host .secondary:hover { border-color: rgba(116, 128, 255, .46); background: rgba(27, 39, 70, .9); }
         .dashboard-home-button { margin-left: auto; width: auto; padding: 8px 12px; }
+
+        @media (min-width: 821px) and (max-width: 1000px) {
+            #dashboardLayout { flex-direction: column; }
+            #dashboardLayout .sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+                padding: 14px 18px;
+                flex-flow: row wrap;
+                align-items: center;
+            }
+            #dashboardLayout .brand { flex: 0 0 auto; border-bottom: 0; padding: 0; }
+            #dashboardLayout .mobile-sidebar-content { display: contents; }
+            #dashboardLayout .tabs {
+                flex: 1 1 560px;
+                flex-flow: row wrap;
+                margin: 0;
+            }
+            #dashboardLayout .tab-btn { width: auto; flex: 1 1 auto; text-align: center; }
+            #dashboardLayout .tab-divider,
+            #dashboardLayout .tab-group-label { display: none; }
+            #dashboardLayout .sidebar-footer {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+                margin: 0;
+            }
+            #dashboardLayout .sidebar-actions,
+            #dashboardLayout .sidebar-account { flex: 1 1 280px; margin: 0; padding: 0; border: 0; }
+            #dashboardLayout .content { width: 100%; padding-top: 26px; }
+        }
 
         @media (max-width: 820px) {
             .home-nav-inner { width: min(100% - 28px, 1280px); grid-template-columns: auto 1fr; gap: 12px; padding: 10px 0; }
             .home-nav-links { order: 3; grid-column: 1 / -1; justify-content: stretch; overflow-x: auto; }
-            .home-nav-links button { flex: 1; white-space: nowrap; }
+            .home-nav-links { overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+            .home-nav-links::-webkit-scrollbar { display: none; }
+            .home-nav-links button { flex: 1 0 auto; min-height: 44px; white-space: nowrap; }
             .home-main { width: min(100% - 28px, 1180px); padding-top: 44px; }
             .developer-overview-grid { grid-template-columns: 1fr; }
+            #dashboardLayout { flex-direction: column; }
+            #dashboardLayout .sidebar { width: 100%; height: auto; min-height: 68px; padding: 10px 12px; }
+            #dashboardLayout .content { width: 100%; padding: 18px 12px 30px; }
         }
 
         @media (max-width: 600px) {
@@ -2084,6 +2280,53 @@
             .home-guild-grid { grid-template-columns: 1fr; }
             .developer-command-bar { align-items: stretch; flex-direction: column; }
             .developer-command-bar .field, .developer-command-bar .secondary { width: 100%; }
+            .banner-with-action { align-items: stretch; flex-direction: column; }
+            .banner-with-action .secondary { width: 100%; }
+            .home-panel { padding: 20px 16px; border-radius: 16px; }
+            .developer-panel-host { padding: 14px 12px; }
+            .developer-tool-shell { border-radius: 15px; }
+            .developer-tool-nav { scroll-padding-inline: 11px; }
+            .developer-search-result { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+            .developer-search-result span { white-space: normal; }
+            .release-commit-summary { align-items: flex-start; flex-direction: column; }
+        }
+
+        @media (max-width: 420px) {
+            .home-nav-inner,
+            .home-main { width: calc(100% - 20px); }
+            .home-brand img { width: 38px; height: 38px; }
+            .home-auth-button { min-height: 42px; padding: 8px 10px; font-size: 12px; }
+            .home-auth-button::before { display: none; }
+            .home-hero h1 { font-size: clamp(34px, 11vw, 40px); }
+            .home-hero p { font-size: 15px; }
+            .home-guild-card { gap: 11px; min-height: 84px; padding: 14px; }
+            .home-guild-icon { width: 48px; height: 48px; border-radius: 13px; }
+            .home-guild-arrow { width: 32px; height: 32px; }
+            .home-page-heading h1 { font-size: 32px; }
+            .page-notice { align-items: stretch; flex-direction: column; }
+            .page-notice button { width: 100%; min-height: 42px; }
+            .category-chart { padding-inline: 8px; }
+            .category-chart-row { grid-template-columns: minmax(72px, 105px) minmax(36px, 1fr) 42px; gap: 8px; }
+            .media-gallery { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+            .file-editor { min-height: 330px; }
+            .confirm-dialog-body { padding: 16px; }
+        }
+
+        @media (hover: none) {
+            button:hover,
+            .invite-btn:hover,
+            .home-auth-button:hover,
+            .home-login:hover,
+            .home-guild-card:hover { transform: none; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                scroll-behavior: auto !important;
+                transition-duration: .01ms !important;
+                animation-duration: .01ms !important;
+                animation-iteration-count: 1 !important;
+            }
         }
     </style>
 </head>
@@ -2095,7 +2338,7 @@
                 <div class="home-brand"><img src="/assets/branding/flummi.png" alt=""><span>Flummi</span></div>
                 <nav class="home-nav-links" aria-label="Main navigation">
                     <button class="active" data-home-view="servers" type="button">Home</button>
-                    <button id="homeFeedbackNav" data-home-view="feedback" type="button" hidden>Feedback</button>
+                    <button id="homeFeedbackNav" data-home-view="feedback" type="button">Feedback</button>
                     <button id="homeDeveloperNav" data-home-view="developer" type="button" hidden>Developer tools</button>
                 </nav>
                 <div class="home-account">
@@ -2117,16 +2360,19 @@
             </section>
             <section id="homeViewFeedback" class="home-view home-view-narrow" hidden>
                 <div class="home-page-heading"><span class="home-eyebrow">Help shape Flummi</span><h1>Feedback</h1><p class="sub">Found something confusing, broken, or worth improving? Send it straight to the people building Flummi.</p></div>
-                <div class="home-panel"><label for="homeFeedbackMessage">Your feedback</label><textarea id="homeFeedbackMessage" maxlength="2000" placeholder="Share an idea, issue, or improvement..."></textarea><div class="actions"><span id="homeFeedbackStatus" class="status"></span><button id="submitHomeFeedback" class="primary" type="button">Send feedback</button></div></div>
+                <div id="feedbackSignedOut" class="home-panel feedback-login-panel"><h2>Log in to send feedback</h2><p class="sub">Discord sign-in keeps submissions useful and lets the team understand who reported an issue.</p><a class="home-auth-button" href="/auth/login">Log in with Discord</a></div>
+                <div id="feedbackSignedIn" class="home-panel" hidden><label for="homeFeedbackMessage">Your feedback</label><textarea id="homeFeedbackMessage" maxlength="2000" placeholder="Share an idea, issue, or improvement..."></textarea><p class="feedback-limit-note">To prevent spam, you can send one message per minute and up to five messages per hour.</p><div class="actions"><span id="homeFeedbackStatus" class="status" aria-live="polite"></span><button id="submitHomeFeedback" class="primary" type="button">Send feedback</button></div></div>
             </section>
             <section id="homeViewDeveloper" class="home-view" hidden>
                 <div class="home-page-heading"><span class="home-eyebrow">Private workspace</span><h1>Developer tools</h1><p class="sub">Manage Flummi's platform, inspect runtime health, work with repository files, and promote a tested staging release—all without entering a server dashboard.</p></div>
                 <div class="developer-command-bar">
                     <div class="field"><label for="homeDeveloperGuild">Server context</label><select id="homeDeveloperGuild"><option value="">Select a server</option></select></div>
+                    <div class="field developer-search-field"><label for="developerSearch">Find a setting or tool</label><div class="developer-search-wrap"><input id="developerSearch" type="search" autocomplete="off" placeholder="Search settings, files, AI, reliability..."></div></div>
                     <button id="refreshDeveloperTool" class="secondary" type="button">Refresh current tool</button>
                 </div>
+                <div id="developerSearchResults" class="developer-search-results" hidden></div>
                 <div class="developer-overview-grid">
-                    <section class="developer-overview-card">
+                    <section class="developer-overview-card" data-tailscale-required>
                         <h2><span class="developer-card-icon">↗</span>Release center</h2>
                         <p class="sub">Publish the exact commit you approved on private Tailscale staging to the live Flummi service.</p>
                         <div class="actions"><button id="promoteLiveRelease" class="primary" type="button">Promote staging to live</button></div>
@@ -2136,7 +2382,7 @@
                     <section class="developer-overview-card">
                         <h2><span class="developer-card-icon">✦</span>Feedback inbox</h2>
                         <p class="sub">Review product ideas and issue reports submitted from the public feedback page.</p>
-                        <div class="actions"><button id="loadFeedbackCollection" class="secondary" type="button">Load feedback</button></div>
+                        <div class="actions"><button id="loadFeedbackCollection" class="secondary" type="button">Load feedback</button><span id="feedbackCollectionStatus" class="status" aria-live="polite"></span></div>
                         <div id="feedbackCollection" class="table-wrap feedback-collection"></div>
                     </section>
                 </div>
@@ -2158,6 +2404,11 @@
     </div>
     <div id="dashboardLayout" class="layout" hidden>
         <main class="content" aria-label="Selected server dashboard">
+            <div class="dashboard-search-shell">
+                <label for="dashboardSearch">Find a dashboard feature or setting</label>
+                <div class="developer-search-wrap"><input id="dashboardSearch" type="search" autocomplete="off" placeholder="Search triggers, permissions, voice, settings..."></div>
+                <div id="dashboardSearchResults" class="developer-search-results" hidden></div>
+            </div>
             <div id="pageNotice" class="page-notice" hidden>
                 <span id="pageNoticeMessage"></span>
                 <button id="pageNoticeAction" class="secondary" type="button" hidden>Try again</button>
@@ -2611,7 +2862,7 @@
                 <h2 style="font-size:20px;">Global Settings</h2>
                 <p class="sub tab-intro">Configure platform-wide feature gates, analytics retention, and panel
                     navigation for every server and panel user.</p>
-                <div id="developerSiteSettings" class="section">
+                <div id="developerSiteSettings" class="section" data-tailscale-required>
                     <h2>Site Settings</h2>
                     <p class="sub">Temporarily pause the public Cloudflare site without stopping Flummi, cloudflared, or
                         direct Tailscale access.</p>
@@ -2887,6 +3138,8 @@
                 <div class="section">
                     <h2>GitHub Update Status</h2>
                     <div id="updateStatusCards" class="card-grid"></div>
+                    <div class="release-commit-summary"><h3>Staged commits awaiting live promotion</h3><span id="releaseComparisonStatus" class="badge"></span></div>
+                    <div id="stagedCommitList" class="table-wrap release-commit-table"><div class="empty">Loading Git history...</div></div>
                 </div>
                 <div class="section">
                     <h2>Bot Runtime Instances</h2>
@@ -2907,7 +3160,7 @@
                     continue writing. If a file changes after you open it, saving stops with a conflict instead of
                     silently
                     overwriting the newer version.</div>
-                <div id="fileManagerAccess" class="banner warn">Checking write access...</div>
+                <div id="fileManagerAccess" class="banner warn banner-with-action"><span id="fileManagerAccessMessage">Checking write access...</span><button id="fileRefreshAuthentication" class="secondary" type="button" hidden>Refresh Discord sign-in</button></div>
                 <div class="file-manager-layout">
                     <div class="section file-browser">
                         <div class="file-editor-header">
@@ -2917,16 +3170,16 @@
                         <div class="row" style="margin-top:12px">
                             <button id="fileRoot" class="secondary" type="button">Root</button>
                             <button id="fileUp" class="secondary" type="button">Up</button>
-                            <button id="fileNew" class="secondary" type="button">New file</button>
-                            <button id="fileNewFolder" class="secondary" type="button">New folder</button>
+                            <button id="fileNew" class="secondary" type="button" data-tailscale-required>New file</button>
+                            <button id="fileNewFolder" class="secondary" type="button" data-tailscale-required>New folder</button>
                         </div>
                         <div class="row" style="margin-top:8px">
-                            <input id="fileSearch" type="search" placeholder="Search names and text" style="flex:1">
-                            <button id="fileSearchButton" class="secondary" type="button">Search</button>
+                            <input id="fileSearch" type="search" placeholder="Search names and text" style="flex:1" data-tailscale-required>
+                            <button id="fileSearchButton" class="secondary" type="button" data-tailscale-required>Search</button>
                         </div>
                         <div class="row" style="margin-top:8px">
-                            <input id="fileUpload" type="file" style="flex:1">
-                            <button id="fileUploadButton" class="secondary" type="button">Upload here</button>
+                            <input id="fileUpload" type="file" style="flex:1" data-tailscale-required>
+                            <button id="fileUploadButton" class="secondary" type="button" data-tailscale-required>Upload here</button>
                         </div>
                         <div id="fileBrowserList" class="file-browser-list">
                             <div class="empty">Loading...</div>
@@ -2951,9 +3204,9 @@
                             <button id="filePreviewDiff" class="secondary" type="button" disabled>Preview
                                 changes</button>
                             <button id="fileDownload" class="secondary" type="button" disabled>Download</button>
-                            <button id="fileRename" class="secondary" type="button" disabled>Rename</button>
-                            <button id="fileTrash" class="danger" type="button" disabled>Move to trash</button>
-                            <button id="fileSave" class="primary" type="button" disabled>Save with backup</button>
+                            <button id="fileRename" class="secondary" type="button" disabled data-tailscale-required>Rename</button>
+                            <button id="fileTrash" class="danger" type="button" disabled data-tailscale-required>Move to trash</button>
+                            <button id="fileSave" class="primary" type="button" disabled data-tailscale-required>Save with backup</button>
                         </div>
                         <p id="fileEditorStatus" class="status"></p>
                         <details id="fileSyntaxDetails">
@@ -2970,13 +3223,13 @@
                     <div class="section">
                         <h2>Validate changes</h2>
                         <p class="sub">Run the repository test suite before restarting Flummi.</p>
-                        <button id="fileRunTests" class="secondary" type="button">Run tests</button>
+                        <button id="fileRunTests" class="secondary" type="button" data-tailscale-required>Run tests</button>
                     </div>
                     <div class="section">
                         <h2>Apply changes</h2>
                         <p class="sub">Restarting applies server-side JavaScript changes and briefly disconnects the
                             bot.</p>
-                        <button id="fileRestart" class="danger" type="button">Restart Flummi</button>
+                        <button id="fileRestart" class="danger" type="button" data-tailscale-required>Restart Flummi</button>
                     </div>
                 </div>
                 <pre id="fileRuntimeOutput" class="file-diff file-runtime-output">No validation run yet.</pre>
@@ -3213,6 +3466,7 @@
     <script>
         const state = {
             authenticated: false,
+            privateConnection: false,
             guildId: null,
             guilds: [],
             channels: [],
@@ -3472,6 +3726,14 @@
             return data;
         }
 
+        const reauthReturnKey = 'flummi.reauthReturn';
+
+        function refreshDiscordSignIn() {
+            const returnTo = `${window.location.pathname}${window.location.search}`;
+            if (returnTo.startsWith('/?')) sessionStorage.setItem(reauthReturnKey, returnTo);
+            window.location.assign('/auth/login?refresh=1');
+        }
+
         function showPageNotice(message, { type = 'error', actionLabel = '', action = null } = {}) {
             const notice = document.getElementById('pageNotice');
             notice.className = `page-notice ${type}`;
@@ -3489,9 +3751,10 @@
 
         function handleUiError(error, retry = null) {
             const signedOut = error?.status === 401;
+            const needsReauthentication = error?.code === 'REAUTH_REQUIRED';
             showPageNotice(error?.message || 'Something went wrong. Please try again.', {
-                actionLabel: signedOut ? 'Sign in' : (retry ? 'Try again' : ''),
-                action: signedOut ? () => window.location.assign('/auth/login?refresh=1') : retry
+                actionLabel: needsReauthentication ? 'Refresh Discord sign-in' : signedOut ? 'Sign in' : (retry ? 'Try again' : ''),
+                action: signedOut ? refreshDiscordSignIn : retry
             });
         }
 
@@ -3565,27 +3828,65 @@
             uiTooltip.classList.remove('visible');
         }
 
+        const tooltipAnchorSelector = '.help-tip[data-tooltip], [data-tailscale-disabled="true"][data-tooltip]';
+
         document.addEventListener('pointerover', event => {
-            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
+            const anchor = event.target.closest?.(tooltipAnchorSelector);
             if (anchor) showHelpTooltip(anchor);
         });
         document.addEventListener('pointerout', event => {
-            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
-            const nextAnchor = event.relatedTarget?.closest?.('.help-tip[data-tooltip]');
+            const anchor = event.target.closest?.(tooltipAnchorSelector);
+            const nextAnchor = event.relatedTarget?.closest?.(tooltipAnchorSelector);
             if (nextAnchor) showHelpTooltip(nextAnchor);
             else if (anchor) hideHelpTooltip(anchor);
         });
         document.addEventListener('focusin', event => {
-            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
+            const anchor = event.target.closest?.(tooltipAnchorSelector);
             if (anchor) showHelpTooltip(anchor);
         });
         document.addEventListener('focusout', event => {
-            const anchor = event.target.closest?.('.help-tip[data-tooltip]');
-            const nextAnchor = event.relatedTarget?.closest?.('.help-tip[data-tooltip]');
+            const anchor = event.target.closest?.(tooltipAnchorSelector);
+            const nextAnchor = event.relatedTarget?.closest?.(tooltipAnchorSelector);
             if (nextAnchor) showHelpTooltip(nextAnchor);
             else if (anchor) hideHelpTooltip(anchor);
         });
         window.addEventListener('scroll', () => hideHelpTooltip(), true);
+
+        const tailscaleRequirementMessage = 'This feature is only available through the direct Tailscale or localhost panel.';
+
+        function applyTailscaleAvailability(root = document) {
+            const targets = root.matches?.('[data-tailscale-required]')
+                ? [root]
+                : Array.from(root.querySelectorAll?.('[data-tailscale-required]') || []);
+            for (const target of targets) {
+                const unavailable = !state.privateConnection;
+                target.dataset.tailscaleDisabled = String(unavailable);
+                if (unavailable) {
+                    target.dataset.tooltip = tailscaleRequirementMessage;
+                    target.title = tailscaleRequirementMessage;
+                    target.setAttribute('aria-disabled', 'true');
+                } else {
+                    delete target.dataset.tooltip;
+                    target.removeAttribute('title');
+                    target.removeAttribute('aria-disabled');
+                }
+
+                const controls = target.matches('button, input, select, textarea')
+                    ? [target]
+                    : Array.from(target.querySelectorAll('button, input, select, textarea'));
+                for (const control of controls) {
+                    if (unavailable) {
+                        if (!control.hasAttribute('data-tailscale-was-disabled')) {
+                            control.dataset.tailscaleWasDisabled = String(control.disabled);
+                        }
+                        control.disabled = true;
+                    } else if (control.hasAttribute('data-tailscale-was-disabled')) {
+                        control.disabled = control.dataset.tailscaleWasDisabled === 'true';
+                        delete control.dataset.tailscaleWasDisabled;
+                    }
+                }
+            }
+        }
 
         const featureTooltipDefinitions = {
             setBotEnabled: 'Master switch for Flummi in this server. When off, server-specific bot behaviour is paused without removing saved settings.',
@@ -3640,7 +3941,7 @@
         const sidebar = document.querySelector('.sidebar');
         const mobileMenuToggle = document.getElementById('mobileMenuToggle');
         const mobileMenuBackdrop = document.getElementById('mobileMenuBackdrop');
-        const mobileMenuMedia = window.matchMedia('(max-width: 600px)');
+        const mobileMenuMedia = window.matchMedia('(max-width: 820px)');
         const defaultPanelTitles = Object.fromEntries(tabPanels.map(panel => {
             const heading = panel.querySelector(':scope > h2');
             const textNode = Array.from(heading?.childNodes || []).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
@@ -3791,6 +4092,154 @@
             }
         }
 
+        function normalizedSearchText(value) {
+            return String(value || '').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+        }
+
+        function searchTextMatches(value, query) {
+            const haystack = normalizedSearchText(value);
+            return normalizedSearchText(query).split(' ').filter(Boolean).every(word => haystack.includes(word));
+        }
+
+        const panelSearchAliases = {
+            overview: 'home summary server details members channels features bot status',
+            analytics: 'analytics graphs charts activity trends summary statistics',
+            triggers: 'trigger response reply cooldown exact phrase automation',
+            shots: 'shots drinks counter leaderboard gamble',
+            voice: 'voice call channel sessions time leaderboard activity',
+            stats: 'messages chat activity heatmap channels members analytics',
+            users: 'users members permissions roles manager access commands block allow',
+            settings: 'settings configuration bot features limits cooldown server',
+            pings: 'ping requests mentions inbox saved',
+            soundboard: 'server media emoji emojis sticker stickers gif gifs soundboard',
+            audit: 'audit changes history log settings who changed',
+            messenger: 'messenger send message bot channel images mentions',
+            profiles: 'profiles avatar banner nickname bio application guild',
+            ai: 'ai artificial intelligence openrouter model memory presence startup',
+            global: 'global settings features navigation tabs public site cloudflare',
+            reliability: 'reliability health github update staging commits live runtime backup diagnostics',
+            files: 'developer files repository code upload download edit search tests restart',
+            logs: 'bot logs console errors warnings runtime',
+            experiments: 'experiments preview roles simulation admin view'
+        };
+
+        function searchNodeLabel(node, fallback) {
+            const heading = node.matches?.('.section') ? node.querySelector(':scope > h2, :scope > h3') : null;
+            return String(heading?.textContent || node.getAttribute?.('aria-label') || fallback || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function matchingControlLabel(surface, query) {
+            for (const node of surface.querySelectorAll('label, summary, button, .checkbox-row, input[placeholder], textarea[placeholder]')) {
+                if (node.closest('[hidden]')) continue;
+                const label = String(node.textContent || node.getAttribute?.('placeholder') || node.getAttribute?.('aria-label') || '').replace(/\s+/g, ' ').trim();
+                if (label.length >= 2 && label.length <= 100 && searchTextMatches(label, query)) return label;
+            }
+            return '';
+        }
+
+        function setupWorkspaceSearch({ fieldId, resultsId, tabIds, emptyText }) {
+            const field = document.getElementById(fieldId);
+            const resultsContainer = document.getElementById(resultsId);
+            let activeResults = [];
+
+            function update() {
+                const query = normalizedSearchText(field.value);
+                activeResults = [];
+
+                for (const tabId of tabIds) {
+                    const panel = document.getElementById(`tab-${tabId}`);
+                    const button = tabButtons.find(candidate => candidate.dataset.tab === tabId);
+                    if (!panel || !button || button.hidden) {
+                        button?.classList.remove('search-muted', 'search-match');
+                        continue;
+                    }
+
+                    const surfaces = Array.from(panel.querySelectorAll('.section')).filter(surface => !surface.closest('[hidden]'));
+                    if (!surfaces.length) surfaces.push(panel);
+                    const matches = query ? surfaces.filter(surface => searchTextMatches(`${surface.textContent} ${surface.dataset.searchKeywords || ''}`, query)) : [];
+                    const aliasMatches = Boolean(query) && searchTextMatches(`${button.textContent} ${panelSearchAliases[tabId] || ''}`, query);
+                    const tabMatches = matches.length > 0 || aliasMatches;
+                    button.classList.toggle('search-muted', Boolean(query) && !tabMatches);
+                    button.classList.toggle('search-match', Boolean(query) && tabMatches);
+                    button.setAttribute('aria-label', query ? `${button.textContent.trim()}, ${tabMatches ? 'contains matches' : 'no matches'}` : button.textContent.trim());
+
+                    const seenLabels = new Set();
+                    for (const surface of matches) {
+                        const surfaceLabel = searchNodeLabel(surface, button.textContent.trim());
+                        const controlLabel = matchingControlLabel(surface, query);
+                        const label = controlLabel && !searchTextMatches(surfaceLabel, query)
+                            ? `${surfaceLabel} — ${controlLabel}`
+                            : surfaceLabel;
+                        const key = normalizedSearchText(`${tabId} ${label}`);
+                        if (!label || seenLabels.has(key)) continue;
+                        seenLabels.add(key);
+                        activeResults.push({ tabId, label, node: surface });
+                    }
+                    if (aliasMatches && !matches.length) {
+                        activeResults.push({ tabId, label: button.textContent.trim(), node: panel });
+                    }
+                }
+
+                if (!query) {
+                    resultsContainer.hidden = true;
+                    resultsContainer.innerHTML = '';
+                    return;
+                }
+
+                const visibleResults = activeResults.slice(0, 10);
+                resultsContainer.hidden = false;
+                resultsContainer.innerHTML = visibleResults.length
+                    ? visibleResults.map((result, index) => {
+                        const tabLabel = tabButtons.find(button => button.dataset.tab === result.tabId)?.textContent.trim() || result.tabId;
+                        return `<button class="developer-search-result" type="button" data-workspace-search-result="${index}"><strong>${escapeHtml(result.label)}</strong><span>${escapeHtml(tabLabel)}</span></button>`;
+                    }).join('')
+                    : `<div class="developer-search-empty">${escapeHtml(emptyText)}</div>`;
+            }
+
+            field.addEventListener('input', update);
+            field.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    field.value = '';
+                    update();
+                } else if (event.key === 'Enter' && activeResults.length) {
+                    event.preventDefault();
+                    resultsContainer.querySelector('[data-workspace-search-result]')?.click();
+                }
+            });
+            resultsContainer.addEventListener('click', event => {
+                const resultButton = event.target.closest('[data-workspace-search-result]');
+                if (!resultButton) return;
+                const result = activeResults[Number(resultButton.dataset.workspaceSearchResult)];
+                if (!result) return;
+                tabButtons.find(button => button.dataset.tab === result.tabId)?.click();
+                window.setTimeout(() => {
+                    if (!result.node.isConnected) return;
+                    result.node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    result.node.classList.remove('developer-search-target');
+                    void result.node.offsetWidth;
+                    result.node.classList.add('developer-search-target');
+                }, 100);
+            });
+
+            return { update };
+        }
+
+        const dashboardTabOrder = tabButtons
+            .map(button => button.dataset.tab)
+            .filter(tabId => !fixedDeveloperTabIds.has(tabId));
+        const developerSearch = setupWorkspaceSearch({
+            fieldId: 'developerSearch',
+            resultsId: 'developerSearchResults',
+            tabIds: defaultDeveloperTabOrder,
+            emptyText: 'No developer setting or tool matches this search.'
+        });
+        const dashboardSearch = setupWorkspaceSearch({
+            fieldId: 'dashboardSearch',
+            resultsId: 'dashboardSearchResults',
+            tabIds: dashboardTabOrder,
+            emptyText: 'No dashboard feature or setting matches this search.'
+        });
+
         function applyTabOrder(order) {
             if (!Array.isArray(order) || order.length === 0) {
                 return;
@@ -3841,6 +4290,7 @@
             const data = await api('/auth/me');
             state.authenticated = data.authenticated === true;
             if (!state.authenticated) return false;
+            state.privateConnection = data.privateConnection === true;
             state.role = ['developer', 'owner', 'manager', 'user'].includes(data.role) ? data.role : 'user';
             state.actualRole = data.actualRole === 'developer' ? 'developer' : 'admin';
             state.accountUsername = data.user.username;
@@ -3854,8 +4304,11 @@
             document.getElementById('homeAvatar').src = data.user.avatarUrl;
             document.getElementById('homeUsername').textContent = data.user.username;
             document.getElementById('homeFeedbackNav').hidden = false;
+            document.getElementById('feedbackSignedOut').hidden = true;
+            document.getElementById('feedbackSignedIn').hidden = false;
             document.getElementById('homeDeveloperNav').hidden = state.actualRole !== 'developer';
             document.getElementById('homeLoginCta').hidden = true;
+            applyTailscaleAvailability();
             return true;
         }
 
@@ -3900,7 +4353,7 @@
         });
 
         document.getElementById('refreshDiscordAccess').addEventListener('click', () => {
-            window.location.assign('/auth/login?refresh=1');
+            refreshDiscordSignIn();
         });
 
         function applyTabNames(names) {
@@ -4043,7 +4496,7 @@
                     state.role !== 'developer'
                         ? 'No shared server is currently available with Administrator permission.'
                         : 'Flummi is not currently connected to a server.',
-                    { type: 'warn', actionLabel: 'Refresh Discord access', action: () => window.location.assign('/auth/login?refresh=1') }
+                    { type: 'warn', actionLabel: 'Refresh Discord access', action: refreshDiscordSignIn }
                 );
                 return;
             }
@@ -4508,6 +4961,14 @@
             field.textContent = text || '';
             field.className = 'status';
             if (kind) field.classList.add(kind);
+            if (kind === 'error' && /Refresh your Discord sign-in/i.test(String(text || ''))) {
+                const button = document.createElement('button');
+                button.className = 'status-refresh-button';
+                button.type = 'button';
+                button.textContent = 'Refresh Discord sign-in';
+                button.addEventListener('click', refreshDiscordSignIn);
+                field.appendChild(button);
+            }
             field.hidden = !field.textContent.trim();
         }
 
@@ -6189,21 +6650,28 @@
         function updateFileWriteAccess() {
             const access = developerFiles.writeAccess;
             const banner = document.getElementById('fileManagerAccess');
+            const message = document.getElementById('fileManagerAccessMessage');
+            const refreshButton = document.getElementById('fileRefreshAuthentication');
+            banner.className = 'banner banner-with-action';
+            refreshButton.hidden = true;
             if (access.canWrite) {
-                banner.className = 'banner ok';
-                banner.textContent = 'Write access active through the private Tailscale/localhost route. Recent Discord authentication expires after 30 minutes.';
+                banner.classList.add('ok');
+                message.textContent = 'Write access active through the private Tailscale/localhost route. Recent Discord authentication expires after 30 minutes.';
             } else if (!access.privateConnection) {
-                banner.className = 'banner warn';
-                banner.innerHTML = 'Read-only source access on the public Cloudflare route. Runtime <code>data/</code>, logs, search, and all changes require <code>http://100.111.62.126:3789</code>.';
+                banner.classList.add('warn');
+                message.innerHTML = 'Read-only source access on the public Cloudflare route. Runtime <code>data/</code>, logs, search, and all changes require <code>http://100.111.62.126:3789</code>.';
             } else {
-                banner.className = 'banner warn';
-                banner.innerHTML = 'Private connection confirmed. <a href="/auth/login?refresh=1">Refresh Discord authentication</a> to enable file changes for 30 minutes.';
+                banner.classList.add('warn');
+                message.textContent = 'Private connection confirmed. Refresh your Discord sign-in to enable file changes for 30 minutes.';
+                refreshButton.hidden = false;
             }
             for (const id of ['fileNew', 'fileNewFolder', 'fileUploadButton', 'fileRunTests', 'fileRestart']) {
                 document.getElementById(id).disabled = !access.canWrite;
             }
             updateFileEditorControls();
         }
+
+        document.getElementById('fileRefreshAuthentication').addEventListener('click', refreshDiscordSignIn);
 
         function updateFileEditorControls() {
             const selected = developerFiles.selected;
@@ -6293,11 +6761,12 @@
             const container = document.getElementById('fileBrowserList');
             container.innerHTML = entries.length ? entries.map(entry => `
                 <button class="file-entry ${developerFiles.selected?.path === entry.path ? 'active' : ''}" type="button"
-                    data-file-path="${escapeHtml(entry.path)}" data-file-type="${entry.type}" data-file-editable="${entry.editable}">
+                    data-file-path="${escapeHtml(entry.path)}" data-file-type="${entry.type}" data-file-editable="${entry.editable}" ${entry.privateOnly ? 'data-tailscale-required' : ''}>
                     <span>${entry.type === 'directory' ? '📁' : entry.editable ? '📄' : '📦'}</span>
                     <span>${escapeHtml(entry.name)}</span>
                     <span class="file-entry-meta">${entry.type === 'file' ? escapeHtml(formatFileSize(entry.size)) : ''}</span>
                 </button>`).join('') : '<div class="empty">This folder is empty.</div>';
+            applyTailscaleAvailability(container);
             container.querySelectorAll('[data-file-path]').forEach(button => button.addEventListener('click', () => {
                 if (button.dataset.fileType === 'directory') {
                     loadFileDirectory(button.dataset.filePath).catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'));
@@ -6581,11 +7050,31 @@
             const updateStatus = await api('/api/update-status');
             const aiHealth = await api('/api/ai-health');
             document.getElementById('aiHealthCards').innerHTML = [statCard('Current model', aiHealth.currentModel || 'Not configured'), statCard('Last reply', aiHealth.lastReply?.latencyMs ? `${aiHealth.lastReply.latencyMs}ms` : 'No data yet'), statCard('Success rate', aiHealth.successRate === null ? 'No data yet' : `${aiHealth.successRate}%`), statCard('Timeouts', aiHealth.timeouts || 0), statCard('Rate limits', aiHealth.rateLimits || 0), statCard('Failures', aiHealth.failures || 0)].join('');
+            const release = updateStatus.release || {};
+            const liveCommitId = updateStatus.lastPromotedShortCommit || release.live?.shortHash || 'Unavailable';
+            const liveCommitTimestamp = updateStatus.lastPromotedAt || release.live?.promotedAt;
             document.getElementById('updateStatusCards').innerHTML = [
                 statCard('Last update check', updateStatus.lastCheckedAt ? formatDateTime(updateStatus.lastCheckedAt) : 'Never'),
                 statCard('Last GitHub pull', updateStatus.lastUpdatedAt ? formatDateTime(updateStatus.lastUpdatedAt) : 'Never'),
-                statCard('Pulled commit', updateStatus.lastUpdatedCommit || '—')
+                statCard('Staged, not live', release.available ? release.pendingCommitCount : 'Unavailable'),
+                statCard('Staging head', release.staging?.shortHash || updateStatus.lastUpdatedCommit || 'Unavailable', release.staging?.hash || ''),
+                statCard('Last pushed live', liveCommitId, updateStatus.lastPromotedCommit || release.live?.hash || ''),
+                statCard('Live push date', liveCommitTimestamp ? formatDateTime(liveCommitTimestamp) : 'Not recorded yet')
             ].join('');
+
+            const comparisonStatus = document.getElementById('releaseComparisonStatus');
+            const comparisonLabels = { 'in-sync': 'Staging and live match', ahead: 'Ready to promote', behind: 'Staging is behind live', diverged: 'History diverged' };
+            comparisonStatus.textContent = release.available ? (comparisonLabels[release.relation] || 'Status unknown') : 'Git comparison unavailable';
+            comparisonStatus.className = `badge ${release.relation === 'in-sync' ? 'on' : release.relation === 'ahead' ? 'manager' : 'off'}`;
+            renderTable(document.getElementById('stagedCommitList'), [
+                { label: 'Commit', key: 'shortHash', render: row => `<code title="${escapeHtml(row.hash)}">${escapeHtml(row.shortHash)}</code>` },
+                { label: 'Change', key: 'subject' },
+                { label: 'Committed', key: 'committedAt', render: row => formatDateTime(row.committedAt) }
+            ], release.stagedCommits || [], release.available
+                ? release.relation === 'behind'
+                    ? 'Staging is behind the live checkout; there are no staged commits to promote.'
+                    : 'Staging and live currently use the same commit.'
+                : (release.reason || 'Git comparison is unavailable.'));
 
             renderTable(document.getElementById('runtimeTable'),
                 [
@@ -6703,26 +7192,102 @@
             document.getElementById('experimentPanelRole').disabled = !event.target.checked;
         });
 
+        let feedbackCooldownTimer = null;
+
+        function formatFeedbackWait(totalSeconds) {
+            const seconds = Math.max(0, Math.ceil(totalSeconds));
+            if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+            const minutes = Math.floor(seconds / 60);
+            const remainder = seconds % 60;
+            return remainder ? `${minutes}:${String(remainder).padStart(2, '0')}` : `${minutes} minute${minutes === 1 ? '' : 's'}`;
+        }
+
+        function startFeedbackCooldown(seconds, { message, type = 'ok', readyMessage = 'You can send feedback again.' }) {
+            const button = document.getElementById('submitHomeFeedback');
+            const status = document.getElementById('homeFeedbackStatus');
+            const endsAt = Date.now() + Math.max(1, Number(seconds) || 1) * 1000;
+            clearInterval(feedbackCooldownTimer);
+
+            const update = () => {
+                const remaining = Math.ceil((endsAt - Date.now()) / 1000);
+                if (remaining <= 0) {
+                    clearInterval(feedbackCooldownTimer);
+                    feedbackCooldownTimer = null;
+                    button.disabled = false;
+                    setStatus(status, readyMessage, 'ok');
+                    return;
+                }
+                button.disabled = true;
+                setStatus(status, `${message} ${formatFeedbackWait(remaining)}.`, type);
+            };
+
+            update();
+            feedbackCooldownTimer = window.setInterval(update, 1000);
+        }
+
         document.getElementById('submitHomeFeedback').addEventListener('click', async () => {
             const field = document.getElementById('homeFeedbackMessage');
             const status = document.getElementById('homeFeedbackStatus');
+            const button = document.getElementById('submitHomeFeedback');
+            if (button.disabled) return;
+            button.disabled = true;
             try {
-                await api('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: field.value }) });
+                const result = await api('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: field.value }) });
                 field.value = '';
-                setStatus(status, 'Thanks — your feedback was sent.', 'ok');
-            } catch (error) { setStatus(status, error.message, 'error'); }
+                const remaining = Number(result.rateLimit?.remainingThisHour);
+                startFeedbackCooldown(result.rateLimit?.cooldownSeconds || 60, {
+                    message: `Thanks — your feedback was sent.${Number.isFinite(remaining) ? ` ${remaining} of 5 messages remaining this hour.` : ''} You can send another in`,
+                    readyMessage: Number.isFinite(remaining) ? `Ready for another message. ${remaining} of 5 messages remaining this hour.` : 'You can send feedback again.'
+                });
+            } catch (error) {
+                if (error?.code === 'FEEDBACK_RATE_LIMITED') {
+                    startFeedbackCooldown(error.data?.retryAfterSeconds || 60, {
+                        message: 'Feedback is rate limited. Try again in',
+                        type: 'error',
+                        readyMessage: 'You can try sending feedback again.'
+                    });
+                } else {
+                    button.disabled = false;
+                    setStatus(status, error.message, 'error');
+                }
+            }
         });
 
-        document.getElementById('loadFeedbackCollection').addEventListener('click', async () => {
+        async function loadFeedbackCollection() {
             const container = document.getElementById('feedbackCollection');
             try {
                 const data = await api('/api/feedback');
                 renderTable(container, [
                     { label: 'From', key: 'username' },
                     { label: 'Feedback', key: 'message' },
-                    { label: 'Received', key: 'createdAt', render: row => formatDateTime(row.createdAt) }
+                    { label: 'Received', key: 'createdAt', render: row => formatDateTime(row.createdAt) },
+                    { label: 'Manage', sortable: false, render: row => `<button class="danger feedback-delete" type="button" data-feedback-delete="${escapeHtml(row.id)}">Delete</button>` }
                 ], data.feedback || [], 'No feedback collected yet.');
             } catch (error) { container.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`; }
+        }
+
+        document.getElementById('loadFeedbackCollection').addEventListener('click', () => loadFeedbackCollection());
+        document.getElementById('feedbackCollection').addEventListener('click', async event => {
+            const button = event.target.closest('[data-feedback-delete]');
+            if (!button) return;
+            const feedbackId = button.dataset.feedbackDelete;
+            const confirmed = await confirmAction({
+                title: 'Delete this feedback?',
+                message: 'This permanently removes the feedback message from the inbox.',
+                confirmLabel: 'Delete feedback'
+            });
+            if (!confirmed) return;
+
+            const status = document.getElementById('feedbackCollectionStatus');
+            button.disabled = true;
+            try {
+                await api(`/api/feedback?id=${encodeURIComponent(feedbackId)}`, { method: 'DELETE' });
+                setStatus(status, 'Feedback deleted.', 'ok');
+                await loadFeedbackCollection();
+            } catch (error) {
+                button.disabled = false;
+                setStatus(status, error.message, 'error');
+            }
         });
 
         document.getElementById('promoteLiveRelease').addEventListener('click', async () => {
@@ -6749,6 +7314,11 @@
         }
 
         async function initializePanel() {
+            const reauthReturn = sessionStorage.getItem(reauthReturnKey);
+            sessionStorage.removeItem(reauthReturnKey);
+            if (reauthReturn?.startsWith('/?') && window.location.pathname === '/' && !window.location.search) {
+                history.replaceState(null, '', reauthReturn);
+            }
             const requestedParams = new URLSearchParams(window.location.search);
             const authenticated = await loadPanelAccount();
             showHomeView('servers');

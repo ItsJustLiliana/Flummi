@@ -143,10 +143,11 @@ test('Messages, Voice, and Server Media share total, range, and previous-period 
     for (const id of ['messageRangeLabel', 'voiceRangeLabel', 'voiceMinutesRangeLabel', 'soundboardRangeLabel']) assert.match(panelHtml, new RegExp(`id="${id}"`));
 });
 
-test('help tooltips activate only from their question-mark controls', () => {
+test('tooltips activate only from help controls and unavailable Tailscale features', () => {
     assert.doesNotMatch(panelHtml, /surface\.dataset\.tooltip/);
     assert.doesNotMatch(panelHtml, /closest\?\.\('\[data-tooltip\]'\)/);
-    assert.match(panelHtml, /closest\?\.\('\.help-tip\[data-tooltip\]'\)/);
+    assert.match(panelHtml, /const tooltipAnchorSelector = '\.help-tip\[data-tooltip\], \[data-tailscale-disabled="true"\]\[data-tooltip\]'/);
+    assert.match(panelHtml, /closest\?\.\(tooltipAnchorSelector\)/);
     assert.match(panelHtml, /All tracked voice time, including the current duration of active sessions/);
     assert.match(panelHtml, /immediately preceding period of equal length/);
     assert.match(panelHtml, /Cell intensity is scaled against the busiest cell/);

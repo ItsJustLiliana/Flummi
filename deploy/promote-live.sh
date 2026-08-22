@@ -30,4 +30,7 @@ printf '%s\n' "${previous_commit}" > "${rollback_file}"
 git -C "${production_dir}" reset --hard "${target_commit}"
 npm --prefix "${production_dir}" ci --omit=dev
 systemctl --user restart flummi.service
+if ! node "${production_dir}/scripts/record-update-status.js" promoted; then
+  echo "Warning: live promotion succeeded, but its timestamp could not be recorded." >&2
+fi
 echo "Promoted ${target_commit}; rollback commit is ${previous_commit}."

@@ -54,6 +54,7 @@ test('developer file writes require developer access, Tailscale, and recent auth
     assert.match(panelServer, /function requireDeveloperSensitiveFileAccess\(req, res\)/);
     assert.match(panelServer, /isSensitivePath\(requestedPath\)/);
     assert.match(panelServer, /Runtime data and log files are only available through the direct Tailscale/);
+    assert.match(panelServer, /privateConnection: developerFileWriteStatus\(req, session\)\.privateConnection/);
 });
 
 test('public site maintenance can only be controlled privately and preserves private access', () => {

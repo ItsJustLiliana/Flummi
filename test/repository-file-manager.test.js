@@ -42,12 +42,17 @@ test('repository paths remain inside the allowlisted Flummi workspace', () => {
 test('root listing exposes the safe environment example but never the real environment', t => {
     const context = fixture();
     t.after(() => fs.rmSync(context.base, { recursive: true, force: true }));
-    const names = context.manager.list('').entries.map(entry => entry.name);
+    const entries = context.manager.list('').entries;
+    const names = entries.map(entry => entry.name);
     assert.equal(names.includes('.env.example'), true);
     assert.equal(names.includes('.env'), false);
     assert.equal(names.includes('data'), true);
     assert.equal(names.includes('logs'), true);
     assert.equal(names.includes('latest.log'), true);
+    assert.equal(entries.find(entry => entry.name === 'data').privateOnly, true);
+    assert.equal(entries.find(entry => entry.name === 'logs').privateOnly, true);
+    assert.equal(entries.find(entry => entry.name === 'latest.log').privateOnly, true);
+    assert.equal(entries.find(entry => entry.name === 'panel').privateOnly, false);
     assert.equal(context.manager.list('data/runtime').entries.some(entry => entry.name === 'file-manager'), false);
 });
 

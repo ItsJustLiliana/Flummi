@@ -141,7 +141,8 @@ class RepositoryFileManager {
                     type: entry.isDirectory() ? 'directory' : 'file',
                     size: entry.isFile() ? stat.size : null,
                     modifiedAt: stat.mtime.toISOString(),
-                    editable: entry.isFile() && isTextPath(childRelative)
+                    editable: entry.isFile() && isTextPath(childRelative),
+                    privateOnly: isSensitivePath(childRelative)
                 };
             })
             .sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'directory' ? -1 : 1));

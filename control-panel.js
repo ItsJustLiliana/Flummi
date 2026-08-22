@@ -11,6 +11,7 @@ const { loadEnv } = require('./utils/env-loader');
 const { readConfig, saveConfig: saveLocalConfig } = require('./utils/config');
 const { buildFieldChanges } = require('./utils/audit-details');
 const { RepositoryFileError, RepositoryFileManager, isSensitivePath } = require('./services/repository-file-manager');
+const { buildReleaseStatus } = require('./services/release-status');
 const config = readConfig();
 config.commandPermissions = { ...(config.commandPermissions || {}), dashboard: 'user' };
 const settingsStore = require('./stores/settings-store');
@@ -1127,6 +1128,7 @@ function createServer() {
                     user: { id: session.userId, username: session.username, avatarUrl },
                     role: hasDeveloperView(session) ? 'developer' : (getPreviewPanelRole(session) || 'user'),
                     actualRole: isDeveloperSession(session) ? 'developer' : 'admin',
+                    privateConnection: developerFileWriteStatus(req, session).privateConnection,
                     previewAdminView: Boolean(getPreviewPanelRole(session)),
                     previewPanelRole: getPreviewPanelRole(session),
                     discordRoleSimulation: accessStore.getDeveloperRoleSimulation(session.userId)
@@ -1660,15 +1662,52 @@ function createServer() {
                     sendJson(res, 400, { error: 'Feedback cannot be empty.' });
                     return;
                 }
-                const feedback = feedbackStore.addFeedback({ userId: panelSession.userId, username: panelSession.username, message: parsed.message });
-                auditPanelAction(panelSession, 'feedback-submit', 'Submitted product feedback', { feedbackId: feedback.id });
-                sendJson(res, 201, { ok: true, feedback });
+                try {
+                    const feedback = feedbackStore.addFeedback({ userId: panelSession.userId, username: panelSession.username, message: parsed.message });
+                    const rateLimit = feedbackStore.getRateLimit(panelSession.userId);
+                    auditPanelAction(panelSession, 'feedback-submit', 'Submitted product feedback', { feedbackId: feedback.id });
+                    sendJson(res, 201, {
+                        ok: true,
+                        feedback,
+                        rateLimit: { cooldownSeconds: 60, hourlyLimit: 5, remainingThisHour: rateLimit.remainingThisHour }
+                    });
+                } catch (error) {
+                    if (error?.code !== 'FEEDBACK_RATE_LIMITED') throw error;
+                    res.setHeader('Retry-After', String(error.retryAfterSeconds));
+                    sendJson(res, 429, {
+                        code: error.code,
+                        error: error.message,
+                        retryAfterSeconds: error.retryAfterSeconds,
+                        hourlyLimit: 5
+                    });
+                }
                 return;
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/feedback') {
                 if (!requireDeveloperAccess(panelSession, res)) return;
                 sendJson(res, 200, { feedback: feedbackStore.readFeedback() });
+                return;
+            }
+
+            if (req.method === 'DELETE' && requestUrl.pathname === '/api/feedback') {
+                if (!requireDeveloperAccess(panelSession, res)) return;
+                const feedbackId = requestUrl.searchParams.get('id');
+                if (!feedbackId) {
+                    sendJson(res, 400, { error: 'Feedback id is required.' });
+                    return;
+                }
+                const deleted = feedbackStore.deleteFeedback(feedbackId);
+                if (!deleted) {
+                    sendJson(res, 404, { error: 'Feedback was already removed or could not be found.' });
+                    return;
+                }
+                auditPanelAction(panelSession, 'feedback-delete', 'Deleted product feedback', {
+                    feedbackId: deleted.id,
+                    submittedBy: deleted.username,
+                    submittedByUserId: deleted.userId
+                });
+                sendJson(res, 200, { ok: true });
                 return;
             }
 
@@ -2384,7 +2423,7 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/update-status') {
                 let status = {};
                 try { status = JSON.parse(fs.readFileSync(updateStatusFilePath, 'utf8')); } catch { /* updater has not run yet */ }
-                sendJson(res, 200, status);
+                sendJson(res, 200, { ...status, release: buildReleaseStatus() });
                 return;
             }
 

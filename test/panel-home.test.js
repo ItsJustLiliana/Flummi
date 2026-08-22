@@ -111,12 +111,21 @@ test('management pages stay in the nested sidebar while their modules can be tog
     assert.match(panelHtml, /state\.management\.modules\[moduleKey\] = nextEnabled/);
     assert.match(panelHtml, /button\.hidden = false/);
     assert.match(panelHtml, /data-page-module-toggle="moderation"/);
-    assert.match(panelHtml, /tabId === 'management' \? managementGroup : btn/);
     assert.match(panelHtml, /function normalizeEditableTabOrder\(order\)/);
-    assert.match(panelHtml, /requestedManagementOrder = order\.filter\(tabId => managementChildTabIds\.has\(tabId\)\)/);
-    assert.match(panelHtml, /managementSubnav\.appendChild\(child\)/);
+    assert.match(panelHtml, /requestedChildren = order\.filter\(tabId => group\.children\.has\(tabId\)\)/);
+    assert.match(panelHtml, /subnav\.appendChild\(child\)/);
     assert.match(panelHtml, /data-tab-order-entry="\$\{escapeHtml\(entry\)\}"/);
-    assert.match(panelHtml, /<span class="badge manager">Management<\/span>/);
+    assert.match(panelHtml, /nestedGroup\.label/);
+});
+
+test('message, voice, and server media tabs are nested and sortable under Analytics', () => {
+    assert.match(panelHtml, /id="analyticsNavToggle"[\s\S]*?aria-controls="analyticsSubnav"/);
+    const analyticsGroup = panelHtml.slice(panelHtml.indexOf('id="analyticsNavGroup"'), panelHtml.indexOf('id="managementNavGroup"'));
+    for (const tab of ['stats', 'voice', 'soundboard']) assert.match(analyticsGroup, new RegExp(`data-tab="${tab}"[^>]*data-analytics-child`));
+    assert.match(panelHtml, /const analyticsChildTabIds = new Set\(\['stats', 'voice', 'soundboard'\]\)/);
+    assert.match(panelHtml, /parent: 'analytics', label: 'Analytics'/);
+    assert.match(panelHtml, /setAnalyticsExpanded\(true\)/);
+    assert.match(panelHtml, /if \(state\.role !== 'user'\) setManagementExpanded\(true\)/);
 });
 
 test('management configuration remains manager-only and saves through guild settings', () => {

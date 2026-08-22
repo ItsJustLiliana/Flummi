@@ -3795,11 +3795,16 @@
                 </div>
                 <nav class="tabs" aria-label="Dashboard sections">
                     <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
-                    <button class="tab-btn" data-tab="analytics" type="button">Stats &amp; Analytics</button>
+                    <div id="analyticsNavGroup" class="management-nav-group">
+                        <button id="analyticsNavToggle" class="tab-btn management-parent" data-tab="analytics" type="button" aria-expanded="true" aria-controls="analyticsSubnav">Stats &amp; Analytics</button>
+                        <div id="analyticsSubnav" class="management-subnav">
+                            <button class="tab-btn" data-tab="stats" data-analytics-child type="button">Messages</button>
+                            <button class="tab-btn" data-tab="voice" data-analytics-child type="button">Voice Analytics</button>
+                            <button class="tab-btn" data-tab="soundboard" data-analytics-child type="button">Server Media</button>
+                        </div>
+                    </div>
                     <button class="tab-btn" data-tab="triggers" type="button">Triggers</button>
                     <button class="tab-btn" data-tab="shots" type="button">Shots</button>
-                    <button class="tab-btn" data-tab="voice" type="button">Voice Analytics</button>
-                    <button class="tab-btn" data-tab="stats" type="button">Messages</button>
                     <button class="tab-btn" data-tab="users" type="button">Users &amp; Permissions</button>
                     <div id="managementNavGroup" class="management-nav-group" data-manager-only>
                         <button id="managementNavToggle" class="tab-btn management-parent" data-tab="management" data-manager-only
@@ -3819,7 +3824,6 @@
                     </div>
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
-                    <button class="tab-btn" data-tab="soundboard" type="button">Server Media</button>
                     <button class="tab-btn" data-tab="audit" data-audit-only type="button">Audit Log</button>
                 </nav>
                 <div class="sidebar-footer">
@@ -4402,6 +4406,12 @@
             strict: { serverInvites: 1, externalLinks: 1, messageSpam: 5, duplicateSpam: 2, mentionSpam: 4, capsSpam: 70, emojiSpam: 8, zalgoSpam: 8 }
         };
         const managementChildTabIds = new Set(Object.values(managementModuleDefinitions).map(definition => definition.tab));
+        const analyticsChildTabIds = new Set(['stats', 'voice', 'soundboard']);
+        const nestedTabGroups = [
+            { parent: 'analytics', label: 'Analytics', children: analyticsChildTabIds, elementId: 'analyticsNavGroup', subnavId: 'analyticsSubnav' },
+            { parent: 'management', label: 'Management', children: managementChildTabIds, elementId: 'managementNavGroup', subnavId: 'managementSubnav' }
+        ];
+        const nestedChildTabIds = new Set(nestedTabGroups.flatMap(group => [...group.children]));
         const tabLoaders = {
             overview: loadOverview,
             analytics: loadAnalytics,
@@ -4433,15 +4443,21 @@
         tabButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const isManagementParent = btn.dataset.tab === 'management';
+                const isAnalyticsParent = btn.dataset.tab === 'analytics';
                 if (isManagementParent) {
                     setManagementExpanded(document.getElementById('managementNavToggle').getAttribute('aria-expanded') !== 'true');
+                } else if (isAnalyticsParent) {
+                    setAnalyticsExpanded(document.getElementById('analyticsNavToggle').getAttribute('aria-expanded') !== 'true');
                 } else if (btn.dataset.managementModule) {
                     setManagementExpanded(true);
+                } else if (btn.hasAttribute('data-analytics-child')) {
+                    setAnalyticsExpanded(true);
                 }
-                const keepMobileManagementOpen = isManagementParent
+                const keepMobileNestedGroupOpen = (isManagementParent
                     && mobileMenuMedia.matches
-                    && document.getElementById('managementNavToggle').getAttribute('aria-expanded') === 'true';
-                if (!keepMobileManagementOpen) setMobileMenu(false);
+                    && document.getElementById('managementNavToggle').getAttribute('aria-expanded') === 'true')
+                    || (isAnalyticsParent && mobileMenuMedia.matches && document.getElementById('analyticsNavToggle').getAttribute('aria-expanded') === 'true');
+                if (!keepMobileNestedGroupOpen) setMobileMenu(false);
                 tabButtons.forEach(b => b.classList.remove('active'));
                 tabPanels.forEach(p => p.classList.remove('active'));
                 btn.classList.add('active');
@@ -4703,19 +4719,21 @@
             }
 
             const nav = document.querySelector('.tabs');
-            const managementGroup = document.getElementById('managementNavGroup');
             const seen = new Set();
-            const requestedManagementOrder = order.filter(tabId => managementChildTabIds.has(tabId));
-            const managementOrder = [...new Set([...requestedManagementOrder, ...managementChildTabIds])];
-            const managementSubnav = document.getElementById('managementSubnav');
-            for (const tabId of managementOrder) {
-                const child = tabButtons.find(button => button.dataset.tab === tabId);
-                if (child) managementSubnav.appendChild(child);
+            for (const group of nestedTabGroups) {
+                const requestedChildren = order.filter(tabId => group.children.has(tabId));
+                const childOrder = [...new Set([...requestedChildren, ...group.children])];
+                const subnav = document.getElementById(group.subnavId);
+                for (const tabId of childOrder) {
+                    const child = tabButtons.find(button => button.dataset.tab === tabId);
+                    if (child) subnav.appendChild(child);
+                }
             }
-            const effectiveOrder = order.filter(tabId => !managementChildTabIds.has(tabId));
-            if (!effectiveOrder.includes('management')) {
+            const effectiveOrder = order.filter(tabId => !nestedChildTabIds.has(tabId));
+            for (const group of nestedTabGroups) {
+                if (effectiveOrder.includes(group.parent)) continue;
                 const settingsIndex = effectiveOrder.indexOf('settings');
-                effectiveOrder.splice(settingsIndex >= 0 ? settingsIndex : effectiveOrder.length, 0, 'management');
+                effectiveOrder.splice(settingsIndex >= 0 ? settingsIndex : effectiveOrder.length, 0, group.parent);
             }
             const configuredDeveloperTabs = effectiveOrder.filter(tabId => fixedDeveloperTabIds.has(tabId));
             activeDeveloperTabOrder = [
@@ -4741,14 +4759,16 @@
                 const btn = tabButtons.find(b => b.dataset.tab === tabId);
 
                 if (btn && !seen.has(tabId)) {
-                    nav.appendChild(tabId === 'management' ? managementGroup : btn);
+                    const group = nestedTabGroups.find(candidate => candidate.parent === tabId);
+                    nav.appendChild(group ? document.getElementById(group.elementId) : btn);
                     seen.add(tabId);
                 }
             }
 
             for (const btn of tabButtons) {
-                if (!fixedDeveloperTabIds.has(btn.dataset.tab) && !managementChildTabIds.has(btn.dataset.tab) && !seen.has(btn.dataset.tab)) {
-                    nav.appendChild(btn.dataset.tab === 'management' ? managementGroup : btn);
+                if (!fixedDeveloperTabIds.has(btn.dataset.tab) && !nestedChildTabIds.has(btn.dataset.tab) && !seen.has(btn.dataset.tab)) {
+                    const group = nestedTabGroups.find(candidate => candidate.parent === btn.dataset.tab);
+                    nav.appendChild(group ? document.getElementById(group.elementId) : btn);
                 }
             }
 
@@ -4961,6 +4981,8 @@
             localStorage.setItem('flummi.guildId', state.guildId);
             applyAccessVisibility();
             if (state.role !== 'user') await loadManagement();
+            setAnalyticsExpanded(true);
+            if (state.role !== 'user') setManagementExpanded(true);
             document.getElementById('homeShell').hidden = true;
             document.getElementById('dashboardLayout').hidden = false;
             const rememberedDashboardTab = localStorage.getItem('flummi.activeTab');
@@ -6553,23 +6575,27 @@
         }
 
         function normalizeEditableTabOrder(order) {
-            const children = [...new Set([...order.filter(entry => managementChildTabIds.has(entry)), ...managementChildTabIds])];
-            const topLevel = order.filter(entry => !managementChildTabIds.has(entry));
-            let managementIndex = topLevel.indexOf('management');
-            if (managementIndex < 0) {
-                const settingsIndex = topLevel.indexOf('settings');
-                managementIndex = settingsIndex < 0 ? topLevel.length : settingsIndex;
-                topLevel.splice(managementIndex, 0, 'management');
+            let normalized = [...order];
+            for (const group of nestedTabGroups) {
+                const children = [...new Set([...normalized.filter(entry => group.children.has(entry)), ...group.children])];
+                normalized = normalized.filter(entry => !group.children.has(entry));
+                let parentIndex = normalized.indexOf(group.parent);
+                if (parentIndex < 0) {
+                    const settingsIndex = normalized.indexOf('settings');
+                    parentIndex = settingsIndex < 0 ? normalized.length : settingsIndex;
+                    normalized.splice(parentIndex, 0, group.parent);
+                }
+                normalized.splice(parentIndex + 1, 0, ...children);
             }
-            topLevel.splice(managementIndex + 1, 0, ...children);
-            return topLevel;
+            return normalized;
         }
 
         function moveEditableTab(index, direction) {
             editableTabOrder = normalizeEditableTabOrder(editableTabOrder);
             const entry = editableTabOrder[index];
-            if (managementChildTabIds.has(entry)) {
-                const children = editableTabOrder.filter(value => managementChildTabIds.has(value));
+            const childGroup = nestedTabGroups.find(group => group.children.has(entry));
+            if (childGroup) {
+                const children = editableTabOrder.filter(value => childGroup.children.has(value));
                 const targetChild = children[children.indexOf(entry) + direction];
                 if (!targetChild) return;
                 const targetIndex = editableTabOrder.indexOf(targetChild);
@@ -6578,9 +6604,10 @@
             }
             const units = [];
             for (let cursor = 0; cursor < editableTabOrder.length;) {
-                if (editableTabOrder[cursor] === 'management') {
+                const group = nestedTabGroups.find(candidate => candidate.parent === editableTabOrder[cursor]);
+                if (group) {
                     const values = [editableTabOrder[cursor++]];
-                    while (managementChildTabIds.has(editableTabOrder[cursor])) values.push(editableTabOrder[cursor++]);
+                    while (group.children.has(editableTabOrder[cursor])) values.push(editableTabOrder[cursor++]);
                     units.push(values);
                 } else {
                     units.push([editableTabOrder[cursor++]]);
@@ -6599,14 +6626,14 @@
             container.innerHTML = editableTabOrder.length ? `<table><tbody>${editableTabOrder.map((entry, index) => {
                 const divider = isDividerToken(entry);
                 const title = isTitleToken(entry);
-                const managementChild = managementChildTabIds.has(entry);
+                const nestedGroup = nestedTabGroups.find(group => group.children.has(entry));
                 const content = divider
                     ? '<span class="muted">──── Divider ────</span>'
                     : title
                         ? `<div class="row"><span class="badge manager">Category</span><input data-tab-title-index="${index}" maxlength="60" value="${escapeHtml(titleFromToken(entry))}" aria-label="Category title" style="flex:1"></div>`
-                        : `<div class="row">${managementChild ? '<span class="badge manager">Management</span>' : ''}<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name" style="flex:1"></div>`;
-                const requiredManagement = entry === 'management' || managementChild;
-                return `<tr data-tab-order-entry="${escapeHtml(entry)}"><td>${content}</td><td style="width:1%;white-space:nowrap"><button class="secondary" type="button" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" type="button" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> ${requiredManagement ? '' : `<button class="danger" type="button" data-tab-order="remove" data-index="${index}">Remove</button>`}</td></tr>`;
+                        : `<div class="row">${nestedGroup ? `<span class="badge manager">${escapeHtml(nestedGroup.label)}</span>` : ''}<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name" style="flex:1"></div>`;
+                const requiredGroupTab = nestedTabGroups.some(group => group.parent === entry || group.children.has(entry));
+                return `<tr data-tab-order-entry="${escapeHtml(entry)}"><td>${content}</td><td style="width:1%;white-space:nowrap"><button class="secondary" type="button" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" type="button" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> ${requiredGroupTab ? '' : `<button class="danger" type="button" data-tab-order="remove" data-index="${index}">Remove</button>`}</td></tr>`;
             }).join('')}</tbody></table>` : '<div class="empty">No tabs configured.</div>';
             container.querySelectorAll('[data-tab-order]').forEach(button => button.addEventListener('click', () => {
                 const index = Number(button.dataset.index); const action = button.dataset.tabOrder;
@@ -6645,6 +6672,14 @@
 
         let managementChannelsGuildId = null;
         let managementChannels = [];
+
+        function setAnalyticsExpanded(expanded) {
+            const toggle = document.getElementById('analyticsNavToggle');
+            const subnav = document.getElementById('analyticsSubnav');
+            const open = Boolean(expanded);
+            toggle.setAttribute('aria-expanded', String(open));
+            subnav.hidden = !open;
+        }
 
         function setManagementExpanded(expanded) {
             const toggle = document.getElementById('managementNavToggle');

@@ -106,6 +106,13 @@ test('presence updates are applied to both Discord gateway connections', () => {
     assert.match(panelServer, /if \(updates\.presence\) \{\s*applyConfiguredPresence\(client\)/);
 });
 
+test('command deployment keeps normal commands global and restricted commands guild-only', () => {
+    const deploySource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'deploy-commands.js'), 'utf8');
+    assert.match(deploySource, /const globalCommands = commands\s*\.filter\(command => !Array\.isArray\(command\.allowedGuildIds\)\)/);
+    assert.match(deploySource, /const guildCommands = commands\s*\.filter\(command => Array\.isArray\(command\.allowedGuildIds\) && command\.allowedGuildIds\.includes\(guildId\)\)/);
+    assert.doesNotMatch(deploySource, /globalCommandNames/);
+});
+
 test('management pages stay in the nested sidebar while their modules can be toggled', () => {
     assert.match(panelHtml, /id="managementNavToggle"[\s\S]*?aria-controls="managementSubnav"/);
     assert.match(panelHtml, /id="managementSubnav" class="management-subnav"/);

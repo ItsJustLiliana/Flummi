@@ -33,14 +33,18 @@ async function deployCommands() {
     ]));
 
     if (guildIds.length > 0) {
+        const globalCommands = commands
+            .filter(command => !Array.isArray(command.allowedGuildIds))
+            .map(command => command.data.toJSON());
+
         try {
             await rest.put(
                 Routes.applicationCommands(config.clientId),
-                { body: [] }
+                { body: globalCommands }
             );
-            console.log('Cleared global commands.');
+            console.log(`Registered ${globalCommands.length} global commands.`);
         } catch (error) {
-            console.warn(`Could not clear global commands: ${error.message}`);
+            console.warn(`Could not register global commands: ${error.message}`);
         }
 
         const failures = [];
@@ -48,14 +52,14 @@ async function deployCommands() {
         for (const guildId of guildIds) {
             try {
                 const guildCommands = commands
-                    .filter(command => !Array.isArray(command.allowedGuildIds) || command.allowedGuildIds.includes(guildId))
+                    .filter(command => Array.isArray(command.allowedGuildIds) && command.allowedGuildIds.includes(guildId))
                     .map(command => command.data.toJSON());
 
                 await rest.put(
                     Routes.applicationGuildCommands(config.clientId, guildId),
                     { body: guildCommands }
                 );
-                console.log(`Registered ${guildCommands.length} commands for guild ${guildId}.`);
+                console.log(`Registered ${guildCommands.length} guild-only commands for guild ${guildId}.`);
             } catch (error) {
                 failures.push({ guildId, error });
                 console.warn(`Skipping guild ${guildId}: ${error.message}`);

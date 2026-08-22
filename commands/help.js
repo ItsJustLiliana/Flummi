@@ -126,7 +126,8 @@ module.exports = {
 
     data: new SlashCommandBuilder()
         .setName('help')
-        .setDescription('Show your available commands and role'),
+        .setDescription('Show your available commands and role')
+        .setDMPermission(false),
 
     async execute(interaction) {
         const guildId = interaction.guildId;

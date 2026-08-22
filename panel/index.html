@@ -121,9 +121,9 @@
         .brand-image {
             width: 42px;
             height: 42px;
-            border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.22);
-            object-fit: cover;
+            border: none;
+            border-radius: 0;
+            object-fit: contain;
         }
 
         .brand-copy {
@@ -766,6 +766,7 @@
         }
 
         @media (max-width: 860px) {
+
             .two-col,
             .two-col.media-table-chart {
                 grid-template-columns: 1fr;
@@ -797,8 +798,8 @@
                 max-width: 100%;
             }
 
-        .table-wrap,
-        .table-toolbar {
+            .table-wrap,
+            .table-toolbar {
                 max-width: 100%;
                 overflow-x: auto;
                 overscroll-behavior-x: contain;
@@ -1090,7 +1091,7 @@
             border: 1px solid var(--border);
             border-radius: 9px;
             background-color: rgba(255, 255, 255, .045);
-            background-image: linear-gradient(45deg, rgba(255,255,255,.07) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.07) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,.07) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.07) 75%);
+            background-image: linear-gradient(45deg, rgba(255, 255, 255, .07) 25%, transparent 25%), linear-gradient(-45deg, rgba(255, 255, 255, .07) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, .07) 75%), linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, .07) 75%);
             background-size: 14px 14px;
             background-position: 0 0, 0 7px, 7px -7px, -7px 0;
             transition: transform .16s ease, border-color .16s ease;
@@ -1262,10 +1263,22 @@
             font-weight: 700;
         }
 
-        .trend.up { color: var(--ok); }
-        .trend.down { color: var(--danger); }
-        .trend.flat, .trend.unavailable { color: var(--muted); }
-        .trend.new { color: var(--accent); }
+        .trend.up {
+            color: var(--ok);
+        }
+
+        .trend.down {
+            color: var(--danger);
+        }
+
+        .trend.flat,
+        .trend.unavailable {
+            color: var(--muted);
+        }
+
+        .trend.new {
+            color: var(--accent);
+        }
 
         .stat-trend {
             margin-top: 6px;
@@ -1307,7 +1320,7 @@
             min-height: 360px;
             padding: 54px 28px 28px;
             background-color: #0d1730;
-            background-image: linear-gradient(45deg, rgba(255,255,255,.035) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.035) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,.035) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.035) 75%);
+            background-image: linear-gradient(45deg, rgba(255, 255, 255, .035) 25%, transparent 25%), linear-gradient(-45deg, rgba(255, 255, 255, .035) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, .035) 75%), linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, .035) 75%);
             background-size: 22px 22px;
             background-position: 0 0, 0 11px, 11px -11px, -11px 0;
         }
@@ -1859,18 +1872,50 @@
             white-space: pre-wrap;
         }
 
-        .file-diff .added { color: #8ce99a; }
-        .file-diff .removed { color: #ff9f9f; }
-        .syntax-keyword { color: #c792ea; font-weight: 650; }
-        .syntax-string { color: #c3e88d; }
-        .syntax-comment { color: #697998; font-style: italic; }
-        .syntax-number { color: #f78c6c; }
-        .syntax-tag { color: #89ddff; }
-        .file-runtime-output { min-height: 120px; max-height: 360px; }
+        .file-diff .added {
+            color: #8ce99a;
+        }
+
+        .file-diff .removed {
+            color: #ff9f9f;
+        }
+
+        .syntax-keyword {
+            color: #c792ea;
+            font-weight: 650;
+        }
+
+        .syntax-string {
+            color: #c3e88d;
+        }
+
+        .syntax-comment {
+            color: #697998;
+            font-style: italic;
+        }
+
+        .syntax-number {
+            color: #f78c6c;
+        }
+
+        .syntax-tag {
+            color: #89ddff;
+        }
+
+        .file-runtime-output {
+            min-height: 120px;
+            max-height: 360px;
+        }
 
         @media (max-width: 900px) {
-            .file-manager-layout { grid-template-columns: 1fr; }
-            .file-browser, .file-editor-panel { min-height: auto; }
+            .file-manager-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .file-browser,
+            .file-editor-panel {
+                min-height: auto;
+            }
         }
     </style>
 </head>
@@ -1887,7 +1932,8 @@
                 <h2 style="font-size:20px;">Overview <span class="help-tip" tabindex="0"
                         data-tooltip="Overview refreshes automatically every 20 seconds while it is open. Use Refresh for an immediate update.">?</span>
                 </h2>
-                <p class="sub tab-intro">Server details, key totals, and recent message and voice activity at a glance.</p>
+                <p class="sub tab-intro">Server details, key totals, and recent message and voice activity at a glance.
+                </p>
                 <div id="guildHeader"></div>
                 <div class="overview-summary-row">
                     <div class="card-grid overview-quad" id="overviewQuad"></div>
@@ -1949,7 +1995,8 @@
             <!-- Stats and analytics summary -->
             <section id="tab-analytics" class="tab-panel">
                 <h2 style="font-size:20px;">Stats &amp; Analytics</h2>
-                <p class="sub tab-intro">A quick 30-day snapshot across the server. Open each feature tab for its full analytics.</p>
+                <p class="sub tab-intro">A quick 30-day snapshot across the server. Open each feature tab for its full
+                    analytics.</p>
                 <div class="two-col">
                     <div class="section">
                         <h2>Messages</h2>
@@ -1980,7 +2027,8 @@
             <!-- Messenger -->
             <section id="tab-messenger" class="tab-panel" data-developer-only>
                 <h2 style="font-size:20px;">Messenger</h2>
-                <p class="sub tab-intro">Send a bot message, mention a member, or attach images to a selected channel.</p>
+                <p class="sub tab-intro">Send a bot message, mention a member, or attach images to a selected channel.
+                </p>
                 <div class="section">
                     <h2>Send a message as the bot</h2>
                     <div class="two-col">
@@ -2018,7 +2066,8 @@
             <!-- Triggers -->
             <section id="tab-triggers" class="tab-panel">
                 <h2 style="font-size:20px;">Triggers</h2>
-                <p class="sub tab-intro">Review automatic responses and, if permitted, create or change trigger rules.</p>
+                <p class="sub tab-intro">Review automatic responses and, if permitted, create or change trigger rules.
+                </p>
                 <div class="card-grid" id="triggerCards"></div>
                 <div class="two-col" data-trigger-manager-only>
                     <div class="section">
@@ -2094,9 +2143,12 @@
                 <h2 style="font-size:20px;">Voice Time <span class="help-tip" tabindex="0"
                         data-tooltip="Voice data refreshes every 5 seconds while this tab is open, so live sessions and durations stay current.">?</span>
                 </h2>
-                <p class="sub tab-intro">Live voice activity, session history, time totals, and member and channel rankings.</p>
-                <div class="row tab-controls"><label for="voiceGraphRange" style="margin:0">Period <span class="help-tip" tabindex="0"
-                            data-tooltip="Controls the date range for voice totals, comparisons, charts, and rankings. Total voice time remains all-time; the heatmap has its own range control.">?</span></label><select id="voiceGraphRange">
+                <p class="sub tab-intro">Live voice activity, session history, time totals, and member and channel
+                    rankings.</p>
+                <div class="row tab-controls"><label for="voiceGraphRange" style="margin:0">Period <span
+                            class="help-tip" tabindex="0"
+                            data-tooltip="Controls the date range for voice totals, comparisons, charts, and rankings. Total voice time remains all-time; the heatmap has its own range control.">?</span></label><select
+                        id="voiceGraphRange">
                         <option value="1">Last 1 day</option>
                         <option value="7">Last 7 days</option>
                         <option value="30" selected>Last 30 days</option>
@@ -2111,7 +2163,8 @@
                 <div class="card-grid" id="voiceCards"></div>
                 <div class="section">
                     <div class="row">
-                        <h2 style="margin:0">Voice sessions over time — <span id="voiceRangeLabel">last 30 days</span></h2>
+                        <h2 style="margin:0">Voice sessions over time — <span id="voiceRangeLabel">last 30 days</span>
+                        </h2>
                     </div>
                     <p class="sub">Completed voice sessions per day.</p>
                     <div id="voiceActivityChart" class="analytics-chart"></div>
@@ -2123,11 +2176,14 @@
                 <div class="section">
                     <div class="row heatmap-toolbar">
                         <h2>Voice activity by day and hour <span class="help-tip" tabindex="0"
-                                data-tooltip="Counts voice session starts by weekday and UTC hour. Cell intensity is scaled against the busiest cell in the selected heatmap range.">?</span></h2>
+                                data-tooltip="Counts voice session starts by weekday and UTC hour. Cell intensity is scaled against the busiest cell in the selected heatmap range.">?</span>
+                        </h2>
                         <div id="voiceHeatmapWeekControls" class="heatmap-week-controls" hidden>
-                            <button id="voiceHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
+                            <button id="voiceHeatmapPreviousWeek" class="secondary" type="button"
+                                aria-label="Previous week">&#8592;</button>
                             <span id="voiceHeatmapWeekLabel" class="heatmap-week-label"></span>
-                            <button id="voiceHeatmapNextWeek" class="secondary" type="button" aria-label="Next week">&#8594;</button>
+                            <button id="voiceHeatmapNextWeek" class="secondary" type="button"
+                                aria-label="Next week">&#8594;</button>
                         </div>
                         <select id="voiceHeatmapMode" aria-label="Voice heatmap period">
                             <option value="all">All time</option>
@@ -2164,7 +2220,8 @@
                     </div>
                     <div class="section">
                         <h2>Weekly / Monthly User Totals <span class="help-tip" tabindex="0"
-                                data-tooltip="Rolling 7-day and 31-day voice totals. They are also limited by the Period filter selected at the top of this page.">?</span></h2>
+                                data-tooltip="Rolling 7-day and 31-day voice totals. They are also limited by the Period filter selected at the top of this page.">?</span>
+                        </h2>
                         <div id="voiceUserTotals" class="table-wrap"></div>
                     </div>
                 </div>
@@ -2203,10 +2260,13 @@
             <!-- Messages -->
             <section id="tab-stats" class="tab-panel">
                 <h2 style="font-size:20px;">Messages</h2>
-                <p class="sub tab-intro">Detailed, privacy-friendly message activity. Message contents are never stored—only
+                <p class="sub tab-intro">Detailed, privacy-friendly message activity. Message contents are never
+                    stored—only
                     activity metadata.</p>
-                <div class="row tab-controls"><label for="analyticsDays" style="margin:0">Period <span class="help-tip" tabindex="0"
-                            data-tooltip="Controls message totals, the previous-period comparison, charts, and rankings. Total messages remains all-time; the heatmap has its own range control.">?</span></label><select id="analyticsDays">
+                <div class="row tab-controls"><label for="analyticsDays" style="margin:0">Period <span class="help-tip"
+                            tabindex="0"
+                            data-tooltip="Controls message totals, the previous-period comparison, charts, and rankings. Total messages remains all-time; the heatmap has its own range control.">?</span></label><select
+                        id="analyticsDays">
                         <option value="1">Last 1 day</option>
                         <option value="7">Last 7 days</option>
                         <option value="30" selected>Last 30 days</option>
@@ -2228,11 +2288,14 @@
                 <div class="section">
                     <div class="row heatmap-toolbar">
                         <h2>Message activity by day and hour <span class="help-tip" tabindex="0"
-                                data-tooltip="Counts messages by weekday and UTC hour. Cell intensity is scaled against the busiest cell in the selected heatmap range.">?</span></h2>
+                                data-tooltip="Counts messages by weekday and UTC hour. Cell intensity is scaled against the busiest cell in the selected heatmap range.">?</span>
+                        </h2>
                         <div id="messageHeatmapWeekControls" class="heatmap-week-controls" hidden>
-                            <button id="messageHeatmapPreviousWeek" class="secondary" type="button" aria-label="Previous week">&#8592;</button>
+                            <button id="messageHeatmapPreviousWeek" class="secondary" type="button"
+                                aria-label="Previous week">&#8592;</button>
                             <span id="messageHeatmapWeekLabel" class="heatmap-week-label"></span>
-                            <button id="messageHeatmapNextWeek" class="secondary" type="button" aria-label="Next week">&#8594;</button>
+                            <button id="messageHeatmapNextWeek" class="secondary" type="button"
+                                aria-label="Next week">&#8594;</button>
                         </div>
                         <select id="messageHeatmapMode" aria-label="Message heatmap period">
                             <option value="all">All time</option>
@@ -2257,7 +2320,8 @@
             <!-- Users & permissions -->
             <section id="tab-users" class="tab-panel">
                 <h2 style="font-size:20px;">Users &amp; Permissions</h2>
-                <p class="sub tab-intro">Browse server members and manage panel roles, feature access, and command permissions.</p>
+                <p class="sub tab-intro">Browse server members and manage panel roles, feature access, and command
+                    permissions.</p>
                 <div class="section">
                     <h2>Server Members</h2>
                     <p class="sub">Every non-bot member of the selected server. Change their role or reset them back to
@@ -2292,7 +2356,8 @@
             <!-- Settings -->
             <section id="tab-settings" class="tab-panel">
                 <h2 style="font-size:20px;">Settings</h2>
-                <p class="sub tab-intro">Configure server-specific bot behavior, limits, channels, and access settings.</p>
+                <p class="sub tab-intro">Configure server-specific bot behavior, limits, channels, and access settings.
+                </p>
                 <div class="section">
                     <h2>Guild Settings</h2>
                     <div class="two-col">
@@ -2348,14 +2413,19 @@
             <!-- Global developer settings -->
             <section id="tab-global" class="tab-panel">
                 <h2 style="font-size:20px;">Global Settings</h2>
-                <p class="sub tab-intro">Configure platform-wide feature gates, analytics retention, and panel navigation for every server and panel user.</p>
+                <p class="sub tab-intro">Configure platform-wide feature gates, analytics retention, and panel
+                    navigation for every server and panel user.</p>
                 <div id="developerSiteSettings" class="section">
                     <h2>Site Settings</h2>
-                    <p class="sub">Temporarily pause the public Cloudflare site without stopping Flummi, cloudflared, or direct Tailscale access.</p>
-                    <div class="banner warn">This setting can only be changed from the direct Tailscale or localhost panel. When paused, public visitors receive a 503 maintenance page and Discord OAuth through the public hostname is unavailable.</div>
+                    <p class="sub">Temporarily pause the public Cloudflare site without stopping Flummi, cloudflared, or
+                        direct Tailscale access.</p>
+                    <div class="banner warn">This setting can only be changed from the direct Tailscale or localhost
+                        panel. When paused, public visitors receive a 503 maintenance page and Discord OAuth through the
+                        public hostname is unavailable.</div>
                     <div class="checkbox-row"><input id="publicPanelEnabled" type="checkbox"><label
                             for="publicPanelEnabled" style="margin:0">Public Cloudflare site accessible</label></div>
-                    <div class="actions"><button id="savePublicPanelAccess" class="primary" type="button">Save site access</button></div>
+                    <div class="actions"><button id="savePublicPanelAccess" class="primary" type="button">Save site
+                            access</button></div>
                     <p id="publicPanelAccessStatus" class="status"></p>
                 </div>
                 <div id="developerGlobalFeatures" class="section">
@@ -2399,7 +2469,8 @@
                             class="secondary" type="button">Add divider</button></div>
                     <div class="section" style="margin-top:16px">
                         <h2>Developer tools</h2>
-                        <p class="sub">Rename these pages or reorder them inside the protected group. They cannot be moved
+                        <p class="sub">Rename these pages or reorder them inside the protected group. They cannot be
+                            moved
                             into the public navigation.</p>
                         <div id="developerTabOrderEditor" class="table-wrap"></div>
                     </div>
@@ -2412,9 +2483,9 @@
                     <h2>Backup &amp; Data Tools</h2>
                     <div class="row"><button id="downloadBackup" class="secondary" type="button">Download guild
                             backup</button><button id="loadStorage" class="secondary" type="button">Storage
-                            details</button><button id="exportTriggers" class="secondary" type="button">Export triggers JSON</button><label
-                            class="secondary" style="cursor:pointer">Import triggers JSON<input id="importTriggers"
-                                type="file" accept="application/json" hidden></label></div>
+                            details</button><button id="exportTriggers" class="secondary" type="button">Export triggers
+                            JSON</button><label class="secondary" style="cursor:pointer">Import triggers JSON<input
+                                id="importTriggers" type="file" accept="application/json" hidden></label></div>
                     <p id="triggerExportStatus" class="status"></p>
                     <div id="storageDetails" class="table-wrap"></div>
                     <div class="row" style="margin-top:12px"><input id="resetDataUser" placeholder="User ID"><select
@@ -2445,7 +2516,8 @@
             <!-- AI & system -->
             <section id="tab-profiles" class="tab-panel">
                 <h2 style="font-size:20px;">Profiles</h2>
-                <p class="sub tab-intro">Inspect and manage the information Flummi uses for a member's profile and AI context.</p>
+                <p class="sub tab-intro">Inspect and manage the information Flummi uses for a member's profile and AI
+                    context.</p>
                 <div class="section">
                     <div class="row">
                         <select id="profileUserSelect" style="flex:1;">
@@ -2466,7 +2538,8 @@
             <!-- AI & system -->
             <section id="tab-ai" class="tab-panel">
                 <h2 style="font-size:20px;">AI &amp; System</h2>
-                <p class="sub tab-intro">Monitor the Linux runtime and AI activity, and configure models, Discord presence, start-up behaviour, and bot profiles.</p>
+                <p class="sub tab-intro">Monitor the Linux runtime and AI activity, and configure models, Discord
+                    presence, start-up behaviour, and bot profiles.</p>
                 <div class="section">
                     <h2>Live Activity Feed</h2>
                     <div id="activityFeed" class="table-wrap"></div>
@@ -2631,10 +2704,14 @@
 
             <section id="tab-files" class="tab-panel">
                 <h2 style="font-size:20px;">Developer Files</h2>
-                <p class="sub tab-intro">Browse and edit the approved Flummi repository workspace, including runtime data
-                    and log files over Tailscale. Secrets, dependencies, Git internals, and paths outside the project remain blocked.</p>
-                <div class="banner ok">Opening a file takes a snapshot and never locks it. Flummi and other processes can
-                    continue writing. If a file changes after you open it, saving stops with a conflict instead of silently
+                <p class="sub tab-intro">Browse and edit the approved Flummi repository workspace, including runtime
+                    data
+                    and log files over Tailscale. Secrets, dependencies, Git internals, and paths outside the project
+                    remain blocked.</p>
+                <div class="banner ok">Opening a file takes a snapshot and never locks it. Flummi and other processes
+                    can
+                    continue writing. If a file changes after you open it, saving stops with a conflict instead of
+                    silently
                     overwriting the newer version.</div>
                 <div id="fileManagerAccess" class="banner warn">Checking write access...</div>
                 <div class="file-manager-layout">
@@ -2657,7 +2734,9 @@
                             <input id="fileUpload" type="file" style="flex:1">
                             <button id="fileUploadButton" class="secondary" type="button">Upload here</button>
                         </div>
-                        <div id="fileBrowserList" class="file-browser-list"><div class="empty">Loading...</div></div>
+                        <div id="fileBrowserList" class="file-browser-list">
+                            <div class="empty">Loading...</div>
+                        </div>
                     </div>
                     <div class="section file-editor-panel">
                         <div class="file-editor-header">
@@ -2675,7 +2754,8 @@
                         </div>
                         <div class="actions">
                             <button id="fileReload" class="secondary" type="button" disabled>Reload snapshot</button>
-                            <button id="filePreviewDiff" class="secondary" type="button" disabled>Preview changes</button>
+                            <button id="filePreviewDiff" class="secondary" type="button" disabled>Preview
+                                changes</button>
                             <button id="fileDownload" class="secondary" type="button" disabled>Download</button>
                             <button id="fileRename" class="secondary" type="button" disabled>Rename</button>
                             <button id="fileTrash" class="danger" type="button" disabled>Move to trash</button>
@@ -2700,7 +2780,8 @@
                     </div>
                     <div class="section">
                         <h2>Apply changes</h2>
-                        <p class="sub">Restarting applies server-side JavaScript changes and briefly disconnects the bot.</p>
+                        <p class="sub">Restarting applies server-side JavaScript changes and briefly disconnects the
+                            bot.</p>
                         <button id="fileRestart" class="danger" type="button">Restart Flummi</button>
                     </div>
                 </div>
@@ -2711,7 +2792,8 @@
                 <h2 style="font-size:20px;">Bot Logs <span class="help-tip" tabindex="0"
                         data-tooltip="Logs refresh every 20 seconds while this tab is open. Use Refresh now after reproducing an issue to see it immediately.">?</span>
                 </h2>
-                <p class="sub tab-intro">Recent bot-console messages. Use Errors first when diagnosing failed AI replies,
+                <p class="sub tab-intro">Recent bot-console messages. Use Errors first when diagnosing failed AI
+                    replies,
                     time-outs, or Discord API problems. Newest entries are shown first.</p>
                 <div class="section">
                     <div class="row">
@@ -2730,7 +2812,8 @@
                 <h2 style="font-size:20px;">Reliability <span class="help-tip" tabindex="0"
                         data-tooltip="This tab refreshes every 20 seconds. Automatic Discord gateway and API checks run every 30 seconds; /ping values update when a developer runs /ping.">?</span>
                 </h2>
-                <p class="sub tab-intro">Check runtime health, Discord permissions, event handlers, backups, and retained data.</p>
+                <p class="sub tab-intro">Check runtime health, Discord permissions, event handlers, backups, and
+                    retained data.</p>
                 <div id="reliabilityCards" class="card-grid"></div>
                 <div class="section">
                     <h2>Actions</h2>
@@ -2758,7 +2841,8 @@
 
             <section id="tab-soundboard" class="tab-panel">
                 <h2 style="font-size:20px;">Server Media</h2>
-                <p class="sub tab-intro">One inventory for the server's soundboard, custom emojis, and stickers. Usage is tracked
+                <p class="sub tab-intro">One inventory for the server's soundboard, custom emojis, and stickers. Usage
+                    is tracked
                     from when collection was enabled for each media type.</p>
                 <div class="row tab-controls">
                     <label for="mediaRange" style="margin:0">Period <span class="help-tip" tabindex="0"
@@ -2803,7 +2887,10 @@
                     <div class="section">
                         <h2>Custom emojis</h2>
                         <p class="sub">Click an emoji to enlarge it.</p>
-                        <div class="media-view-toggle" data-view-toggle="emoji"><button class="secondary active" type="button" data-media-view="emoji" data-view-mode="table">Table</button><button class="secondary" type="button" data-media-view="emoji" data-view-mode="gallery">Gallery</button></div>
+                        <div class="media-view-toggle" data-view-toggle="emoji"><button class="secondary active"
+                                type="button" data-media-view="emoji" data-view-mode="table">Table</button><button
+                                class="secondary" type="button" data-media-view="emoji"
+                                data-view-mode="gallery">Gallery</button></div>
                         <div id="emojiTable" class="table-wrap"></div>
                         <div id="emojiGallery" class="media-gallery" hidden></div>
                     </div>
@@ -2816,7 +2903,10 @@
                     <div class="section">
                         <h2>Stickers</h2>
                         <p class="sub">Click a sticker to enlarge it. Animated formats play in the enlarged preview.</p>
-                        <div class="media-view-toggle" data-view-toggle="sticker"><button class="secondary active" type="button" data-media-view="sticker" data-view-mode="table">Table</button><button class="secondary" type="button" data-media-view="sticker" data-view-mode="gallery">Gallery</button></div>
+                        <div class="media-view-toggle" data-view-toggle="sticker"><button class="secondary active"
+                                type="button" data-media-view="sticker" data-view-mode="table">Table</button><button
+                                class="secondary" type="button" data-media-view="sticker"
+                                data-view-mode="gallery">Gallery</button></div>
                         <div id="stickerTable" class="table-wrap"></div>
                         <div id="stickerGallery" class="media-gallery" hidden></div>
                     </div>
@@ -2829,7 +2919,8 @@
 
             <section id="tab-audit" class="tab-panel">
                 <h2 style="font-size:20px;">Audit Log</h2>
-                <p class="sub tab-intro">Confirmed panel changes for the selected server, including who performed them.</p>
+                <p class="sub tab-intro">Confirmed panel changes for the selected server, including who performed them.
+                </p>
                 <div class="section">
                     <div id="auditTable" class="table-wrap">
                         <div class="empty">Loading audit entries…</div>
@@ -2839,7 +2930,8 @@
 
             <section id="tab-experiments" class="tab-panel">
                 <h2 style="font-size:20px;">Experiments</h2>
-                <p class="sub tab-intro">Preview lower access roles and temporarily simulate how Flummi handles your Discord account.</p>
+                <p class="sub tab-intro">Preview lower access roles and temporarily simulate how Flummi handles your
+                    Discord account.</p>
                 <div class="banner warn">Experiments affect only your developer account. Admin view changes this panel
                     session; Discord role simulation changes how Flummi treats your account for up to two hours.</div>
                 <div class="two-col">
@@ -2876,7 +2968,7 @@
 
         <aside class="sidebar">
             <div class="brand">
-                <img class="brand-image" src="/assets/branding/flummi-pfp.jpeg" alt="Flummi">
+                <img class="brand-image" src="/assets/branding/flummi.png" alt="Flummi">
                 <div class="brand-copy">
                     <h1>Flummi</h1>
                     <p class="sub">Dashboard</p>
@@ -5602,7 +5694,7 @@
             const audio = playButton.closest('.sound-player')?.querySelector('audio');
             if (!audio) return;
             document.querySelectorAll('.sound-player audio').forEach(other => { if (other !== audio) other.pause(); });
-            if (audio.paused) audio.play().catch(() => {}); else audio.pause();
+            if (audio.paused) audio.play().catch(() => { }); else audio.pause();
             updateSoundPlayer(audio);
         });
 

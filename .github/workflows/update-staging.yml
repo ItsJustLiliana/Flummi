@@ -1,0 +1,33 @@
+name: Update staging
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flummi-staging-update
+  cancel-in-progress: false
+
+jobs:
+  update-staging:
+    name: Update Tailscale staging bot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Connect to the Flummi tailnet
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-actions
+          ping: archlinux.tail50bfa9.ts.net
+
+      - name: Pull main and restart staging
+        run: >-
+          tailscale ssh marijn@archlinux.tail50bfa9.ts.net
+          /usr/bin/bash /projects/Flummi-staging/deploy/stage-update.sh

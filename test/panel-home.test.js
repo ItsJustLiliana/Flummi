@@ -185,6 +185,8 @@ test('GitHub update status compares staged and live commits and records promotio
 
 test('dashboard reuses the landing surface styling and primary buttons keep a clean focus edge', () => {
     assert.match(panelHtml, /#dashboardLayout \{[\s\S]*?radial-gradient/);
+    assert.match(panelHtml, /\.home-shell \{[\s\S]*?background-attachment: fixed, fixed, fixed/);
+    assert.match(panelHtml, /#dashboardLayout \{[\s\S]*?background-attachment: fixed, fixed, fixed/);
     assert.match(panelHtml, /#dashboardLayout \.sidebar \{[\s\S]*?backdrop-filter: blur\(22px\)/);
     assert.match(panelHtml, /\.primary:focus:not\(:focus-visible\)/);
     assert.match(panelHtml, /button:focus-visible,[\s\S]*?\.invite-btn:focus-visible/);

@@ -4,6 +4,8 @@ const path = require('path');
 const { installTimestampedConsole } = require('../utils/logger');
 const { loadEnv } = require('../utils/env-loader');
 const { readConfig } = require('../utils/config');
+const { getRequiredCommandRole } = require('../stores/access-store');
+const { commandPayloadWithAccessDescriptions } = require('../utils/command-description');
 const config = readConfig();
 
 installTimestampedConsole();
@@ -35,7 +37,7 @@ async function deployCommands() {
     if (guildIds.length > 0) {
         const globalCommands = commands
             .filter(command => !Array.isArray(command.allowedGuildIds))
-            .map(command => command.data.toJSON());
+            .map(command => commandPayloadWithAccessDescriptions(command, getRequiredCommandRole));
 
         try {
             await rest.put(
@@ -53,7 +55,7 @@ async function deployCommands() {
             try {
                 const guildCommands = commands
                     .filter(command => Array.isArray(command.allowedGuildIds) && command.allowedGuildIds.includes(guildId))
-                    .map(command => command.data.toJSON());
+                    .map(command => commandPayloadWithAccessDescriptions(command, getRequiredCommandRole));
 
                 await rest.put(
                     Routes.applicationGuildCommands(config.clientId, guildId),
@@ -73,7 +75,7 @@ async function deployCommands() {
         try {
             const globalCommands = commands
                 .filter(command => !Array.isArray(command.allowedGuildIds))
-                .map(command => command.data.toJSON());
+                .map(command => commandPayloadWithAccessDescriptions(command, getRequiredCommandRole));
 
             await rest.put(
                 Routes.applicationCommands(config.clientId),

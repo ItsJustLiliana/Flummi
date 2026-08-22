@@ -10,6 +10,7 @@ const {
 } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
 const { readConfig } = require('../utils/config');
+const { appendAccessSuffix } = require('../utils/command-description');
 const config = readConfig();
 
 function getCommandDescription(command, pathKey) {
@@ -39,8 +40,8 @@ function getCommandDescription(command, pathKey) {
     return command?.data?.description || 'No description.';
 }
 
-function formatCommandPath(pathKey, command) {
-    return `/${pathKey.replace(/\./g, ' ')} - ${getCommandDescription(command, pathKey)}`;
+function formatCommandPath(pathKey, command, requiredRole) {
+    return `/${pathKey.replace(/\./g, ' ')} - ${appendAccessSuffix(getCommandDescription(command, pathKey), requiredRole)}`;
 }
 
 function getConfiguredCommandRows(client) {
@@ -68,7 +69,7 @@ function getConfiguredCommandRows(client) {
                 pathKey,
                 command,
                 requiredRole: command.public ? 'user' : requiredRole,
-                label: formatCommandPath(pathKey, command)
+                label: formatCommandPath(pathKey, command, command.public ? 'user' : requiredRole)
             };
         })
         .filter(Boolean);
@@ -116,7 +117,7 @@ function getCatalogCommandRows(client, guildId) {
             return {
                 ...entry,
                 requiredRole,
-                label: `\`${entry.label}\` — ${entry.description}`
+                label: `\`${entry.label}\` — ${appendAccessSuffix(entry.description, requiredRole)}`
             };
         });
 }

@@ -3052,14 +3052,38 @@ function applyManagementNavigation() {
 function renderManagementCards() {
     const container = document.getElementById('managementModuleCards');
     const modules = state.management?.modules || {};
-    container.innerHTML = Object.entries(managementModuleDefinitions).sort(([, left], [, right]) => left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })).map(([key, definition]) => {
+    const entries = Object.entries(managementModuleDefinitions)
+        .sort(([, left], [, right]) => left.title.localeCompare(right.title, undefined, { sensitivity: 'base' }));
+
+    const renderCard = ([key, definition]) => {
         const enabled = modules[key] === true;
         return `<article class="management-module-card" data-enabled="${enabled}" data-management-card="${escapeHtml(key)}">
             <div class="management-module-heading"><h3>${escapeHtml(definition.title)}</h3><button class="module-toggle" type="button" data-toggle-management="${escapeHtml(key)}" aria-pressed="${enabled}">${enabled ? 'On' : 'Off'}</button></div>
             <p class="sub">${escapeHtml(definition.description)}</p>
             <div class="actions"><button class="secondary" type="button" data-open-management="${escapeHtml(key)}">Open settings</button></div>
         </article>`;
-    }).join('');
+    };
+
+    const enabledEntries = entries.filter(([key]) => modules[key] === true);
+    const disabledEntries = entries.filter(([key]) => modules[key] !== true);
+    const sections = [];
+
+    if (enabledEntries.length > 0) {
+        sections.push('<div class="management-module-section-label" data-management-card-section="enabled" style="grid-column:1/-1">On</div>');
+        sections.push(...enabledEntries.map(renderCard));
+    }
+
+    if (enabledEntries.length > 0 && disabledEntries.length > 0) {
+        sections.push('<div class="management-module-divider" data-management-card-section="divider" style="grid-column:1/-1;margin-left:0;margin-right:0"></div>');
+    }
+
+    if (disabledEntries.length > 0) {
+        sections.push('<div class="management-module-section-label" data-management-card-section="disabled" style="grid-column:1/-1">Off</div>');
+        sections.push(...disabledEntries.map(renderCard));
+    }
+
+    container.innerHTML = sections.join('');
+
     for (const page of document.querySelectorAll('[data-module-page-switch]')) {
         const key = page.dataset.modulePageSwitch;
         const enabled = modules[key] === true;
@@ -3076,12 +3100,29 @@ function filterManagementModules() {
     const query = document.getElementById('managementModuleSearch').value.trim().toLocaleLowerCase();
     const cards = [...document.querySelectorAll('[data-management-card]')];
     let visible = 0;
+    let visibleEnabled = 0;
+    let visibleDisabled = 0;
+
     for (const card of cards) {
         const definition = managementModuleDefinitions[card.dataset.managementCard];
         const searchableText = `${definition?.title || ''} ${definition?.description || ''} ${card.dataset.managementCard}`.toLocaleLowerCase();
         card.hidden = Boolean(query) && !searchableText.includes(query);
-        if (!card.hidden) visible += 1;
+
+        if (!card.hidden) {
+            visible += 1;
+            if (card.dataset.enabled === 'true') visibleEnabled += 1;
+            else visibleDisabled += 1;
+        }
     }
+
+    const enabledLabel = document.querySelector('[data-management-card-section="enabled"]');
+    const disabledLabel = document.querySelector('[data-management-card-section="disabled"]');
+    const divider = document.querySelector('[data-management-card-section="divider"]');
+
+    if (enabledLabel) enabledLabel.hidden = visibleEnabled === 0;
+    if (disabledLabel) disabledLabel.hidden = visibleDisabled === 0;
+    if (divider) divider.hidden = !(visibleEnabled > 0 && visibleDisabled > 0);
+
     document.getElementById('managementModuleSearchSummary').textContent = query
         ? `${visible} of ${cards.length} modules found`
         : `${cards.length} management modules`;

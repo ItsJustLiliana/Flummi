@@ -147,7 +147,7 @@ module.exports = {
 
         if (!settings.botEnabled && !allowedWhenDisabled.has(command.data.name)) {
             return interaction.reply({
-                content: 'The bot is currently disabled. Use `/settings setting:Bot Enabled value:true` to turn it back on.',
+                content: 'The bot is currently disabled. Use `/settings bot enabled:true` to turn it back on.',
                 flags: MessageFlags.Ephemeral
             });
         }

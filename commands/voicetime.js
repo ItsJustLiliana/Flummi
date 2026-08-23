@@ -10,8 +10,7 @@ const {
 const {
     getChannelVoiceMembers,
     getUserVoiceStats,
-    getVoiceHistory,
-    getVoiceStatsSummary
+    getVoiceHistory
 } = require('../stores/voice-store');
 
 const HISTORY_PAGE_SIZE = 5;
@@ -122,67 +121,41 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('voicetime')
         .setDescription('Show voice channel activity')
-        .addUserOption(option =>
-            option.setName('user').setDescription('User to check (defaults to you)').setRequired(false)
-        )
-        .addIntegerOption(option =>
-            option
-                .setName('leaderboard')
-                .setDescription('Show top N users by voice time instead')
-                .setMinValue(1)
-                .setMaxValue(25)
-                .setRequired(false)
-        )
-        .addBooleanOption(option =>
-            option
-                .setName('history')
-                .setDescription('Show every recorded session and who was in the channel')
-                .setRequired(false)
-        )
-        .addChannelOption(option =>
-            option
-                .setName('channel')
-                .setDescription('Only show history from this voice or stage channel')
-                .addChannelTypes(ChannelType.GuildVoice, ChannelType.GuildStageVoice)
-                .setRequired(false)
-        ),
+        .addSubcommand(subcommand => subcommand
+            .setName('member')
+            .setDescription('Show voice activity for a member')
+            .addUserOption(option => option.setName('user').setDescription('Member to check (defaults to you)').setRequired(false)))
+        .addSubcommand(subcommand => subcommand
+            .setName('history')
+            .setDescription('Show recorded voice sessions for a member')
+            .addUserOption(option => option.setName('user').setDescription('Member to check (defaults to you)').setRequired(false))
+            .addChannelOption(option => option.setName('channel').setDescription('Only sessions in this channel')
+                .addChannelTypes(ChannelType.GuildVoice, ChannelType.GuildStageVoice).setRequired(false)))
+        .addSubcommand(subcommand => subcommand
+            .setName('channel')
+            .setDescription('Show members recorded in a voice channel')
+            .addChannelOption(option => option.setName('channel').setDescription('Voice or stage channel')
+                .addChannelTypes(ChannelType.GuildVoice, ChannelType.GuildStageVoice).setRequired(true))),
 
     async execute(interaction) {
         const guildId = interaction.guildId;
-        const leaderboardLimit = interaction.options.getInteger('leaderboard');
-        const showHistory = interaction.options.getBoolean('history');
+        const subcommand = interaction.options.getSubcommand();
         const historyChannel = interaction.options.getChannel('channel');
-
-        if (leaderboardLimit) {
-            const rows = getVoiceStatsSummary(guildId, leaderboardLimit);
-
-            const embed = new EmbedBuilder()
-                .setTitle('Voice Time Leaderboard')
-                .setColor(0x1E88E5)
-                .setDescription(
-                    rows.length
-                        ? rows.map((row, index) => `${index + 1}. <@${row.id}> - ${formatDuration(row.totalMs)}${row.inVoice ? ' (in VC now)' : ''}`).join('\n')
-                        : 'No voice activity tracked yet.'
-                );
-
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            return;
-        }
 
         const selectedUser = interaction.options.getUser('user');
 
-        if (showHistory) {
-            if (historyChannel && !selectedUser) {
-                await interaction.reply({
-                    ...buildChannelMembersPage(guildId, historyChannel.id, 0),
-                    flags: MessageFlags.Ephemeral
-                });
-                return;
-            }
-
+        if (subcommand === 'history') {
             const targetUser = selectedUser || interaction.user;
             await interaction.reply({
                 ...buildHistoryPage(guildId, targetUser, 0, historyChannel?.id || null),
+                flags: MessageFlags.Ephemeral
+            });
+            return;
+        }
+
+        if (subcommand === 'channel') {
+            await interaction.reply({
+                ...buildChannelMembersPage(guildId, historyChannel.id, 0),
                 flags: MessageFlags.Ephemeral
             });
             return;

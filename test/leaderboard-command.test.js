@@ -2,11 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildLeaderboard } = require('../commands/leaderboard');
 
-test('leaderboard command declares both compact category choices', () => {
+test('leaderboard command groups every ranking under one command', () => {
     const command = require('../commands/leaderboard').data.toJSON();
-    const category = command.options.find(option => option.name === 'category');
-
-    assert.deepEqual(category.choices.map(choice => choice.value), ['messages', 'voice']);
+    assert.deepEqual(command.options.map(option => option.name), ['messages', 'voice', 'shots', 'media']);
 });
 
 test('leaderboard builder supplies an empty state for either category', () => {
@@ -17,4 +15,12 @@ test('leaderboard builder supplies an empty state for either category', () => {
     assert.equal(messages.empty, 'No messages tracked yet.');
     assert.equal(voice.title, 'Voice Time Leaderboard');
     assert.equal(voice.empty, 'No voice activity tracked yet.');
+});
+
+test('shot and media rankings no longer live under feature commands', () => {
+    const shots = require('../commands/shots').data.toJSON();
+    assert.ok(!shots.options.some(option => option.name === 'leaderboard'));
+    const media = require('../commands/leaderboard').data.toJSON().options.find(option => option.name === 'media');
+    assert.ok(media);
+    assert.deepEqual(media.options.find(option => option.name === 'type').choices.map(choice => choice.value), ['soundboard', 'emojis', 'stickers']);
 });

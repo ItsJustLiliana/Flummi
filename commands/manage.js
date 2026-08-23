@@ -40,7 +40,7 @@ module.exports = {
         .setDescription('Manage user roles and permissions')
         .addSubcommand(subcommand =>
             subcommand
-                .setName('permissions')
+                .setName('features')
                 .setDescription('Set bot feature permissions for a user')
                 .addUserOption(option =>
                     option
@@ -78,17 +78,28 @@ module.exports = {
                         .setDescription('Allow or deny saving replied messages with configured @bot save phrases')
                         .setRequired(false)
                 )
-                .addStringOption(option =>
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('command')
+                .setDescription('Set one command override for a user')
+                .addUserOption(option =>
                     option
-                        .setName('command-path')
-                        .setDescription('Command to override, for example trigger.add, shots.gamble, serverstats')
-                        .setRequired(false)
+                        .setName('user')
+                        .setDescription('User to manage')
+                        .setRequired(true)
                 )
                 .addStringOption(option =>
                     option
-                        .setName('command-access')
-                        .setDescription('Override access for command-path')
-                        .setRequired(false)
+                        .setName('path')
+                        .setDescription('Command to override, for example trigger.add, shots.gamble, serverstats')
+                        .setRequired(true)
+                )
+                .addStringOption(option =>
+                    option
+                        .setName('access')
+                        .setDescription('Override access for this command')
+                        .setRequired(true)
                         .addChoices(
                             { name: 'Allow', value: 'allow' },
                             { name: 'Block', value: 'block' },
@@ -123,7 +134,7 @@ module.exports = {
         const subcommand = interaction.options.getSubcommand();
         const targetUser = interaction.options.getUser('user');
 
-        if (subcommand === 'permissions') {
+        if (subcommand === 'features' || subcommand === 'command') {
             if (!isDeveloper(interaction.user.id)) {
                 const settings = readSettings(guildId);
 
@@ -148,8 +159,8 @@ module.exports = {
             const aiChat = interaction.options.getBoolean('ai-chat');
             const botMentions = interaction.options.getBoolean('bot-mentions');
             const pingSave = interaction.options.getBoolean('ping-save');
-            const commandPathInput = interaction.options.getString('command-path');
-            const commandAccess = interaction.options.getString('command-access');
+            const commandPathInput = interaction.options.getString('path');
+            const commandAccess = interaction.options.getString('access');
             const commandPath = normalizeCommandPath(commandPathInput);
             const featureOptions = [
                 ['useTriggers', usingTriggers, 'normal triggers'],
@@ -159,16 +170,16 @@ module.exports = {
                 ['savePingRequests', pingSave, 'ping-save']
             ];
 
-            if (featureOptions.every(([, value]) => value === null) && !commandPathInput && !commandAccess) {
+            if (subcommand === 'features' && featureOptions.every(([, value]) => value === null)) {
                 return interaction.reply({
-                    content: 'Provide at least one feature permission or command-path with command-access.',
+                    content: 'Choose at least one feature permission to change.',
                     flags: MessageFlags.Ephemeral
                 });
             }
 
-            if ((commandPathInput || commandAccess) && (!commandPath || !commandAccess)) {
+            if (subcommand === 'command' && !commandPath) {
                 return interaction.reply({
-                    content: 'For command overrides, provide both command-path and command-access. Example: command-path:trigger.add command-access:Block.',
+                    content: 'Provide a valid command path, for example trigger.add or shots.gamble.',
                     flags: MessageFlags.Ephemeral
                 });
             }
@@ -182,12 +193,12 @@ module.exports = {
 
             try {
                 for (const [key, value] of featureOptions) {
-                    if (value !== null) {
+                    if (subcommand === 'features' && value !== null) {
                         setUserPermission(targetUser.id, key, value, guildId);
                     }
                 }
 
-                if (commandPath && commandAccess) {
+                if (subcommand === 'command') {
                     const [commandName, groupOrSubcommandName, nestedSubcommandName] = commandPath.split('.');
                     const requiredRole = getRequiredCommandRole(
                         commandName,
@@ -218,12 +229,12 @@ module.exports = {
             const changes = [];
 
             for (const [key, value, label] of featureOptions) {
-                if (value !== null) {
+                if (subcommand === 'features' && value !== null) {
                     changes.push(`${label}: ${updated[key] ? 'enabled' : 'disabled'}`);
                 }
             }
 
-            if (commandPath && commandAccess) {
+            if (subcommand === 'command') {
                 changes.push(`command ${commandPath}: ${commandAccess === 'inherit' ? 'inherited' : commandAccess === 'allow' ? 'allowed' : 'blocked'}`);
             }
 
@@ -263,7 +274,7 @@ module.exports = {
         }
 
         return interaction.reply({
-            content: 'Unknown mode. Use /manage permissions or /manage role.',
+            content: 'Unknown mode. Use /manage features, /manage command, or /manage role.',
             flags: MessageFlags.Ephemeral
         });
     }

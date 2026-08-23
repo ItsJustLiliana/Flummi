@@ -85,13 +85,13 @@ test('dashboard and developer searches recommend matching boxes and fade unrelat
     assert.match(panelHtml, /#dashboardLayout \.tabs \.tab-btn\.search-muted \{ opacity: \.34/);
 });
 
-test('global feature switches quietly control tabs and effective overview statuses', () => {
+test('global feature switches control tabs and explain effective overview statuses', () => {
     assert.match(panelServer, /globalFeatures: config\.features \|\| \{\}/);
     assert.match(panelHtml, /const globalFeatureTabs = \{[\s\S]*?triggers: 'triggersEnabled'[\s\S]*?shots: 'shotsEnabled'[\s\S]*?pings: 'pingRequestSaveEnabled'/);
     assert.match(panelHtml, /const hide = globallyDisabled && !developerView/);
     assert.match(panelHtml, /button\.dataset\.globalDisabled = String\(globallyDisabled && developerView\)/);
     assert.match(panelHtml, /\.tab-btn\[data-global-disabled="true"\]::after/);
-    assert.match(panelHtml, /statCard\(label, globallyDisabled \|\| enabled === false \? 'Off' : 'On'\)/);
+    assert.match(panelHtml, /globallyDisabled[\s\S]*?statCard\(label, 'Off', 'This feature is temporarily turned off globally\.', '!'\)/);
     assert.doesNotMatch(panelHtml, /Off \(global\)/);
     assert.doesNotMatch(panelHtml, /saved server setting is/);
     assert.match(panelHtml, /\.table-wrap td code \{[\s\S]*?white-space: nowrap/);

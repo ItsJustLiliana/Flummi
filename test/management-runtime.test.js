@@ -5,7 +5,6 @@ const path = require('path');
 const { evaluateContent, resetRuntimeState } = require('../services/automod-service');
 const { parseDuration, durationLabel } = require('../services/moderation-service');
 const moderationStore = require('../stores/moderation-store');
-const moderateCommand = require('../commands/moderate');
 
 function cleanup(guildId) {
     fs.rmSync(path.join(__dirname, '..', 'data', 'guilds', guildId), { recursive: true, force: true });
@@ -58,11 +57,13 @@ test('AutoMod individual filters support actions, custom limits, and allowlists'
     assert.equal(evaluateContent({ content: 'https://sub.safe.example/path', rules, allowedDomains: ['safe.example'] }), null);
 });
 
-test('moderate slash command exposes the complete manager action set', () => {
-    const json = moderateCommand.data.toJSON();
-    const names = json.options.map(option => option.name);
-    for (const name of ['warn', 'timeout', 'untimeout', 'kick', 'ban', 'unban', 'softban', 'purge', 'lock', 'unlock', 'slowmode', 'note', 'history', 'case']) {
-        assert.ok(names.includes(name), `missing ${name}`);
-    }
-    assert.equal(moderateCommand.managerOnly, true);
+test('large option bags are split into explicit subcommands', () => {
+    const manage = require('../commands/manage').data.toJSON();
+    const settings = require('../commands/settings').data.toJSON();
+    const voicetime = require('../commands/voicetime').data.toJSON();
+
+    assert.deepEqual(manage.options.map(option => option.name), ['features', 'command', 'role']);
+    assert.deepEqual(settings.options.map(option => option.name), ['view', 'bot', 'triggers']);
+    assert.deepEqual(voicetime.options.map(option => option.name), ['member', 'history', 'channel']);
+    assert.ok(!voicetime.options.some(option => option.name === 'leaderboard'));
 });

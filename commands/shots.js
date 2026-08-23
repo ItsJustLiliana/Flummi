@@ -5,8 +5,6 @@ const {
     getShots,
     addShots,
     removeShots,
-    getShotLeaderboard,
-    getGlobalShotLeaderboard,
     readShotAuditLog,
     gambleShots,
     setShots
@@ -125,21 +123,6 @@ module.exports = {
         )
         .addSubcommand(subcommand =>
             subcommand
-                .setName('leaderboard')
-                .setDescription('Show the top shot totals')
-                .addStringOption(option =>
-                    option
-                        .setName('scope')
-                        .setDescription('Choose the leaderboard scope')
-                        .setRequired(false)
-                        .addChoices(
-                            { name: 'Guild', value: 'guild' },
-                            { name: 'Global', value: 'global' }
-                        )
-                )
-        )
-        .addSubcommand(subcommand =>
-            subcommand
                 .setName('audit')
                 .setDescription('Developer audit log for shot changes')
                 .addIntegerOption(option =>
@@ -155,28 +138,6 @@ module.exports = {
     async execute(interaction) {
         const guildId = interaction.guildId;
         const subcommand = interaction.options.getSubcommand();
-
-        if (subcommand === 'leaderboard') {
-            const scope = interaction.options.getString('scope') || 'guild';
-            const rows = scope === 'global'
-                ? getGlobalShotLeaderboard(10)
-                : getShotLeaderboard(guildId, 10);
-            const embed = new EmbedBuilder()
-                .setTitle(scope === 'global' ? 'Global Shot Leaderboard' : 'Guild Shot Leaderboard')
-                .setColor(0xFF1744)
-                .setDescription(rows.length > 0
-                    ? rows.map((row, index) => {
-                        const guildSuffix = scope === 'global'
-                            ? ` across ${row.guildCount} guild(s)`
-                            : '';
-                        return `${index + 1}. <@${row.userId}> - ${row.total} shot(s)${guildSuffix}`;
-                    }).join('\n')
-                    : 'No shot totals recorded yet.')
-                .setFooter({ text: 'Higher gamble caps are exponentially less likely to hit.' });
-
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            return;
-        }
 
         if (subcommand === 'audit') {
             if (!isDeveloper(interaction.user.id)) {

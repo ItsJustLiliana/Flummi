@@ -5488,7 +5488,9 @@
             ];
             document.getElementById('overviewFeatures').innerHTML = featureRows.map(([label, enabled, globalKey]) => {
                 const globallyDisabled = globalKey && state.globalFeatures?.[globalKey] === false;
-                return statCard(label, globallyDisabled || enabled === false ? 'Off' : 'On');
+                return globallyDisabled
+                    ? statCard(label, 'Off', 'This feature is temporarily turned off globally.', '!')
+                    : statCard(label, enabled === false ? 'Off' : 'On');
             }).join('');
 
             if (data.missingPermissions && data.missingPermissions.length > 0) {

@@ -1143,13 +1143,19 @@ reliabilityPanel?.append(document.getElementById('developerDataTools'));
 
 // ---------- Invite link ----------
 async function loadInviteLink() {
-    const link = document.getElementById('inviteLink');
+    const links = document.querySelectorAll('[data-invite-link]');
 
     try {
         const data = await api('/api/invite-link');
-        link.href = data.url;
+        links.forEach(link => {
+            link.href = data.url;
+            link.removeAttribute('aria-disabled');
+        });
     } catch {
-        link.href = '#';
+        links.forEach(link => {
+            link.href = '#';
+            link.setAttribute('aria-disabled', 'true');
+        });
     }
 }
 
@@ -4747,12 +4753,12 @@ async function initializePanel() {
     const requestedView = requestedParams.get('view');
     const publicViews = new Set(['servers', 'commands', 'status', 'feedback']);
     const initialView = publicViews.has(requestedView) ? requestedView : 'servers';
+    loadInviteLink().catch(error => console.error(error));
     const authenticated = await loadPanelAccount();
     showHomeView(initialView);
     if (!authenticated) return;
     const data = await api('/api/guilds');
     renderHomeGuilds(data.guilds || []);
-    loadInviteLink().catch(error => console.error(error));
     const requestedGuild = requestedParams.get('guildId');
     const requestedTab = requestedParams.get('tab');
     if (requestedGuild && state.guilds.some(guild => guild.id === requestedGuild)) {

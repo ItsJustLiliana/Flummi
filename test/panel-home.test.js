@@ -29,6 +29,14 @@ test('public root is a landing page with role-aware navigation and server groups
     assert.match(panelHtml, /id="logoutPanel"[\s\S]*?window\.location\.assign\('\/'\)/);
     assert.match(panelHtml, /class="home-auth-button" href="\/auth\/login"/);
     assert.match(panelHtml, /id="homeSignedIn" class="home-account-card"/);
+    assert.match(panelMarkup, /class="home-footer"[\s\S]*?id="homeInviteLink"[\s\S]*?data-invite-link/);
+    assert.equal((panelMarkup.match(/data-invite-link/g) || []).length, 2);
+    assert.match(panelScript, /document\.querySelectorAll\('\[data-invite-link\]'\)/);
+    assert.match(panelScript, /loadInviteLink\(\)[\s\S]*?const authenticated = await loadPanelAccount\(\)/);
+    assert.match(panelServer, /pathname === '\/api\/invite-link'[\s\S]*?let panelSession = null/);
+    for (const permission of ['ViewAuditLog', 'ManageGuild', 'ManageRoles', 'ManageChannels', 'KickMembers', 'BanMembers', 'ManageMessages', 'ModerateMembers', 'ManageEvents']) {
+        assert.match(panelServer, new RegExp(`'${permission}'`));
+    }
 });
 
 test('home pages and selected servers use descriptive browser titles', () => {

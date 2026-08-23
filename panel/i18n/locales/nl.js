@@ -107,6 +107,8 @@
             'Ping Requests': 'Pingverzoeken',
             'Audit Log': 'Auditlog',
             'Invite bot': 'Bot uitnodigen',
+            'Add Flummi to your server': 'Voeg Flummi toe aan je server',
+            'All permissions Flummi needs are included automatically in Discord\'s invite screen.': 'Alle rechten die Flummi nodig heeft worden automatisch opgenomen in het uitnodigingsscherm van Discord.',
             'Signed in': 'Ingelogd',
             'Refresh Discord access': 'Discord-toegang vernieuwen',
             'Server details, key totals, and recent message and voice activity at a glance.': 'Serverdetails, belangrijke totalen en recente bericht- en voiceactiviteit in één overzicht.',
@@ -385,4 +387,3 @@
         words: dutchWords
     };
 })();
-

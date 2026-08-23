@@ -677,12 +677,23 @@ let servers = [];
 const requiredBotPermissionFlags = [
     'ViewChannel',
     'SendMessages',
+    'SendMessagesInThreads',
     'EmbedLinks',
     'AttachFiles',
     'ReadMessageHistory',
     'AddReactions',
     'MentionEveryone',
-    'UseExternalEmojis'
+    'UseExternalEmojis',
+    'ViewAuditLog',
+    'ManageGuild',
+    'ManageRoles',
+    'ManageChannels',
+    'KickMembers',
+    'BanMembers',
+    'ManageMessages',
+    'ModerateMembers',
+    'ManageEvents',
+    'ChangeNickname'
 ];
 const requiredBotPermissions = new PermissionsBitField(
     requiredBotPermissionFlags.map(flag => PermissionsBitField.Flags[flag])
@@ -1496,6 +1507,14 @@ function createServer() {
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/public/status') {
                 sendJson(res, 200, buildPublicStatus());
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/invite-link') {
+                sendJson(res, 200, {
+                    url: buildInviteUrl(),
+                    permissions: requiredBotPermissionFlags
+                });
                 return;
             }
 
@@ -2795,14 +2814,6 @@ function createServer() {
                     panel: config.panel || {},
                     analytics: config.analytics || {},
                     deployCommandsOnStart: config.deployCommandsOnStart !== false
-                });
-                return;
-            }
-
-            if (req.method === 'GET' && requestUrl.pathname === '/api/invite-link') {
-                sendJson(res, 200, {
-                    url: buildInviteUrl(),
-                    permissions: requiredBotPermissionFlags
                 });
                 return;
             }

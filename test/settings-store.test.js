@@ -38,7 +38,14 @@ test('management modules and editor settings are normalized per guild', () => {
                 automod: { preset: 'strict', mode: 'enforce', escalationEnabled: false, logChannelId: '123456789012345678', action: 'timeout', timeoutMinutes: 60, blockedTerms: ['spam', 'spam'], allowedDomains: ['https://www.example.com/path'], ignoredChannelIds: ['223456789012345678'], rules: { externalLinks: { enabled: true, action: 'warn', limit: 4, ignoredRoleIds: ['523456789012345678'] } } },
                 cases: { retentionDays: 0 },
                 roles: { autoroleId: 'not-a-role', autoroleDelayMinutes: -5, selfAssignableRoleIds: ['323456789012345678'] },
-                automation: { welcomeEnabled: true, schedules: [{ id: 'daily', channelId: '423456789012345678', message: 'Hello', intervalMinutes: 1440 }] }
+                automation: { welcomeEnabled: true, schedules: [{ id: 'daily', channelId: '423456789012345678', message: 'Hello', intervalMinutes: 1440 }] },
+                tickets: { maxOpenPerMember: 99, supportRoleId: '523456789012345678' },
+                suggestions: { anonymous: true, minimumApprovalVotes: 0 },
+                joinSecurity: { minimumAccountAgeDays: -2, joinBurstLimit: 500, action: 'invalid' },
+                starboard: { emoji: '', threshold: 0 },
+                forms: { applicationQuestions: ['One', 'One', 'Two'] },
+                channels: { defaultSlowmodeSeconds: 99999 },
+                integrations: { nativeAutomodEnabled: true }
             }
         }, guildId);
 
@@ -61,6 +68,17 @@ test('management modules and editor settings are normalized per guild', () => {
         assert.deepEqual(saved.management.roles.selfAssignableRoleIds, ['323456789012345678']);
         assert.equal(readSettings(guildId).management.automation.welcomeEnabled, true);
         assert.equal(saved.management.automation.schedules[0].id, 'daily');
+        assert.equal(saved.management.tickets.maxOpenPerMember, 10);
+        assert.equal(saved.management.tickets.supportRoleId, '523456789012345678');
+        assert.equal(saved.management.suggestions.minimumApprovalVotes, 1);
+        assert.equal(saved.management.joinSecurity.minimumAccountAgeDays, 0);
+        assert.equal(saved.management.joinSecurity.joinBurstLimit, 100);
+        assert.equal(saved.management.joinSecurity.action, 'alert');
+        assert.equal(saved.management.starboard.emoji, '⭐');
+        assert.equal(saved.management.starboard.threshold, 1);
+        assert.deepEqual(saved.management.forms.applicationQuestions, ['One', 'Two']);
+        assert.equal(saved.management.channels.defaultSlowmodeSeconds, 21600);
+        assert.equal(saved.management.integrations.nativeAutomodEnabled, true);
     } finally {
         cleanupGuild(guildId);
     }

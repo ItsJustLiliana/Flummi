@@ -1,6 +1,6 @@
 const { MessageFlags } = require('discord.js');
 const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
-const { isDeveloper, isManager } = require('../stores/access-store');
+const { isDeveloper, isAdmin } = require('../stores/access-store');
 const {
     getShots,
     addShots,
@@ -18,7 +18,7 @@ function getTargetUser(interaction) {
 }
 
 function canManageTarget(interaction, targetUser) {
-    return targetUser.id === interaction.user.id || isManager(interaction.user.id, interaction.guildId);
+    return targetUser.id === interaction.user.id || isAdmin(interaction.user.id, interaction.guildId, interaction.memberPermissions);
 }
 
 function formatUserLabel(user) {
@@ -36,14 +36,14 @@ module.exports = {
                 .addUserOption(option =>
                     option
                         .setName('user')
-                        .setDescription('User to check')
+                        .setDescription('Member to check')
                         .setRequired(false)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('add')
-                .setDescription('Add shots to yourself or another user if you are staff')
+                .setDescription('Add shots to yourself or another member if you are staff')
                 .addIntegerOption(option =>
                     option
                         .setName('amount')
@@ -55,14 +55,14 @@ module.exports = {
                 .addUserOption(option =>
                     option
                         .setName('user')
-                        .setDescription('User to update')
+                        .setDescription('Member to update')
                         .setRequired(false)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('remove')
-                .setDescription('Remove shots from yourself or another user if you are staff')
+                .setDescription('Remove shots from yourself or another member if you are staff')
                 .addIntegerOption(option =>
                     option
                         .setName('amount')
@@ -74,14 +74,14 @@ module.exports = {
                 .addUserOption(option =>
                     option
                         .setName('user')
-                        .setDescription('User to update')
+                        .setDescription('Member to update')
                         .setRequired(false)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('set')
-                .setDescription('Set an exact shot total for yourself or another user if you are staff')
+                .setDescription('Set an exact shot total for yourself or another member if you are staff')
                 .addIntegerOption(option =>
                     option
                         .setName('amount')
@@ -93,18 +93,18 @@ module.exports = {
                 .addUserOption(option =>
                     option
                         .setName('user')
-                        .setDescription('User to update')
+                        .setDescription('Member to update')
                         .setRequired(false)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('reset')
-                .setDescription('Reset your shot total or another user if you are staff')
+                .setDescription('Reset your shot total or another member if you are staff')
                 .addUserOption(option =>
                     option
                         .setName('user')
-                        .setDescription('User to reset')
+                        .setDescription('Member to reset')
                         .setRequired(false)
                 )
         )
@@ -179,7 +179,7 @@ module.exports = {
 
         if (!canManageTarget(interaction, targetUser)) {
             await interaction.reply({
-                content: 'You can only change your own shots unless you are a manager or developer.',
+                content: 'You can only change your own shots unless you are an admin or developer.',
                 flags: MessageFlags.Ephemeral
             });
             return;

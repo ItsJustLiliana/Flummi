@@ -31,12 +31,12 @@ test('help rows follow commandPermissions order from config', () => {
     );
 });
 
-test('public commands remain visible as user commands despite stale configured roles', () => {
+test('public commands remain visible as member commands despite stale configured roles', () => {
     const client = { commands: new Collection() };
     const dashboard = makeCommand('dashboard', 'Open the Flummi dashboard');
     dashboard.public = true;
     client.commands.set('dashboard', dashboard);
 
     const row = getConfiguredCommandRows(client).find(entry => entry.pathKey === 'dashboard');
-    assert.equal(row.requiredRole, 'user');
+    assert.equal(row.requiredRole, 'member');
 });

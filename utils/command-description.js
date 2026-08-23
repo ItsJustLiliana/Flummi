@@ -2,7 +2,7 @@ const MAX_COMMAND_DESCRIPTION_LENGTH = 100;
 
 function accessSuffix(requiredRole) {
     if (requiredRole === 'developer') return ' (developer only)';
-    if (requiredRole === 'manager') return ' (manager only)';
+    if (requiredRole === 'admin') return ' (admin only)';
     return '';
 }
 

@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
-const panelHtml = fs.readFileSync(path.join(__dirname, '..', 'panel', 'index.html'), 'utf8');
+const panelMarkup = fs.readFileSync(path.join(__dirname, '..', 'panel', 'index.html'), 'utf8');
+const panelStyles = fs.readFileSync(path.join(__dirname, '..', 'panel', 'styles.css'), 'utf8');
+const panelScript = fs.readFileSync(path.join(__dirname, '..', 'panel', 'app.js'), 'utf8');
+const panelHtml = `${panelMarkup}\n${panelStyles}\n${panelScript}`;
 const panelServer = fs.readFileSync(path.join(__dirname, '..', 'control-panel.js'), 'utf8');
 
 function tabMarkup(id) {
@@ -62,7 +65,7 @@ test('Stats & Analytics is a lightweight cross-feature summary', () => {
     for (const id of ['analyticsSummaryMessages', 'analyticsSummaryVoice', 'analyticsSummaryMedia', 'analyticsSummaryShots', 'moderationCards']) {
         assert.match(summary, new RegExp(`id="${id}"`));
     }
-    assert.match(summary, /data-manager-only/);
+    assert.match(summary, /data-admin-only/);
     assert.doesNotMatch(tabMarkup('stats'), /id="moderationCards"/);
     assert.match(panelHtml, /data-tab="analytics"[^>]*>Stats &amp; Analytics<\/button>/);
     assert.match(panelHtml, /data-tab="stats"[^>]*>Messages<\/button>/);
@@ -83,7 +86,7 @@ test('overview separates human members from bots', () => {
     assert.doesNotMatch(panelHtml, /statCard\('Developers', data\.developerCount\)/);
 });
 
-test('moderation analytics are withheld from regular-user API responses', () => {
+test('moderation analytics are withheld from member API responses', () => {
     assert.match(panelServer, /events: canViewModeration \? messages\.moderation : null/);
     assert.match(panelServer, /analytics\.moderation = null/);
 });

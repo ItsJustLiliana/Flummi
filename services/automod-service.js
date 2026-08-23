@@ -1,11 +1,10 @@
 const { PermissionFlagsBits } = require('discord.js');
-const { isManager } = require('../stores/access-store');
+const { isDeveloper } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
 const { addCase, addEvent, getMemberCases } = require('../stores/moderation-store');
 const { publishCase } = require('./moderation-service');
 
 const recentMessages = new Map();
-const recentJoins = new Map();
 
 const thresholds = {
     relaxed: { windowMs: 8000, messages: 8, mentions: 8, caps: 0.9, duplicate: 4, emoji: 16, invites: 3 },
@@ -59,7 +58,7 @@ function evaluateContent({ content, mentions = 0, blockedTerms = [], allowedDoma
 function memberBypasses(message, settings) {
     const member = message.member;
     if (!member) return true;
-    if (isManager(message.author.id, message.guildId)) return true;
+    if (isDeveloper(message.author.id)) return true;
     if (member.permissions?.has(PermissionFlagsBits.ManageMessages) || member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
     if (settings.ignoredChannelIds.includes(message.channelId)) return true;
     return member.roles?.cache?.some(role => settings.ignoredRoleIds.includes(role.id)) || false;
@@ -114,24 +113,8 @@ async function handleMessage(message) {
     return enforce;
 }
 
-async function handleMemberJoin(member) {
-    const management = readSettings(member.guild.id).management;
-    if (!management.modules.automod) return;
-    const now = Date.now();
-    const joins = (recentJoins.get(member.guild.id) || []).filter(at => now - at < 60000);
-    joins.push(now);
-    recentJoins.set(member.guild.id, joins);
-    const limit = management.automod.preset === 'strict' ? 6 : management.automod.preset === 'balanced' ? 10 : 16;
-    if (joins.length === limit) {
-        addEvent(member.guild.id, { type: 'raid-alert', userId: member.id, summary: `${joins.length} members joined within one minute`, metadata: { joins: joins.length } });
-        const entry = addCase(member.guild.id, { action: 'raid-alert', targetId: member.id, targetLabel: member.user.tag, reason: `${joins.length} members joined within one minute`, source: 'automod', status: 'completed' });
-        await publishCase(member.guild, entry);
-    }
-}
-
 function resetRuntimeState() {
     recentMessages.clear();
-    recentJoins.clear();
 }
 
-module.exports = { evaluateContent, handleMessage, handleMemberJoin, resetRuntimeState };
+module.exports = { evaluateContent, handleMessage, resetRuntimeState };

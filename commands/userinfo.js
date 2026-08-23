@@ -1,6 +1,6 @@
 const { MessageFlags } = require('discord.js');
 const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
-const { getUserRole, isDeveloper, isManager, getUserPermissions } = require('../stores/access-store');
+const { getUserRole, isDeveloper, isAdmin, getUserPermissions } = require('../stores/access-store');
 const { getShots } = require('../stores/shot-store');
 const { getUserMessageStats } = require('../stores/server-stats-store');
 const { getUserConversationSummary } = require('../stores/user-conversation-store');
@@ -47,13 +47,13 @@ function formatFeaturePermissions(perms) {
 }
 
 module.exports = {
-    managerOnly: true,
+    adminOnly: true,
 
     data: new SlashCommandBuilder()
         .setName('userinfo')
-        .setDescription('View permissions and role for a user')
+        .setDescription('View permissions and role for a member')
         .addUserOption(option =>
-            option.setName('user').setDescription('User to check').setRequired(true)
+            option.setName('user').setDescription('Member to check').setRequired(true)
         ),
 
     async execute(interaction) {
@@ -61,23 +61,23 @@ module.exports = {
         const targetUser = interaction.options.getUser('user');
         const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
         const dev = isDeveloper(targetUser.id);
-        const manager = isManager(targetUser.id, guildId);
-        const roleKey = getUserRole(targetUser.id, guildId);
+        const admin = isAdmin(targetUser.id, guildId, member?.permissions);
+        const roleKey = getUserRole(targetUser.id, guildId, member?.permissions);
         const perms = getUserPermissions(targetUser.id, guildId);
         const shots = getShots(targetUser.id, guildId);
         const messageStats = getUserMessageStats(guildId, targetUser.id);
         const memory = getUserConversationSummary(targetUser.id);
         const profile = getProfile(targetUser.id, guildId);
 
-        const role = dev ? 'Developer' : manager ? 'Manager' : 'User';
+        const role = dev ? 'Developer' : admin ? 'Admin' : 'Member';
         const joinedAt = member?.joinedAt || null;
         const highestRole = member?.roles?.highest?.name || 'Unknown';
         const serverNickname = member?.nickname || 'None';
         const accountCreated = targetUser.createdAt || null;
 
         const embed = new EmbedBuilder()
-            .setTitle(`User Info: ${targetUser.tag}`)
-            .setColor(dev ? 0xFF1744 : manager ? 0x1E88E5 : 0xFFFFFF)
+            .setTitle(`Member Info: ${targetUser.tag}`)
+            .setColor(dev ? 0xFF1744 : admin ? 0x1E88E5 : 0xFFFFFF)
             .setThumbnail(targetUser.displayAvatarURL({ size: 128 }))
             .addFields(
                 { name: 'Discord', value: [

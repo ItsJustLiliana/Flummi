@@ -3,7 +3,7 @@ const { readSettings, writeSettings } = require('../stores/settings-store');
 const { isDeveloper } = require('../stores/access-store');
 
 module.exports = {
-    managerOnly: true,
+    adminOnly: true,
     data: new SlashCommandBuilder()
         .setName('settings')
         .setDescription('View or edit bot settings')

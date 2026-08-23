@@ -9,7 +9,8 @@ The built-in panel manages Flummi per guild and keeps operational data separate 
 - **Message analytics:** message history by channel, author, period, and selected text channel.
 - **Voice analytics:** active sessions, live durations, leaderboards, recent/grouped calls, channel member lookup, voice-session and voice-minutes charts, heatmaps, totals, and average session length.
 - **Messenger and triggers:** send messages through the bot, manage trigger replies, images, cooldowns, imports/exports, and trigger audit data.
-- **Shots, users, profiles, and permissions:** review shot activity, manage managers/developers, command and feature overrides, and user profile data.
+- **Shots, members, profiles, and permissions:** review shot activity, member command and feature overrides, and profile data. Discord server administrators automatically receive admin access.
+- **Management:** independent modules for moderation, AutoMod, cases, roles, automation, tickets, suggestions, join security, Starboard, forms and appeals, channel controls, and native Discord integrations. Each module has its own enable state and guided setup page.
 - **Settings:** per-guild bot/trigger options, global and guild feature switches, configurable panel tab names/order/dividers, analytics retention, storage inspection, backups, and targeted data-reset tools.
 - **AI & system:** AI model and image-search configuration, AI memory lookup, usage information, activity feed, health, and GitHub update status.
 - **Bot logs:** a filterable, auto-refreshing console view for recent info, warnings, and errors—useful for AI time-outs and Discord API failures.
@@ -26,8 +27,12 @@ Analytics store activity metadata rather than message contents. New moderation t
 - `stores/` - JSON-backed data access helpers.
 - `services/` - External service integrations, like AI chat.
 - `utils/` - Shared local helpers used by commands/events/scripts.
-- `panel/` - Control panel HTML.
+- `panel/` - Control panel HTML, JavaScript, and CSS.
 - `data/` - Local generated bot data. Most of this is ignored by Git.
+
+## Staging command deployment
+
+The `Flummi-staging` checkout and staging service use guild-scoped deployment, registering commands directly in configured `guildIds` for immediate updates and clearing global commands from the separate staging application. Keep only the private test server in the staging checkout's ignored config, with its own staging client ID and token. Production defaults to global command deployment, so promoted releases publish commands globally for the public bot.
 
 ## Config
 

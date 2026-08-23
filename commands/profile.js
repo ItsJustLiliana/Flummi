@@ -78,7 +78,7 @@ function getAutomaticBadges({ targetUser, roleKey, messageStats, shots, profile 
 
     if (targetUser.bot) badges.push('Bot Account');
     if (roleKey === 'developer') badges.push('Developer');
-    if (roleKey === 'manager') badges.push('Manager');
+    if (roleKey === 'admin') badges.push('Admin');
     if (messageStats.count >= 1000) badges.push('Server Regular');
     if (messageStats.count >= 100) badges.push('Active Chatter');
     if (shots >= 100) badges.push('Shot Legend');
@@ -93,7 +93,7 @@ async function buildProfileEmbed(interaction, targetUser) {
     const guildId = interaction.guildId;
     const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
     const profile = getProfile(targetUser.id, guildId);
-    const roleKey = getUserRole(targetUser.id, guildId);
+    const roleKey = getUserRole(targetUser.id, guildId, member?.permissions);
     const messageStats = getUserMessageStats(guildId, targetUser.id);
     const shots = getShots(targetUser.id, guildId);
     const voiceStats = getUserVoiceStats(guildId, targetUser.id);
@@ -282,7 +282,7 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('view')
-                .setDescription('View the profile from a specific user')
+                .setDescription('View the profile from a specific member')
                 .addUserOption(option =>
                     option.setName('user').setDescription('Profile owner').setRequired(false)
                 )

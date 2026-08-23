@@ -18,10 +18,7 @@ const actionPermissions = {
     tempban: PermissionFlagsBits.BanMembers,
     softban: PermissionFlagsBits.BanMembers,
     unban: PermissionFlagsBits.BanMembers,
-    purge: PermissionFlagsBits.ManageMessages,
-    lock: PermissionFlagsBits.ManageChannels,
-    unlock: PermissionFlagsBits.ManageChannels,
-    slowmode: PermissionFlagsBits.ManageChannels
+    purge: PermissionFlagsBits.ManageMessages
 };
 
 function parseDuration(input, fallbackMs = null) {
@@ -171,13 +168,6 @@ async function executeModerationAction({ guild, action, actorId, actorLabel, tar
         if (!channel?.bulkDelete) throw new ModerationError('Choose a text channel for purge.', 'INVALID_CHANNEL');
         const deleted = await channel.bulkDelete(Math.max(1, Math.min(100, Number(count) || 20)), true);
         resultMetadata.deletedMessages = deleted.size;
-    } else if (action === 'lock' || action === 'unlock') {
-        if (!channel?.permissionOverwrites) throw new ModerationError('Choose a manageable channel.', 'INVALID_CHANNEL');
-        await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: action === 'lock' ? false : null }, { reason: safeReason });
-    } else if (action === 'slowmode') {
-        if (!channel?.setRateLimitPerUser) throw new ModerationError('Choose a text channel that supports slowmode.', 'INVALID_CHANNEL');
-        await channel.setRateLimitPerUser(Math.max(0, Math.min(21600, Number(seconds) || 0)), safeReason);
-        resultMetadata.seconds = Math.max(0, Math.min(21600, Number(seconds) || 0));
     }
 
     const moderationCase = moderationStore.addCase(guild.id, {
@@ -193,7 +183,7 @@ async function executeModerationAction({ guild, action, actorId, actorLabel, tar
         expiresAt,
         source,
         metadata: resultMetadata,
-        status: ['untimeout', 'unban', 'softban', 'purge', 'lock', 'unlock', 'slowmode', 'note'].includes(action) ? 'completed' : 'active'
+        status: ['untimeout', 'unban', 'softban', 'purge', 'note'].includes(action) ? 'completed' : 'active'
     });
     moderationStore.addEvent(guild.id, { type: 'moderation-action', userId: targetId, actorId, channelId: channel?.id, summary: `${action}: ${safeReason}`, metadata: { caseId: moderationCase.id, source } });
     await publishCase(guild, moderationCase);

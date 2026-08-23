@@ -1,6 +1,6 @@
 const { MessageFlags, SlashCommandBuilder } = require('discord.js');
 const { createCommandEmbed } = require('../utils/command-ui');
-const { getUserPermissions, getUserRole, isDeveloper, isManager } = require('../stores/access-store');
+const { getUserPermissions, getUserRole, isDeveloper, isAdmin } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
 const { readConfig } = require('../utils/config');
 
@@ -61,8 +61,8 @@ module.exports = {
         const settings = readSettings(guildId);
         const permissions = getUserPermissions(interaction.user.id, guildId);
         const developer = isDeveloper(interaction.user.id);
-        const manager = isManager(interaction.user.id, guildId);
-        const role = getUserRole(interaction.user.id, guildId);
+        const admin = isAdmin(interaction.user.id, guildId, interaction.memberPermissions);
+        const role = getUserRole(interaction.user.id, guildId, interaction.memberPermissions);
         const base = [botRunningCheck(settings)];
         const triggerChecks = [
             ...base,
@@ -84,16 +84,16 @@ module.exports = {
             description: settings.botEnabled !== false
                 ? 'Only features relevant to your access level are shown.'
                 : 'Flummi is currently disabled for this server. Status remains available to help diagnose it.',
-            tone: developer ? 'danger' : manager ? 'staff' : 'primary',
+            tone: developer ? 'danger' : admin ? 'staff' : 'primary',
             footer: 'Flummi • Live configuration status'
         })
             .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }))
             .addFields({ name: 'Your role', value: role[0].toUpperCase() + role.slice(1), inline: true })
             .addFields({ name: 'Member features', value: memberFeatures.join('\n\n'), inline: false });
 
-        if (manager) {
+        if (admin) {
             embed.addFields({
-                name: 'Manager services',
+                name: 'Admin services',
                 value: [
                     formatFeature('Trigger management', [...triggerChecks.slice(0, 3), userAccessCheck(permissions.addTriggers)]),
                     formatFeature('Server analytics', base),

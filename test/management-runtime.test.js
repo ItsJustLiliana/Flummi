@@ -62,8 +62,34 @@ test('large option bags are split into explicit subcommands', () => {
     const settings = require('../commands/settings').data.toJSON();
     const voicetime = require('../commands/voicetime').data.toJSON();
 
-    assert.deepEqual(manage.options.map(option => option.name), ['features', 'command', 'role']);
+    assert.deepEqual(manage.options.map(option => option.name), ['features', 'command']);
     assert.deepEqual(settings.options.map(option => option.name), ['view', 'bot', 'triggers']);
     assert.deepEqual(voicetime.options.map(option => option.name), ['member', 'history', 'channel']);
     assert.ok(!voicetime.options.some(option => option.name === 'leaderboard'));
+});
+
+test('admin access comes from Discord permissions instead of a role-assignment command', () => {
+    const manage = require('../commands/manage');
+    const interactionHandler = fs.readFileSync(path.join(__dirname, '..', 'events', 'interactionCreate.js'), 'utf8');
+    assert.equal(manage.adminOnly, true);
+    assert.equal(manage.managerOnly, undefined);
+    assert.deepEqual(manage.data.toJSON().options.map(option => option.name), ['features', 'command']);
+    assert.match(interactionHandler, /memberPermissions: interaction\.memberPermissions/);
+});
+
+test('community management modules have distinct grouped commands and dashboard pages', () => {
+    const commandNames = ['ticket', 'suggest', 'security', 'starboard', 'form', 'channel', 'integration'];
+    for (const name of commandNames) {
+        const command = require(`../commands/${name}`).data.toJSON();
+        assert.equal(command.name, name);
+        assert.ok(command.options.every(option => option.type === 1));
+    }
+
+    const panel = fs.readFileSync(path.join(__dirname, '..', 'panel', 'index.html'), 'utf8');
+    for (const tab of ['tickets', 'suggestions', 'join-security', 'starboard', 'forms', 'channels', 'integrations']) {
+        assert.match(panel, new RegExp(`id="tab-management-${tab}"`));
+    }
+    const moderationActions = panel.match(/<select id="managementAction">([\s\S]*?)<\/select>/)?.[1] || '';
+    assert.doesNotMatch(moderationActions, /value="(?:lock|unlock|slowmode)"/);
+    assert.equal(require('../services/automod-service').handleMemberJoin, undefined);
 });

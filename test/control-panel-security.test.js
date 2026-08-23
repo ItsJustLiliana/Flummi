@@ -20,6 +20,14 @@ test('panel applies browser security and private-cache headers', () => {
     }
 });
 
+test('panel serves extracted application JavaScript without stale caching', () => {
+    assert.match(panelServer, /pathname === '\/panel\/app\.js'/);
+    assert.match(panelServer, /sendAsset\(res, panelScriptPath, 'no-store'\)/);
+    assert.match(panelServer, /pathname === '\/panel\/styles\.css'/);
+    assert.match(panelServer, /sendAsset\(res, panelStylesPath, 'no-store'\)/);
+    assert.match(panelServer, /'text\/css; charset=utf-8'/);
+});
+
 test('COOP is only sent over HTTPS or a trustworthy localhost origin', () => {
     assert.match(panelServer, /function isPotentiallyTrustworthyRequest\(req\)/);
     assert.match(panelServer, /if \(isPotentiallyTrustworthyRequest\(req\)\) \{\s*res\.setHeader\('Cross-Origin-Opener-Policy', 'same-origin'\)/);

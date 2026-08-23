@@ -10,13 +10,11 @@ const {
     canUseCommandPath,
     canUseTriggers,
     getRequiredCommandRole,
-    getManagerUserIds,
     getUserRole,
     getUserPermissions,
-    isManager,
+    isAdmin,
     roleMeetsRequirement,
     setGuildOwner,
-    setManagerRole,
     setUserCommandPermission,
     setUserPermission
 } = require('../stores/access-store');
@@ -27,27 +25,28 @@ function cleanupGuild(guildId) {
 }
 
 test('command permissions resolve top-level and subcommand roles from config', () => {
-    assert.equal(getRequiredCommandRole('trigger', null, null), 'user');
-    assert.equal(getRequiredCommandRole('trigger', 'add', null), 'manager');
-    assert.equal(getRequiredCommandRole('trigger', 'remove', null), 'manager');
+    assert.equal(getRequiredCommandRole('trigger', null, null), 'member');
+    assert.equal(getRequiredCommandRole('trigger', 'add', null), 'admin');
+    assert.equal(getRequiredCommandRole('trigger', 'remove', null), 'admin');
     assert.equal(getRequiredCommandRole('trigger', 'audit', null), 'developer');
-    assert.equal(getRequiredCommandRole('manage', 'role', null), 'developer');
-    assert.equal(getRequiredCommandRole('profile', 'color', null, 'set'), 'user');
-    assert.equal(getRequiredCommandRole('profile', 'social', null, 'set'), 'user');
-    assert.equal(getRequiredCommandRole('dashboard', null, { public: true }), 'user');
+    assert.equal(getRequiredCommandRole('profile', 'color', null, 'set'), 'member');
+    assert.equal(getRequiredCommandRole('profile', 'social', null, 'set'), 'member');
+    assert.equal(getRequiredCommandRole('dashboard', null, { public: true }), 'member');
+    assert.equal(getRequiredCommandRole('ticket', 'open', { adminSubcommands: ['claim'] }), 'member');
+    assert.equal(getRequiredCommandRole('ticket', 'claim', { adminSubcommands: ['claim'] }), 'admin');
 });
 
-test('role requirements follow user manager developer order', () => {
-    assert.equal(roleMeetsRequirement('user', 'user'), true);
-    assert.equal(roleMeetsRequirement('user', 'manager'), false);
-    assert.equal(roleMeetsRequirement('manager', 'user'), true);
-    assert.equal(roleMeetsRequirement('manager', 'developer'), false);
-    assert.equal(roleMeetsRequirement('developer', 'manager'), true);
-    assert.equal(roleMeetsRequirement('owner', 'manager'), true);
+test('role requirements follow member admin developer order', () => {
+    assert.equal(roleMeetsRequirement('member', 'member'), true);
+    assert.equal(roleMeetsRequirement('member', 'admin'), false);
+    assert.equal(roleMeetsRequirement('admin', 'member'), true);
+    assert.equal(roleMeetsRequirement('admin', 'developer'), false);
+    assert.equal(roleMeetsRequirement('developer', 'admin'), true);
+    assert.equal(roleMeetsRequirement('owner', 'admin'), true);
     assert.equal(roleMeetsRequirement('owner', 'developer'), false);
 });
 
-test('server owner is an immutable manager and other members default to user', () => {
+test('Discord Administrator permission grants admin while other server users are members', () => {
     const guildId = `test-owner-access-${process.pid}`;
     const ownerId = '999010';
     cleanupGuild(guildId);
@@ -55,18 +54,20 @@ test('server owner is an immutable manager and other members default to user', (
     try {
         setGuildOwner(guildId, ownerId);
 
-        assert.equal(getUserRole(ownerId, guildId), 'owner');
-        assert.equal(isManager(ownerId, guildId), true);
-        assert.equal(getUserRole('999011', guildId), 'user');
+        assert.equal(getUserRole(ownerId, guildId), 'admin');
+        assert.equal(isAdmin(ownerId, guildId), true);
+        assert.equal(getUserRole('999011', guildId), 'member');
         assert.equal(canAddTriggers('999011', guildId), false);
-
-        setManagerRole(ownerId, false, guildId);
-        assert.equal(getUserRole(ownerId, guildId), 'owner');
-        assert.equal(getManagerUserIds(guildId).includes(ownerId), false);
-
-        setManagerRole('999011', true, guildId);
-        assert.equal(getUserRole('999011', guildId), 'manager');
-        assert.equal(canAddTriggers('999011', guildId), true);
+        assert.equal(getUserRole('999011', guildId, 8n), 'admin');
+        assert.equal(isAdmin('999011', guildId, 8n), true);
+        assert.equal(canAddTriggers('999011', guildId, 8n), true);
+        assert.equal(canUseCommandPath({
+            userId: '999011',
+            guildId,
+            commandName: 'serverstats',
+            commandDefinition: { adminOnly: true },
+            memberPermissions: 8n
+        }).allowed, true);
     } finally {
         cleanupGuild(guildId);
     }

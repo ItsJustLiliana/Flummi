@@ -14,9 +14,11 @@ const { buildFieldChanges } = require('./utils/audit-details');
 const { RepositoryFileError, RepositoryFileManager, isSensitivePath } = require('./services/repository-file-manager');
 const { buildReleaseStatus } = require('./services/release-status');
 const config = readConfig();
-config.commandPermissions = { ...(config.commandPermissions || {}), dashboard: 'user' };
+config.commandPermissions = { ...(config.commandPermissions || {}), dashboard: 'member' };
 const settingsStore = require('./stores/settings-store');
 const accessStore = require('./stores/access-store');
+config.commandPermissions = Object.fromEntries(Object.entries(config.commandPermissions).map(([commandPath, role]) => [commandPath, accessStore.normalizeRole(role)]));
+delete config.commandPermissions['manage.role'];
 const triggerStore = require('./stores/trigger-store');
 const shotStore = require('./stores/shot-store');
 const voiceStore = require('./stores/voice-store');
@@ -46,7 +48,10 @@ const host = process.env.PANEL_HOST || '0.0.0.0';
 const port = Number(process.env.PANEL_PORT) || 3789;
 const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
+const panelScriptPath = path.join(__dirname, 'panel', 'app.js');
+const panelStylesPath = path.join(__dirname, 'panel', 'styles.css');
 const faviconPath = path.join(__dirname, 'panel', 'favicon.png');
+const commandsDir = path.join(__dirname, 'commands');
 const brandingDir = path.join(__dirname, 'assets', 'branding');
 const lottiePlayerPath = path.join(__dirname, 'node_modules', 'lottie-web', 'build', 'player', 'lottie.min.js');
 const runtimeFilePath = path.join(__dirname, 'data', 'runtime', 'runtime.json');
@@ -79,6 +84,13 @@ const settingAuditLabels = {
     'management.modules.cases': 'Cases & Logs module',
     'management.modules.roles': 'Roles & Onboarding module',
     'management.modules.automation': 'Automation module',
+    'management.modules.tickets': 'Tickets module',
+    'management.modules.suggestions': 'Suggestions module',
+    'management.modules.joinSecurity': 'Join Security module',
+    'management.modules.starboard': 'Starboard module',
+    'management.modules.forms': 'Forms & Appeals module',
+    'management.modules.channels': 'Channel Management module',
+    'management.modules.integrations': 'Discord Integrations module',
     'management.moderation.requireReason': 'Require moderation reasons',
     'management.moderation.notifyMember': 'Notify moderated members',
     'management.moderation.defaultTimeoutMinutes': 'Default timeout duration',
@@ -108,8 +120,81 @@ const settingAuditLabels = {
     'management.automation.welcomeChannelId': 'Welcome channel',
     'management.automation.goodbyeChannelId': 'Goodbye channel',
     'management.automation.scheduledMessagesEnabled': 'Scheduled messages',
-    'management.automation.autoPurgeEnabled': 'Automatic purge'
+    'management.automation.autoPurgeEnabled': 'Automatic purge',
+    'management.tickets.categoryId': 'Ticket category',
+    'management.tickets.supportRoleId': 'Ticket support role',
+    'management.tickets.logChannelId': 'Ticket log channel',
+    'management.tickets.maxOpenPerMember': 'Open-ticket limit',
+    'management.suggestions.channelId': 'Suggestions channel',
+    'management.suggestions.reviewChannelId': 'Suggestion review channel',
+    'management.suggestions.anonymous': 'Anonymous suggestions',
+    'management.joinSecurity.minimumAccountAgeDays': 'Minimum account age',
+    'management.joinSecurity.joinBurstLimit': 'Join burst threshold',
+    'management.joinSecurity.action': 'Join Security action',
+    'management.starboard.channelId': 'Starboard channel',
+    'management.starboard.emoji': 'Starboard emoji',
+    'management.starboard.threshold': 'Starboard threshold',
+    'management.forms.reviewChannelId': 'Form review channel',
+    'management.forms.appealsEnabled': 'Moderation appeals',
+    'management.channels.defaultSlowmodeSeconds': 'Default slowmode',
+    'management.channels.stickyChannelId': 'Sticky notice channel',
+    'management.channels.temporaryVoiceCategoryId': 'Temporary voice category',
+    'management.integrations.nativeAutomodEnabled': 'Native Discord AutoMod sync',
+    'management.integrations.scheduledEventsEnabled': 'Discord Scheduled Events'
 };
+
+function buildPublicCommandCatalog() {
+    const rows = [];
+
+    for (const file of fs.readdirSync(commandsDir).filter(name => name.endsWith('.js')).sort()) {
+        const command = require(path.join(commandsDir, file));
+        const payload = command.data.toJSON();
+        const topLevelOptions = payload.options || [];
+        const containers = topLevelOptions.filter(option => option.type === 1 || option.type === 2);
+
+        if (!containers.length) {
+            rows.push({
+                path: `/${payload.name}`,
+                description: payload.description,
+                role: command.public ? 'member' : accessStore.getRequiredCommandRole(payload.name, null, command),
+                restricted: Array.isArray(command.allowedGuildIds)
+            });
+            continue;
+        }
+
+        for (const option of containers) {
+            const subcommands = option.type === 2 ? (option.options || []).filter(child => child.type === 1) : [option];
+            for (const subcommand of subcommands) {
+                const groupName = option.type === 2 ? option.name : null;
+                rows.push({
+                    path: `/${payload.name} ${groupName ? `${groupName} ` : ''}${subcommand.name}`,
+                    description: subcommand.description,
+                    role: command.public ? 'member' : accessStore.getRequiredCommandRole(payload.name, subcommand.name, command, groupName),
+                    restricted: Array.isArray(command.allowedGuildIds)
+                });
+            }
+        }
+    }
+
+    const roleRank = { member: 0, admin: 1, developer: 2 };
+    return rows.sort((left, right) => (roleRank[left.role] ?? 9) - (roleRank[right.role] ?? 9) || left.path.localeCompare(right.path));
+}
+
+function buildPublicStatus() {
+    const globalFeatures = config.features || {};
+    const featureStatus = key => globalFeatures[key] === false ? 'maintenance' : 'operational';
+    return {
+        checkedAt: new Date().toISOString(),
+        services: [
+            { name: 'Discord connection', status: client.isReady() ? 'operational' : 'degraded', detail: client.isReady() ? 'Connected' : 'Connecting' },
+            { name: 'Dashboard', status: 'operational', detail: 'Online' },
+            { name: 'Triggers', status: featureStatus('triggersEnabled'), detail: globalFeatures.triggersEnabled === false ? 'Temporarily turned off' : 'Available' },
+            { name: 'AI conversations', status: featureStatus('aiConversationsEnabled'), detail: globalFeatures.aiConversationsEnabled === false ? 'Temporarily turned off' : 'Available' },
+            { name: 'Image search', status: featureStatus('aiImageSearchEnabled'), detail: globalFeatures.aiImageSearchEnabled === false ? 'Temporarily turned off' : 'Available' },
+            { name: 'Shots', status: featureStatus('shotsEnabled'), detail: globalFeatures.shotsEnabled === false ? 'Temporarily turned off' : 'Available' }
+        ]
+    };
+}
 for (const [key, label] of Object.entries({ badWords: 'Bad words', serverInvites: 'Discord invites', externalLinks: 'External links', messageSpam: 'Fast message spam', duplicateSpam: 'Repeated messages', mentionSpam: 'Mention spam', capsSpam: 'Excessive capitals', emojiSpam: 'Emoji spam', zalgoSpam: 'Zalgo text' })) {
     settingAuditLabels[`management.automod.rules.${key}.enabled`] = `${label} enabled`;
     settingAuditLabels[`management.automod.rules.${key}.action`] = `${label} action`;
@@ -208,8 +293,8 @@ function isDeveloperSession(session) {
 
 function getPreviewPanelRole(session) {
     if (!isDeveloperSession(session)) return null;
-    if (['manager', 'user'].includes(session.previewPanelRole)) return session.previewPanelRole;
-    return session.previewAdminView === true ? 'manager' : null;
+    if (['admin', 'member'].includes(session.previewPanelRole)) return session.previewPanelRole;
+    return session.previewAdminView === true ? 'admin' : null;
 }
 
 function hasDeveloperView(session) {
@@ -220,7 +305,7 @@ function getPanelGuildRole(session, guildId) {
     if (hasDeveloperView(session)) return 'developer';
     const previewRole = getPreviewPanelRole(session);
     if (previewRole) return previewRole;
-    return accessStore.getUserRole(session?.userId, guildId);
+    return Array.isArray(session?.adminGuildIds) && session.adminGuildIds.includes(String(guildId)) ? 'admin' : 'member';
 }
 
 function canAccessGuild(session, guildId) {
@@ -236,6 +321,10 @@ async function hasCurrentGuildAccess(session, guildId) {
     try {
         const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
         const member = guild.members.cache.get(String(session.userId)) || await guild.members.fetch(String(session.userId));
+        const adminGuildIds = new Set(Array.isArray(session.adminGuildIds) ? session.adminGuildIds.map(String) : []);
+        if (member.permissions.has(PermissionsBitField.Flags.Administrator)) adminGuildIds.add(String(guildId));
+        else adminGuildIds.delete(String(guildId));
+        session.adminGuildIds = Array.from(adminGuildIds);
         return Boolean(member);
     } catch {
         return false;
@@ -261,24 +350,7 @@ function requireDeveloperAccess(session, res) {
     return false;
 }
 
-async function canManageGuildManagers(session, guildId) {
-    if (hasDeveloperView(session)) return true;
-    try {
-        const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
-        accessStore.setGuildOwner(guild.id, guild.ownerId);
-        return String(guild.ownerId) === String(session?.userId);
-    } catch {
-        return false;
-    }
-}
-
-async function requireManagerManagementAccess(session, guildId, res) {
-    if (await canManageGuildManagers(session, guildId)) return true;
-    sendJson(res, 403, { error: 'Only the server owner can add or remove managers.' });
-    return false;
-}
-
-async function requireGuildManagerAccess(session, guildId, res, errorMessage) {
+async function requireGuildAdminAccess(session, guildId, res, errorMessage) {
     if (hasDeveloperView(session)) return true;
     try {
         const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
@@ -288,13 +360,13 @@ async function requireGuildManagerAccess(session, guildId, res, errorMessage) {
         return false;
     }
     const role = getPanelGuildRole(session, guildId);
-    if (role === 'owner' || role === 'manager') return true;
-    sendJson(res, 403, { error: errorMessage || 'This feature requires the server owner or a manager.' });
+    if (role === 'admin') return true;
+    sendJson(res, 403, { error: errorMessage || 'This feature requires a server administrator.' });
     return false;
 }
 
 async function requireSettingsAccess(session, guildId, res) {
-    return requireGuildManagerAccess(session, guildId, res, 'Settings can only be changed by the server owner or a manager.');
+    return requireGuildAdminAccess(session, guildId, res, 'Settings can only be changed by a server administrator.');
 }
 
 const developerFileReauthMs = 30 * 60 * 1000;
@@ -426,18 +498,29 @@ async function canEditMemberPermissions(session, guildId, targetUserId) {
     try {
         const guild = await client.guilds.fetch(String(guildId));
         accessStore.setGuildOwner(guild.id, guild.ownerId);
+        const targetMember = guild.members.cache.get(String(targetUserId)) || await guild.members.fetch(String(targetUserId));
+        return getPanelGuildRole(session, guildId) === 'admin'
+            && !accessStore.isConfiguredDeveloper(targetUserId)
+            && !targetMember.permissions.has(PermissionsBitField.Flags.Administrator);
     } catch {
         return false;
     }
-    const actorRole = getPanelGuildRole(session, guildId);
-    const targetRole = accessStore.getUserRole(targetUserId, guildId);
-    if (actorRole === 'owner') return targetRole !== 'developer';
-    return actorRole === 'manager' && targetRole === 'user';
+}
+
+async function getCurrentMemberRole(userId, guildId) {
+    if (accessStore.isConfiguredDeveloper(userId)) return 'developer';
+    try {
+        const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
+        const member = guild.members.cache.get(String(userId)) || await guild.members.fetch(String(userId));
+        return member.permissions.has(PermissionsBitField.Flags.Administrator) ? 'admin' : 'member';
+    } catch {
+        return 'member';
+    }
 }
 
 async function requireMemberPermissionAccess(session, guildId, targetUserId, res) {
     if (await canEditMemberPermissions(session, guildId, targetUserId)) return true;
-    sendJson(res, 403, { error: 'Managers can only edit users, not other managers, the owner, or developers.' });
+    sendJson(res, 403, { error: 'Admins can only edit members, not other admins or developers.' });
     return false;
 }
 
@@ -452,7 +535,7 @@ function auditPanelAction(session, type, message, details = {}) {
 
 function loginPage(message = '') {
     const safeMessage = String(message).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]));
-    return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flummi Panel</title><style>body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px;background:#0b1020;color:#edf2ff;font:16px Segoe UI,sans-serif;box-sizing:border-box}.card{width:min(420px,100%);padding:32px;border:1px solid #243157;border-radius:16px;background:#111a33;box-shadow:0 16px 50px #0006;box-sizing:border-box}h1{margin:0 0 8px}.sub{color:#a5b1d8;line-height:1.5}a{display:block;margin-top:24px;padding:12px 16px;border-radius:9px;background:#5865f2;color:white;text-align:center;text-decoration:none;font-weight:700}.error{margin-top:14px;color:#ffbf5b}</style><main class="card"><h1>Flummi Dashboard</h1><p class="sub">Sign in with Discord to manage servers where you have Administrator permission.</p>${safeMessage ? `<p class="error">${safeMessage}</p>` : ''}<a href="/auth/login">Continue with Discord</a></main></html>`;
+    return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flummi Panel</title><style>body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px;background:#0b1020;color:#edf2ff;font:16px Segoe UI,sans-serif;box-sizing:border-box}.card{width:min(420px,100%);padding:32px;border:1px solid #243157;border-radius:16px;background:#111a33;box-shadow:0 16px 50px #0006;box-sizing:border-box}h1{margin:0 0 8px}.sub{color:#a5b1d8;line-height:1.5}a{display:block;margin-top:24px;padding:12px 16px;border-radius:9px;background:#5865f2;color:white;text-align:center;text-decoration:none;font-weight:700}.error{margin-top:14px;color:#ffbf5b}</style><main class="card"><h1>Flummi Dashboard</h1><p class="sub">Sign in with Discord to view every server you share with Flummi. Server administrators automatically receive admin controls.</p>${safeMessage ? `<p class="error">${safeMessage}</p>` : ''}<a href="/auth/login">Continue with Discord</a></main></html>`;
 }
 
 function cleanupAuthRecords() {
@@ -579,17 +662,19 @@ function sendHtml(res, html, statusCode = 200, headers = {}) {
     res.end(html);
 }
 
-function sendAsset(res, filePath) {
+function sendAsset(res, filePath, cacheControl = 'public, max-age=3600') {
     const extension = path.extname(filePath).toLowerCase();
     const contentType = extension === '.jpeg' || extension === '.jpg'
         ? 'image/jpeg'
         : extension === '.png'
             ? 'image/png'
-            : extension === '.js'
-                ? 'text/javascript; charset=utf-8'
-                : 'application/octet-stream';
+            : extension === '.css'
+                ? 'text/css; charset=utf-8'
+                : extension === '.js'
+                    ? 'text/javascript; charset=utf-8'
+                    : 'application/octet-stream';
 
-    res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=3600' });
+    res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': cacheControl });
     fs.createReadStream(filePath).pipe(res);
 }
 
@@ -649,15 +734,28 @@ async function listGuilds(session) {
             .filter(result => result.allowed)
             .map(result => result.guild);
 
-    return permitted
-        .map(guild => ({
+    const developerView = hasDeveloperView(session);
+    const rows = await Promise.all(permitted.map(async guild => {
+        let displayRole = getPanelGuildRole(session, guild.id);
+        if (developerView) {
+            try {
+                const member = guild.members.cache.get(String(session.userId)) || await guild.members.fetch(String(session.userId));
+                displayRole = member.permissions.has(PermissionsBitField.Flags.Administrator) ? 'admin' : 'member';
+            } catch {
+                displayRole = 'not a member';
+            }
+        }
+        return {
             id: guild.id,
             name: guild.name,
             role: getPanelGuildRole(session, guild.id),
-            isAdmin: hasDeveloperView(session) || (Array.isArray(session.adminGuildIds) && session.adminGuildIds.includes(String(guild.id))),
+            displayRole,
+            isAdmin: displayRole === 'admin',
             iconUrl: guild.iconURL({ size: 128, extension: 'png' }) || null
-        }))
-        .sort((a, b) => Number(b.isAdmin) - Number(a.isAdmin) || a.name.localeCompare(b.name));
+        };
+    }));
+    const relationshipRank = { admin: 0, member: 1, 'not a member': 2 };
+    return rows.sort((a, b) => (relationshipRank[a.displayRole] ?? 9) - (relationshipRank[b.displayRole] ?? 9) || a.name.localeCompare(b.name));
 }
 
 const memberCacheTtlMs = 5 * 60 * 1000;
@@ -698,7 +796,8 @@ async function listGuildMembers(guildId) {
             displayName: member.displayName || member.nickname || member.user.globalName || member.user.username,
             nickname: member.nickname || null,
             avatarUrl: member.displayAvatarURL({ size: 128 }),
-            bannerUrl: typeof member.bannerURL === 'function' ? member.bannerURL({ size: 1024 }) : null
+            bannerUrl: typeof member.bannerURL === 'function' ? member.bannerURL({ size: 1024 }) : null,
+            isAdministrator: member.permissions.has(PermissionsBitField.Flags.Administrator)
         }))
         .sort((a, b) => a.tag.localeCompare(b.tag));
 
@@ -828,8 +927,10 @@ async function buildOverview(guildId) {
     const voiceStats = voiceStore.readVoiceStats(guildId);
     const statsSummary = serverStatsStore.getServerStatsSummary(guildId, 3);
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-    const managers = accessStore.getManagerUserIds(guildId);
     const developerIds = accessStore.getDeveloperUserIds();
+    const adminCount = membersIntentEnabled
+        ? await listGuildMembers(guildId).then(members => members.filter(member => member.isAdministrator).length).catch(() => null)
+        : null;
     const activeVoiceCount = voiceSummary.filter(row => row.inVoice).length;
     const totalVoiceMs = Object.values(voiceStats.users)
         .reduce((sum, entry) => sum + (Number(entry.totalMs) || 0), 0);
@@ -838,7 +939,6 @@ async function buildOverview(guildId) {
     const labels = await resolveUserLabels([
         ...shotLeaderboard.map(row => row.userId),
         ...voiceSummary.map(row => row.id),
-        ...managers,
         ...developerIds
     ], guildId);
 
@@ -859,7 +959,7 @@ async function buildOverview(guildId) {
         analytics: analyticsStore.getAnalyticsSummary(guildId, 7),
         voiceAnalytics: voiceStore.getVoiceAnalytics(guildId, sevenDaysAgo),
         topChannels: statsSummary.channels,
-        managerCount: managers.length,
+        adminCount,
         developerCount: developerIds.length,
         missingPermissions,
         inviteUrl: buildInviteUrl(),
@@ -896,6 +996,18 @@ async function listChannels(guildId) {
             return permissions && permissions.has('SendMessages');
         })
         .map(channel => ({ id: channel.id, name: channel.name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function listManagementChannels(guildId) {
+    const guild = await client.guilds.fetch(guildId);
+    if (!guild) return [];
+    await guild.channels.fetch();
+    const me = guild.members.me || await guild.members.fetchMe();
+    return Array.from(guild.channels.cache.values())
+        .filter(channel => channel.viewable)
+        .filter(channel => channel.type === ChannelType.GuildCategory || (isSendableGuildTextChannel(channel) && channel.permissionsFor(me)?.has('SendMessages')))
+        .map(channel => ({ id: channel.id, name: channel.name, kind: channel.type === ChannelType.GuildCategory ? 'category' : 'text' }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -1176,7 +1288,7 @@ function createServer() {
                 sendJson(res, 200, {
                     authenticated: true,
                     user: { id: session.userId, username: session.username, avatarUrl },
-                    role: hasDeveloperView(session) ? 'developer' : (getPreviewPanelRole(session) || 'user'),
+                    role: hasDeveloperView(session) ? 'developer' : (getPreviewPanelRole(session) || 'member'),
                     actualRole: isDeveloperSession(session) ? 'developer' : 'admin',
                     globalFeatures: config.features || {},
                     privateConnection: developerFileWriteStatus(req, session).privateConnection,
@@ -1220,9 +1332,29 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'GET' && requestUrl.pathname === '/panel/app.js') {
+                sendAsset(res, panelScriptPath, 'no-store');
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/panel/styles.css') {
+                sendAsset(res, panelStylesPath, 'no-store');
+                return;
+            }
+
             if (req.method === 'GET' && requestUrl.pathname === '/vendor/lottie.min.js') {
                 if (!fs.existsSync(lottiePlayerPath)) { sendJson(res, 404, { error: 'Lottie player not found.' }); return; }
                 sendAsset(res, lottiePlayerPath);
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/public/commands') {
+                sendJson(res, 200, { commands: buildPublicCommandCatalog() });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/public/status') {
+                sendJson(res, 200, buildPublicStatus());
                 return;
             }
 
@@ -1339,7 +1471,7 @@ function createServer() {
                     return;
                 }
                 if (requestedGuildId && requestUrl.pathname === '/api/triggers' && req.method !== 'GET'
-                    && !await requireGuildManagerAccess(panelSession, requestedGuildId, res, 'Triggers can only be managed by the server owner or a manager.')) return;
+                    && !await requireGuildAdminAccess(panelSession, requestedGuildId, res, 'Triggers can only be managed by a server administrator.')) return;
             }
 
             if (req.method === 'GET' && requestUrl.pathname.startsWith('/assets/branding/')) {
@@ -1360,7 +1492,7 @@ function createServer() {
                 if (!isDeveloperSession(panelSession) && guilds.length === 0) {
                     panelSessions.delete(panelSession.key);
                     persistPanelSessions();
-                    sendJson(res, 401, { error: 'Your Discord Administrator access changed. Sign in again to refresh access.' });
+                    sendJson(res, 401, { error: 'Your Discord server access changed. Sign in again to refresh access.' });
                     return;
                 }
                 sendJson(res, 200, { guilds });
@@ -1370,7 +1502,7 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/experiments') {
                 sendJson(res, 200, {
                     previewAdminView: Boolean(getPreviewPanelRole(panelSession)),
-                    previewPanelRole: getPreviewPanelRole(panelSession) || 'manager',
+                    previewPanelRole: getPreviewPanelRole(panelSession) || 'admin',
                     discordRole: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.role || 'developer',
                     expiresAt: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.expiresAt || null
                 });
@@ -1387,7 +1519,7 @@ function createServer() {
                     const stored = panelSessions.get(panelSession.key);
                     stored.previewAdminView = parsed.previewAdminView;
                     stored.previewPanelRole = parsed.previewAdminView
-                        ? (['manager', 'user'].includes(parsed.previewPanelRole) ? parsed.previewPanelRole : 'manager')
+                        ? (['admin', 'member'].includes(parsed.previewPanelRole) ? parsed.previewPanelRole : 'admin')
                         : null;
                     persistPanelSessions();
                     auditPanelAction(panelSession, 'experiment-admin-view', parsed.previewAdminView
@@ -1401,7 +1533,7 @@ function createServer() {
                 sendJson(res, 200, {
                     ok: true,
                     previewAdminView: Boolean(getPreviewPanelRole(panelSessions.get(panelSession.key))),
-                    previewPanelRole: getPreviewPanelRole(panelSessions.get(panelSession.key)) || 'manager',
+                    previewPanelRole: getPreviewPanelRole(panelSessions.get(panelSession.key)) || 'admin',
                     discordRole: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.role || 'developer',
                     expiresAt: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.expiresAt || null
                 });
@@ -1411,7 +1543,7 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/audit') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
-                if (!await requireGuildManagerAccess(panelSession, guildId, res, 'The audit log is only available to the server owner or a manager.')) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'The audit log is only available to server administrators.')) return;
                 const entries = readActivity()
                     .filter(entry => String(entry.guildId || '') === String(guildId) && entry.source === 'panel')
                     .slice(0, 100);
@@ -1707,6 +1839,14 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'GET' && requestUrl.pathname === '/api/management/channels') {
+                const guildId = requireGuildId(requestUrl, res);
+                if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Management channels are only available to server administrators.')) return;
+                sendJson(res, 200, { channels: await listManagementChannels(guildId) });
+                return;
+            }
+
             if (req.method === 'POST' && requestUrl.pathname === '/api/feedback') {
                 const parsed = JSON.parse(await readBody(req) || '{}');
                 if (!String(parsed.message || '').trim()) {
@@ -1787,7 +1927,7 @@ function createServer() {
                 if (!guildId) return;
 
                 const periodDays = Math.min(365, Math.max(1, Number(requestUrl.searchParams.get('days')) || 30));
-                const canViewModeration = ['developer', 'owner', 'manager'].includes(getPanelGuildRole(panelSession, guildId));
+                const canViewModeration = ['developer', 'admin'].includes(getPanelGuildRole(panelSession, guildId));
                 const now = Date.now();
                 const messages = analyticsStore.getAnalyticsSummary(guildId, periodDays);
                 const voice = voiceStore.getVoiceAnalytics(
@@ -1905,7 +2045,7 @@ function createServer() {
                 if (!guildId) return;
                 const days = requestUrl.searchParams.get('days') || '30';
                 const analytics = analyticsStore.getAnalyticsSummary(guildId, days, requestUrl.searchParams.get('channelId'), requestUrl.searchParams.get('userId'));
-                if (!['developer', 'owner', 'manager'].includes(getPanelGuildRole(panelSession, guildId))) analytics.moderation = null;
+                if (!['developer', 'admin'].includes(getPanelGuildRole(panelSession, guildId))) analytics.moderation = null;
                 sendJson(res, 200, analytics);
                 return;
             }
@@ -1925,7 +2065,7 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/management/cases') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
-                if (!await requireGuildManagerAccess(panelSession, guildId, res, 'Cases and event logs are only available to managers.')) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Cases and event logs are only available to server administrators.')) return;
                 const userId = requestUrl.searchParams.get('userId');
                 const cases = userId ? moderationStore.getMemberCases(guildId, userId, { limit: 200 }) : moderationStore.readCases(guildId).slice(0, 200);
                 sendJson(res, 200, { cases, events: moderationStore.readEvents(guildId, { limit: 200 }) });
@@ -1935,9 +2075,9 @@ function createServer() {
             if (req.method === 'POST' && requestUrl.pathname === '/api/management/action') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
-                if (!await requireGuildManagerAccess(panelSession, guildId, res, 'Moderation actions are only available to managers.')) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Moderation actions are only available to server administrators.')) return;
                 const parsed = JSON.parse(await readBody(req) || '{}');
-                const allowed = new Set(['warn', 'note', 'timeout', 'untimeout', 'kick', 'ban', 'tempban', 'unban', 'softban', 'purge', 'lock', 'unlock', 'slowmode']);
+                const allowed = new Set(['warn', 'note', 'timeout', 'untimeout', 'kick', 'ban', 'tempban', 'unban', 'softban', 'purge']);
                 if (!allowed.has(parsed.action)) return sendJson(res, 400, { error: 'Unknown moderation action.' });
                 const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
                 const channel = parsed.channelId ? (guild.channels.cache.get(String(parsed.channelId)) || await guild.channels.fetch(String(parsed.channelId)).catch(() => null)) : null;
@@ -1956,7 +2096,7 @@ function createServer() {
             if (req.method === 'POST' && requestUrl.pathname === '/api/management/roles/publish') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
-                if (!await requireGuildManagerAccess(panelSession, guildId, res, 'Role menus can only be published by managers.')) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Role menus can only be published by server administrators.')) return;
                 try {
                     const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
                     const message = await publishRoleMenu(guild);
@@ -1987,57 +2127,6 @@ function createServer() {
                 auditPanelAction(panelSession, 'settings-update', 'Updated server settings', { guildId, changes });
 
                 sendJson(res, 200, { ok: true, settings: saved });
-                return;
-            }
-
-            if (req.method === 'GET' && requestUrl.pathname === '/api/managers') {
-                const guildId = requireGuildId(requestUrl, res);
-                if (!guildId) return;
-
-                const guild = await client.guilds.fetch(guildId);
-                accessStore.setGuildOwner(guild.id, guild.ownerId);
-                const ownerId = String(guild.ownerId);
-                const managers = accessStore.getManagerUserIds(guildId);
-                const developerIds = accessStore.getDeveloperUserIds();
-                const labels = await resolveUserLabels([ownerId, ...managers, ...developerIds], guildId);
-
-                sendJson(res, 200, {
-                    managers: [
-                        { id: ownerId, label: labels[ownerId]?.tag || ownerId, nickname: labels[ownerId]?.nickname || null, role: 'owner', immutable: true },
-                        ...managers.map(id => ({ id, label: labels[id]?.tag || id, nickname: labels[id]?.nickname || null, role: 'manager', immutable: false }))
-                    ],
-                    developers: developerIds.map(id => ({ id, label: labels[id]?.tag || id, nickname: labels[id]?.nickname || null })),
-                    canManageManagers: await canManageGuildManagers(panelSession, guildId)
-                });
-                return;
-            }
-
-            if (req.method === 'POST' && requestUrl.pathname === '/api/managers') {
-                const guildId = requestUrl.searchParams.get('guildId');
-
-                if (!guildId) {
-                    sendJson(res, 400, { error: 'guildId is required.' });
-                    return;
-                }
-
-                if (!await requireManagerManagementAccess(panelSession, guildId, res)) return;
-
-                const rawBody = await readBody(req);
-                const parsed = JSON.parse(rawBody || '{}');
-
-                if (!parsed.userId || typeof parsed.shouldBeManager !== 'boolean') {
-                    sendJson(res, 400, { error: 'userId and shouldBeManager are required.' });
-                    return;
-                }
-
-                if (accessStore.isGuildOwner(parsed.userId, guildId)) {
-                    sendJson(res, 400, { error: 'The server owner always has the Owner role and cannot be changed.' });
-                    return;
-                }
-
-                const managers = accessStore.setManagerRole(String(parsed.userId), parsed.shouldBeManager, guildId);
-                auditPanelAction(panelSession, 'manager-role', `${parsed.shouldBeManager ? 'Granted' : 'Removed'} manager role for ${parsed.userId}`, { guildId, userId: String(parsed.userId) });
-                sendJson(res, 200, { ok: true, managers });
                 return;
             }
 
@@ -2072,7 +2161,7 @@ function createServer() {
 
                     return {
                         ...member,
-                        role: accessStore.getUserRole(member.id, guildId),
+                        role: accessStore.isConfiguredDeveloper(member.id) ? 'developer' : member.isAdministrator ? 'admin' : 'member',
                         isOwner: accessStore.isGuildOwner(member.id, guildId),
                         isDeveloper: accessStore.isConfiguredDeveloper(member.id),
                         overrideCount: Object.keys(permissions.commandOverrides || {}).length,
@@ -2080,41 +2169,7 @@ function createServer() {
                     };
                 });
 
-                sendJson(res, 200, { members: rows, canManageManagers: await canManageGuildManagers(panelSession, guildId) });
-                return;
-            }
-
-            if (req.method === 'POST' && requestUrl.pathname === '/api/members/role') {
-                const guildId = requestUrl.searchParams.get('guildId');
-
-                if (!guildId) {
-                    sendJson(res, 400, { error: 'guildId is required.' });
-                    return;
-                }
-
-                if (!await requireManagerManagementAccess(panelSession, guildId, res)) return;
-
-                const rawBody = await readBody(req);
-                const parsed = JSON.parse(rawBody || '{}');
-
-                if (!parsed.userId || !['user', 'manager'].includes(parsed.role)) {
-                    sendJson(res, 400, { error: 'userId and a valid role (user or manager) are required.' });
-                    return;
-                }
-
-                if (accessStore.isGuildOwner(parsed.userId, guildId)) {
-                    sendJson(res, 400, { error: 'The server owner always has the Owner role and cannot be changed.' });
-                    return;
-                }
-
-                if (accessStore.isConfiguredDeveloper(parsed.userId)) {
-                    sendJson(res, 400, { error: 'Developers are managed through config.json, not this panel.' });
-                    return;
-                }
-
-                accessStore.setManagerRole(String(parsed.userId), parsed.role === 'manager', guildId);
-                auditPanelAction(panelSession, 'member-role', `Changed ${parsed.userId} to ${parsed.role}`, { guildId, userId: String(parsed.userId) });
-                sendJson(res, 200, { ok: true, role: accessStore.getUserRole(parsed.userId, guildId) });
+                sendJson(res, 200, { members: rows });
                 return;
             }
 
@@ -2164,7 +2219,7 @@ function createServer() {
                 }
 
                 sendJson(res, 200, {
-                    role: accessStore.getUserRole(userId, guildId),
+                    role: await getCurrentMemberRole(userId, guildId),
                     permissions: accessStore.getUserPermissions(userId, guildId),
                     canEdit: await canEditMemberPermissions(panelSession, guildId, userId)
                 });
@@ -2230,7 +2285,7 @@ function createServer() {
                 auditPanelAction(panelSession, 'permissions-update', `Updated permissions for ${userId}`, { guildId, userId: String(userId) });
 
                 sendJson(res, 200, {
-                    role: accessStore.getUserRole(userId, guildId),
+                    role: await getCurrentMemberRole(userId, guildId),
                     permissions: accessStore.getUserPermissions(userId, guildId)
                 });
                 return;
@@ -2292,7 +2347,7 @@ function createServer() {
                         bannerUrl: discordUser?.bannerURL({ size: 1024, extension: 'png' }) || null
                     },
                     profile: profileStore.getProfile(userId),
-                    statistics: { messages: messageStats, voiceMs: voice?.totalMs || 0, shots: guildId ? shotStore.getShots(userId, guildId).total : 0, role: guildId ? accessStore.getUserRole(userId, guildId) : 'user' },
+                    statistics: { messages: messageStats, voiceMs: voice?.totalMs || 0, shots: guildId ? shotStore.getShots(userId, guildId).total : 0, role: guildId ? await getCurrentMemberRole(userId, guildId) : 'member' },
                     aiMemory: {
                         summary: memory.summary || '',
                         profile: memory.profile || '',
@@ -2425,7 +2480,8 @@ function createServer() {
                 }
                 if (parsed.ai?.imageSearch) updates.ai = { ...(updates.ai || config.ai), imageSearch: { ...(config.ai?.imageSearch || {}), ...parsed.ai.imageSearch } };
                 Object.assign(config, updates);
-                config.commandPermissions = { ...(config.commandPermissions || {}), dashboard: 'user' };
+                config.commandPermissions = Object.fromEntries(Object.entries({ ...(config.commandPermissions || {}), dashboard: 'member' }).map(([commandPath, role]) => [commandPath, accessStore.normalizeRole(role)]));
+                delete config.commandPermissions['manage.role'];
                 saveConfig(config);
                 if (updates.presence) {
                     applyConfiguredPresence(client);

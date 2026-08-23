@@ -6,7 +6,7 @@ const {
     MessageFlags,
     SlashCommandBuilder
 } = require('discord.js');
-const { canAddTriggers, isManager } = require('../stores/access-store');
+const { canAddTriggers, isAdmin } = require('../stores/access-store');
 const { checkCooldown } = require('../utils/cooldowns');
 const { readSettings } = require('../stores/settings-store');
 const {
@@ -35,7 +35,7 @@ function formatTimestamp(date) {
 async function executeAdd(interaction) {
     const guildId = interaction.guildId;
 
-    if (!canAddTriggers(interaction.user.id, guildId)) {
+    if (!canAddTriggers(interaction.user.id, guildId, interaction.memberPermissions)) {
         return interaction.reply({
             content: 'You do not have permission to add triggers.',
             flags: MessageFlags.Ephemeral
@@ -123,9 +123,9 @@ async function executeAdd(interaction) {
 
 async function executeEdit(interaction) {
     const guildId = interaction.guildId;
-    if (!isManager(interaction.user.id, guildId)) {
+    if (!isAdmin(interaction.user.id, guildId, interaction.memberPermissions)) {
         return interaction.reply({
-            content: 'You need manager permissions to edit triggers.',
+            content: 'You need admin permissions to edit triggers.',
             flags: MessageFlags.Ephemeral
         });
     }
@@ -185,9 +185,9 @@ async function executeEdit(interaction) {
 
 async function executeRemove(interaction) {
     const guildId = interaction.guildId;
-    if (!isManager(interaction.user.id, guildId)) {
+    if (!isAdmin(interaction.user.id, guildId, interaction.memberPermissions)) {
         return interaction.reply({
-            content: 'You need manager permissions to remove triggers.',
+            content: 'You need admin permissions to remove triggers.',
             flags: MessageFlags.Ephemeral
         });
     }

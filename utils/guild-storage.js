@@ -31,7 +31,6 @@ function ensureGuildStorage(guildId) {
     });
     ensureJsonFile(path.join(base, 'triggerAudit.json'), []);
     ensureJsonFile(path.join(base, 'pingRequests.json'), []);
-    ensureJsonFile(path.join(base, 'managers.json'), []);
     ensureJsonFile(path.join(base, 'userPermissions.json'), {});
     ensureJsonFile(path.join(base, 'analytics', 'rollups', 'voice-state.json'), {
         activeSessions: {},

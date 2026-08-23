@@ -28,7 +28,6 @@ function resolveGuildPaths(guildId) {
     const base = path.join(dataDir, 'guilds', String(guildId));
 
     return {
-        managers: path.join(base, 'managers.json'),
         userPermissions: path.join(base, 'userPermissions.json'),
         owner: path.join(base, 'owner.json')
     };
@@ -54,10 +53,6 @@ function setGuildOwner(guildId, userId) {
         writeJson(guildPaths.owner, { userId: normalizedUserId, updatedAt: new Date().toISOString() });
     }
     guildOwnerCache.set(cacheKey, normalizedUserId);
-    const managers = readJson(guildPaths.managers, []);
-    if (Array.isArray(managers) && managers.some(id => String(id) === normalizedUserId)) {
-        writeJson(guildPaths.managers, managers.filter(id => String(id) !== normalizedUserId));
-    }
     return normalizedUserId;
 }
 
@@ -73,19 +68,6 @@ function getDeveloperUserIds() {
     ].map(String)));
 }
 
-function getManagerUserIds(guildId) {
-    const guildPaths = resolveGuildPaths(guildId);
-    const fileManagers = guildPaths
-        ? readJson(guildPaths.managers, [])
-        : [];
-
-    const ownerId = getGuildOwnerUserId(guildId);
-    return Array.from(new Set([
-        ...(Array.isArray(config.managerUserIds) ? config.managerUserIds : []),
-        ...(Array.isArray(fileManagers) ? fileManagers : [])
-    ].map(String))).filter(id => id !== ownerId);
-}
-
 function isConfiguredDeveloper(userId) {
     return getDeveloperUserIds().includes(String(userId));
 }
@@ -99,13 +81,15 @@ function getDeveloperRoleSimulation(userId) {
     if (!isConfiguredDeveloper(userId)) return null;
     const simulations = readDeveloperRoleSimulations();
     const simulation = simulations[String(userId)];
-    if (!simulation || !['manager', 'user'].includes(simulation.role)) return null;
+    if (!simulation) return null;
+    const role = normalizeRole(simulation.role, '');
+    if (!['admin', 'member'].includes(role)) return null;
     if (!simulation.expiresAt || new Date(simulation.expiresAt).getTime() <= Date.now()) {
         delete simulations[String(userId)];
         writeJson(roleSimulationPath, simulations);
         return null;
     }
-    return simulation;
+    return { ...simulation, role };
 }
 
 function setDeveloperRoleSimulation(userId, role, durationMs = 2 * 60 * 60 * 1000) {
@@ -117,7 +101,7 @@ function setDeveloperRoleSimulation(userId, role, durationMs = 2 * 60 * 60 * 100
         writeJson(roleSimulationPath, simulations);
         return null;
     }
-    if (!['manager', 'user'].includes(normalizedRole)) throw new Error('Role must be developer, manager, or user.');
+    if (!['admin', 'member'].includes(normalizedRole)) throw new Error('Role must be developer, admin, or member.');
     const simulation = { role: normalizedRole, expiresAt: new Date(Date.now() + durationMs).toISOString() };
     simulations[String(userId)] = simulation;
     writeJson(roleSimulationPath, simulations);
@@ -128,34 +112,41 @@ function isDeveloper(userId) {
     return isConfiguredDeveloper(userId) && !getDeveloperRoleSimulation(userId);
 }
 
-function isManager(userId, guildId) {
-    if (isGuildOwner(userId, guildId)) return true;
-    const simulation = getDeveloperRoleSimulation(userId);
-    if (simulation) return simulation.role === 'manager';
-    return isDeveloper(userId) || getManagerUserIds(guildId).includes(String(userId));
+function hasAdministratorPermission(memberPermissions) {
+    if (!memberPermissions) return false;
+    if (typeof memberPermissions.has === 'function') {
+        try { return memberPermissions.has('Administrator'); } catch { return false; }
+    }
+    try { return (BigInt(memberPermissions) & 8n) === 8n; } catch { return false; }
 }
 
-function getUserRole(userId, guildId) {
-    if (isGuildOwner(userId, guildId)) return 'owner';
+function isAdmin(userId, guildId, memberPermissions = null) {
+    if (isGuildOwner(userId, guildId)) return true;
+    const simulation = getDeveloperRoleSimulation(userId);
+    if (simulation) return simulation.role === 'admin';
+    return isDeveloper(userId) || hasAdministratorPermission(memberPermissions);
+}
+
+function getUserRole(userId, guildId, memberPermissions = null) {
     const simulation = getDeveloperRoleSimulation(userId);
     if (simulation) return simulation.role;
     if (isDeveloper(userId)) {
         return 'developer';
     }
 
-    if (isManager(userId, guildId)) {
-        return 'manager';
+    if (isAdmin(userId, guildId, memberPermissions)) {
+        return 'admin';
     }
 
-    return 'user';
+    return 'member';
 }
 
-function normalizeRole(role, fallbackRole = 'user') {
+function normalizeRole(role, fallbackRole = 'member') {
     const normalized = String(role || '').trim().toLowerCase();
 
-    if (['user', 'manager', 'owner', 'developer'].includes(normalized)) {
-        return normalized;
-    }
+    if (normalized === 'user') return 'member';
+    if (normalized === 'manager' || normalized === 'owner') return 'admin';
+    if (['member', 'admin', 'developer'].includes(normalized)) return normalized;
 
     return fallbackRole;
 }
@@ -176,9 +167,8 @@ function normalizeCommandPath(commandPath) {
 
 function roleMeetsRequirement(userRole, requiredRole) {
     const ranks = {
-        user: 0,
-        manager: 1,
-        owner: 1,
+        member: 0,
+        admin: 1,
         developer: 2
     };
 
@@ -254,7 +244,7 @@ function getCommandPath(interaction) {
 
 function getRequiredCommandRole(commandName, subcommandName, commandDefinition, subcommandGroupName = null) {
     if (commandDefinition?.public) {
-        return 'user';
+        return 'member';
     }
 
     const permissions = config.commandPermissions || {};
@@ -278,20 +268,27 @@ function getRequiredCommandRole(commandName, subcommandName, commandDefinition, 
         return normalizeRole(permissions[commandKey]);
     }
 
+    const subcommandPath = subcommandName
+        ? subcommandGroupName ? `${subcommandGroupName}.${subcommandName}` : subcommandName
+        : null;
+    if (subcommandPath && commandDefinition?.adminSubcommands?.includes(subcommandPath)) {
+        return 'admin';
+    }
+
     if (commandDefinition?.devOnly) {
         return 'developer';
     }
 
-    if (commandDefinition?.managerOnly) {
-        return 'manager';
+    if (commandDefinition?.adminOnly) {
+        return 'admin';
     }
 
-    return 'user';
+    return 'member';
 }
 
-function canUseCommandPath({ userId, guildId, commandName, subcommandName, commandDefinition, subcommandGroupName = null }) {
+function canUseCommandPath({ userId, guildId, commandName, subcommandName, commandDefinition, subcommandGroupName = null, memberPermissions = null }) {
     const requiredRole = getRequiredCommandRole(commandName, subcommandName, commandDefinition, subcommandGroupName);
-    const userRole = getUserRole(userId, guildId);
+    const userRole = getUserRole(userId, guildId, memberPermissions);
     const override = getCommandOverrideForPath(
         userId,
         guildId,
@@ -346,11 +343,9 @@ function getUserPermissions(userId, guildId) {
 
     const record = getPermissionRecord(guildId);
     const entry = record[userId] || {};
-    const manager = isManager(userId, guildId);
-
     return {
         useTriggers: entry.useTriggers !== false,
-        addTriggers: manager ? entry.addTriggers !== false : entry.addTriggers !== false,
+        addTriggers: entry.addTriggers !== false,
         useAiChat: entry.useAiChat !== false,
         useBotMentions: entry.useBotMentions !== false,
         savePingRequests: entry.savePingRequests !== false,
@@ -420,32 +415,6 @@ function setUserCommandPermission(userId, commandPath, value, guildId) {
     return getUserCommandOverrides(userId, guildId);
 }
 
-function setManagerRole(userId, shouldBeManager, guildId) {
-    const guildPaths = resolveGuildPaths(guildId);
-
-    if (!guildPaths) {
-        return [];
-    }
-
-    if (isGuildOwner(userId, guildId)) return getManagerUserIds(guildId);
-
-    const managers = readJson(guildPaths.managers, []);
-
-    const normalized = Array.isArray(managers) ? managers : [];
-    const existingIndex = normalized.indexOf(userId);
-
-    if (shouldBeManager && existingIndex === -1) {
-        normalized.push(userId);
-    }
-
-    if (!shouldBeManager && existingIndex !== -1) {
-        normalized.splice(existingIndex, 1);
-    }
-
-    writeJson(guildPaths.managers, normalized);
-    return normalized;
-}
-
 function canUseTriggers(userId, guildId) {
     if (isDeveloper(userId)) {
         return true;
@@ -454,12 +423,12 @@ function canUseTriggers(userId, guildId) {
     return getUserPermissions(userId, guildId).useTriggers;
 }
 
-function canAddTriggers(userId, guildId) {
+function canAddTriggers(userId, guildId, memberPermissions = null) {
     if (isDeveloper(userId)) {
         return true;
     }
 
-    if (!isManager(userId, guildId)) return false;
+    if (!isAdmin(userId, guildId, memberPermissions)) return false;
     return getUserPermissions(userId, guildId).addTriggers;
 }
 
@@ -479,7 +448,7 @@ function canUseTriggerCommands(userId) {
     return isDeveloper(userId) || isTriggerFeatureEnabled();
 }
 
-// Clears manager status and all stored feature/command overrides, returning the user to defaults.
+// Clears all stored feature and command overrides, returning the member to defaults.
 function resetUserPermissions(userId, guildId) {
     const guildPaths = resolveGuildPaths(guildId);
 
@@ -488,8 +457,6 @@ function resetUserPermissions(userId, guildId) {
         delete record[userId];
         writeJson(guildPaths.userPermissions, record);
     }
-
-    setManagerRole(userId, false, guildId);
 }
 
 module.exports = {
@@ -497,22 +464,22 @@ module.exports = {
     setGuildOwner,
     isGuildOwner,
     getDeveloperUserIds,
-    getManagerUserIds,
     getUserRole,
     getCommandPath,
     getRequiredCommandRole,
     getUserCommandOverrides,
     normalizeCommandPath,
+    normalizeRole,
     roleMeetsRequirement,
     isConfiguredDeveloper,
     isDeveloper,
-    isManager,
+    isAdmin,
+    hasAdministratorPermission,
     canUseCommandPath,
     isTriggerFeatureEnabled,
     getUserPermissions,
     setUserPermission,
     setUserCommandPermission,
-    setManagerRole,
     canUseTriggers,
     canAddTriggers,
     canUseAiChat,

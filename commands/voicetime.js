@@ -116,7 +116,7 @@ function buildChannelMembersPage(guildId, channelId, page = 0) {
 module.exports = {
     buildChannelMembersPage,
     buildHistoryPage,
-    managerOnly: true,
+    adminOnly: true,
 
     data: new SlashCommandBuilder()
         .setName('voicetime')

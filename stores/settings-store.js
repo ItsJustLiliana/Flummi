@@ -35,7 +35,14 @@ const defaultSettings = {
             automod: false,
             cases: false,
             roles: false,
-            automation: false
+            automation: false,
+            tickets: false,
+            suggestions: false,
+            joinSecurity: false,
+            starboard: false,
+            forms: false,
+            channels: false,
+            integrations: false
         },
         moderation: {
             requireReason: true,
@@ -83,6 +90,30 @@ const defaultSettings = {
             goodbyeMessage: '**{username}** left the server.',
             schedules: [],
             purgeRules: []
+        },
+        tickets: {
+            categoryId: '', supportRoleId: '', logChannelId: '', maxOpenPerMember: 1,
+            welcomeMessage: 'Thanks for contacting the team. Describe what you need help with.'
+        },
+        suggestions: {
+            channelId: '', reviewChannelId: '', anonymous: false, minimumApprovalVotes: 3
+        },
+        joinSecurity: {
+            logChannelId: '', quarantineRoleId: '', minimumAccountAgeDays: 3,
+            joinBurstLimit: 10, joinBurstWindowSeconds: 30, action: 'alert'
+        },
+        starboard: {
+            channelId: '', emoji: '⭐', threshold: 3, allowSelfStars: false
+        },
+        forms: {
+            submissionChannelId: '', reviewChannelId: '', appealsEnabled: true,
+            applicationTitle: 'Server application', applicationQuestions: ['Why would you like to join?', 'What can you contribute?']
+        },
+        channels: {
+            logChannelId: '', defaultSlowmodeSeconds: 10, stickyChannelId: '', stickyMessage: '', temporaryVoiceCategoryId: ''
+        },
+        integrations: {
+            nativeAutomodEnabled: false, scheduledEventsEnabled: false, announcementChannelId: ''
         }
     }
 };
@@ -162,6 +193,13 @@ function normalizeManagement(value) {
     const cases = source.cases && typeof source.cases === 'object' ? source.cases : {};
     const roles = source.roles && typeof source.roles === 'object' ? source.roles : {};
     const automation = source.automation && typeof source.automation === 'object' ? source.automation : {};
+    const tickets = source.tickets && typeof source.tickets === 'object' ? source.tickets : {};
+    const suggestions = source.suggestions && typeof source.suggestions === 'object' ? source.suggestions : {};
+    const joinSecurity = source.joinSecurity && typeof source.joinSecurity === 'object' ? source.joinSecurity : {};
+    const starboard = source.starboard && typeof source.starboard === 'object' ? source.starboard : {};
+    const forms = source.forms && typeof source.forms === 'object' ? source.forms : {};
+    const channels = source.channels && typeof source.channels === 'object' ? source.channels : {};
+    const integrations = source.integrations && typeof source.integrations === 'object' ? source.integrations : {};
     const defaults = defaultSettings.management;
 
     return {
@@ -212,6 +250,52 @@ function normalizeManagement(value) {
             goodbyeMessage: textOr(automation.goodbyeMessage, defaults.automation.goodbyeMessage, 1800),
             schedules: normalizeSchedules(automation.schedules),
             purgeRules: normalizePurgeRules(automation.purgeRules)
+        },
+        tickets: {
+            categoryId: snowflakeOrEmpty(tickets.categoryId),
+            supportRoleId: snowflakeOrEmpty(tickets.supportRoleId),
+            logChannelId: snowflakeOrEmpty(tickets.logChannelId),
+            maxOpenPerMember: boundedInteger(Number(tickets.maxOpenPerMember), 1, 10, defaults.tickets.maxOpenPerMember),
+            welcomeMessage: textOr(tickets.welcomeMessage, defaults.tickets.welcomeMessage, 1800).trim()
+        },
+        suggestions: {
+            channelId: snowflakeOrEmpty(suggestions.channelId),
+            reviewChannelId: snowflakeOrEmpty(suggestions.reviewChannelId),
+            anonymous: booleanOr(suggestions.anonymous, defaults.suggestions.anonymous),
+            minimumApprovalVotes: boundedInteger(Number(suggestions.minimumApprovalVotes), 1, 100, defaults.suggestions.minimumApprovalVotes)
+        },
+        joinSecurity: {
+            logChannelId: snowflakeOrEmpty(joinSecurity.logChannelId),
+            quarantineRoleId: snowflakeOrEmpty(joinSecurity.quarantineRoleId),
+            minimumAccountAgeDays: boundedInteger(Number(joinSecurity.minimumAccountAgeDays), 0, 3650, defaults.joinSecurity.minimumAccountAgeDays),
+            joinBurstLimit: boundedInteger(Number(joinSecurity.joinBurstLimit), 2, 100, defaults.joinSecurity.joinBurstLimit),
+            joinBurstWindowSeconds: boundedInteger(Number(joinSecurity.joinBurstWindowSeconds), 5, 600, defaults.joinSecurity.joinBurstWindowSeconds),
+            action: ['alert', 'quarantine', 'kick'].includes(joinSecurity.action) ? joinSecurity.action : defaults.joinSecurity.action
+        },
+        starboard: {
+            channelId: snowflakeOrEmpty(starboard.channelId),
+            emoji: textOr(starboard.emoji, defaults.starboard.emoji, 100).trim() || defaults.starboard.emoji,
+            threshold: boundedInteger(Number(starboard.threshold), 1, 100, defaults.starboard.threshold),
+            allowSelfStars: booleanOr(starboard.allowSelfStars, defaults.starboard.allowSelfStars)
+        },
+        forms: {
+            submissionChannelId: snowflakeOrEmpty(forms.submissionChannelId),
+            reviewChannelId: snowflakeOrEmpty(forms.reviewChannelId),
+            appealsEnabled: booleanOr(forms.appealsEnabled, defaults.forms.appealsEnabled),
+            applicationTitle: textOr(forms.applicationTitle, defaults.forms.applicationTitle, 100).trim(),
+            applicationQuestions: [...new Set((Array.isArray(forms.applicationQuestions) ? forms.applicationQuestions : defaults.forms.applicationQuestions).map(value => textOr(value, '', 200).trim()).filter(Boolean))].slice(0, 5)
+        },
+        channels: {
+            logChannelId: snowflakeOrEmpty(channels.logChannelId),
+            defaultSlowmodeSeconds: boundedInteger(Number(channels.defaultSlowmodeSeconds), 0, 21600, defaults.channels.defaultSlowmodeSeconds),
+            stickyChannelId: snowflakeOrEmpty(channels.stickyChannelId),
+            stickyMessage: textOr(channels.stickyMessage, defaults.channels.stickyMessage, 1800).trim(),
+            temporaryVoiceCategoryId: snowflakeOrEmpty(channels.temporaryVoiceCategoryId)
+        },
+        integrations: {
+            nativeAutomodEnabled: booleanOr(integrations.nativeAutomodEnabled, defaults.integrations.nativeAutomodEnabled),
+            scheduledEventsEnabled: booleanOr(integrations.scheduledEventsEnabled, defaults.integrations.scheduledEventsEnabled),
+            announcementChannelId: snowflakeOrEmpty(integrations.announcementChannelId)
         }
     };
 }

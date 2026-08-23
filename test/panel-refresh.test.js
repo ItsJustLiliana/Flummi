@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
-const panelHtml = fs.readFileSync(path.join(__dirname, '..', 'panel', 'index.html'), 'utf8');
+const panelMarkup = fs.readFileSync(path.join(__dirname, '..', 'panel', 'index.html'), 'utf8');
+const panelStyles = fs.readFileSync(path.join(__dirname, '..', 'panel', 'styles.css'), 'utf8');
+const panelScript = fs.readFileSync(path.join(__dirname, '..', 'panel', 'app.js'), 'utf8');
+const panelHtml = `${panelMarkup}\n${panelStyles}\n${panelScript}`;
 
 test('passive panel refresh protects every tab with unsaved editors', () => {
     const match = panelHtml.match(/tabsExcludedFromAutoRefresh\s*=\s*new Set\(\[([^\]]+)\]\)/);

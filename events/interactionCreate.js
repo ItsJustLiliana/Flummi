@@ -1,5 +1,5 @@
 const { MessageFlags } = require('discord.js');
-const { canUseCommandPath, canUseTriggerCommands, isManager } = require('../stores/access-store');
+const { canUseCommandPath, canUseTriggerCommands, isAdmin } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
 
 async function handleRemoveTriggerButton(interaction) {
@@ -53,15 +53,31 @@ module.exports = {
     name: 'interactionCreate',
 
     async execute(interaction) {
+        if (interaction.isModalSubmit() && interaction.customId.startsWith('community-form:')) {
+            const { EmbedBuilder } = require('discord.js');
+            const store = require('../stores/community-management-store');
+            const { moduleConfig } = require('../services/community-management-service');
+            const type = interaction.customId.split(':')[1];
+            const config = moduleConfig(interaction.guildId, 'forms');
+            if (!config) return interaction.reply({ content: 'Forms & Appeals were turned off before this form was sent.', flags: MessageFlags.Ephemeral });
+            const answers = [...interaction.fields.fields.values()].map((field, index) => ({ question: field.label || `Answer ${index + 1}`, answer: field.value }));
+            const submission = store.addSubmission(interaction.guildId, { type, authorId: interaction.user.id, answers });
+            const channelId = config.reviewChannelId || config.submissionChannelId;
+            const channel = interaction.guild.channels.cache.get(channelId) || await interaction.guild.channels.fetch(channelId).catch(() => null);
+            if (!channel?.isTextBased()) return interaction.reply({ content: 'An admin needs to select a form review channel first.', flags: MessageFlags.Ephemeral });
+            const embed = new EmbedBuilder().setTitle(`${type === 'appeal' ? 'Appeal' : 'Application'} ${submission.id}`).setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() }).addFields(answers.map(entry => ({ name: entry.question.slice(0, 256), value: entry.answer.slice(0, 1024) }))).setColor(type === 'appeal' ? 0xf59e42 : 0x7785ff).setTimestamp();
+            await channel.send({ embeds: [embed] });
+            return interaction.reply({ content: `Your ${type} was sent as **${submission.id}**.`, flags: MessageFlags.Ephemeral });
+        }
         if (interaction.isStringSelectMenu()) {
             const { handleRoleSelect } = require('../services/role-service');
             if (await handleRoleSelect(interaction)) return;
         }
         if (interaction.isButton()) {
             if (interaction.customId.startsWith('voicetime-channel-history:')) {
-                if (!interaction.guildId || !isManager(interaction.user.id, interaction.guildId)) {
+                if (!interaction.guildId || !isAdmin(interaction.user.id, interaction.guildId, interaction.memberPermissions)) {
                     await interaction.reply({
-                        content: 'You need manager permissions to view voice history.',
+                        content: 'You need admin permissions to view voice history.',
                         flags: MessageFlags.Ephemeral
                     });
                     return;
@@ -78,9 +94,9 @@ module.exports = {
             }
 
             if (interaction.customId.startsWith('voicetime-history:')) {
-                if (!interaction.guildId || !isManager(interaction.user.id, interaction.guildId)) {
+                if (!interaction.guildId || !isAdmin(interaction.user.id, interaction.guildId, interaction.memberPermissions)) {
                     await interaction.reply({
-                        content: 'You need manager permissions to view voice history.',
+                        content: 'You need admin permissions to view voice history.',
                         flags: MessageFlags.Ephemeral
                     });
                     return;
@@ -183,7 +199,8 @@ module.exports = {
             commandName: command.data.name,
             subcommandName,
             subcommandGroupName,
-            commandDefinition: command
+            commandDefinition: command,
+            memberPermissions: interaction.memberPermissions
         });
 
         if (!commandAccess.allowed) {

@@ -18,6 +18,7 @@ const { AiChatError, generateAiReply, stringifyUserInput } = require('../service
 const { ImageSearchError, searchImage } = require('../services/image-search');
 const { readConfig } = require('../utils/config');
 const { recordAiResult } = require('../stores/ai-health-store');
+const { handleStickyMessage } = require('../services/community-management-service');
 
 const pingResponsesPath = path.join(__dirname, '..', 'data', 'botPingResponses.json');
 const defaultPingRequestSaveCommands = ['zet dit op pornhub'];
@@ -634,6 +635,7 @@ module.exports = {
     name: 'messageCreate',
 
     async execute(message, client) {
+        await handleStickyMessage(message).catch(error => console.warn(`Sticky message update failed: ${error.message}`));
         const guildId = message.guildId;
 
         if (!guildId) return;

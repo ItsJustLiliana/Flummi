@@ -9,7 +9,7 @@ module.exports = {
         .addUserOption(option =>
             option
                 .setName('user')
-                .setDescription('[Dev] User whose AI memory should be reset')
+                .setDescription('[Dev] Member whose AI memory should be reset')
                 .setRequired(false)
         ),
 

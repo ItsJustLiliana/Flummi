@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
-const panelHtml = fs.readFileSync(path.join(__dirname, '..', 'panel', 'index.html'), 'utf8');
+const panelMarkup = fs.readFileSync(path.join(__dirname, '..', 'panel', 'index.html'), 'utf8');
+const panelStyles = fs.readFileSync(path.join(__dirname, '..', 'panel', 'styles.css'), 'utf8');
+const panelScript = fs.readFileSync(path.join(__dirname, '..', 'panel', 'app.js'), 'utf8');
+const panelHtml = `${panelMarkup}\n${panelStyles}\n${panelScript}`;
 const panelServer = fs.readFileSync(path.join(__dirname, '..', 'control-panel.js'), 'utf8');
 const promoteScript = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'promote-live.sh'), 'utf8');
 const updateRecorder = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'record-update-status.js'), 'utf8');
@@ -14,7 +17,7 @@ test('public root is a landing page with role-aware navigation and server groups
     for (const id of ['homeShell', 'homeFeedbackNav', 'homeDeveloperNav', 'homeGuilds', 'dashboardHome']) {
         assert.match(panelHtml, new RegExp(`id="${id}"`));
     }
-    assert.match(panelHtml, /row\.isAdmin/);
+    assert.match(panelHtml, /row\.displayRole === 'admin'/);
     const sidebarStart = panelHtml.indexOf('<aside class="sidebar">');
     const sidebarEnd = panelHtml.indexOf('</aside>', sidebarStart);
     const sidebar = panelHtml.slice(sidebarStart, sidebarEnd);
@@ -24,6 +27,57 @@ test('public root is a landing page with role-aware navigation and server groups
     assert.match(panelHtml, /id="logoutPanel"[\s\S]*?window\.location\.assign\('\/'\)/);
     assert.match(panelHtml, /class="home-auth-button" href="\/auth\/login"/);
     assert.match(panelHtml, /id="homeSignedIn" class="home-account-card"/);
+});
+
+test('home pages and selected servers use descriptive browser titles', () => {
+    assert.match(panelMarkup, /<title>Home - Flummi<\/title>/);
+    for (const [view, title] of Object.entries({
+        servers: 'Home - Flummi',
+        commands: 'Commands - Flummi',
+        status: 'Status - Flummi',
+        feedback: 'Feedback - Flummi',
+        developer: 'Developer Tools - Flummi'
+    })) {
+        assert.match(panelScript, new RegExp(`${view}: '${title}'`));
+    }
+    assert.match(panelScript, /document\.title = guild\?\.name \? `\$\{guild\.name\} \| Flummi` : 'Server \| Flummi'/);
+    assert.match(panelScript, /function openDashboard\([\s\S]*?setServerPageTitle\(state\.guildId\)/);
+});
+
+test('commands and status are public home pages backed by unauthenticated APIs', () => {
+    for (const view of ['commands', 'status']) {
+        assert.match(panelHtml, new RegExp(`data-home-view="${view}"`));
+        assert.match(panelHtml, new RegExp(`id="homeView${view[0].toUpperCase()}${view.slice(1)}"`));
+        assert.match(panelServer, new RegExp(`requestUrl\\.pathname === '\/api\/public\/${view}'`));
+    }
+    assert.match(panelServer, /buildPublicCommandCatalog\(\)/);
+    assert.match(panelServer, /accessStore\.getRequiredCommandRole/);
+    assert.match(panelServer, /function buildPublicStatus\(\)/);
+    assert.match(panelScript, /const publicViews = new Set\(\['servers', 'commands', 'status', 'feedback'\]\)/);
+
+    const publicCommandsRoute = panelServer.indexOf("requestUrl.pathname === '/api/public/commands'");
+    const authenticatedApiGate = panelServer.indexOf("if (requestUrl.pathname.startsWith('/api/'))", publicCommandsRoute);
+    assert.ok(publicCommandsRoute >= 0 && authenticatedApiGate > publicCommandsRoute);
+});
+
+test('dashboard access follows Discord membership and Administrator permission', () => {
+    assert.match(panelServer, /sharedGuildIds = userGuilds[\s\S]*?availableGuildIds\.has\(guildId\)/);
+    assert.match(panelServer, /member\.permissions\.has\(PermissionsBitField\.Flags\.Administrator\)/);
+    assert.match(panelServer, /adminGuildIds\.includes\(String\(guildId\)\) \? 'admin' : 'member'/);
+    assert.match(panelScript, /state\.role = \['developer', 'admin', 'member'\]/);
+    assert.match(panelMarkup, /Members &amp; Permissions/);
+    assert.doesNotMatch(panelServer, /\/api\/managers|\/api\/members\/role|setManagerRole/);
+    assert.doesNotMatch(panelScript, /data-role-select|canManageManagers/);
+});
+
+test('developer home cards show the real per-server Discord relationship', () => {
+    assert.match(panelServer, /displayRole = member\.permissions\.has\(PermissionsBitField\.Flags\.Administrator\) \? 'admin' : 'member'/);
+    assert.match(panelServer, /displayRole = 'not a member'/);
+    assert.match(panelServer, /role: getPanelGuildRole\(session, guild\.id\),\s*displayRole/);
+    assert.match(panelScript, /role: row\.displayRole \|\| row\.role/);
+    for (const title of ['Admin access', 'Member access', 'Developer-only access']) {
+        assert.match(panelScript, new RegExp(`title: '${title}'`));
+    }
 });
 
 test('feedback stays public while its form requires Discord authentication', () => {
@@ -45,9 +99,9 @@ test('feedback exposes its rate limit and developer-only delete flow', () => {
     assert.match(panelServer, /feedbackStore\.deleteFeedback\(feedbackId\)/);
 });
 
-test('feedback, manager audit, autosave, and staged promotion are enforced', () => {
+test('feedback, admin audit, autosave, and staged promotion are enforced', () => {
     assert.match(panelServer, /pathname === '\/api\/feedback'/);
-    assert.match(panelServer, /The audit log is only available to the server owner or a manager/);
+    assert.match(panelServer, /The audit log is only available to server administrators/);
     assert.match(panelHtml, /data-tab="audit" data-audit-only/);
     assert.match(panelHtml, /document\.querySelectorAll\('\[data-audit-only\]'\)\.forEach\(element => \{ element\.hidden = !canViewAudit; \}\)/);
     assert.doesNotMatch(panelHtml, /id="saveSettings"/);
@@ -108,6 +162,13 @@ test('presence updates are applied to both Discord gateway connections', () => {
 
 test('command deployment keeps normal commands global and restricted commands guild-only', () => {
     const deploySource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'deploy-commands.js'), 'utf8');
+    const stagingService = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'flummi-staging.service'), 'utf8');
+    assert.match(deploySource, /checkoutName\.endsWith\('-staging'\) \? 'guild' : 'global'/);
+    assert.match(deploySource, /process\.env\.FLUMMI_COMMAND_SCOPE \|\| config\.commandDeploymentScope \|\| defaultDeploymentScope/);
+    assert.match(deploySource, /deploymentScope === 'guild'/);
+    assert.match(deploySource, /Routes\.applicationCommands\(config\.clientId\), \{ body: \[\] \}/);
+    assert.match(deploySource, /!Array\.isArray\(command\.allowedGuildIds\) \|\| command\.allowedGuildIds\.includes\(guildId\)/);
+    assert.match(stagingService, /Environment=FLUMMI_COMMAND_SCOPE=guild/);
     assert.match(deploySource, /const globalCommands = commands\s*\.filter\(command => !Array\.isArray\(command\.allowedGuildIds\)\)/);
     assert.match(deploySource, /const guildCommands = commands\s*\.filter\(command => Array\.isArray\(command\.allowedGuildIds\) && command\.allowedGuildIds\.includes\(guildId\)\)/);
     assert.doesNotMatch(deploySource, /globalCommandNames/);
@@ -140,15 +201,15 @@ test('message, voice, and server media tabs are nested and sortable under Analyt
     assert.match(panelHtml, /const analyticsChildTabIds = new Set\(\['stats', 'voice', 'soundboard'\]\)/);
     assert.match(panelHtml, /parent: 'analytics', label: 'Analytics'/);
     assert.match(panelHtml, /setAnalyticsExpanded\(true\)/);
-    assert.match(panelHtml, /if \(state\.role !== 'user'\) setManagementExpanded\(true\)/);
+    assert.match(panelHtml, /if \(state\.role !== 'member'\) setManagementExpanded\(true\)/);
     assert.match(panelHtml, /class="nested-nav-toggle"/);
     assert.match(panelHtml, /analyticsNavToggle'\)\.addEventListener\('click'/);
     assert.match(panelHtml, /Collapse' : 'Expand'\} Analytics tabs/);
 });
 
-test('management configuration remains manager-only and saves through guild settings', () => {
-    assert.match(panelHtml, /id="tab-management"[^>]*data-manager-only/);
-    assert.match(panelHtml, /id="tab-management-automod"[^>]*data-manager-only/);
+test('management configuration remains admin-only and saves through guild settings', () => {
+    assert.match(panelHtml, /id="tab-management"[^>]*data-admin-only/);
+    assert.match(panelHtml, /id="tab-management-automod"[^>]*data-admin-only/);
     assert.match(panelHtml, /body: JSON\.stringify\(\{ management: state\.management \}\)/);
     assert.match(panelServer, /requireSettingsAccess\(panelSession, guildId, res\)/);
     assert.match(panelServer, /'management\.modules\.moderation': 'Moderation module'/);
@@ -166,7 +227,7 @@ test('management modules include live actions, case timelines, AutoMod rules, ro
     assert.match(panelServer, /\/api\/management\/cases/);
     assert.match(panelServer, /\/api\/management\/action/);
     assert.match(panelServer, /\/api\/management\/roles\/publish/);
-    assert.match(panelServer, /Cases and event logs are only available to managers/);
+    assert.match(panelServer, /Cases and event logs are only available to server administrators/);
 });
 
 test('GitHub update status compares staged and live commits and records promotions', () => {
@@ -238,6 +299,9 @@ test('panel markup keeps unique ids and syntactically valid inline scripts', () 
 
     const inlineScripts = Array.from(panelHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g), match => match[1]).filter(Boolean);
     for (const script of inlineScripts) assert.doesNotThrow(() => new Function(script));
+    assert.match(panelMarkup, /<link rel="stylesheet" href="\/panel\/styles\.css">/);
+    assert.match(panelMarkup, /<script src="\/panel\/app\.js" defer><\/script>/);
+    assert.doesNotThrow(() => new Function(panelScript));
 });
 
 test('expired developer authentication offers an in-place refresh action and restores context', () => {

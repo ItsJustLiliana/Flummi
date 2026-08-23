@@ -11,7 +11,7 @@ function formatRows(rows, formatter) {
 }
 
 module.exports = {
-    managerOnly: true,
+    adminOnly: true,
 
     data: new SlashCommandBuilder()
         .setName('serverstats')
@@ -50,7 +50,7 @@ module.exports = {
                     inline: false
                 },
                 {
-                    name: 'Most Active Users',
+                    name: 'Most Active Members',
                     value: formatRows(summary.users, row => `<@${row.id}> - ${row.count} message(s)`),
                     inline: false
                 },

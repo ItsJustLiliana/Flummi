@@ -7,7 +7,6 @@ const {
     isDeveloper,
     normalizeCommandPath,
     roleMeetsRequirement,
-    setManagerRole,
     setUserCommandPermission,
     setUserPermission
 } = require('../stores/access-store');
@@ -33,19 +32,19 @@ function formatFeaturePermissions(perms) {
 }
 
 module.exports = {
-    managerOnly: true,
+    adminOnly: true,
 
     data: new SlashCommandBuilder()
         .setName('manage')
-        .setDescription('Manage user roles and permissions')
+        .setDescription('Manage member permissions')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('features')
-                .setDescription('Set bot feature permissions for a user')
+                .setDescription('Set bot feature permissions for a member')
                 .addUserOption(option =>
                     option
                         .setName('user')
-                        .setDescription('User to manage')
+                        .setDescription('Member to manage')
                         .setRequired(true)
                 )
                 .addBooleanOption(option =>
@@ -82,11 +81,11 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('command')
-                .setDescription('Set one command override for a user')
+                .setDescription('Set one command override for a member')
                 .addUserOption(option =>
                     option
                         .setName('user')
-                        .setDescription('User to manage')
+                        .setDescription('Member to manage')
                         .setRequired(true)
                 )
                 .addStringOption(option =>
@@ -104,27 +103,6 @@ module.exports = {
                             { name: 'Allow', value: 'allow' },
                             { name: 'Block', value: 'block' },
                             { name: 'Inherit role config', value: 'inherit' }
-                        )
-                )
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('role')
-                .setDescription('Set user role (developer only)')
-                .addUserOption(option =>
-                    option
-                        .setName('user')
-                        .setDescription('User to manage')
-                        .setRequired(true)
-                )
-                .addStringOption(option =>
-                    option
-                        .setName('role')
-                        .setDescription('Role to set')
-                        .setRequired(true)
-                        .addChoices(
-                            { name: 'User', value: 'user' },
-                            { name: 'Manager', value: 'manager' }
                         )
                 )
         ),
@@ -206,7 +184,7 @@ module.exports = {
                         null,
                         nestedSubcommandName ? groupOrSubcommandName : null
                     );
-                    const actorRole = getUserRole(interaction.user.id, guildId);
+                    const actorRole = getUserRole(interaction.user.id, guildId, interaction.memberPermissions);
                     const nextValue = commandAccess === 'inherit'
                         ? null
                         : commandAccess === 'allow';
@@ -221,8 +199,8 @@ module.exports = {
                     setUserCommandPermission(targetUser.id, commandPath, nextValue, guildId);
                 }
             } catch (error) {
-                console.error('Failed to update user permission:', error);
-                return interaction.reply({ content: 'Failed to update user permissions.', flags: MessageFlags.Ephemeral });
+                console.error('Failed to update member permission:', error);
+                return interaction.reply({ content: 'Failed to update member permissions.', flags: MessageFlags.Ephemeral });
             }
 
             const updated = getUserPermissions(targetUser.id, guildId);
@@ -253,28 +231,8 @@ module.exports = {
             });
         }
 
-        if (subcommand === 'role') {
-            if (!isDeveloper(interaction.user.id)) {
-                return interaction.reply({ content: 'Only developers can manage roles.', flags: MessageFlags.Ephemeral });
-            }
-
-            const role = interaction.options.getString('role');
-
-            if (role === 'manager') {
-                setManagerRole(targetUser.id, true, guildId);
-
-                return interaction.reply({ content: `${targetUser.tag} role: manager`, flags: MessageFlags.Ephemeral });
-            }
-
-            if (role === 'user') {
-                setManagerRole(targetUser.id, false, guildId);
-
-                return interaction.reply({ content: `${targetUser.tag} role: user`, flags: MessageFlags.Ephemeral });
-            }
-        }
-
         return interaction.reply({
-            content: 'Unknown mode. Use /manage features, /manage command, or /manage role.',
+            content: 'Unknown mode. Use /manage features or /manage command.',
             flags: MessageFlags.Ephemeral
         });
     }

@@ -29,10 +29,50 @@ const rest = new REST({ version: '10' })
 async function deployCommands() {
     console.log(`Preparing ${commands.length} commands...`);
 
+    const checkoutName = path.basename(path.join(__dirname, '..')).toLowerCase();
+    const defaultDeploymentScope = checkoutName.endsWith('-staging') ? 'guild' : 'global';
+    const deploymentScope = String(
+        process.env.FLUMMI_COMMAND_SCOPE || config.commandDeploymentScope || defaultDeploymentScope
+    ).trim().toLowerCase();
     const guildIds = Array.from(new Set([
         ...(Array.isArray(config.guildIds) ? config.guildIds : []),
         ...(config.guildId ? [config.guildId] : [])
-    ]));
+    ].map(String).filter(Boolean)));
+
+    if (!['global', 'guild'].includes(deploymentScope)) {
+        throw new Error('FLUMMI_COMMAND_SCOPE must be either global or guild.');
+    }
+
+    if (deploymentScope === 'guild') {
+        if (guildIds.length === 0) {
+            throw new Error('Guild-scoped command deployment requires at least one configured guildIds entry.');
+        }
+
+        // Staging uses a separate Discord application. Clear any old global staging
+        // commands so only the instantly updated private-guild versions remain.
+        await rest.put(Routes.applicationCommands(config.clientId), { body: [] });
+        console.log('Cleared global commands for the guild-scoped bot application.');
+
+        const failures = [];
+        for (const guildId of guildIds) {
+            try {
+                const guildCommands = commands
+                    .filter(command => !Array.isArray(command.allowedGuildIds) || command.allowedGuildIds.includes(guildId))
+                    .map(command => commandPayloadWithAccessDescriptions(command, getRequiredCommandRole));
+
+                await rest.put(Routes.applicationGuildCommands(config.clientId, guildId), { body: guildCommands });
+                console.log(`Registered ${guildCommands.length} staging commands for guild ${guildId}.`);
+            } catch (error) {
+                failures.push({ guildId, error });
+                console.warn(`Skipping guild ${guildId}: ${error.message}`);
+            }
+        }
+
+        if (failures.length === guildIds.length) {
+            throw new Error('Guild-scoped command deployment failed for all configured guilds.');
+        }
+        return;
+    }
 
     if (guildIds.length > 0) {
         const globalCommands = commands

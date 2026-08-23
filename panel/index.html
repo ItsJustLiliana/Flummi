@@ -1338,8 +1338,8 @@
                     <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
                     <div id="analyticsNavGroup" class="management-nav-group">
                         <button id="analyticsNavPage" class="tab-btn management-parent" data-tab="analytics" type="button">Stats &amp; Analytics</button>
-                        <button id="analyticsNavToggle" class="nested-nav-toggle" type="button" aria-expanded="true" aria-controls="analyticsSubnav" aria-label="Collapse Analytics tabs"><span aria-hidden="true">›</span></button>
-                        <div id="analyticsSubnav" class="management-subnav">
+                        <button id="analyticsNavToggle" class="nested-nav-toggle" type="button" aria-expanded="false" aria-controls="analyticsSubnav" aria-label="Expand Analytics tabs"><span aria-hidden="true">›</span></button>
+                        <div id="analyticsSubnav" class="management-subnav" hidden>
                             <button class="tab-btn" data-tab="stats" data-analytics-child type="button">Messages</button>
                             <button class="tab-btn" data-tab="voice" data-analytics-child type="button">Voice Analytics</button>
                             <button class="tab-btn" data-tab="soundboard" data-analytics-child type="button">Server Media</button>
@@ -1350,8 +1350,8 @@
                     <button class="tab-btn" data-tab="users" type="button">Members &amp; Permissions</button>
                     <div id="managementNavGroup" class="management-nav-group" data-admin-only>
                         <button id="managementNavPage" class="tab-btn management-parent" data-tab="management" data-admin-only type="button">Management</button>
-                        <button id="managementNavToggle" class="nested-nav-toggle" type="button" aria-expanded="true" aria-controls="managementSubnav" aria-label="Collapse Management tabs"><span aria-hidden="true">›</span></button>
-                        <div id="managementSubnav" class="management-subnav">
+                        <button id="managementNavToggle" class="nested-nav-toggle" type="button" aria-expanded="false" aria-controls="managementSubnav" aria-label="Expand Management tabs"><span aria-hidden="true">›</span></button>
+                        <div id="managementSubnav" class="management-subnav" hidden>
                             <button class="tab-btn" data-tab="management-moderation" data-management-module="moderation" data-admin-only
                                 type="button">Moderation</button>
                             <button class="tab-btn" data-tab="management-automod" data-management-module="automod" data-admin-only

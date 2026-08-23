@@ -188,21 +188,28 @@ test('management pages stay in the nested sidebar while their modules can be tog
     assert.match(panelHtml, /button\.hidden = false/);
     assert.match(panelHtml, /data-page-module-toggle="moderation"/);
     assert.match(panelHtml, /function normalizeEditableTabOrder\(order\)/);
-    assert.match(panelHtml, /requestedChildren = order\.filter\(tabId => group\.children\.has\(tabId\)\)/);
+    assert.match(panelHtml, /const childOrder = \[\.\.\.group\.children\]\.sort/);
+    assert.match(panelHtml, /leftLabel\.localeCompare\(rightLabel/);
     assert.match(panelHtml, /subnav\.appendChild\(child\)/);
     assert.match(panelHtml, /data-tab-order-entry="\$\{escapeHtml\(entry\)\}"/);
-    assert.match(panelHtml, /nestedGroup\.label/);
+    assert.match(panelHtml, /filter\(entry => !nestedChildTabIds\.has\(entry\)\)/);
+    assert.match(panelHtml, /group\.parent === entry/);
+    assert.match(panelHtml, /<span class="badge accent">Group<\/span>/);
 });
 
-test('message, voice, and server media tabs are nested and sortable under Analytics', () => {
+test('nested tabs are alphabetical and folded by default', () => {
     assert.match(panelHtml, /id="analyticsNavPage"[^>]*data-tab="analytics"/);
     assert.match(panelHtml, /id="analyticsNavToggle"[\s\S]*?aria-controls="analyticsSubnav"/);
     const analyticsGroup = panelHtml.slice(panelHtml.indexOf('id="analyticsNavGroup"'), panelHtml.indexOf('id="managementNavGroup"'));
     for (const tab of ['stats', 'voice', 'soundboard']) assert.match(analyticsGroup, new RegExp(`data-tab="${tab}"[^>]*data-analytics-child`));
     assert.match(panelHtml, /const analyticsChildTabIds = new Set\(\['stats', 'voice', 'soundboard'\]\)/);
     assert.match(panelHtml, /parent: 'analytics', label: 'Analytics'/);
-    assert.match(panelHtml, /setAnalyticsExpanded\(true\)/);
-    assert.match(panelHtml, /if \(state\.role !== 'member'\) setManagementExpanded\(true\)/);
+    assert.match(panelHtml, /id="analyticsNavToggle"[^>]*aria-expanded="false"/);
+    assert.match(panelHtml, /id="analyticsSubnav" class="management-subnav" hidden/);
+    assert.match(panelHtml, /id="managementNavToggle"[^>]*aria-expanded="false"/);
+    assert.match(panelHtml, /id="managementSubnav" class="management-subnav" hidden/);
+    assert.doesNotMatch(panelHtml, /setAnalyticsExpanded\(true\);\s*if \(state\.role !== 'member'\) setManagementExpanded\(true\)/);
+    assert.match(panelHtml, /applyTabNames\(window\.__PANEL_TAB_NAMES__\);\s*applyTabOrder\(window\.__PANEL_TAB_ORDER__\);/);
     assert.match(panelHtml, /class="nested-nav-toggle"/);
     assert.match(panelHtml, /analyticsNavToggle'\)\.addEventListener\('click'/);
     assert.match(panelHtml, /Collapse' : 'Expand'\} Analytics tabs/);

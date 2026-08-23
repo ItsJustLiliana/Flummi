@@ -876,22 +876,22 @@ const dashboardSearch = setupWorkspaceSearch({
 });
 
 function applyTabOrder(order) {
-    if (!Array.isArray(order) || order.length === 0) {
-        return;
-    }
-
+    const requestedOrder = Array.isArray(order) && order.length ? order : tabButtons.map(button => button.dataset.tab);
     const nav = document.querySelector('.tabs');
     const seen = new Set();
     for (const group of nestedTabGroups) {
-        const requestedChildren = order.filter(tabId => group.children.has(tabId));
-        const childOrder = [...new Set([...requestedChildren, ...group.children])];
+        const childOrder = [...group.children].sort((left, right) => {
+            const leftLabel = tabButtons.find(button => button.dataset.tab === left)?.textContent.trim() || left;
+            const rightLabel = tabButtons.find(button => button.dataset.tab === right)?.textContent.trim() || right;
+            return leftLabel.localeCompare(rightLabel, undefined, { sensitivity: 'base' });
+        });
         const subnav = document.getElementById(group.subnavId);
         for (const tabId of childOrder) {
             const child = tabButtons.find(button => button.dataset.tab === tabId);
             if (child) subnav.appendChild(child);
         }
     }
-    const effectiveOrder = order.filter(tabId => !nestedChildTabIds.has(tabId));
+    const effectiveOrder = requestedOrder.filter(tabId => !nestedChildTabIds.has(tabId));
     for (const group of nestedTabGroups) {
         if (effectiveOrder.includes(group.parent)) continue;
         const settingsIndex = effectiveOrder.indexOf('settings');
@@ -1058,8 +1058,8 @@ function applyTabNames(names) {
     }
 }
 
-applyTabOrder(window.__PANEL_TAB_ORDER__);
 applyTabNames(window.__PANEL_TAB_NAMES__);
+applyTabOrder(window.__PANEL_TAB_ORDER__);
 
 // Keep Settings limited to server-admin controls; platform-wide tools have their own developer tab.
 const reliabilityPanel = document.getElementById('tab-reliability');
@@ -1206,8 +1206,6 @@ async function openDashboard(guildId, tab = null) {
     localStorage.setItem('flummi.guildId', state.guildId);
     applyAccessVisibility();
     if (state.role !== 'member') await loadManagement();
-    setAnalyticsExpanded(true);
-    if (state.role !== 'member') setManagementExpanded(true);
     document.getElementById('homeShell').hidden = true;
     document.getElementById('dashboardLayout').hidden = false;
     const rememberedDashboardTab = localStorage.getItem('flummi.activeTab');
@@ -2759,17 +2757,12 @@ function tabLabel(tabId) {
 }
 
 function normalizeEditableTabOrder(order) {
-    let normalized = [...order];
+    const normalized = [...order].filter(entry => !nestedChildTabIds.has(entry));
     for (const group of nestedTabGroups) {
-        const children = [...new Set([...normalized.filter(entry => group.children.has(entry)), ...group.children])];
-        normalized = normalized.filter(entry => !group.children.has(entry));
-        let parentIndex = normalized.indexOf(group.parent);
-        if (parentIndex < 0) {
+        if (!normalized.includes(group.parent)) {
             const settingsIndex = normalized.indexOf('settings');
-            parentIndex = settingsIndex < 0 ? normalized.length : settingsIndex;
-            normalized.splice(parentIndex, 0, group.parent);
+            normalized.splice(settingsIndex < 0 ? normalized.length : settingsIndex, 0, group.parent);
         }
-        normalized.splice(parentIndex + 1, 0, ...children);
     }
     return normalized;
 }
@@ -2777,25 +2770,9 @@ function normalizeEditableTabOrder(order) {
 function moveEditableTab(index, direction) {
     editableTabOrder = normalizeEditableTabOrder(editableTabOrder);
     const entry = editableTabOrder[index];
-    const childGroup = nestedTabGroups.find(group => group.children.has(entry));
-    if (childGroup) {
-        const children = editableTabOrder.filter(value => childGroup.children.has(value));
-        const targetChild = children[children.indexOf(entry) + direction];
-        if (!targetChild) return;
-        const targetIndex = editableTabOrder.indexOf(targetChild);
-        [editableTabOrder[index], editableTabOrder[targetIndex]] = [editableTabOrder[targetIndex], editableTabOrder[index]];
-        return;
-    }
     const units = [];
     for (let cursor = 0; cursor < editableTabOrder.length;) {
-        const group = nestedTabGroups.find(candidate => candidate.parent === editableTabOrder[cursor]);
-        if (group) {
-            const values = [editableTabOrder[cursor++]];
-            while (group.children.has(editableTabOrder[cursor])) values.push(editableTabOrder[cursor++]);
-            units.push(values);
-        } else {
-            units.push([editableTabOrder[cursor++]]);
-        }
+        units.push([editableTabOrder[cursor++]]);
     }
     const unitIndex = units.findIndex(unit => unit.includes(entry));
     const targetIndex = unitIndex + direction;
@@ -2810,14 +2787,15 @@ function renderTabOrderEditor() {
     container.innerHTML = editableTabOrder.length ? `<table><tbody>${editableTabOrder.map((entry, index) => {
         const divider = isDividerToken(entry);
         const title = isTitleToken(entry);
-        const nestedGroup = nestedTabGroups.find(group => group.children.has(entry));
+        const parentGroup = nestedTabGroups.find(group => group.parent === entry);
         const content = divider
             ? '<span class="muted">──── Divider ────</span>'
             : title
                 ? `<div class="row"><span class="badge accent">Category</span><input data-tab-title-index="${index}" maxlength="60" value="${escapeHtml(titleFromToken(entry))}" aria-label="Category title" style="flex:1"></div>`
-                : `<div class="row">${nestedGroup ? `<span class="badge accent">${escapeHtml(nestedGroup.label)}</span>` : ''}<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name" style="flex:1"></div>`;
-        const requiredGroupTab = nestedTabGroups.some(group => group.parent === entry || group.children.has(entry));
-        return `<tr data-tab-order-entry="${escapeHtml(entry)}"><td>${content}</td><td style="width:1%;white-space:nowrap"><button class="secondary" type="button" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" type="button" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button> ${requiredGroupTab ? '' : `<button class="danger" type="button" data-tab-order="remove" data-index="${index}">Remove</button>`}</td></tr>`;
+                : `<div class="row">${parentGroup ? '<span class="badge accent">Group</span>' : ''}<input data-tab-name="${escapeHtml(entry)}" value="${escapeHtml(editableTabNames[entry] || defaultTabLabels[entry] || entry)}" aria-label="Tab name" style="flex:1"></div>`;
+        const requiredGroupTab = Boolean(parentGroup);
+        const movementControls = `<button class="secondary" type="button" data-tab-order="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button> <button class="secondary" type="button" data-tab-order="down" data-index="${index}" ${index === editableTabOrder.length - 1 ? 'disabled' : ''}>↓</button>`;
+        return `<tr data-tab-order-entry="${escapeHtml(entry)}"><td>${content}</td><td style="width:1%;white-space:nowrap">${movementControls} ${requiredGroupTab ? '' : `<button class="danger" type="button" data-tab-order="remove" data-index="${index}">Remove</button>`}</td></tr>`;
     }).join('')}</tbody></table>` : '<div class="empty">No tabs configured.</div>';
     container.querySelectorAll('[data-tab-order]').forEach(button => button.addEventListener('click', () => {
         const index = Number(button.dataset.index); const action = button.dataset.tabOrder;

@@ -32,7 +32,7 @@ Analytics store activity metadata rather than message contents. New moderation t
 
 ## Staging command deployment
 
-The `Flummi-staging` checkout and staging service use guild-scoped deployment, registering commands directly in configured `guildIds` for immediate updates and clearing global commands from the separate staging application. Keep only the private test server in the staging checkout's ignored config, with its own staging client ID and token. Production defaults to global command deployment, so promoted releases publish commands globally for the public bot.
+The `Flummi-staging` checkout and staging service use guild-scoped deployment, registering commands directly in configured `guildIds` on every staging restart and clearing global commands from the separate staging application. Keep only the private test server in the staging checkout's ignored config, with its own staging client ID and token. Production defaults to global command deployment, so promoted releases publish commands globally for the public bot.
 
 ## Config
 

@@ -8,6 +8,7 @@ WorkingDirectory=/projects/Flummi-staging
 Environment=PANEL_HOST=127.0.0.1
 Environment=PANEL_PORT=3790
 Environment=FLUMMI_COMMAND_SCOPE=guild
+Environment=FLUMMI_DEPLOY_COMMANDS_ON_START=true
 ExecStart=/usr/bin/node scripts/start.js
 Restart=on-failure
 RestartSec=5

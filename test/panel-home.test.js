@@ -169,6 +169,7 @@ test('command deployment keeps normal commands global and restricted commands gu
     assert.match(deploySource, /Routes\.applicationCommands\(config\.clientId\), \{ body: \[\] \}/);
     assert.match(deploySource, /!Array\.isArray\(command\.allowedGuildIds\) \|\| command\.allowedGuildIds\.includes\(guildId\)/);
     assert.match(stagingService, /Environment=FLUMMI_COMMAND_SCOPE=guild/);
+    assert.match(stagingService, /Environment=FLUMMI_DEPLOY_COMMANDS_ON_START=true/);
     assert.match(deploySource, /const globalCommands = commands\s*\.filter\(command => !Array\.isArray\(command\.allowedGuildIds\)\)/);
     assert.match(deploySource, /const guildCommands = commands\s*\.filter\(command => Array\.isArray\(command\.allowedGuildIds\) && command\.allowedGuildIds\.includes\(guildId\)\)/);
     assert.doesNotMatch(deploySource, /globalCommandNames/);

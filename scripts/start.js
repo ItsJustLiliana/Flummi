@@ -251,7 +251,10 @@ async function start() {
     writeRuntimeFile();
     registerCleanupHandlers();
 
-    const shouldDeployCommands = config.deployCommandsOnStart !== false;
+    const deployOverride = String(process.env.FLUMMI_DEPLOY_COMMANDS_ON_START || '').trim().toLowerCase();
+    const shouldDeployCommands = deployOverride
+        ? ['1', 'true', 'yes', 'on'].includes(deployOverride)
+        : config.deployCommandsOnStart !== false;
 
     if (shouldDeployCommands) {
         console.log('Deploy step enabled. Deploying slash commands...');

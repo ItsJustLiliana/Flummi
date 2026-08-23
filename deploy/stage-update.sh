@@ -34,6 +34,7 @@ fi
 git -C "${staging_dir}" checkout main
 git -C "${staging_dir}" reset --hard origin/main
 npm --prefix "${staging_dir}" ci --omit=dev
+FLUMMI_COMMAND_SCOPE=guild node "${staging_dir}/scripts/deploy-commands.js"
 systemctl --user restart flummi-staging.service
 node "${staging_dir}/scripts/record-update-status.js" updated || true
 echo "Tailscale staging updated from ${current_commit:0:7} to ${target_commit:0:7}."

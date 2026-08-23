@@ -6,6 +6,8 @@ const { loadEnv } = require('../utils/env-loader');
 const { readConfig } = require('../utils/config');
 const { getRequiredCommandRole } = require('../stores/access-store');
 const { commandPayloadWithAccessDescriptions } = require('../utils/command-description');
+
+loadEnv();
 const config = readConfig();
 
 installTimestampedConsole();

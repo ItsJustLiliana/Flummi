@@ -13,6 +13,7 @@ test('staging updater serializes overlapping runs and supports non-interactive u
     assert.match(stageScript, /DBUS_SESSION_BUS_ADDRESS/);
     assert.match(stageScript, /record-update-status\.js" checked/);
     assert.match(stageScript, /record-update-status\.js" updated/);
+    assert.match(stageScript, /FLUMMI_COMMAND_SCOPE=guild node "\$\{staging_dir\}\/scripts\/deploy-commands\.js"/);
 });
 
 test('GitHub pushes to main request an immediate staging update over Tailscale', () => {

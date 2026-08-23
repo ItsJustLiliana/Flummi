@@ -9,7 +9,7 @@
         "openBrowserOnStart": false,
         "publicAccessEnabled": true,
         "publicUrl": "https://panel.example.com",
-        "tabOrder": ["overview", "analytics", "---", "users", "management", "settings", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "ai", "logs", "reliability"]
+        "tabOrder": ["overview", "analytics", "---", "users", "management", "settings", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "ai", "logs", "reliability", "adoption"]
     },
     "features": {
         "triggersEnabled": true,

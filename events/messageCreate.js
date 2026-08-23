@@ -19,6 +19,8 @@ const { ImageSearchError, searchImage } = require('../services/image-search');
 const { readConfig } = require('../utils/config');
 const { recordAiResult } = require('../stores/ai-health-store');
 const { handleStickyMessage } = require('../services/community-management-service');
+const operationsStore = require('../stores/operations-store');
+const levelXpCooldowns = new Map();
 
 const pingResponsesPath = path.join(__dirname, '..', 'data', 'botPingResponses.json');
 const defaultPingRequestSaveCommands = ['zet dit op pornhub'];
@@ -641,6 +643,27 @@ module.exports = {
         if (!guildId) return;
 
         if (message.author.bot) return;
+
+        const management = readSettings(guildId).management;
+        if (management.modules.engagement) {
+            if (management.engagement.levels) {
+                const xpKey = `${guildId}:${message.author.id}`;
+                const lastXpAt = levelXpCooldowns.get(xpKey) || 0;
+                if (Date.now() - lastXpAt >= 60000) {
+                    operationsStore.addExperience(guildId, message.author.id, 5);
+                    levelXpCooldowns.set(xpKey, Date.now());
+                }
+            }
+            if (management.engagement.afk) {
+                const operations = operationsStore.readState(guildId);
+                if (operations.afk[message.author.id]) {
+                    operationsStore.setAfk(guildId, message.author.id, null);
+                    await message.reply({ content: 'Welcome back — your AFK status was cleared.', allowedMentions: { repliedUser: false } }).catch(() => {});
+                }
+                const afkMentions = [...message.mentions.users.keys()].map(id => ({ id, entry: operations.afk[id] })).filter(item => item.entry);
+                if (afkMentions.length) await message.reply({ content: afkMentions.map(item => `<@${item.id}> is AFK: ${item.entry.message}`).join('\n'), allowedMentions: { parse: [] } }).catch(() => {});
+            }
+        }
 
         try {
             incrementMessageStats({

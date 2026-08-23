@@ -284,6 +284,28 @@ test('landing, developer tools, and dashboard adapt to touch screens and tablets
     assert.match(panelHtml, /\.sidebar \{[\s\S]*?overflow: hidden/);
     assert.match(panelHtml, /\.tabs \{[\s\S]*?flex: 1 1 auto;[\s\S]*?overflow-y: auto/);
     assert.match(panelHtml, /#dashboardLayout \.brand \{ width: 100%; padding: 0; border-bottom: 0; \}/);
+    assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?#dashboardLayout \.tabs \{[\s\S]*?flex-direction: column;/);
+    assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?\.developer-tool-nav \{[\s\S]*?flex-direction: column;/);
+});
+
+test('public site exposes search, social preview, and install metadata', () => {
+    assert.match(panelMarkup, /<!--SITE_METADATA-->/);
+    assert.match(panelMarkup, /rel="apple-touch-icon"/);
+    assert.match(panelMarkup, /rel="manifest" href="\/site\.webmanifest"/);
+    assert.match(panelServer, /function buildSiteMetadata\(req\)/);
+    for (const metadata of [
+        'meta name="description"',
+        'rel="canonical"',
+        'property="og:title"',
+        'name="twitter:card"',
+        'application/ld+json'
+    ]) {
+        assert.match(panelServer, new RegExp(metadata.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+    for (const route of ['/robots.txt', '/sitemap.xml', '/site.webmanifest']) {
+        assert.match(panelServer, new RegExp(`requestUrl\\.pathname === '${route.replace('.', '\\.')}'`));
+    }
+    assert.match(panelServer, /\.replace\('<!--SITE_METADATA-->', buildSiteMetadata\(req\)\)/);
 });
 
 test('Tailscale-only features are disabled and explained on public sessions', () => {
@@ -324,8 +346,26 @@ test('expired developer authentication offers an in-place refresh action and res
     assert.match(panelHtml, /history\.replaceState\(null, '', reauthReturn\)/);
 });
 
+test('developer file actions use friendly in-dashboard dialogs', () => {
+    for (const id of ['textInputDialog', 'textInputDialogTitle', 'textInputDialogMessage', 'textInputDialogValue', 'textInputDialogHint', 'textInputDialogError']) {
+        assert.match(panelMarkup, new RegExp(`id="${id}"`));
+    }
+    assert.match(panelScript, /function requestTextInput\(/);
+    assert.match(panelScript, /title: isDirectory \? 'Create a new folder' : 'Create a new file'/);
+    assert.match(panelScript, /title: 'Rename or move item'/);
+    assert.match(panelScript, /title: 'Discard unsaved changes\?'/);
+    assert.match(panelScript, /title: 'Reload the saved version\?'/);
+    assert.doesNotMatch(panelScript, /window\.prompt/);
+    assert.doesNotMatch(panelScript, /fileIsDirty\(\) && !window\.confirm/);
+});
+
 test('overview is detail-focused and analytics summary owns compact graphs', () => {
     assert.match(panelHtml, /id="overviewFeatures"/);
+    assert.match(panelMarkup, /class="overview-summary-row"[\s\S]*?id="overviewCards"[\s\S]*?class="section overview-details"/);
+    assert.doesNotMatch(panelMarkup, /id="overviewQuad"/);
+    assert.match(panelStyles, /\.overview-quad \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[\s\S]*?align-content: start/);
+    assert.match(panelStyles, /@media \(max-width: 460px\)[\s\S]*?\.overview-quad \{ grid-template-columns: 1fr; \}/);
+    assert.match(panelScript, /function renderOverviewCards\([\s\S]*?statCard\('Members'[\s\S]*?statCard\('Admins'/);
     assert.doesNotMatch(panelHtml, /id="overviewMessageChart"|id="overviewVoiceChart"|id="overviewShots"/);
     assert.match(panelHtml, /id="analyticsSummaryRange"/);
     assert.match(panelHtml, /id="analyticsSummaryGraphType"/);

@@ -36,6 +36,8 @@ const readyEvent = require('./events/ready');
 const moderationStore = require('./stores/moderation-store');
 const { executeModerationAction, parseDuration } = require('./services/moderation-service');
 const { publishRoleMenu } = require('./services/role-service');
+const operationsStore = require('./stores/operations-store');
+const { scanServer, snapshotGuild, previewSnapshot, restoreSnapshot } = require('./services/operations-service');
 
 installTimestampedConsole();
 loadEnv();
@@ -91,6 +93,15 @@ const settingAuditLabels = {
     'management.modules.forms': 'Forms & Appeals module',
     'management.modules.channels': 'Channel Management module',
     'management.modules.integrations': 'Discord Integrations module',
+    'management.modules.serverDoctor': 'Server Doctor module',
+    'management.modules.incidentCenter': 'Incident Center module',
+    'management.modules.reports': 'Reports & Modmail module',
+    'management.modules.workflows': 'Workflow Studio module',
+    'management.modules.staffOperations': 'Staff Operations module',
+    'management.modules.communityHealth': 'Community Health module',
+    'management.modules.backups': 'Backup & Recovery module',
+    'management.modules.copilot': 'Flummi Copilot module',
+    'management.modules.engagement': 'Engagement & Utilities module',
     'management.moderation.requireReason': 'Require moderation reasons',
     'management.moderation.notifyMember': 'Notify moderated members',
     'management.moderation.defaultTimeoutMinutes': 'Default timeout duration',
@@ -443,6 +454,51 @@ function serializeForInlineScript(value) {
         .replace(/&/g, '\\u0026')
         .replace(/\u2028/g, '\\u2028')
         .replace(/\u2029/g, '\\u2029');
+}
+
+function escapeHtmlAttribute(value) {
+    return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function buildSiteMetadata(req) {
+    const siteUrl = panelPublicUrl(req).replace(/\/$/, '');
+    const canonicalUrl = `${siteUrl}/`;
+    const imageUrl = `${siteUrl}/assets/branding/flummi-banner-color.jpg`;
+    const title = 'Flummi - Discord server management made friendly';
+    const description = 'Manage, protect, automate, and understand your Discord server with Flummi. Configure moderation, safety, tickets, roles, analytics, workflows, backups, and community tools from one friendly dashboard.';
+    const structuredData = serializeForInlineScript({
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Flummi',
+        applicationCategory: 'CommunicationApplication',
+        operatingSystem: 'Web, Discord',
+        url: canonicalUrl,
+        image: imageUrl,
+        description,
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' }
+    });
+    const attr = escapeHtmlAttribute;
+    return [
+        `<meta name="description" content="${attr(description)}">`,
+        '<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">',
+        '<meta name="application-name" content="Flummi">',
+        '<meta name="author" content="Flummi">',
+        '<meta name="theme-color" content="#0b1328">',
+        `<link rel="canonical" href="${attr(canonicalUrl)}">`,
+        '<meta property="og:type" content="website">',
+        '<meta property="og:site_name" content="Flummi">',
+        '<meta property="og:locale" content="en_US">',
+        `<meta property="og:title" content="${attr(title)}">`,
+        `<meta property="og:description" content="${attr(description)}">`,
+        `<meta property="og:url" content="${attr(canonicalUrl)}">`,
+        `<meta property="og:image" content="${attr(imageUrl)}">`,
+        '<meta property="og:image:alt" content="Flummi Discord bot dashboard">',
+        '<meta name="twitter:card" content="summary_large_image">',
+        `<meta name="twitter:title" content="${attr(title)}">`,
+        `<meta name="twitter:description" content="${attr(description)}">`,
+        `<meta name="twitter:image" content="${attr(imageUrl)}">`,
+        `<script type="application/ld+json">${structuredData}</script>`
+    ].join('\n    ');
 }
 
 const stateChangingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -967,6 +1023,51 @@ async function buildOverview(guildId) {
     };
 }
 
+async function buildDeveloperServerStats() {
+    await client.guilds.fetch();
+    const activity = readActivity();
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 86400000;
+    const sevenDaysAgo = now - 7 * 86400000;
+    const commandActivity = activity.filter(entry => entry.type === 'command');
+    const moduleAdoption = {};
+    const rows = [...client.guilds.cache.values()].map(guild => {
+        const settings = settingsStore.readSettings(guild.id);
+        const enabledModules = Object.entries(settings.management.modules).filter(([, enabled]) => enabled).map(([key]) => key);
+        for (const key of enabledModules) moduleAdoption[key] = (moduleAdoption[key] || 0) + 1;
+        const commands = commandActivity.filter(entry => String(entry.guildId) === String(guild.id));
+        const lastActivity = commands[0]?.at || activity.find(entry => String(entry.guildId) === String(guild.id))?.at || null;
+        return {
+            id: guild.id,
+            name: guild.name,
+            iconUrl: guild.iconURL({ size: 64, extension: 'png' }) || null,
+            memberCount: guild.memberCount,
+            ownerId: guild.ownerId,
+            botEnabled: settings.botEnabled !== false,
+            enabledModules,
+            installedAt: guild.joinedAt?.toISOString() || null,
+            lastActivity,
+            commands7d: commands.filter(entry => new Date(entry.at).getTime() >= sevenDaysAgo).length,
+            commands30d: commands.filter(entry => new Date(entry.at).getTime() >= thirtyDaysAgo).length
+        };
+    }).sort((left, right) => right.commands30d - left.commands30d || right.memberCount - left.memberCount || left.name.localeCompare(right.name));
+    const activeRows = rows.filter(row => row.botEnabled);
+    return {
+        checkedAt: new Date().toISOString(),
+        totals: {
+            installedServers: rows.length,
+            activeServers: activeRows.length,
+            disabledServers: rows.length - activeRows.length,
+            membersReached: rows.reduce((sum, row) => sum + row.memberCount, 0),
+            commands7d: rows.reduce((sum, row) => sum + row.commands7d, 0),
+            commands30d: rows.reduce((sum, row) => sum + row.commands30d, 0),
+            recentlyUsedServers: rows.filter(row => row.commands7d > 0).length
+        },
+        moduleAdoption: Object.entries(moduleAdoption).map(([module, servers]) => ({ module, servers, percentage: rows.length ? Math.round(servers / rows.length * 100) : 0 })).sort((left, right) => right.servers - left.servers || left.module.localeCompare(right.module)),
+        servers: rows
+    };
+}
+
 
 function readRuntimeInstances() {
     try {
@@ -1315,11 +1416,34 @@ function createServer() {
                 const html = fs.readFileSync(indexPath, 'utf8');
                 const tabOrder = Array.isArray(config.panel?.tabOrder) ? config.panel.tabOrder : [];
                 const tabNames = config.panel?.tabNames && typeof config.panel.tabNames === 'object' ? config.panel.tabNames : {};
-                const injected = html.replace(
-                    '<!--PANEL_CONFIG-->',
-                    `<script>window.__PANEL_TAB_ORDER__ = ${serializeForInlineScript(tabOrder)}; window.__PANEL_TAB_NAMES__ = ${serializeForInlineScript(tabNames)};</script>`
-                );
+                const injected = html
+                    .replace('<!--SITE_METADATA-->', buildSiteMetadata(req))
+                    .replace(
+                        '<!--PANEL_CONFIG-->',
+                        `<script>window.__PANEL_TAB_ORDER__ = ${serializeForInlineScript(tabOrder)}; window.__PANEL_TAB_NAMES__ = ${serializeForInlineScript(tabNames)};</script>`
+                    );
                 sendHtml(res, injected);
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/robots.txt') {
+                const siteUrl = panelPublicUrl(req).replace(/\/$/, '');
+                res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+                res.end(`User-agent: *\nAllow: /\nSitemap: ${siteUrl}/sitemap.xml\n`);
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/sitemap.xml') {
+                const siteUrl = escapeHtmlAttribute(`${panelPublicUrl(req).replace(/\/$/, '')}/`);
+                res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+                res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${siteUrl}</loc><changefreq>weekly</changefreq></url></urlset>`);
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/site.webmanifest') {
+                const siteUrl = panelPublicUrl(req).replace(/\/$/, '');
+                res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+                res.end(JSON.stringify({ name: 'Flummi Discord Dashboard', short_name: 'Flummi', description: 'Friendly Discord server management, safety, automation, and analytics.', start_url: '/', display: 'standalone', background_color: '#0b1328', theme_color: '#0b1328', icons: [{ src: `${siteUrl}/favicon.png`, sizes: 'any', type: 'image/png' }] }));
                 return;
             }
 
@@ -1373,7 +1497,7 @@ function createServer() {
                     '/api/bot-profile', '/api/bot-profile/application', '/api/bot-profile/guild', '/api/config',
                     '/api/data-tools', '/api/backup', '/api/data-tools/reset', '/api/reliability',
                     '/api/ai-health', '/api/reliability/backup', '/api/reliability/reconcile-voice',
-                    '/api/health', '/api/runtime', '/api/update-status', '/api/send', '/api/release/promote'
+                    '/api/health', '/api/runtime', '/api/update-status', '/api/send', '/api/release/promote', '/api/developer/stats'
                 ]);
                 if (developerPaths.has(requestUrl.pathname) && !requireDeveloperAccess(panelSession, res)) return;
                 if (requestUrl.pathname.startsWith('/api/developer/files') && !requireDeveloperAccess(panelSession, res)) return;
@@ -2072,6 +2196,61 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'GET' && requestUrl.pathname === '/api/management/operations') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Management operations are only available to server administrators.')) return;
+                const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
+                const state = operationsStore.readState(guildId);
+                const analytics = analyticsStore.getAnalyticsSummary(guildId, 30);
+                const recentPulse = state.pulseResponses.filter(entry => Date.now() - new Date(entry.createdAt).getTime() <= 30 * 86400000);
+                sendJson(res, 200, {
+                    doctor: await scanServer(guild),
+                    reports: state.reports.slice(0, 100), incidents: state.incidents.slice(0, 100),
+                    reminders: state.reminders.slice(0, 100), giveaways: state.giveaways.slice(0, 100),
+                    feeds: state.feeds.slice(0, 25), voiceRoleLinks: state.voiceRoleLinks.slice(0, 25), temporaryRoles: state.temporaryRoles.filter(entry => entry.status === 'open').slice(0, 100),
+                    snapshots: state.snapshots.map(snapshot => ({ id: snapshot.id, createdAt: snapshot.createdAt, reason: snapshot.reason, roleCount: snapshot.roles?.length || 0, channelCount: snapshot.channels?.length || 0 })),
+                    levels: Object.entries(state.levels).map(([userId, value]) => ({ userId, ...value, level: Math.floor(Math.sqrt((value.xp || 0) / 25)) })).sort((left, right) => right.xp - left.xp).slice(0, 25),
+                    health: { messages30d: analytics.messageCount || 0, activeMembers30d: analytics.uniqueAuthors || 0, joins30d: analytics.moderation?.joins || 0, leaves30d: analytics.moderation?.leaves || 0, pulseResponses30d: recentPulse.length, pulseAverage30d: recentPulse.length ? Math.round(recentPulse.reduce((sum, entry) => sum + entry.rating, 0) / recentPulse.length * 10) / 10 : null }
+                });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/management/operations') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Management operations are only available to server administrators.')) return;
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                if (parsed.action === 'snapshot') {
+                    const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                    if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
+                    const snapshot = snapshotGuild(guild, `dashboard by ${panelSession.userId}`);
+                    auditPanelAction(panelSession, 'server-snapshot', `Created server snapshot ${snapshot.id}`, { guildId });
+                    sendJson(res, 201, { ok: true, snapshot: { id: snapshot.id, createdAt: snapshot.createdAt, roleCount: snapshot.roles.length, channelCount: snapshot.channels.length } }); return;
+                }
+                if (parsed.action === 'snapshot-preview' || parsed.action === 'snapshot-restore') {
+                    const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                    if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
+                    const preview = previewSnapshot(guild, parsed.id);
+                    if (!preview) { sendJson(res, 404, { error: 'Snapshot not found.' }); return; }
+                    if (parsed.action === 'snapshot-preview') { sendJson(res, 200, { ok: true, missingRoles: preview.missingRoles.length, missingChannels: preview.missingChannels.length }); return; }
+                    if (parsed.confirmation !== 'RESTORE') { sendJson(res, 400, { error: 'Restore confirmation is required.' }); return; }
+                    const result = await restoreSnapshot(guild, parsed.id);
+                    auditPanelAction(panelSession, 'server-restore', `Restored missing configuration from ${parsed.id}`, { guildId, ...result });
+                    sendJson(res, 200, { ok: true, ...result }); return;
+                }
+                if (parsed.action === 'report-status') {
+                    const report = operationsStore.updateReport(guildId, parsed.id, { status: ['open', 'claimed', 'resolved', 'dismissed'].includes(parsed.status) ? parsed.status : 'open', assignedTo: panelSession.userId });
+                    if (!report) { sendJson(res, 404, { error: 'Report not found.' }); return; }
+                    sendJson(res, 200, { ok: true, report }); return;
+                }
+                if (parsed.action === 'incident-status') {
+                    const incident = operationsStore.updateIncident(guildId, parsed.id, { status: ['open', 'investigating', 'resolved'].includes(parsed.status) ? parsed.status : 'open', assignedTo: panelSession.userId });
+                    if (!incident) { sendJson(res, 404, { error: 'Incident not found.' }); return; }
+                    sendJson(res, 200, { ok: true, incident }); return;
+                }
+                sendJson(res, 400, { error: 'Unknown operations action.' }); return;
+            }
+
             if (req.method === 'POST' && requestUrl.pathname === '/api/management/action') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
@@ -2569,6 +2748,11 @@ function createServer() {
                     visionModels: buildVisionModelCandidates(ai).length,
                     imageSearch: config.features?.aiImageSearchEnabled !== false && config.ai?.imageSearch?.enabled !== false ? 'Enabled' : 'Disabled'
                 });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/developer/stats') {
+                sendJson(res, 200, await buildDeveloperServerStats());
                 return;
             }
 

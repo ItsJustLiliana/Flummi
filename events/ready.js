@@ -9,6 +9,7 @@ const { processExpiredCases } = require('../services/moderation-service');
 const { processAutomation } = require('../services/automation-service');
 const { pruneModerationData } = require('../stores/moderation-store');
 const { readSettings } = require('../stores/settings-store');
+const { processOperations } = require('../services/operations-service');
 
 function getVoiceStateData(voiceState) {
     return {
@@ -100,6 +101,8 @@ module.exports = {
 
         setInterval(() => processExpiredCases(client).catch(error => console.warn(`Moderation timer failed: ${error.message}`)), 60000).unref();
         setInterval(() => processAutomation(client).catch(error => console.warn(`Automation timer failed: ${error.message}`)), 60000).unref();
+        setInterval(() => processOperations(client).catch(error => console.warn(`Operations timer failed: ${error.message}`)), 60000).unref();
+        processOperations(client).catch(error => console.warn(`Initial operations run failed: ${error.message}`));
 
         setInterval(() => {
             const retentionDays = readConfig().analytics?.retentionDays || 365;

@@ -1,6 +1,7 @@
 const { MessageFlags } = require('discord.js');
 const { canUseCommandPath, canUseTriggerCommands, isAdmin } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
+const { recordActivity } = require('../stores/activity-store');
 
 async function handleRemoveTriggerButton(interaction) {
     if (
@@ -220,6 +221,10 @@ module.exports = {
         }
 
         try {
+            recordActivity('command', `/${interaction.commandName}${subcommandGroupName ? ` ${subcommandGroupName}` : ''}${subcommandName ? ` ${subcommandName}` : ''}`, {
+                source: 'discord', guildId, userId: interaction.user.id, commandName: interaction.commandName,
+                subcommandGroupName, subcommandName
+            });
             await command.execute(interaction);
         } catch (error) {
             console.error(`Error executing /${interaction.commandName}:`, error);

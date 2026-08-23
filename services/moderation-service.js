@@ -135,6 +135,18 @@ async function executeModerationAction({ guild, action, actorId, actorLabel, tar
         throw new ModerationError('A reason is required for moderation actions.', 'REASON_REQUIRED');
     }
     const target = await ensureTargetAllowed({ guild, actorId, targetId, action });
+    if (source === 'manual' && action === 'ban' && settings.management?.modules?.staffOperations === true
+        && settings.management.staffOperations.requireBanApproval === true && metadata.approved !== true) {
+        const pending = moderationStore.addCase(guild.id, {
+            action: 'ban-approval', targetId, targetLabel: target?.user?.tag || targetId,
+            moderatorId: actorId, moderatorLabel: actorLabel, reason: safeReason, evidence,
+            channelId: channel?.id || null, durationMs: null, expiresAt: null, source,
+            metadata: { requestedAction: 'ban' }, status: 'pending'
+        });
+        moderationStore.addEvent(guild.id, { type: 'moderation-approval', userId: targetId, actorId, channelId: channel?.id, summary: `Permanent ban awaiting second approval: ${safeReason}`, metadata: { caseId: pending.id } });
+        await publishCase(guild, pending);
+        return pending;
+    }
     const notify = source === 'manual' && settings.management?.moderation?.notifyMember === true;
     let resultMetadata = { ...metadata };
     let expiresAt = Number.isFinite(durationMs) && durationMs > 0 ? new Date(Date.now() + durationMs).toISOString() : null;
@@ -187,6 +199,14 @@ async function executeModerationAction({ guild, action, actorId, actorLabel, tar
     });
     moderationStore.addEvent(guild.id, { type: 'moderation-action', userId: targetId, actorId, channelId: channel?.id, summary: `${action}: ${safeReason}`, metadata: { caseId: moderationCase.id, source } });
     await publishCase(guild, moderationCase);
+    const workflow = settings.management?.modules?.workflows === true ? settings.management.workflows : null;
+    if (action === 'warn' && workflow?.warningEscalation) {
+        const warningCount = moderationStore.getMemberCases(guild.id, targetId).filter(entry => entry.action === 'warn' && entry.status === 'active').length;
+        if (warningCount >= 3) {
+            moderationStore.addEvent(guild.id, { type: 'workflow-run', userId: targetId, actorId: guild.client.user.id, summary: `${workflow.dryRun ? 'Dry run: would timeout' : 'Timed out'} member after ${warningCount} active warnings`, metadata: { workflow: 'warning-escalation', warningCount } });
+            if (!workflow.dryRun) await executeModerationAction({ guild, action: 'timeout', actorId: guild.client.user.id, actorLabel: 'Flummi workflow', targetId, reason: `${warningCount} active warnings`, durationMs: settings.management.moderation.defaultTimeoutMinutes * 60000, source: 'workflow', metadata: { workflow: 'warning-escalation', warningCount } });
+        }
+    }
     return moderationCase;
 }
 

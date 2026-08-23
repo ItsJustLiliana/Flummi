@@ -42,7 +42,16 @@ const defaultSettings = {
             starboard: false,
             forms: false,
             channels: false,
-            integrations: false
+            integrations: false,
+            serverDoctor: false,
+            incidentCenter: false,
+            reports: false,
+            workflows: false,
+            staffOperations: false,
+            communityHealth: false,
+            backups: false,
+            copilot: false,
+            engagement: false
         },
         moderation: {
             requireReason: true,
@@ -114,6 +123,34 @@ const defaultSettings = {
         },
         integrations: {
             nativeAutomodEnabled: false, scheduledEventsEnabled: false, announcementChannelId: ''
+        },
+        serverDoctor: {
+            scanDangerousPermissions: true, scanBrokenModules: true, weeklyDigest: true, logChannelId: ''
+        },
+        incidentCenter: {
+            logChannelId: '', actionThreshold: 5, windowSeconds: 30, autoLockdown: false, snapshotEnabled: true
+        },
+        reports: {
+            channelId: '', allowAnonymous: true, includeMessageContext: true
+        },
+        workflows: {
+            dryRun: true, welcomeReview: false, warningEscalation: false, ticketFollowUp: false, eventLaunch: false
+        },
+        staffOperations: {
+            requireBanApproval: false, caseReviewHours: 48, privateNotes: true
+        },
+        communityHealth: {
+            retentionMetrics: true, onboardingFunnel: true, pulseSurveys: false, privacyMode: true
+        },
+        backups: {
+            automaticEnabled: true, intervalHours: 24, keepCount: 10
+        },
+        copilot: {
+            summariesEnabled: true, suggestionsEnabled: true, translationEnabled: true, requireApproval: true
+        },
+        engagement: {
+            giveaways: true, levels: true, feeds: false, reminders: true, embedBuilder: true,
+            polls: true, afk: true, temporaryRoles: false, voiceLinkedRoles: false
         }
     }
 };
@@ -200,6 +237,15 @@ function normalizeManagement(value) {
     const forms = source.forms && typeof source.forms === 'object' ? source.forms : {};
     const channels = source.channels && typeof source.channels === 'object' ? source.channels : {};
     const integrations = source.integrations && typeof source.integrations === 'object' ? source.integrations : {};
+    const serverDoctor = source.serverDoctor && typeof source.serverDoctor === 'object' ? source.serverDoctor : {};
+    const incidentCenter = source.incidentCenter && typeof source.incidentCenter === 'object' ? source.incidentCenter : {};
+    const reports = source.reports && typeof source.reports === 'object' ? source.reports : {};
+    const workflows = source.workflows && typeof source.workflows === 'object' ? source.workflows : {};
+    const staffOperations = source.staffOperations && typeof source.staffOperations === 'object' ? source.staffOperations : {};
+    const communityHealth = source.communityHealth && typeof source.communityHealth === 'object' ? source.communityHealth : {};
+    const backups = source.backups && typeof source.backups === 'object' ? source.backups : {};
+    const copilot = source.copilot && typeof source.copilot === 'object' ? source.copilot : {};
+    const engagement = source.engagement && typeof source.engagement === 'object' ? source.engagement : {};
     const defaults = defaultSettings.management;
 
     return {
@@ -296,7 +342,55 @@ function normalizeManagement(value) {
             nativeAutomodEnabled: booleanOr(integrations.nativeAutomodEnabled, defaults.integrations.nativeAutomodEnabled),
             scheduledEventsEnabled: booleanOr(integrations.scheduledEventsEnabled, defaults.integrations.scheduledEventsEnabled),
             announcementChannelId: snowflakeOrEmpty(integrations.announcementChannelId)
-        }
+        },
+        serverDoctor: {
+            scanDangerousPermissions: booleanOr(serverDoctor.scanDangerousPermissions, defaults.serverDoctor.scanDangerousPermissions),
+            scanBrokenModules: booleanOr(serverDoctor.scanBrokenModules, defaults.serverDoctor.scanBrokenModules),
+            weeklyDigest: booleanOr(serverDoctor.weeklyDigest, defaults.serverDoctor.weeklyDigest),
+            logChannelId: snowflakeOrEmpty(serverDoctor.logChannelId)
+        },
+        incidentCenter: {
+            logChannelId: snowflakeOrEmpty(incidentCenter.logChannelId),
+            actionThreshold: boundedInteger(Number(incidentCenter.actionThreshold), 2, 50, defaults.incidentCenter.actionThreshold),
+            windowSeconds: boundedInteger(Number(incidentCenter.windowSeconds), 5, 300, defaults.incidentCenter.windowSeconds),
+            autoLockdown: booleanOr(incidentCenter.autoLockdown, defaults.incidentCenter.autoLockdown),
+            snapshotEnabled: booleanOr(incidentCenter.snapshotEnabled, defaults.incidentCenter.snapshotEnabled)
+        },
+        reports: {
+            channelId: snowflakeOrEmpty(reports.channelId),
+            allowAnonymous: booleanOr(reports.allowAnonymous, defaults.reports.allowAnonymous),
+            includeMessageContext: booleanOr(reports.includeMessageContext, defaults.reports.includeMessageContext)
+        },
+        workflows: {
+            dryRun: booleanOr(workflows.dryRun, defaults.workflows.dryRun),
+            welcomeReview: booleanOr(workflows.welcomeReview, defaults.workflows.welcomeReview),
+            warningEscalation: booleanOr(workflows.warningEscalation, defaults.workflows.warningEscalation),
+            ticketFollowUp: booleanOr(workflows.ticketFollowUp, defaults.workflows.ticketFollowUp),
+            eventLaunch: booleanOr(workflows.eventLaunch, defaults.workflows.eventLaunch)
+        },
+        staffOperations: {
+            requireBanApproval: booleanOr(staffOperations.requireBanApproval, defaults.staffOperations.requireBanApproval),
+            caseReviewHours: boundedInteger(Number(staffOperations.caseReviewHours), 1, 720, defaults.staffOperations.caseReviewHours),
+            privateNotes: booleanOr(staffOperations.privateNotes, defaults.staffOperations.privateNotes)
+        },
+        communityHealth: {
+            retentionMetrics: booleanOr(communityHealth.retentionMetrics, defaults.communityHealth.retentionMetrics),
+            onboardingFunnel: booleanOr(communityHealth.onboardingFunnel, defaults.communityHealth.onboardingFunnel),
+            pulseSurveys: booleanOr(communityHealth.pulseSurveys, defaults.communityHealth.pulseSurveys),
+            privacyMode: booleanOr(communityHealth.privacyMode, defaults.communityHealth.privacyMode)
+        },
+        backups: {
+            automaticEnabled: booleanOr(backups.automaticEnabled, defaults.backups.automaticEnabled),
+            intervalHours: boundedInteger(Number(backups.intervalHours), 1, 720, defaults.backups.intervalHours),
+            keepCount: boundedInteger(Number(backups.keepCount), 1, 100, defaults.backups.keepCount)
+        },
+        copilot: {
+            summariesEnabled: booleanOr(copilot.summariesEnabled, defaults.copilot.summariesEnabled),
+            suggestionsEnabled: booleanOr(copilot.suggestionsEnabled, defaults.copilot.suggestionsEnabled),
+            translationEnabled: booleanOr(copilot.translationEnabled, defaults.copilot.translationEnabled),
+            requireApproval: booleanOr(copilot.requireApproval, defaults.copilot.requireApproval)
+        },
+        engagement: Object.fromEntries(Object.keys(defaults.engagement).map(key => [key, booleanOr(engagement[key], defaults.engagement[key])]))
     };
 }
 

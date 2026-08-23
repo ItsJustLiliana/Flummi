@@ -5,7 +5,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Home - Flummi</title>
+    <!--SITE_METADATA-->
     <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon.png">
+    <link rel="manifest" href="/site.webmanifest">
     <!--PANEL_CONFIG-->
     <link rel="stylesheet" href="/panel/styles.css">
 </head>
@@ -85,6 +88,7 @@
                         <button class="tab-btn" data-tab="ai" data-developer-only type="button">AI &amp; System</button>
                         <button class="tab-btn" data-tab="global" data-developer-only type="button">Global Settings</button>
                         <button class="tab-btn" data-tab="reliability" data-developer-only type="button">Reliability</button>
+                        <button class="tab-btn" data-tab="adoption" data-developer-only type="button">Statistics</button>
                         <button class="tab-btn" data-tab="files" data-developer-only type="button">Developer Files</button>
                         <button class="tab-btn" data-tab="logs" data-developer-only type="button">Bot Logs</button>
                         <button class="tab-btn" data-tab="experiments" data-actual-developer-only type="button">Experiments</button>
@@ -109,7 +113,7 @@
                 </p>
                 <div id="guildHeader"></div>
                 <div class="overview-summary-row">
-                    <div class="card-grid overview-quad" id="overviewQuad"></div>
+                    <div class="card-grid overview-quad" id="overviewCards"></div>
                     <div class="section overview-details">
                         <h2>Server Details</h2>
                         <div id="overviewDetails"></div>
@@ -117,7 +121,6 @@
                         <div id="overviewFeatures" class="card-grid"></div>
                     </div>
                 </div>
-                <div class="card-grid" id="overviewCards"></div>
                 <div class="section">
                         <h2>Top Message Channels</h2>
                         <div id="overviewChannels" class="table-wrap">
@@ -709,6 +712,61 @@
                 <div class="section"><h2>Available integrations</h2><div class="two-col"><div class="checkbox-row"><input id="managementIntegrationsAutomod" type="checkbox"><label for="managementIntegrationsAutomod" style="margin:0">Allow <code>/integration sync-automod</code></label></div><div class="checkbox-row"><input id="managementIntegrationsEvents" type="checkbox"><label for="managementIntegrationsEvents" style="margin:0">Allow native scheduled event creation</label></div><div class="field"><label for="managementIntegrationsAnnouncements">Announcement channel (optional)</label><select id="managementIntegrationsAnnouncements" data-management-channel><option value="">No channel selected</option></select></div></div><div class="actions"><span id="managementIntegrationsStatus" class="status"></span><button class="primary" type="button" data-save-management="integrations">Save integration settings</button></div></div>
             </section>
 
+            <section id="tab-management-server-doctor" class="tab-panel" data-admin-only>
+                <h2 style="font-size:20px;">Server Doctor</h2><p class="sub tab-intro">Find permission, hierarchy, channel, and module problems before they interrupt the server.</p>
+                <div class="section module-page-switch" data-module-page-switch="serverDoctor"><div class="management-module-heading"><div><h3>Continuous health checks</h3><p class="sub">Scans are read-only and explain each recommended fix.</p></div><button class="module-toggle" type="button" data-page-module-toggle="serverDoctor">Off</button></div></div>
+                <div class="section"><div class="section-title-row"><div><h2>Checks</h2><p class="sub">Choose what Flummi should watch.</p></div><button id="runServerDoctor" class="secondary" type="button">Run scan now</button></div><div class="two-col"><div class="checkbox-row"><input id="advancedServerDoctorPermissions" type="checkbox" data-advanced-field="serverDoctor.scanDangerousPermissions"><label for="advancedServerDoctorPermissions">Dangerous permissions and role hierarchy</label></div><div class="checkbox-row"><input id="advancedServerDoctorModules" type="checkbox" data-advanced-field="serverDoctor.scanBrokenModules"><label for="advancedServerDoctorModules">Broken or incomplete modules</label></div><div class="checkbox-row"><input id="advancedServerDoctorDigest" type="checkbox" data-advanced-field="serverDoctor.weeklyDigest"><label for="advancedServerDoctorDigest">Weekly health digest</label></div><div class="field"><label for="advancedServerDoctorLog">Health digest channel</label><select id="advancedServerDoctorLog" data-management-channel data-advanced-field="serverDoctor.logChannelId"><option value="">No channel selected</option></select></div></div><div class="actions"><span id="managementServerDoctorStatus" class="status"></span><button class="primary" data-save-advanced="serverDoctor" type="button">Save Server Doctor</button></div></div>
+                <div id="serverDoctorResults" class="section"><div class="empty">Run a scan to see server health.</div></div>
+            </section>
+
+            <section id="tab-management-incident-center" class="tab-panel" data-admin-only>
+                <h2 style="font-size:20px;">Incident Center</h2><p class="sub tab-intro">Detect bursts of destructive admin actions, preserve evidence, and optionally lock the server down.</p>
+                <div class="section module-page-switch" data-module-page-switch="incidentCenter"><div class="management-module-heading"><div><h3>Anti-nuke protection</h3><p class="sub">Uses Discord audit logs to attribute channel, role, and ban changes.</p></div><button class="module-toggle" type="button" data-page-module-toggle="incidentCenter">Off</button></div></div>
+                <div class="section"><h2>Response policy</h2><div class="two-col"><div class="field"><label for="advancedIncidentLog">Incident channel</label><select id="advancedIncidentLog" data-management-channel data-advanced-field="incidentCenter.logChannelId"><option value="">No channel selected</option></select></div><div class="field"><label for="advancedIncidentThreshold">Actions before incident</label><input id="advancedIncidentThreshold" type="number" min="2" max="50" data-advanced-field="incidentCenter.actionThreshold"></div><div class="field"><label for="advancedIncidentWindow">Time window (seconds)</label><input id="advancedIncidentWindow" type="number" min="5" max="300" data-advanced-field="incidentCenter.windowSeconds"></div><div class="checkbox-row"><input id="advancedIncidentSnapshot" type="checkbox" data-advanced-field="incidentCenter.snapshotEnabled"><label for="advancedIncidentSnapshot">Take a recovery snapshot</label></div><div class="checkbox-row"><input id="advancedIncidentLockdown" type="checkbox" data-advanced-field="incidentCenter.autoLockdown"><label for="advancedIncidentLockdown">Automatically raise verification to High</label></div></div><div class="actions"><span id="managementIncidentCenterStatus" class="status"></span><button class="primary" data-save-advanced="incidentCenter" type="button">Save incident policy</button></div></div><div class="section"><h2>Recent incidents</h2><div id="incidentCenterTable" class="table-wrap"><div class="empty">No incidents loaded.</div></div></div>
+            </section>
+
+            <section id="tab-management-reports" class="tab-panel" data-admin-only>
+                <h2 style="font-size:20px;">Reports &amp; Modmail</h2><p class="sub tab-intro">Give members a private route to staff and track every report through resolution.</p>
+                <div class="section module-page-switch" data-module-page-switch="reports"><div class="management-module-heading"><div><h3>Member report inbox</h3><p class="sub">Members submit reports with <code>/community report</code>.</p></div><button class="module-toggle" type="button" data-page-module-toggle="reports">Off</button></div></div>
+                <div class="section"><h2>Report intake</h2><div class="two-col"><div class="field"><label for="advancedReportsChannel">Private staff channel</label><select id="advancedReportsChannel" data-management-channel data-advanced-field="reports.channelId"><option value="">No channel selected</option></select></div><div class="checkbox-row"><input id="advancedReportsAnonymous" type="checkbox" data-advanced-field="reports.allowAnonymous"><label for="advancedReportsAnonymous">Allow anonymous public identity</label></div><div class="checkbox-row"><input id="advancedReportsContext" type="checkbox" data-advanced-field="reports.includeMessageContext"><label for="advancedReportsContext">Include linked-message context</label></div></div><div class="actions"><span id="managementReportsStatus" class="status"></span><button class="primary" data-save-advanced="reports" type="button">Save report settings</button></div></div><div class="section"><h2>Staff inbox</h2><div id="reportsOperationsTable" class="table-wrap"><div class="empty">No reports loaded.</div></div></div>
+            </section>
+
+            <section id="tab-management-workflows" class="tab-panel" data-admin-only>
+                <h2 style="font-size:20px;">Workflow Studio</h2><p class="sub tab-intro">Turn common server routines into audited, reusable workflows with a safe preview mode.</p>
+                <div class="section module-page-switch" data-module-page-switch="workflows"><div class="management-module-heading"><div><h3>Workflow runtime</h3><p class="sub">Start with curated recipes; every automated action remains visible in logs.</p></div><button class="module-toggle" type="button" data-page-module-toggle="workflows">Off</button></div></div>
+                <div class="section"><h2>Recipes</h2><div class="banner info">Dry run records what a workflow would do without changing Discord.</div><div class="two-col"><div class="checkbox-row"><input id="advancedWorkflowDryRun" type="checkbox" data-advanced-field="workflows.dryRun"><label for="advancedWorkflowDryRun">Dry-run mode</label></div><div class="checkbox-row"><input id="advancedWorkflowWelcome" type="checkbox" data-advanced-field="workflows.welcomeReview"><label for="advancedWorkflowWelcome">Review new-member onboarding</label></div><div class="checkbox-row"><input id="advancedWorkflowWarnings" type="checkbox" data-advanced-field="workflows.warningEscalation"><label for="advancedWorkflowWarnings">Escalate warning thresholds</label></div><div class="checkbox-row"><input id="advancedWorkflowTickets" type="checkbox" data-advanced-field="workflows.ticketFollowUp"><label for="advancedWorkflowTickets">Ticket follow-up and rating</label></div><div class="checkbox-row"><input id="advancedWorkflowEvents" type="checkbox" data-advanced-field="workflows.eventLaunch"><label for="advancedWorkflowEvents">Scheduled-event launch routine</label></div></div><div class="actions"><span id="managementWorkflowsStatus" class="status"></span><button class="primary" data-save-advanced="workflows" type="button">Save workflows</button></div></div>
+            </section>
+
+            <section id="tab-management-staff-operations" class="tab-panel" data-admin-only>
+                <h2 style="font-size:20px;">Staff Operations</h2><p class="sub tab-intro">Coordinate case ownership, review deadlines, notes, and sensitive-action approvals.</p>
+                <div class="section module-page-switch" data-module-page-switch="staffOperations"><div class="management-module-heading"><div><h3>Staff workspace</h3><p class="sub">Reports and incidents become assignable queues; appeals remain linked to cases.</p></div><button class="module-toggle" type="button" data-page-module-toggle="staffOperations">Off</button></div></div>
+                <div class="section"><h2>Case policy</h2><div class="two-col"><div class="checkbox-row"><input id="advancedStaffApproval" type="checkbox" data-advanced-field="staffOperations.requireBanApproval"><label for="advancedStaffApproval">Require two-person permanent-ban approval</label></div><div class="checkbox-row"><input id="advancedStaffNotes" type="checkbox" data-advanced-field="staffOperations.privateNotes"><label for="advancedStaffNotes">Allow private staff notes</label></div><div class="field"><label for="advancedStaffReview">Review unresolved cases after (hours)</label><input id="advancedStaffReview" type="number" min="1" max="720" data-advanced-field="staffOperations.caseReviewHours"></div></div><div class="actions"><span id="managementStaffOperationsStatus" class="status"></span><button class="primary" data-save-advanced="staffOperations" type="button">Save staff policy</button></div></div>
+            </section>
+
+            <section id="tab-management-community-health" class="tab-panel" data-admin-only>
+                <h2 style="font-size:20px;">Community Health</h2><p class="sub tab-intro">Understand onboarding, retention, participation, and support quality without exposing individual members.</p>
+                <div class="section module-page-switch" data-module-page-switch="communityHealth"><div class="management-module-heading"><div><h3>Privacy-first health metrics</h3><p class="sub">Dashboard summaries use aggregate activity wherever privacy mode is enabled.</p></div><button class="module-toggle" type="button" data-page-module-toggle="communityHealth">Off</button></div></div>
+                <div class="section"><h2>Measurements</h2><div class="two-col"><div class="checkbox-row"><input id="advancedHealthRetention" type="checkbox" data-advanced-field="communityHealth.retentionMetrics"><label for="advancedHealthRetention">Retention trends</label></div><div class="checkbox-row"><input id="advancedHealthOnboarding" type="checkbox" data-advanced-field="communityHealth.onboardingFunnel"><label for="advancedHealthOnboarding">Onboarding funnel</label></div><div class="checkbox-row"><input id="advancedHealthPulse" type="checkbox" data-advanced-field="communityHealth.pulseSurveys"><label for="advancedHealthPulse">Anonymous pulse surveys</label></div><div class="checkbox-row"><input id="advancedHealthPrivacy" type="checkbox" data-advanced-field="communityHealth.privacyMode"><label for="advancedHealthPrivacy">Privacy mode</label></div></div><div class="actions"><span id="managementCommunityHealthStatus" class="status"></span><button class="primary" data-save-advanced="communityHealth" type="button">Save health settings</button></div></div><div id="communityHealthCards" class="card-grid"></div>
+            </section>
+
+            <section id="tab-management-backups" class="tab-panel" data-admin-only>
+                <h2 style="font-size:20px;">Configuration Backup &amp; Recovery</h2><p class="sub tab-intro">Keep versioned snapshots of roles, channels, and permission overwrites for incident recovery.</p>
+                <div class="section module-page-switch" data-module-page-switch="backups"><div class="management-module-heading"><div><h3>Server snapshots</h3><p class="sub">Snapshots never include message content.</p></div><button class="module-toggle" type="button" data-page-module-toggle="backups">Off</button></div></div>
+                <div class="section"><div class="section-title-row"><div><h2>Backup schedule</h2><p class="sub">Create a snapshot now or keep an automatic rotation.</p></div><button id="createServerSnapshot" class="secondary" type="button">Create snapshot</button></div><div class="two-col"><div class="checkbox-row"><input id="advancedBackupsAutomatic" type="checkbox" data-advanced-field="backups.automaticEnabled"><label for="advancedBackupsAutomatic">Automatic snapshots</label></div><div class="field"><label for="advancedBackupsInterval">Every (hours)</label><input id="advancedBackupsInterval" type="number" min="1" max="720" data-advanced-field="backups.intervalHours"></div><div class="field"><label for="advancedBackupsKeep">Snapshots to retain</label><input id="advancedBackupsKeep" type="number" min="1" max="100" data-advanced-field="backups.keepCount"></div></div><div class="actions"><span id="managementBackupsStatus" class="status"></span><button class="primary" data-save-advanced="backups" type="button">Save backup settings</button></div></div><div class="section"><h2>Available snapshots</h2><div id="serverSnapshotsTable" class="table-wrap"><div class="empty">No snapshots loaded.</div></div></div>
+            </section>
+
+            <section id="tab-management-copilot" class="tab-panel" data-admin-only>
+                <h2 style="font-size:20px;">Flummi Copilot</h2><p class="sub tab-intro">Help staff understand incidents and draft responses while keeping every action under human control.</p>
+                <div class="section module-page-switch" data-module-page-switch="copilot"><div class="management-module-heading"><div><h3>Staff assistance</h3><p class="sub">Copilot may recommend actions but never silently punishes a member.</p></div><button class="module-toggle" type="button" data-page-module-toggle="copilot">Off</button></div></div>
+                <div class="section"><h2>Allowed assistance</h2><div class="two-col"><div class="checkbox-row"><input id="advancedCopilotSummaries" type="checkbox" data-advanced-field="copilot.summariesEnabled"><label for="advancedCopilotSummaries">Ticket and incident summaries</label></div><div class="checkbox-row"><input id="advancedCopilotSuggestions" type="checkbox" data-advanced-field="copilot.suggestionsEnabled"><label for="advancedCopilotSuggestions">Suggested responses and actions</label></div><div class="checkbox-row"><input id="advancedCopilotTranslation" type="checkbox" data-advanced-field="copilot.translationEnabled"><label for="advancedCopilotTranslation">Report translation</label></div><div class="checkbox-row"><input id="advancedCopilotApproval" type="checkbox" data-advanced-field="copilot.requireApproval"><label for="advancedCopilotApproval">Always require staff approval</label></div></div><div class="actions"><span id="managementCopilotStatus" class="status"></span><button class="primary" data-save-advanced="copilot" type="button">Save Copilot policy</button></div></div>
+            </section>
+
+            <section id="tab-management-engagement" class="tab-panel" data-admin-only>
+                <h2 style="font-size:20px;">Engagement &amp; Utilities</h2><p class="sub tab-intro">Useful community tools grouped in one place so Management stays easy to navigate.</p>
+                <div class="section module-page-switch" data-module-page-switch="engagement"><div class="management-module-heading"><div><h3>Community toolkit</h3><p class="sub">Each feature can be enabled independently.</p></div><button class="module-toggle" type="button" data-page-module-toggle="engagement">Off</button></div></div>
+                <div class="section"><h2>Features</h2><div class="two-col"><div class="checkbox-row"><input id="advancedEngagementGiveaways" type="checkbox" data-advanced-field="engagement.giveaways"><label for="advancedEngagementGiveaways">Giveaways</label></div><div class="checkbox-row"><input id="advancedEngagementLevels" type="checkbox" data-advanced-field="engagement.levels"><label for="advancedEngagementLevels">Levels and XP</label></div><div class="checkbox-row"><input id="advancedEngagementFeeds" type="checkbox" data-advanced-field="engagement.feeds"><label for="advancedEngagementFeeds">Creator feeds</label></div><div class="checkbox-row"><input id="advancedEngagementReminders" type="checkbox" data-advanced-field="engagement.reminders"><label for="advancedEngagementReminders">Reminders</label></div><div class="checkbox-row"><input id="advancedEngagementEmbeds" type="checkbox" data-advanced-field="engagement.embedBuilder"><label for="advancedEngagementEmbeds">Embed builder</label></div><div class="checkbox-row"><input id="advancedEngagementPolls" type="checkbox" data-advanced-field="engagement.polls"><label for="advancedEngagementPolls">Native polls</label></div><div class="checkbox-row"><input id="advancedEngagementAfk" type="checkbox" data-advanced-field="engagement.afk"><label for="advancedEngagementAfk">AFK statuses</label></div><div class="checkbox-row"><input id="advancedEngagementTempRoles" type="checkbox" data-advanced-field="engagement.temporaryRoles"><label for="advancedEngagementTempRoles">Temporary roles</label></div><div class="checkbox-row"><input id="advancedEngagementVoiceRoles" type="checkbox" data-advanced-field="engagement.voiceLinkedRoles"><label for="advancedEngagementVoiceRoles">Voice-linked roles</label></div></div><div class="actions"><span id="managementEngagementStatus" class="status"></span><button class="primary" data-save-advanced="engagement" type="button">Save community toolkit</button></div></div><div class="two-col"><div class="section"><h2>Top community levels</h2><div id="engagementLevelsTable" class="table-wrap"><div class="empty">No level activity loaded.</div></div></div><div class="section"><h2>Configured utilities</h2><div id="engagementUtilitiesTable" class="table-wrap"><div class="empty">No feeds or voice roles configured.</div></div></div></div>
+            </section>
+
             <!-- Settings -->
             <section id="tab-settings" class="tab-panel">
                 <h2 style="font-size:20px;">Settings</h2>
@@ -1283,6 +1341,15 @@
                 </div>
             </section>
 
+            <section id="tab-adoption" class="tab-panel" data-developer-only>
+                <h2 style="font-size:20px;">Bot Statistics</h2>
+                <p class="sub tab-intro">See where Flummi is installed, whether it is active, which modules servers use, and recent command activity.</p>
+                <div class="row tab-controls"><button id="refreshDeveloperStats" class="secondary" type="button">Refresh statistics</button><span id="developerStatsChecked" class="sub"></span></div>
+                <div id="developerStatsCards" class="card-grid"></div>
+                <div class="two-col"><div class="section"><h2>Module adoption</h2><div id="developerModuleAdoption" class="table-wrap"><div class="empty">Loading...</div></div></div><div class="section"><h2>Activity summary</h2><div id="developerActivitySummary" class="card-grid"></div></div></div>
+                <div class="section"><h2>Installed servers</h2><p class="sub">Active means the server-level bot switch is on. Command totals begin with this release.</p><div id="developerServersTable" class="table-wrap"><div class="empty">Loading...</div></div></div>
+            </section>
+
             <section id="tab-experiments" class="tab-panel">
                 <h2 style="font-size:20px;">Experiments</h2>
                 <p class="sub tab-intro">Preview lower access roles and temporarily simulate how Flummi handles your
@@ -1376,6 +1443,15 @@
                             <button class="tab-btn" data-tab="management-forms" data-management-module="forms" data-admin-only type="button">Forms &amp; Appeals</button>
                             <button class="tab-btn" data-tab="management-channels" data-management-module="channels" data-admin-only type="button">Channel Management</button>
                             <button class="tab-btn" data-tab="management-integrations" data-management-module="integrations" data-admin-only type="button">Discord Integrations</button>
+                            <button class="tab-btn" data-tab="management-server-doctor" data-management-module="serverDoctor" data-admin-only type="button">Server Doctor</button>
+                            <button class="tab-btn" data-tab="management-incident-center" data-management-module="incidentCenter" data-admin-only type="button">Incident Center</button>
+                            <button class="tab-btn" data-tab="management-reports" data-management-module="reports" data-admin-only type="button">Reports &amp; Modmail</button>
+                            <button class="tab-btn" data-tab="management-workflows" data-management-module="workflows" data-admin-only type="button">Workflow Studio</button>
+                            <button class="tab-btn" data-tab="management-staff-operations" data-management-module="staffOperations" data-admin-only type="button">Staff Operations</button>
+                            <button class="tab-btn" data-tab="management-community-health" data-management-module="communityHealth" data-admin-only type="button">Community Health</button>
+                            <button class="tab-btn" data-tab="management-backups" data-management-module="backups" data-admin-only type="button">Backup &amp; Recovery</button>
+                            <button class="tab-btn" data-tab="management-copilot" data-management-module="copilot" data-admin-only type="button">Flummi Copilot</button>
+                            <button class="tab-btn" data-tab="management-engagement" data-management-module="engagement" data-admin-only type="button">Engagement &amp; Utilities</button>
                         </div>
                     </div>
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
@@ -1413,6 +1489,22 @@
             <div class="actions"><button id="confirmDialogCancel" class="secondary" type="button">Cancel</button><button
                     id="confirmDialogAccept" class="danger" type="button">Confirm</button></div>
         </div>
+    </dialog>
+    <dialog id="textInputDialog" class="confirm-dialog">
+        <form id="textInputDialogForm" class="confirm-dialog-body">
+            <h2 id="textInputDialogTitle">Enter a value</h2>
+            <p id="textInputDialogMessage" class="sub"></p>
+            <div class="field text-input-dialog-field">
+                <label id="textInputDialogLabel" for="textInputDialogValue">Value</label>
+                <input id="textInputDialogValue" type="text" autocomplete="off" aria-describedby="textInputDialogHint textInputDialogError">
+                <small id="textInputDialogHint" class="sub"></small>
+                <span id="textInputDialogError" class="status error" role="alert"></span>
+            </div>
+            <div class="actions">
+                <button id="textInputDialogCancel" class="secondary" type="button">Cancel</button>
+                <button id="textInputDialogAccept" class="primary" type="submit">Continue</button>
+            </div>
+        </form>
     </dialog>
     <dialog id="mediaLightbox" class="media-lightbox">
         <div class="media-lightbox-body">

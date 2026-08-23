@@ -89,12 +89,14 @@ const COMMAND_CATALOG = [
     { path: 'trigger', label: '/trigger', description: 'Use and manage trigger responses available in this server.' },
     { path: 'resetmemory', label: '/resetmemory', description: 'Delete your own saved AI conversation memory.' },
     { path: 'tree', label: '/tree', description: 'Open this community’s family tree.' },
+    { path: 'community', label: '/community report|remind|afk|rank|pulse', description: 'Use private reports and enabled community utilities.' },
     { path: 'serverstats', label: '/serverstats [limit]', description: 'View server message, channel, member, and trigger activity.', minimumRole: 'admin' },
     { path: 'voicetime', label: '/voicetime member|history|channel', description: 'View member and channel voice activity.', minimumRole: 'admin' },
     { path: 'userinfo', label: '/userinfo user', description: 'View a member’s bot permissions and role.', minimumRole: 'admin' },
     { path: 'settings', label: '/settings view|bot|triggers', description: 'View or change selected guild bot settings.', minimumRole: 'admin' },
     { path: 'manage.features', label: '/manage features', description: 'Set feature access for a member.', minimumRole: 'admin' },
     { path: 'manage.command', label: '/manage command', description: 'Set a command override for a member.', minimumRole: 'admin' },
+    { path: 'server', label: '/server safety and community tools', description: 'Use server safety, recovery, staff, and engagement tools.', minimumRole: 'admin' },
     { path: 'shots.audit', label: '/shots audit [limit]', description: 'View the developer audit log for shot changes.', minimumRole: 'developer' },
     { path: 'dashboard', label: '/dashboard', description: 'Open the public Flummi dashboard.' }
 ];

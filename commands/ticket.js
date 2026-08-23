@@ -33,6 +33,11 @@ module.exports = {
             await interaction.channel.setName(`closed-${interaction.channel.name.replace(/^ticket-/, '')}`.slice(0, 100)).catch(() => {});
             const config = moduleConfig(interaction.guildId, 'tickets');
             await sendConfiguredLog(interaction.guild, config?.logChannelId, `Ticket **${ticket.id}** closed by <@${interaction.user.id}>: ${reason}`);
+            const workflow = moduleConfig(interaction.guildId, 'workflows');
+            if (workflow?.ticketFollowUp && !workflow.dryRun) {
+                const rating = await interaction.channel.send({ content: `<@${ticket.ownerId}> how helpful was this support experience? React from 1️⃣ to 5️⃣.`, allowedMentions: { users: [ticket.ownerId] } }).catch(() => null);
+                for (const emoji of ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']) await rating?.react(emoji).catch(() => {});
+            }
             return interaction.reply(`Ticket closed. **Reason:** ${reason}`);
         } catch (error) {
             const payload = { content: error.message, flags: MessageFlags.Ephemeral };

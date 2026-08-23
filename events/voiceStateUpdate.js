@@ -1,4 +1,5 @@
 const { startVoiceSession, endVoiceSession, updateVoiceSession } = require('../stores/voice-store');
+const { handleVoiceRole } = require('../services/operations-service');
 
 function getVoiceStateData(voiceState) {
     return {
@@ -15,7 +16,7 @@ function getVoiceStateData(voiceState) {
 module.exports = {
     name: 'voiceStateUpdate',
 
-    execute(oldState, newState) {
+    async execute(oldState, newState) {
         const guildId = newState.guild?.id || oldState.guild?.id;
         const user = newState.member?.user || oldState.member?.user;
 
@@ -25,6 +26,8 @@ module.exports = {
 
         const oldChannelId = oldState.channelId;
         const newChannelId = newState.channelId;
+
+        if (oldChannelId !== newChannelId) await handleVoiceRole(oldState, newState);
 
         const now = new Date();
 

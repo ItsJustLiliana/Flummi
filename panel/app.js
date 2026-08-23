@@ -312,6 +312,45 @@ function confirmAction({ title = 'Confirm change', message, confirmLabel = 'Conf
     });
 }
 
+function requestTextInput({ title, message, label, value = '', placeholder = '', hint = '', confirmLabel = 'Continue', maxLength = 240, validate = null }) {
+    const dialog = document.getElementById('textInputDialog');
+    if (!dialog?.showModal) return Promise.resolve(null);
+    const form = document.getElementById('textInputDialogForm');
+    const input = document.getElementById('textInputDialogValue');
+    const error = document.getElementById('textInputDialogError');
+    document.getElementById('textInputDialogTitle').textContent = title;
+    document.getElementById('textInputDialogMessage').textContent = message;
+    document.getElementById('textInputDialogLabel').textContent = label;
+    document.getElementById('textInputDialogHint').textContent = hint;
+    document.getElementById('textInputDialogAccept').textContent = confirmLabel;
+    input.value = value;
+    input.placeholder = placeholder;
+    input.maxLength = maxLength;
+    error.textContent = '';
+
+    return new Promise(resolve => {
+        dialog.returnValue = 'cancel';
+        document.getElementById('textInputDialogCancel').onclick = () => dialog.close('cancel');
+        form.onsubmit = event => {
+            event.preventDefault();
+            const nextValue = input.value.trim();
+            const validationMessage = !nextValue ? `${label} is required.` : validate?.(nextValue);
+            if (validationMessage) {
+                error.textContent = validationMessage;
+                input.focus();
+                return;
+            }
+            dialog.close('confirm');
+        };
+        dialog.onclose = () => resolve(dialog.returnValue === 'confirm' ? input.value.trim() : null);
+        dialog.showModal();
+        requestAnimationFrame(() => {
+            input.focus();
+            input.select();
+        });
+    });
+}
+
 function withGuild(path) {
     return `${path}${path.includes('?') ? '&' : '?'}guildId=${encodeURIComponent(state.guildId || '')}`;
 }
@@ -543,7 +582,16 @@ const managementModuleDefinitions = {
     starboard: { tab: 'management-starboard', title: 'Starboard', description: 'Reaction-based highlights with one configurable destination and threshold.' },
     forms: { tab: 'management-forms', title: 'Forms & Appeals', description: 'Structured modal submissions for applications and moderation appeals.' },
     channels: { tab: 'management-channels', title: 'Channel Management', description: 'Locks, slowmode, sticky notices, and temporary voice rooms.' },
-    integrations: { tab: 'management-integrations', title: 'Discord Integrations', description: 'Sync native Discord AutoMod rules and create Scheduled Events.' }
+    integrations: { tab: 'management-integrations', title: 'Discord Integrations', description: 'Sync native Discord AutoMod rules and create Scheduled Events.' },
+    serverDoctor: { tab: 'management-server-doctor', title: 'Server Doctor', description: 'Find permission, hierarchy, channel, and module problems with clear fixes.' },
+    incidentCenter: { tab: 'management-incident-center', title: 'Incident Center', description: 'Anti-nuke monitoring, audit attribution, lockdown, evidence, and recovery snapshots.' },
+    reports: { tab: 'management-reports', title: 'Reports & Modmail', description: 'Private member reports with a claimable staff inbox and message evidence.' },
+    workflows: { tab: 'management-workflows', title: 'Workflow Studio', description: 'Audited server routines with curated recipes and a safe dry-run mode.' },
+    staffOperations: { tab: 'management-staff-operations', title: 'Staff Operations', description: 'Case queues, ownership, review deadlines, notes, and sensitive-action approval.' },
+    communityHealth: { tab: 'management-community-health', title: 'Community Health', description: 'Privacy-first onboarding, retention, participation, and support-quality insights.' },
+    backups: { tab: 'management-backups', title: 'Backup & Recovery', description: 'Versioned role, channel, and permission snapshots for incident recovery.' },
+    copilot: { tab: 'management-copilot', title: 'Flummi Copilot', description: 'Staff summaries, translations, and recommendations that always remain human-approved.' },
+    engagement: { tab: 'management-engagement', title: 'Engagement & Utilities', description: 'Giveaways, levels, feeds, reminders, embeds, polls, AFK, and temporary or voice-linked roles.' }
 };
 const automodRuleDefinitions = {
     badWords: { title: 'Bad words', description: 'Block configured words and phrases.', limit: 'Matches allowed', fixedLimit: true },
@@ -590,6 +638,15 @@ const tabLoaders = {
     'management-forms': loadManagement,
     'management-channels': loadManagement,
     'management-integrations': loadManagement,
+    'management-server-doctor': loadAdvancedManagement,
+    'management-incident-center': loadAdvancedManagement,
+    'management-reports': loadAdvancedManagement,
+    'management-workflows': loadAdvancedManagement,
+    'management-staff-operations': loadAdvancedManagement,
+    'management-community-health': loadAdvancedManagement,
+    'management-backups': loadAdvancedManagement,
+    'management-copilot': loadAdvancedManagement,
+    'management-engagement': loadAdvancedManagement,
     profiles: loadProfilesTab,
     settings: loadSettings,
     pings: loadPingRequests,
@@ -597,6 +654,7 @@ const tabLoaders = {
     global: loadGlobalSettings,
     logs: loadLogs,
     reliability: loadReliability,
+    adoption: loadDeveloperStats,
     files: loadDeveloperFiles,
     soundboard: loadSoundboard,
     audit: loadAudit,
@@ -654,7 +712,7 @@ async function refreshActiveTab() {
 }
 
 // Server tabs stay in the dashboard sidebar. Developer tools have their own top-level workspace.
-const defaultDeveloperTabOrder = ['messenger', 'profiles', 'ai', 'global', 'reliability', 'files', 'logs', 'experiments'];
+const defaultDeveloperTabOrder = ['messenger', 'profiles', 'ai', 'global', 'reliability', 'adoption', 'files', 'logs', 'experiments'];
 const fixedDeveloperTabIds = new Set(defaultDeveloperTabOrder);
 let activeDeveloperTabOrder = [...defaultDeveloperTabOrder];
 
@@ -742,6 +800,15 @@ const panelSearchAliases = {
     'management-cases': 'cases logs retention deleted edited messages joins leaves roles timeouts',
     'management-roles': 'roles onboarding autorole persistent interactive buttons select menu',
     'management-automation': 'automation welcome goodbye scheduled messages purge cleanup',
+    'management-server-doctor': 'server doctor diagnose permissions hierarchy configuration health fixes',
+    'management-incident-center': 'incident anti nuke security lockdown audit restore destructive changes',
+    'management-reports': 'reports modmail member report evidence staff inbox',
+    'management-workflows': 'workflow studio recipes dry run routines escalation follow up',
+    'management-staff-operations': 'staff operations cases queue assignments approvals notes review',
+    'management-community-health': 'community health onboarding retention participation privacy surveys',
+    'management-backups': 'backup recovery snapshot roles channels permissions restore',
+    'management-copilot': 'copilot ai summary translate recommendation staff approval',
+    'management-engagement': 'giveaway levels xp feeds reminders embeds polls afk temporary roles voice roles',
     settings: 'settings configuration bot features limits cooldown server',
     pings: 'ping requests mentions inbox saved',
     soundboard: 'server media emoji emojis sticker stickers gif gifs soundboard',
@@ -751,6 +818,7 @@ const panelSearchAliases = {
     ai: 'ai artificial intelligence openrouter model memory presence startup',
     global: 'global settings features navigation tabs public site cloudflare',
     reliability: 'reliability health github update staging commits live runtime backup diagnostics',
+    adoption: 'statistics servers installed active adoption usage commands members modules growth',
     files: 'developer files repository code upload download edit search tests restart',
     logs: 'bot logs console errors warnings runtime',
     experiments: 'experiments preview roles simulation admin view'
@@ -1005,7 +1073,7 @@ function applyAccessVisibility() {
     if (state.accountUsername) {
         document.getElementById('panelAccountName').innerHTML = `<span class="account-username">${escapeHtml(state.accountUsername)}</span><span class="account-role">${escapeHtml(roleLabel)}</span>`;
     }
-    const developerTabs = ['messenger', 'profiles', 'ai', 'global', 'reliability', 'files', 'logs'];
+    const developerTabs = ['messenger', 'profiles', 'ai', 'global', 'reliability', 'adoption', 'files', 'logs'];
     document.querySelectorAll('[data-developer-only]').forEach(element => { element.hidden = !isDeveloper; });
     developerTabs.forEach(tabId => {
         const panel = document.getElementById(`tab-${tabId}`);
@@ -1437,7 +1505,7 @@ function guildInfoStatCards(guildInfo) {
     ].join('');
 }
 
-function renderOverviewQuad(containerId, guildInfo, totalMessages) {
+function renderOverviewCards(containerId, guildInfo, data) {
     const container = document.getElementById(containerId);
 
     if (!guildInfo) {
@@ -1449,7 +1517,12 @@ function renderOverviewQuad(containerId, guildInfo, totalMessages) {
         statCard('Members', guildInfo.memberCount ?? 'Unavailable'),
         statCard('Bots', guildInfo.botCount ?? 'Unavailable'),
         statCard('Channels', guildInfo.channelCount),
-        statCard('Total Messages Tracked', totalMessages)
+        statCard('Total Messages Tracked', data.totalMessages),
+        statCard('Bot Enabled', data.settings?.botEnabled ? 'Yes' : 'No'),
+        statCard('Triggers', `${data.triggerCount} / ${data.triggerLimit}`),
+        statCard('Members in Voice Now', data.activeVoiceCount),
+        statCard('Total Voice Time Tracked', data.totalVoiceFormatted),
+        statCard('Admins', data.adminCount ?? 'Unavailable')
     ].join('');
 }
 
@@ -1672,11 +1745,10 @@ installHeatmapControls('voice');
 async function loadOverview() {
     if (!state.guildId) return;
     const data = await api(withGuild('/api/overview'));
-    const overviewCards = document.getElementById('overviewCards');
     const banner = document.getElementById('overviewBanner');
 
     renderGuildHeader('guildHeader', data.guildInfo);
-    renderOverviewQuad('overviewQuad', data.guildInfo, data.totalMessages);
+    renderOverviewCards('overviewCards', data.guildInfo, data);
     renderOverviewDetails('overviewDetails', data.guildInfo);
     const localFeatures = data.settings?.features || {};
     state.globalFeatures = data.globalFeatures || state.globalFeatures || {};
@@ -1699,14 +1771,6 @@ async function loadOverview() {
     } else {
         banner.innerHTML = '<div class="banner ok">The bot has all required permissions in this server.</div>';
     }
-
-    overviewCards.innerHTML = [
-        statCard('Bot Enabled', data.settings.botEnabled ? 'Yes' : 'No'),
-        statCard('Triggers', `${data.triggerCount} / ${data.triggerLimit}`),
-        statCard('Members in Voice Now', data.activeVoiceCount),
-        statCard('Total Voice Time Tracked', data.totalVoiceFormatted),
-        statCard('Admins', data.adminCount ?? 'Unavailable')
-    ].join('');
 
     renderTable(document.getElementById('overviewChannels'),
         [
@@ -3020,6 +3084,76 @@ function hydrateManagementEditors() {
     document.getElementById('managementIntegrationsAutomod').checked = management.integrations.nativeAutomodEnabled;
     document.getElementById('managementIntegrationsEvents').checked = management.integrations.scheduledEventsEnabled;
     document.getElementById('managementIntegrationsAnnouncements').value = management.integrations.announcementChannelId || '';
+    for (const field of document.querySelectorAll('[data-advanced-field]')) {
+        const [section, key] = field.dataset.advancedField.split('.');
+        const value = management[section]?.[key];
+        if (field.type === 'checkbox') field.checked = value === true;
+        else field.value = value ?? '';
+    }
+}
+
+function collectAdvancedManagement(section) {
+    const current = { ...(state.management[section] || {}) };
+    for (const field of document.querySelectorAll(`[data-advanced-field^="${section}."]`)) {
+        const key = field.dataset.advancedField.split('.')[1];
+        if (field.type === 'checkbox') current[key] = field.checked;
+        else if (field.type === 'number') {
+            if (!field.checkValidity()) throw new Error(`${field.labels?.[0]?.textContent || key} is outside the allowed range.`);
+            current[key] = Number(field.value);
+        } else current[key] = field.value;
+    }
+    state.management[section] = current;
+}
+
+function operationTable(rows, columns, emptyMessage) {
+    if (!rows.length) return `<div class="empty">${escapeHtml(emptyMessage)}</div>`;
+    return `<table><thead><tr>${columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map(column => `<td>${column.render ? column.render(row) : escapeHtml(row[column.key] ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+function renderServerDoctor(result) {
+    const container = document.getElementById('serverDoctorResults');
+    if (!result) return;
+    const tone = result.critical ? 'error' : result.warnings ? 'warn' : 'ok';
+    container.innerHTML = `<div class="section-title-row"><div><h2>Health score: ${result.score}/100</h2><p class="sub">${result.critical} critical · ${result.warnings} warnings · checked ${escapeHtml(formatDateTime(result.checkedAt))}</p></div><span class="badge ${tone}">${result.critical ? 'Action needed' : result.warnings ? 'Review' : 'Healthy'}</span></div>${result.checks.length ? `<div class="doctor-check-list">${result.checks.map(check => `<article class="doctor-check ${escapeHtml(check.severity)}"><strong>${escapeHtml(check.title)}</strong><span>${escapeHtml(check.detail)}</span>${check.fix ? `<small>${escapeHtml(check.fix)}</small>` : ''}</article>`).join('')}</div>` : '<div class="empty">No problems found.</div>'}`;
+}
+
+function renderAdvancedOperations(data) {
+    renderServerDoctor(data.doctor);
+    document.getElementById('incidentCenterTable').innerHTML = operationTable(data.incidents || [], [
+        { label: 'Incident', key: 'id' }, { label: 'Summary', key: 'summary' }, { label: 'Actor', key: 'actorId' },
+        { label: 'Status', render: row => `<select data-incident-status="${escapeHtml(row.id)}"><option value="open" ${row.status === 'open' ? 'selected' : ''}>Open</option><option value="investigating" ${row.status === 'investigating' ? 'selected' : ''}>Investigating</option><option value="resolved" ${row.status === 'resolved' ? 'selected' : ''}>Resolved</option></select>` }
+    ], 'No security incidents recorded.');
+    document.getElementById('reportsOperationsTable').innerHTML = operationTable(data.reports || [], [
+        { label: 'Report', key: 'id' }, { label: 'Reason', key: 'reason' }, { label: 'Created', render: row => escapeHtml(formatDateTime(row.createdAt)) },
+        { label: 'Status', render: row => `<select data-report-status="${escapeHtml(row.id)}"><option value="open" ${row.status === 'open' ? 'selected' : ''}>Open</option><option value="claimed" ${row.status === 'claimed' ? 'selected' : ''}>Claimed</option><option value="resolved" ${row.status === 'resolved' ? 'selected' : ''}>Resolved</option><option value="dismissed" ${row.status === 'dismissed' ? 'selected' : ''}>Dismissed</option></select>` }
+    ], 'No member reports received.');
+    document.getElementById('serverSnapshotsTable').innerHTML = operationTable(data.snapshots || [], [
+        { label: 'Snapshot', key: 'id' }, { label: 'Created', render: row => escapeHtml(formatDateTime(row.createdAt)) }, { label: 'Reason', key: 'reason' }, { label: 'Roles', key: 'roleCount' }, { label: 'Channels', key: 'channelCount' },
+        { label: 'Recovery', render: row => `<div class="row"><button class="secondary" type="button" data-snapshot-preview="${escapeHtml(row.id)}">Preview</button><button class="secondary" type="button" data-snapshot-restore="${escapeHtml(row.id)}">Restore missing</button></div>` }
+    ], 'No snapshots created yet.');
+    document.getElementById('engagementLevelsTable').innerHTML = operationTable(data.levels || [], [
+        { label: 'Member ID', key: 'userId' }, { label: 'Level', key: 'level' }, { label: 'XP', key: 'xp' }, { label: 'Messages', key: 'messages' }
+    ], 'No XP has been recorded yet.');
+    const utilities = [
+        ...(data.feeds || []).map(row => ({ type: 'Creator feed', name: row.name, destination: row.channelId, status: row.lastError ? `Error: ${row.lastError}` : row.lastCheckedAt ? 'Active' : 'Waiting for first check' })),
+        ...(data.voiceRoleLinks || []).map(row => ({ type: 'Voice role', name: row.roleId, destination: row.channelId, status: 'Active' })),
+        ...(data.temporaryRoles || []).map(row => ({ type: 'Temporary role', name: row.roleId, destination: row.userId, status: `Expires ${formatDateTime(row.removeAt)}` }))
+    ];
+    document.getElementById('engagementUtilitiesTable').innerHTML = operationTable(utilities, [
+        { label: 'Type', key: 'type' }, { label: 'Feed / role', key: 'name' }, { label: 'Channel / member', key: 'destination' }, { label: 'Status', key: 'status' }
+    ], 'No feeds, voice roles, or temporary roles configured.');
+    const health = data.health || {};
+    document.getElementById('communityHealthCards').innerHTML = [
+        ['Messages (30d)', health.messages30d || 0], ['Active members (30d)', health.activeMembers30d || 0],
+        ['Joins (30d)', health.joins30d || 0], ['Leaves (30d)', health.leaves30d || 0],
+        ['Pulse score (30d)', health.pulseAverage30d == null ? '—' : `${health.pulseAverage30d}/5`], ['Pulse responses', health.pulseResponses30d || 0]
+    ].map(([label, value]) => `<article class="card"><span>${escapeHtml(label)}</span><strong>${typeof value === 'number' ? value.toLocaleString() : escapeHtml(value)}</strong></article>`).join('');
+}
+
+async function loadAdvancedManagement() {
+    await loadManagement();
+    const data = await api(withGuild('/api/management/operations'));
+    renderAdvancedOperations(data);
 }
 
 async function persistManagement(statusField) {
@@ -3157,7 +3291,7 @@ document.getElementById('managementAddPurgeRule').addEventListener('click', () =
 document.getElementById('managementSchedules').addEventListener('click', event => { const button = event.target.closest('[data-remove-schedule]'); if (!button) return; state.management.automation.schedules.splice(Number(button.dataset.removeSchedule), 1); renderAutomationRules(); });
 document.getElementById('managementPurgeRules').addEventListener('click', event => { const button = event.target.closest('[data-remove-purge]'); if (!button) return; state.management.automation.purgeRules.splice(Number(button.dataset.removePurge), 1); renderAutomationRules(); });
 
-const managementStatusIds = { moderation: 'managementModerationStatus', automod: 'managementAutomodStatus', cases: 'managementCasesStatus', roles: 'managementRolesStatus', automation: 'managementAutomationStatus', tickets: 'managementTicketsStatus', suggestions: 'managementSuggestionsStatus', joinSecurity: 'managementJoinSecurityStatus', starboard: 'managementStarboardStatus', forms: 'managementFormsStatus', channels: 'managementChannelsStatus', integrations: 'managementIntegrationsStatus' };
+const managementStatusIds = { moderation: 'managementModerationStatus', automod: 'managementAutomodStatus', cases: 'managementCasesStatus', roles: 'managementRolesStatus', automation: 'managementAutomationStatus', tickets: 'managementTicketsStatus', suggestions: 'managementSuggestionsStatus', joinSecurity: 'managementJoinSecurityStatus', starboard: 'managementStarboardStatus', forms: 'managementFormsStatus', channels: 'managementChannelsStatus', integrations: 'managementIntegrationsStatus', serverDoctor: 'managementServerDoctorStatus', incidentCenter: 'managementIncidentCenterStatus', reports: 'managementReportsStatus', workflows: 'managementWorkflowsStatus', staffOperations: 'managementStaffOperationsStatus', communityHealth: 'managementCommunityHealthStatus', backups: 'managementBackupsStatus', copilot: 'managementCopilotStatus', engagement: 'managementEngagementStatus' };
 document.querySelectorAll('[data-save-management]').forEach(button => button.addEventListener('click', async () => {
     const section = button.dataset.saveManagement;
     const status = document.getElementById(managementStatusIds[section]);
@@ -3168,6 +3302,69 @@ document.querySelectorAll('[data-save-management]').forEach(button => button.add
         setStatus(status, error.message, 'error');
     }
 }));
+
+document.querySelectorAll('[data-save-advanced]').forEach(button => button.addEventListener('click', async () => {
+    const section = button.dataset.saveAdvanced;
+    const status = document.getElementById(managementStatusIds[section]);
+    button.disabled = true;
+    try {
+        collectAdvancedManagement(section);
+        await persistManagement(status);
+    } catch (error) {
+        setStatus(status, error.message, 'error');
+    } finally {
+        button.disabled = false;
+    }
+}));
+
+async function updateOperationStatus(action, id, status) {
+    await api(withGuild('/api/management/operations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, id, status }) });
+    await loadAdvancedManagement();
+}
+
+document.getElementById('reportsOperationsTable').addEventListener('change', event => {
+    if (event.target.matches('[data-report-status]')) updateOperationStatus('report-status', event.target.dataset.reportStatus, event.target.value).catch(handleUiError);
+});
+document.getElementById('incidentCenterTable').addEventListener('change', event => {
+    if (event.target.matches('[data-incident-status]')) updateOperationStatus('incident-status', event.target.dataset.incidentStatus, event.target.value).catch(handleUiError);
+});
+document.getElementById('runServerDoctor').addEventListener('click', async event => {
+    event.currentTarget.disabled = true;
+    try { renderAdvancedOperations(await api(withGuild('/api/management/operations'))); }
+    catch (error) { setStatus(document.getElementById('managementServerDoctorStatus'), error.message, 'error'); }
+    finally { event.currentTarget.disabled = false; }
+});
+document.getElementById('createServerSnapshot').addEventListener('click', async event => {
+    event.currentTarget.disabled = true;
+    const status = document.getElementById('managementBackupsStatus');
+    try {
+        await api(withGuild('/api/management/operations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'snapshot' }) });
+        setStatus(status, 'Snapshot created.', 'ok');
+        await loadAdvancedManagement();
+    } catch (error) { setStatus(status, error.message, 'error'); }
+    finally { event.currentTarget.disabled = false; }
+});
+document.getElementById('serverSnapshotsTable').addEventListener('click', async event => {
+    const previewButton = event.target.closest('[data-snapshot-preview]');
+    const restoreButton = event.target.closest('[data-snapshot-restore]');
+    const id = previewButton?.dataset.snapshotPreview || restoreButton?.dataset.snapshotRestore;
+    if (!id) return;
+    const status = document.getElementById('managementBackupsStatus');
+    if (previewButton) {
+        const result = await api(withGuild('/api/management/operations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'snapshot-preview', id }) });
+        setStatus(status, `${result.missingRoles} missing roles and ${result.missingChannels} missing channels can be recreated. Existing items stay untouched.`, 'ok');
+        return;
+    }
+    const confirmed = await confirmAction({ title: 'Restore missing server configuration?', message: `Flummi will recreate roles and channels missing from ${id}. Existing roles and channels will not be overwritten or deleted.`, confirmLabel: 'Restore missing items' });
+    if (!confirmed) return;
+    restoreButton.disabled = true;
+    try {
+        const result = await api(withGuild('/api/management/operations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'snapshot-restore', id, confirmation: 'RESTORE' }) });
+        setStatus(status, `Restored ${result.restoredRoles} roles and ${result.restoredChannels} channels.`, 'ok');
+        await loadAdvancedManagement();
+    } catch (error) { setStatus(status, error.message, 'error'); }
+    finally { restoreButton.disabled = false; }
+});
 
 async function loadManagementTimeline() {
     if (!state.guildId || state.role === 'member') return;
@@ -3734,6 +3931,37 @@ document.getElementById('mediaGraphType').addEventListener('change', () => {
     loadSoundboard().catch(error => handleUiError(error, () => loadSoundboard().catch(handleUiError)));
 });
 
+async function loadDeveloperStats() {
+    const data = await api('/api/developer/stats');
+    const totals = data.totals || {};
+    document.getElementById('developerStatsChecked').textContent = `Updated ${formatDateTime(data.checkedAt)}`;
+    document.getElementById('developerStatsCards').innerHTML = [
+        ['Installed servers', totals.installedServers || 0], ['Active servers', totals.activeServers || 0],
+        ['Members reached', totals.membersReached || 0], ['Commands (30d)', totals.commands30d || 0]
+    ].map(([label, value]) => `<article class="card"><span>${escapeHtml(label)}</span><strong>${Number(value).toLocaleString()}</strong></article>`).join('');
+    document.getElementById('developerActivitySummary').innerHTML = [
+        ['Used this week', totals.recentlyUsedServers || 0], ['Commands (7d)', totals.commands7d || 0],
+        ['Disabled servers', totals.disabledServers || 0]
+    ].map(([label, value]) => `<article class="card"><span>${escapeHtml(label)}</span><strong>${Number(value).toLocaleString()}</strong></article>`).join('');
+    document.getElementById('developerModuleAdoption').innerHTML = operationTable(data.moduleAdoption || [], [
+        { label: 'Module', render: row => escapeHtml(managementModuleDefinitions[row.module]?.title || row.module) },
+        { label: 'Servers', key: 'servers' }, { label: 'Adoption', render: row => `${Number(row.percentage) || 0}%` }
+    ], 'No management modules are enabled yet.');
+    document.getElementById('developerServersTable').innerHTML = operationTable(data.servers || [], [
+        { label: 'Server', render: row => `<div class="server-stat-name">${row.iconUrl ? `<img src="${escapeHtml(row.iconUrl)}" alt="">` : ''}<div><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.id)}</small></div></div>` },
+        { label: 'Status', render: row => `<span class="badge ${row.botEnabled ? 'ok' : 'warn'}">${row.botEnabled ? 'Active' : 'Disabled'}</span>` },
+        { label: 'Members', render: row => Number(row.memberCount || 0).toLocaleString() },
+        { label: 'Modules', render: row => `${row.enabledModules.length} enabled` },
+        { label: 'Commands 7d', key: 'commands7d' }, { label: 'Commands 30d', key: 'commands30d' },
+        { label: 'Last activity', render: row => row.lastActivity ? escapeHtml(formatDateTime(row.lastActivity)) : 'No recorded activity' }
+    ], 'Flummi is not installed in any servers.');
+}
+
+document.getElementById('refreshDeveloperStats').addEventListener('click', async event => {
+    event.currentTarget.disabled = true;
+    try { await loadDeveloperStats(); } finally { event.currentTarget.disabled = false; }
+});
+
 async function loadReliability() {
     if (!state.guildId) return;
     const data = await api(withGuild('/api/reliability'));
@@ -3917,8 +4145,12 @@ async function loadFileDirectory(relativePath = developerFiles.directory) {
     updateFileWriteAccess();
 }
 
-async function openDeveloperFile(relativePath, editable = true) {
-    if (fileIsDirty() && !window.confirm('Discard the unsaved editor changes and open another file?')) return;
+async function openDeveloperFile(relativePath, editable = true, { confirmDiscard = true } = {}) {
+    if (confirmDiscard && fileIsDirty() && !await confirmAction({
+        title: 'Discard unsaved changes?',
+        message: 'Your current draft has not been saved. Discard it and open the selected file?',
+        confirmLabel: 'Discard changes'
+    })) return;
     developerFiles.selected = { path: relativePath, editable };
     document.getElementById('fileEditorName').textContent = relativePath.split('/').pop();
     document.getElementById('fileEditorPath').textContent = relativePath;
@@ -3994,10 +4226,14 @@ document.getElementById('fileUp').addEventListener('click', () => {
     const parent = developerFiles.directory.split('/').slice(0, -1).join('/');
     loadFileDirectory(parent).catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'));
 });
-document.getElementById('fileReload').addEventListener('click', () => {
+document.getElementById('fileReload').addEventListener('click', async () => {
     if (!developerFiles.selected?.editable) return;
-    if (fileIsDirty() && !window.confirm('Discard your draft and reload the latest server version?')) return;
-    openDeveloperFile(developerFiles.selected.path, true).catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'));
+    if (fileIsDirty() && !await confirmAction({
+        title: 'Reload the saved version?',
+        message: 'Your unsaved draft will be discarded and replaced with the latest version from the server.',
+        confirmLabel: 'Discard and reload'
+    })) return;
+    openDeveloperFile(developerFiles.selected.path, true, { confirmDiscard: false }).catch(error => setStatus(document.getElementById('fileEditorStatus'), error.message, 'error'));
 });
 document.getElementById('filePreviewDiff').addEventListener('click', () => {
     renderFilePreviews();
@@ -4034,7 +4270,18 @@ document.getElementById('fileSave').addEventListener('click', async () => {
 });
 
 async function createDeveloperPath(type) {
-    const name = window.prompt(type === 'directory' ? 'New folder name' : 'New file name');
+    const isDirectory = type === 'directory';
+    const name = await requestTextInput({
+        title: isDirectory ? 'Create a new folder' : 'Create a new file',
+        message: developerFiles.directory ? `It will be created inside ${developerFiles.directory}.` : 'It will be created in the repository root.',
+        label: isDirectory ? 'Folder name' : 'File name',
+        placeholder: isDirectory ? 'example-folder' : 'example.js',
+        hint: 'Enter a name only. You can move or rename it afterwards.',
+        confirmLabel: isDirectory ? 'Create folder' : 'Create file',
+        validate: value => value === '.' || value === '..'
+            ? 'Choose a regular name instead of . or ..'
+            : /[\\/]/.test(value) ? 'Enter a name without slashes.' : ''
+    });
     if (!name) return;
     const relativePath = developerFiles.directory ? `${developerFiles.directory}/${name}` : name;
     try {
@@ -4047,7 +4294,18 @@ document.getElementById('fileNew').addEventListener('click', () => createDevelop
 document.getElementById('fileNewFolder').addEventListener('click', () => createDeveloperPath('directory'));
 document.getElementById('fileRename').addEventListener('click', async () => {
     if (!developerFiles.selected) return;
-    const destination = window.prompt('New repository path', developerFiles.selected.path);
+    const destination = await requestTextInput({
+        title: 'Rename or move item',
+        message: 'Change the name, or enter another folder to move this item within the repository.',
+        label: 'New repository path',
+        value: developerFiles.selected.path,
+        placeholder: 'folder/example.js',
+        hint: 'Use a path relative to the repository root, without a leading slash.',
+        confirmLabel: 'Rename item',
+        validate: value => value.startsWith('/') || value.startsWith('\\')
+            ? 'Use a relative path without a leading slash.'
+            : value.includes('\\') ? 'Use forward slashes (/) between folders.' : ''
+    });
     if (!destination || destination === developerFiles.selected.path) return;
     try {
         const result = await fileMutation('rename', { path: developerFiles.selected.path, destination });

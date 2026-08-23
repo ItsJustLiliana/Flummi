@@ -17,6 +17,10 @@ const state = {
 const guildSelect = document.getElementById('guild');
 const tableStates = new WeakMap();
 
+function uiText(source) {
+    return window.FlummiI18n?.t(String(source)) || String(source);
+}
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -107,23 +111,23 @@ function paintTable(container) {
     const pageRows = rows.slice(state.page * pageSize, (state.page + 1) * pageSize);
     const showSearch = state.allRows.length > 6;
     const searchBar = showSearch
-        ? `<div class="table-toolbar"><input type="text" placeholder="Search..." value="${escapeHtml(state.filter || '')}" data-role="table-search" /></div>`
+        ? `<div class="table-toolbar"><input type="text" placeholder="${escapeHtml(uiText('Search...'))}" value="${escapeHtml(state.filter || '')}" data-role="table-search" /></div>`
         : '';
 
     if (rows.length === 0) {
-        container.innerHTML = `${searchBar}<div class="empty">${escapeHtml(state.filter ? 'No matching rows.' : (emptyText || 'No data yet.'))}</div>`;
+        container.innerHTML = `${searchBar}<div class="empty">${escapeHtml(uiText(state.filter ? 'No matching rows.' : (emptyText || 'No data yet.')))}</div>`;
     } else {
         const head = columns.map((col, index) => {
             const sortable = isColumnSortable(col);
             const arrow = state.sortIndex === index ? (state.sortDir === 1 ? ' \u25b2' : ' \u25bc') : '';
-            return `<th scope="col"${sortable ? ` data-sort-index="${index}" class="sortable"` : ''}>${escapeHtml(col.label)}${arrow}</th>`;
+            return `<th scope="col"${sortable ? ` data-sort-index="${index}" class="sortable"` : ''}>${escapeHtml(uiText(col.label))}${arrow}</th>`;
         }).join('');
         const body = pageRows.map((row, index) => {
             const cells = columns.map(col => `<td>${col.render ? col.render(row, index) : escapeHtml(row[col.key])}</td>`).join('');
             return `<tr>${cells}</tr>`;
         }).join('');
 
-        const pagination = rows.length > pageSize ? `<div class="table-toolbar" style="justify-content:flex-end"><button type="button" data-role="table-prev" class="secondary" ${state.page === 0 ? 'disabled' : ''}>Previous</button><span class="sub">Page ${state.page + 1} / ${pageCount}</span><button type="button" data-role="table-next" class="secondary" ${state.page >= pageCount - 1 ? 'disabled' : ''}>Next</button></div>` : '';
+        const pagination = rows.length > pageSize ? `<div class="table-toolbar" style="justify-content:flex-end"><button type="button" data-role="table-prev" class="secondary" ${state.page === 0 ? 'disabled' : ''}>${escapeHtml(uiText('Previous'))}</button><span class="sub">Page ${state.page + 1} / ${pageCount}</span><button type="button" data-role="table-next" class="secondary" ${state.page >= pageCount - 1 ? 'disabled' : ''}>${escapeHtml(uiText('Next'))}</button></div>` : '';
         container.innerHTML = `${searchBar}<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${pagination}`;
     }
 
@@ -170,7 +174,7 @@ function paintTable(container) {
 function statCard(label, value, tooltip = '', helpSymbol = '?') {
     const warningClass = helpSymbol === '!' ? ' global-warning' : '';
     const help = tooltip ? ` <span class="help-tip${warningClass}" tabindex="0" data-tooltip="${escapeHtml(tooltip)}">${escapeHtml(helpSymbol)}</span>` : '';
-    return `<div class="stat-card"><div class="label">${escapeHtml(label)}${help}</div><div class="value">${escapeHtml(value)}</div></div>`;
+    return `<div class="stat-card"><div class="label">${escapeHtml(uiText(label))}${help}</div><div class="value">${escapeHtml(uiText(value))}</div></div>`;
 }
 
 function formatAgo(isoString) {
@@ -297,11 +301,11 @@ function handleUiError(error, retry = null) {
 
 function confirmAction({ title = 'Confirm change', message, confirmLabel = 'Confirm', danger = true }) {
     const dialog = document.getElementById('confirmDialog');
-    if (!dialog?.showModal) return Promise.resolve(window.confirm(message));
-    document.getElementById('confirmDialogTitle').textContent = title;
-    document.getElementById('confirmDialogMessage').textContent = message;
+    if (!dialog?.showModal) return Promise.resolve(window.confirm(uiText(message)));
+    document.getElementById('confirmDialogTitle').textContent = uiText(title);
+    document.getElementById('confirmDialogMessage').textContent = uiText(message);
     const accept = document.getElementById('confirmDialogAccept');
-    accept.textContent = confirmLabel;
+    accept.textContent = uiText(confirmLabel);
     accept.className = danger ? 'danger' : 'primary';
     return new Promise(resolve => {
         dialog.returnValue = 'cancel';
@@ -318,11 +322,11 @@ function requestTextInput({ title, message, label, value = '', placeholder = '',
     const form = document.getElementById('textInputDialogForm');
     const input = document.getElementById('textInputDialogValue');
     const error = document.getElementById('textInputDialogError');
-    document.getElementById('textInputDialogTitle').textContent = title;
-    document.getElementById('textInputDialogMessage').textContent = message;
-    document.getElementById('textInputDialogLabel').textContent = label;
-    document.getElementById('textInputDialogHint').textContent = hint;
-    document.getElementById('textInputDialogAccept').textContent = confirmLabel;
+    document.getElementById('textInputDialogTitle').textContent = uiText(title);
+    document.getElementById('textInputDialogMessage').textContent = uiText(message);
+    document.getElementById('textInputDialogLabel').textContent = uiText(label);
+    document.getElementById('textInputDialogHint').textContent = uiText(hint);
+    document.getElementById('textInputDialogAccept').textContent = uiText(confirmLabel);
     input.value = value;
     input.placeholder = placeholder;
     input.maxLength = maxLength;
@@ -334,7 +338,7 @@ function requestTextInput({ title, message, label, value = '', placeholder = '',
         form.onsubmit = event => {
             event.preventDefault();
             const nextValue = input.value.trim();
-            const validationMessage = !nextValue ? `${label} is required.` : validate?.(nextValue);
+            const validationMessage = !nextValue ? `${uiText(label)} is required.` : validate?.(nextValue);
             if (validationMessage) {
                 error.textContent = validationMessage;
                 input.focus();
@@ -1155,13 +1159,24 @@ const homePageTitles = {
 };
 
 function setHomePageTitle(view) {
-    document.title = homePageTitles[view] || homePageTitles.servers;
+    const title = homePageTitles[view] || homePageTitles.servers;
+    document.title = window.FlummiI18n?.t(title) || title;
 }
 
 function setServerPageTitle(guildId = state.guildId) {
     const guild = state.guilds.find(row => String(row.id) === String(guildId));
-    document.title = guild?.name ? `${guild.name} | Flummi` : 'Server | Flummi';
+    document.title = guild?.name ? `${guild.name} | Flummi` : (window.FlummiI18n?.t('Server | Flummi') || 'Server | Flummi');
 }
+
+window.addEventListener('flummi:languagechange', () => {
+    if (!document.getElementById('dashboardLayout').hidden) {
+        setServerPageTitle();
+        refreshActiveTab().catch(error => console.error(error));
+        return;
+    }
+    const activeView = document.querySelector('[data-home-view].active')?.dataset.homeView || 'servers';
+    setHomePageTitle(activeView);
+});
 
 function renderPublicCommands(query = '') {
     const normalizedQuery = String(query || '').trim().toLowerCase();
@@ -1544,8 +1559,8 @@ function renderOverviewDetails(containerId, guildInfo) {
 
     container.innerHTML = rows.map(([label, value]) => `
         <div class="detail-row">
-            <span class="detail-label">${escapeHtml(label)}</span>
-            <span class="detail-value">${escapeHtml(value)}</span>
+            <span class="detail-label">${escapeHtml(uiText(label))}</span>
+            <span class="detail-value">${escapeHtml(uiText(value))}</span>
         </div>
     `).join('');
 }
@@ -2904,7 +2919,7 @@ function setAnalyticsExpanded(expanded) {
     const subnav = document.getElementById('analyticsSubnav');
     const open = Boolean(expanded);
     toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} Analytics tabs`);
+    toggle.setAttribute('aria-label', uiText(`${open ? 'Collapse' : 'Expand'} Analytics tabs`));
     subnav.hidden = !open;
 }
 
@@ -2913,7 +2928,7 @@ function setManagementExpanded(expanded) {
     const subnav = document.getElementById('managementSubnav');
     const open = Boolean(expanded);
     toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} Management tabs`);
+    toggle.setAttribute('aria-label', uiText(`${open ? 'Collapse' : 'Expand'} Management tabs`));
     subnav.hidden = !open;
 }
 

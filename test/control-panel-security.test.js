@@ -25,6 +25,8 @@ test('panel serves extracted application JavaScript without stale caching', () =
     assert.match(panelServer, /sendAsset\(res, panelScriptPath, 'no-store'\)/);
     assert.match(panelServer, /pathname === '\/panel\/styles\.css'/);
     assert.match(panelServer, /sendAsset\(res, panelStylesPath, 'no-store'\)/);
+    assert.match(panelServer, /pathname === '\/panel\/i18n\.js'/);
+    assert.match(panelServer, /sendAsset\(res, panelI18nPath, 'no-store'\)/);
     assert.match(panelServer, /'text\/css; charset=utf-8'/);
 });
 

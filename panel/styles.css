@@ -104,6 +104,7 @@ body {
 
 .brand {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 10px;
 }
@@ -327,10 +328,49 @@ button:hover {
     margin-top: 4px;
     padding: 10px;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     overscroll-behavior-y: contain;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border);
     border-radius: 14px;
+}
+
+.language-picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.language-picker select {
+    width: auto;
+    min-width: 104px;
+    padding: 7px 9px;
+    font-size: 12px;
+}
+
+.language-picker-compact select {
+    min-width: 92px;
+}
+
+.language-picker-sidebar {
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
 }
 
 .tab-btn {
@@ -2335,7 +2375,7 @@ code {
 .home-nav-links { display: flex; justify-content: center; gap: 5px; padding: 5px; border: 1px solid rgba(102, 130, 190, .12); border-radius: 13px; background: rgba(255, 255, 255, .025); }
 .home-nav-links button { width: auto; min-height: 36px; padding: 8px 13px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
 .home-nav-links button.active, .home-nav-links button:hover { color: var(--text); background: rgba(255, 255, 255, .075); }
-.home-account { display: flex; justify-content: flex-end; align-items: center; min-width: 0; }
+.home-account { display: flex; justify-content: flex-end; align-items: center; gap: 9px; min-width: 0; }
 .home-account > div { display: flex; align-items: center; min-width: 0; }
 .home-account-card { gap: 9px; padding: 5px 5px 5px 7px; border: 1px solid rgba(102, 130, 190, .2); border-radius: 14px; background: rgba(17, 26, 51, .74); box-shadow: 0 12px 30px rgba(0, 0, 0, .18); }
 .home-account img { width: 34px; height: 34px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 10px; object-fit: cover; }
@@ -2629,6 +2669,7 @@ code {
 
 @media (max-width: 600px) {
     .home-brand span { display: none; }
+    .language-picker-compact select { min-width: 82px; max-width: 82px; padding-inline: 6px; }
     .home-account .account-name { display: none; }
     .home-account-card { padding-left: 5px; }
     .home-hero { margin-bottom: 36px; }

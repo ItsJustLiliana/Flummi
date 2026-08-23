@@ -26,6 +26,7 @@
                     <button id="homeDeveloperNav" data-home-view="developer" type="button" hidden>Developer tools</button>
                 </nav>
                 <div class="home-account">
+                    <label class="language-picker language-picker-compact"><span class="visually-hidden">Language</span><select data-language-select aria-label="Language"><option value="en">English</option><option value="nl">Nederlands</option></select></label>
                     <div id="homeSignedOut"><a class="home-auth-button" href="/auth/login">Log in with Discord</a></div>
                     <div id="homeSignedIn" class="home-account-card" hidden><img id="homeAvatar" src="/assets/branding/flummi.png" alt=""><span id="homeUsername" class="account-name"></span><button id="homeLogout" class="home-logout-button" type="button">Log out</button></div>
                 </div>
@@ -1459,6 +1460,7 @@
                     <button class="tab-btn" data-tab="audit" data-audit-only type="button">Audit Log</button>
                 </nav>
                 <div class="sidebar-footer">
+                    <label class="language-picker language-picker-sidebar"><span>Language</span><select data-language-select><option value="en">English</option><option value="nl">Nederlands</option></select></label>
                     <div class="sidebar-actions">
                         <button id="refreshAll" class="secondary" type="button"
                             title="Refresh the current tab now. Most tabs update every 20 seconds; Voice updates every 5 seconds.">Refresh</button>
@@ -1479,6 +1481,7 @@
             aria-label="Close navigation"></button>
     </div>
 
+    <script src="/panel/i18n.js" defer></script>
     <script src="/vendor/lottie.min.js" defer></script>
     <script src="/panel/app.js" defer></script>
     <div id="chartTooltip" class="chart-tooltip" role="status" aria-live="polite"></div>

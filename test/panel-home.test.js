@@ -6,6 +6,7 @@ const path = require('path');
 const panelMarkup = fs.readFileSync(path.join(__dirname, '..', 'panel', 'index.html'), 'utf8');
 const panelStyles = fs.readFileSync(path.join(__dirname, '..', 'panel', 'styles.css'), 'utf8');
 const panelScript = fs.readFileSync(path.join(__dirname, '..', 'panel', 'app.js'), 'utf8');
+const panelI18n = fs.readFileSync(path.join(__dirname, '..', 'panel', 'i18n.js'), 'utf8');
 const panelHtml = `${panelMarkup}\n${panelStyles}\n${panelScript}`;
 const panelServer = fs.readFileSync(path.join(__dirname, '..', 'control-panel.js'), 'utf8');
 const promoteScript = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'promote-live.sh'), 'utf8');
@@ -40,8 +41,28 @@ test('home pages and selected servers use descriptive browser titles', () => {
     })) {
         assert.match(panelScript, new RegExp(`${view}: '${title}'`));
     }
-    assert.match(panelScript, /document\.title = guild\?\.name \? `\$\{guild\.name\} \| Flummi` : 'Server \| Flummi'/);
+    assert.match(panelScript, /document\.title = guild\?\.name \? `\$\{guild\.name\} \| Flummi` : \(window\.FlummiI18n\?\.t\('Server \| Flummi'\) \|\| 'Server \| Flummi'\)/);
     assert.match(panelScript, /function openDashboard\([\s\S]*?setServerPageTitle\(state\.guildId\)/);
+});
+
+test('English and Dutch are available throughout the shared dashboard shell', () => {
+    assert.equal((panelMarkup.match(/data-language-select/g) || []).length, 2);
+    assert.match(panelMarkup, /<option value="en">English<\/option><option value="nl">Nederlands<\/option>/);
+    assert.match(panelMarkup, /<script src="\/panel\/i18n\.js" defer><\/script>/);
+    assert.match(panelI18n, /const supportedLanguages = new Set\(\['en', 'nl'\]\)/);
+    assert.match(panelI18n, /'Management': 'Beheer'/);
+    assert.match(panelI18n, /'Members & Permissions': 'Leden & rechten'/);
+    assert.match(panelI18n, /localStorage\.setItem\(storageKey, language\)/);
+    assert.match(panelI18n, /document\.documentElement\.lang = language/);
+    assert.match(panelScript, /window\.addEventListener\('flummi:languagechange'/);
+    assert.match(panelScript, /function uiText\(source\)/);
+    assert.doesNotThrow(() => new Function(panelI18n));
+});
+
+test('expanded nested navigation scrolls without shrinking the Flummi brand', () => {
+    assert.match(panelStyles, /\.brand \{[\s\S]*?flex: 0 0 auto;/);
+    assert.match(panelStyles, /\.tabs \{[\s\S]*?flex: 1 1 auto;[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;[\s\S]*?scrollbar-gutter: stable;/);
+    assert.match(panelStyles, /\.sidebar-footer \{[\s\S]*?flex-shrink: 0;/);
 });
 
 test('commands and status are public home pages backed by unauthenticated APIs', () => {

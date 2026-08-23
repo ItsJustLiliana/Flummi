@@ -51,6 +51,7 @@ const port = Number(process.env.PANEL_PORT) || 3789;
 const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
 const panelScriptPath = path.join(__dirname, 'panel', 'app.js');
+const panelI18nPath = path.join(__dirname, 'panel', 'i18n.js');
 const panelStylesPath = path.join(__dirname, 'panel', 'styles.css');
 const faviconPath = path.join(__dirname, 'panel', 'favicon.png');
 const commandsDir = path.join(__dirname, 'commands');
@@ -1458,6 +1459,11 @@ function createServer() {
 
             if (req.method === 'GET' && requestUrl.pathname === '/panel/app.js') {
                 sendAsset(res, panelScriptPath, 'no-store');
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/panel/i18n.js') {
+                sendAsset(res, panelI18nPath, 'no-store');
                 return;
             }
 

@@ -21,6 +21,10 @@ function uiText(source) {
     return window.FlummiI18n?.t(String(source)) || String(source);
 }
 
+function uiValue(source) {
+    return window.FlummiI18n?.tExact(String(source)) || String(source);
+}
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -174,7 +178,7 @@ function paintTable(container) {
 function statCard(label, value, tooltip = '', helpSymbol = '?') {
     const warningClass = helpSymbol === '!' ? ' global-warning' : '';
     const help = tooltip ? ` <span class="help-tip${warningClass}" tabindex="0" data-tooltip="${escapeHtml(tooltip)}">${escapeHtml(helpSymbol)}</span>` : '';
-    return `<div class="stat-card"><div class="label">${escapeHtml(uiText(label))}${help}</div><div class="value">${escapeHtml(uiText(value))}</div></div>`;
+    return `<div class="stat-card"><div class="label">${escapeHtml(uiText(label))}${help}</div><div class="value">${escapeHtml(uiValue(value))}</div></div>`;
 }
 
 function formatAgo(isoString) {
@@ -1533,7 +1537,6 @@ function renderOverviewCards(containerId, guildInfo, data) {
         statCard('Bots', guildInfo.botCount ?? 'Unavailable'),
         statCard('Channels', guildInfo.channelCount),
         statCard('Total Messages Tracked', data.totalMessages),
-        statCard('Bot Enabled', data.settings?.botEnabled ? 'Yes' : 'No'),
         statCard('Triggers', `${data.triggerCount} / ${data.triggerLimit}`),
         statCard('Members in Voice Now', data.activeVoiceCount),
         statCard('Total Voice Time Tracked', data.totalVoiceFormatted),
@@ -1560,7 +1563,7 @@ function renderOverviewDetails(containerId, guildInfo) {
     container.innerHTML = rows.map(([label, value]) => `
         <div class="detail-row">
             <span class="detail-label">${escapeHtml(uiText(label))}</span>
-            <span class="detail-value">${escapeHtml(uiText(value))}</span>
+            <span class="detail-value">${escapeHtml(uiValue(value))}</span>
         </div>
     `).join('');
 }
@@ -1793,6 +1796,14 @@ async function loadOverview() {
             { label: 'Messages', key: 'count' }
         ],
         data.topChannels, 'No messages tracked yet.');
+
+    renderTable(document.getElementById('overviewVoiceChannels'),
+        [
+            { label: 'Channel', render: r => escapeHtml(r.channelName || r.channelId || 'Unknown channel'), sortValue: r => r.channelName || r.channelId || '' },
+            { label: 'Voice Time', render: r => formatDuration(r.totalMs), sortValue: r => r.totalMs },
+            { label: 'Sessions', key: 'sessions' }
+        ],
+        data.topVoiceChannels, 'No voice activity tracked yet.');
 }
 
 // ---------- Messenger ----------

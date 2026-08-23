@@ -51,7 +51,8 @@ const port = Number(process.env.PANEL_PORT) || 3789;
 const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
 const panelScriptPath = path.join(__dirname, 'panel', 'app.js');
-const panelI18nPath = path.join(__dirname, 'panel', 'i18n.js');
+const panelI18nEnginePath = path.join(__dirname, 'panel', 'i18n', 'engine.js');
+const panelLocaleDir = path.join(__dirname, 'panel', 'i18n', 'locales');
 const panelStylesPath = path.join(__dirname, 'panel', 'styles.css');
 const faviconPath = path.join(__dirname, 'panel', 'favicon.png');
 const commandsDir = path.join(__dirname, 'commands');
@@ -982,6 +983,7 @@ async function buildOverview(guildId) {
     const shotLeaderboard = shotStore.getShotLeaderboard(guildId, 3);
     const voiceSummary = voiceStore.getVoiceStatsSummary(guildId, 5);
     const voiceStats = voiceStore.readVoiceStats(guildId);
+    const topVoiceChannels = voiceStore.getVoiceAnalytics(guildId).topChannels.slice(0, 5);
     const statsSummary = serverStatsStore.getServerStatsSummary(guildId, 3);
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
     const developerIds = accessStore.getDeveloperUserIds();
@@ -1016,6 +1018,7 @@ async function buildOverview(guildId) {
         analytics: analyticsStore.getAnalyticsSummary(guildId, 7),
         voiceAnalytics: voiceStore.getVoiceAnalytics(guildId, sevenDaysAgo),
         topChannels: statsSummary.channels,
+        topVoiceChannels,
         adminCount,
         developerCount: developerIds.length,
         missingPermissions,
@@ -1462,8 +1465,16 @@ function createServer() {
                 return;
             }
 
-            if (req.method === 'GET' && requestUrl.pathname === '/panel/i18n.js') {
-                sendAsset(res, panelI18nPath, 'no-store');
+            if (req.method === 'GET' && requestUrl.pathname === '/panel/i18n/engine.js') {
+                sendAsset(res, panelI18nEnginePath, 'no-store');
+                return;
+            }
+
+            const localeMatch = requestUrl.pathname.match(/^\/panel\/i18n\/locales\/([a-z]{2})\.js$/);
+            if (req.method === 'GET' && localeMatch) {
+                const localePath = path.join(panelLocaleDir, `${localeMatch[1]}.js`);
+                if (!fs.existsSync(localePath)) return sendJson(res, 404, { error: 'Locale not found.' });
+                sendAsset(res, localePath, 'no-store');
                 return;
             }
 

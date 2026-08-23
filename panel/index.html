@@ -122,11 +122,19 @@
                         <div id="overviewFeatures" class="card-grid"></div>
                     </div>
                 </div>
-                <div class="section">
+                <div class="two-col overview-channel-rankings">
+                    <div class="section">
                         <h2>Top Message Channels</h2>
                         <div id="overviewChannels" class="table-wrap">
                             <div class="empty">Loading...</div>
                         </div>
+                    </div>
+                    <div class="section">
+                        <h2>Top Voice Channels</h2>
+                        <div id="overviewVoiceChannels" class="table-wrap">
+                            <div class="empty">Loading...</div>
+                        </div>
+                    </div>
                 </div>
                 <div id="overviewBanner"></div>
             </section>
@@ -1481,7 +1489,9 @@
             aria-label="Close navigation"></button>
     </div>
 
-    <script src="/panel/i18n.js" defer></script>
+    <script src="/panel/i18n/locales/en.js" defer></script>
+    <script src="/panel/i18n/locales/nl.js" defer></script>
+    <script src="/panel/i18n/engine.js" defer></script>
     <script src="/vendor/lottie.min.js" defer></script>
     <script src="/panel/app.js" defer></script>
     <div id="chartTooltip" class="chart-tooltip" role="status" aria-live="polite"></div>

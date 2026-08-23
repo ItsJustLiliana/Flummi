@@ -77,6 +77,27 @@ test('admin access comes from Discord permissions instead of a role-assignment c
     assert.match(interactionHandler, /memberPermissions: interaction\.memberPermissions/);
 });
 
+test('common moderation actions are simple top-level admin commands', () => {
+    const expectedOptions = {
+        warn: ['member', 'reason'],
+        timeout: ['member', 'duration', 'reason'],
+        untimeout: ['member', 'reason'],
+        kick: ['member', 'reason'],
+        ban: ['member', 'reason'],
+        unban: ['user-id', 'reason'],
+        purge: ['amount', 'reason']
+    };
+
+    for (const [name, optionNames] of Object.entries(expectedOptions)) {
+        const command = require(`../commands/${name}`);
+        const payload = command.data.toJSON();
+        assert.equal(command.adminOnly, true);
+        assert.equal(payload.name, name);
+        assert.deepEqual(payload.options.map(option => option.name), optionNames);
+        assert.ok(payload.options.every(option => ![1, 2].includes(option.type)));
+    }
+});
+
 test('community management modules have distinct grouped commands and dashboard pages', () => {
     const commandNames = ['ticket', 'suggest', 'security', 'starboard', 'form', 'channel', 'integration'];
     for (const name of commandNames) {

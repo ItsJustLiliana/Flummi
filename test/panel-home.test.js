@@ -6,7 +6,8 @@ const path = require('path');
 const panelMarkup = fs.readFileSync(path.join(__dirname, '..', 'panel', 'index.html'), 'utf8');
 const panelStyles = fs.readFileSync(path.join(__dirname, '..', 'panel', 'styles.css'), 'utf8');
 const panelScript = fs.readFileSync(path.join(__dirname, '..', 'panel', 'app.js'), 'utf8');
-const panelI18n = fs.readFileSync(path.join(__dirname, '..', 'panel', 'i18n.js'), 'utf8');
+const panelI18n = fs.readFileSync(path.join(__dirname, '..', 'panel', 'i18n', 'engine.js'), 'utf8');
+const panelDutch = fs.readFileSync(path.join(__dirname, '..', 'panel', 'i18n', 'locales', 'nl.js'), 'utf8');
 const panelHtml = `${panelMarkup}\n${panelStyles}\n${panelScript}`;
 const panelServer = fs.readFileSync(path.join(__dirname, '..', 'control-panel.js'), 'utf8');
 const promoteScript = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'promote-live.sh'), 'utf8');
@@ -48,15 +49,20 @@ test('home pages and selected servers use descriptive browser titles', () => {
 test('English and Dutch are available throughout the shared dashboard shell', () => {
     assert.equal((panelMarkup.match(/data-language-select/g) || []).length, 2);
     assert.match(panelMarkup, /<option value="en">English<\/option><option value="nl">Nederlands<\/option>/);
-    assert.match(panelMarkup, /<script src="\/panel\/i18n\.js" defer><\/script>/);
-    assert.match(panelI18n, /const supportedLanguages = new Set\(\['en', 'nl'\]\)/);
-    assert.match(panelI18n, /'Management': 'Beheer'/);
-    assert.match(panelI18n, /'Members & Permissions': 'Leden & rechten'/);
+    assert.match(panelMarkup, /<script src="\/panel\/i18n\/locales\/en\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/locales\/nl\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/engine\.js" defer><\/script>/);
+    assert.match(panelI18n, /const supportedLanguages = new Set\(Object\.keys\(locales\)\)/);
+    assert.match(panelDutch, /'Management': 'Beheer'/);
+    assert.match(panelDutch, /'Members & Permissions': 'Leden & rechten'/);
     assert.match(panelI18n, /localStorage\.setItem\(storageKey, language\)/);
     assert.match(panelI18n, /document\.documentElement\.lang = language/);
     assert.match(panelScript, /window\.addEventListener\('flummi:languagechange'/);
     assert.match(panelScript, /function uiText\(source\)/);
+    assert.match(panelI18n, /function fallbackTranslation\(source\)/);
+    assert.match(panelI18n, /new MutationObserver\(records =>/);
+    assert.match(panelI18n, /registerStaticContent\(node, \{ exactOnly: true \}\)/);
+    assert.match(panelScript, /function uiValue\(source\)/);
     assert.doesNotThrow(() => new Function(panelI18n));
+    assert.doesNotThrow(() => new Function(panelDutch));
 });
 
 test('expanded nested navigation scrolls without shrinking the Flummi brand', () => {
@@ -387,6 +393,9 @@ test('overview is detail-focused and analytics summary owns compact graphs', () 
     assert.match(panelStyles, /\.overview-quad \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[\s\S]*?align-content: start/);
     assert.match(panelStyles, /@media \(max-width: 460px\)[\s\S]*?\.overview-quad \{ grid-template-columns: 1fr; \}/);
     assert.match(panelScript, /function renderOverviewCards\([\s\S]*?statCard\('Members'[\s\S]*?statCard\('Admins'/);
+    assert.doesNotMatch(panelScript, /statCard\('Bot Enabled'/);
+    assert.match(panelMarkup, /class="two-col overview-channel-rankings"[\s\S]*?id="overviewChannels"[\s\S]*?id="overviewVoiceChannels"/);
+    assert.match(panelScript, /data\.topVoiceChannels/);
     assert.doesNotMatch(panelHtml, /id="overviewMessageChart"|id="overviewVoiceChart"|id="overviewShots"/);
     assert.match(panelHtml, /id="analyticsSummaryRange"/);
     assert.match(panelHtml, /id="analyticsSummaryGraphType"/);

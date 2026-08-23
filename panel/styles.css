@@ -2418,9 +2418,7 @@ code {
 .home-login::after { content: "→"; font-size: 18px; }
 
 .home-footer { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 24px; width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 24px 0 30px; border-top: 1px solid rgba(102, 130, 190, .18); }
-.home-footer-copy { display: grid; gap: 5px; }
 .home-footer-copy strong { color: var(--text); font-size: 15px; }
-.home-footer-copy span { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .home-invite-button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; min-height: 42px; padding: 10px 17px; border: 1px solid #7480ff; border-radius: 11px; background: linear-gradient(135deg, #6673f2, #5865d8); box-shadow: 0 12px 28px rgba(88, 101, 242, .22); color: #fff; font-size: 13px; font-weight: 850; text-decoration: none; }
 .home-invite-button:hover { color: #fff; transform: translateY(-1px); filter: brightness(1.08); }
 

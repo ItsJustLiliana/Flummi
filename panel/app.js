@@ -1309,6 +1309,17 @@ async function openDashboard(guildId, tab = null) {
     await refreshActiveTab();
 }
 
+document.querySelector('.home-brand')?.addEventListener('click', () => {
+    showHomeView('servers');
+});
+
+document.querySelector('#dashboardLayout .brand')?.addEventListener('click', event => {
+    // Do not hijack the existing Home/Menu buttons inside the brand area.
+    if (event.target.closest('button')) return;
+
+    showHomeView('servers');
+});
+
 document.querySelectorAll('[data-home-view]').forEach(button => button.addEventListener('click', () => showHomeView(button.dataset.homeView)));
 document.getElementById('homeCommandSearch').addEventListener('input', event => renderPublicCommands(event.target.value));
 document.getElementById('refreshPublicStatus').addEventListener('click', () => loadPublicStatus().catch(handleUiError));
@@ -2950,15 +2961,92 @@ function setManagementExpanded(expanded) {
 }
 
 function applyManagementNavigation() {
-    for (const button of document.querySelectorAll('[data-management-module][data-tab]')) {
+    const subnav = document.getElementById('managementSubnav');
+
+    const buttons = Array.from(
+        subnav.querySelectorAll('[data-management-module][data-tab]')
+    );
+
+    for (const button of buttons) {
         button.hidden = false;
-        button.dataset.moduleEnabled = String(state.management?.modules?.[button.dataset.managementModule] === true);
+
+        button.dataset.moduleEnabled = String(
+            state.management?.modules?.[button.dataset.managementModule] === true
+        );
     }
-    const activeManagementChild = document.querySelector('.management-subnav .tab-btn.active:not([hidden])');
-    const rememberedOpen = document.getElementById('managementNavToggle').getAttribute('aria-expanded') === 'true';
-    setManagementExpanded(Boolean(activeManagementChild) || rememberedOpen);
+
+    const enabledButtons = buttons
+        .filter(button => button.dataset.moduleEnabled === 'true')
+        .sort((a, b) =>
+            a.textContent.trim().localeCompare(
+                b.textContent.trim(),
+                undefined,
+                { sensitivity: 'base' }
+            )
+        );
+
+    const disabledButtons = buttons
+        .filter(button => button.dataset.moduleEnabled !== 'true')
+        .sort((a, b) =>
+            a.textContent.trim().localeCompare(
+                b.textContent.trim(),
+                undefined,
+                { sensitivity: 'base' }
+            )
+        );
+
+    // Remove previously generated section labels/divider.
+    subnav.querySelectorAll('[data-management-section]').forEach(element => {
+        element.remove();
+    });
+
+    if (enabledButtons.length > 0) {
+        const enabledLabel = document.createElement('div');
+        enabledLabel.className = 'management-module-section-label';
+        enabledLabel.dataset.managementSection = 'enabled';
+        enabledLabel.textContent = 'On';
+
+        subnav.appendChild(enabledLabel);
+
+        enabledButtons.forEach(button => {
+            subnav.appendChild(button);
+        });
+    }
+
+    if (enabledButtons.length > 0 && disabledButtons.length > 0) {
+        const divider = document.createElement('div');
+        divider.className = 'management-module-divider';
+        divider.dataset.managementSection = 'divider';
+
+        subnav.appendChild(divider);
+    }
+
+    if (disabledButtons.length > 0) {
+        const disabledLabel = document.createElement('div');
+        disabledLabel.className = 'management-module-section-label';
+        disabledLabel.dataset.managementSection = 'disabled';
+        disabledLabel.textContent = 'Off';
+
+        subnav.appendChild(disabledLabel);
+
+        disabledButtons.forEach(button => {
+            subnav.appendChild(button);
+        });
+    }
+
+    const activeManagementChild = document.querySelector(
+        '.management-subnav .tab-btn.active:not([hidden])'
+    );
+
+    const rememberedOpen =
+        document.getElementById('managementNavToggle')
+            .getAttribute('aria-expanded') === 'true';
+
+    setManagementExpanded(
+        Boolean(activeManagementChild) || rememberedOpen
+    );
+
     updateTabNavigationStructure();
-    dashboardSearch?.update();
 }
 
 function renderManagementCards() {
@@ -3408,7 +3496,7 @@ async function loadManagementTimeline() {
 }
 
 document.getElementById('managementRefreshCases').addEventListener('click', () => loadManagementTimeline().catch(error => setStatus(document.getElementById('managementCasesStatus'), error.message, 'error')));
-document.getElementById('managementCaseUserFilter').addEventListener('change', () => loadManagementTimeline().catch(() => {}));
+document.getElementById('managementCaseUserFilter').addEventListener('change', () => loadManagementTimeline().catch(() => { }));
 
 document.getElementById('managementRunAction').addEventListener('click', async () => {
     const status = document.getElementById('managementActionStatus');

@@ -2868,7 +2868,7 @@ function applyManagementNavigation() {
 function renderManagementCards() {
     const container = document.getElementById('managementModuleCards');
     const modules = state.management?.modules || {};
-    container.innerHTML = Object.entries(managementModuleDefinitions).map(([key, definition]) => {
+    container.innerHTML = Object.entries(managementModuleDefinitions).sort(([, left], [, right]) => left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })).map(([key, definition]) => {
         const enabled = modules[key] === true;
         return `<article class="management-module-card" data-enabled="${enabled}" data-management-card="${escapeHtml(key)}">
             <div class="management-module-heading"><h3>${escapeHtml(definition.title)}</h3><button class="module-toggle" type="button" data-toggle-management="${escapeHtml(key)}" aria-pressed="${enabled}">${enabled ? 'On' : 'Off'}</button></div>
@@ -2885,7 +2885,31 @@ function renderManagementCards() {
         toggle.setAttribute('aria-pressed', String(enabled));
         toggle.textContent = enabled ? 'On' : 'Off';
     }
+    filterManagementModules();
 }
+
+function filterManagementModules() {
+    const query = document.getElementById('managementModuleSearch').value.trim().toLocaleLowerCase();
+    const cards = [...document.querySelectorAll('[data-management-card]')];
+    let visible = 0;
+    for (const card of cards) {
+        const definition = managementModuleDefinitions[card.dataset.managementCard];
+        const searchableText = `${definition?.title || ''} ${definition?.description || ''} ${card.dataset.managementCard}`.toLocaleLowerCase();
+        card.hidden = Boolean(query) && !searchableText.includes(query);
+        if (!card.hidden) visible += 1;
+    }
+    document.getElementById('managementModuleSearchSummary').textContent = query
+        ? `${visible} of ${cards.length} modules found`
+        : `${cards.length} management modules`;
+    document.getElementById('managementModuleEmpty').hidden = visible !== 0;
+}
+
+document.getElementById('managementModuleSearch').addEventListener('input', filterManagementModules);
+document.getElementById('managementModuleSearch').addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !event.currentTarget.value) return;
+    event.currentTarget.value = '';
+    filterManagementModules();
+});
 
 function setManagementChannelOptions(channels) {
     managementChannels = channels || [];

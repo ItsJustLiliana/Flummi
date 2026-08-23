@@ -195,6 +195,10 @@ test('management pages stay in the nested sidebar while their modules can be tog
     assert.match(panelHtml, /filter\(entry => !nestedChildTabIds\.has\(entry\)\)/);
     assert.match(panelHtml, /group\.parent === entry/);
     assert.match(panelHtml, /<span class="badge accent">Group<\/span>/);
+    assert.match(panelHtml, /id="managementModuleSearch"[^>]*type="search"/);
+    assert.match(panelHtml, /function filterManagementModules\(\)/);
+    assert.match(panelHtml, /searchableText\.includes\(query\)/);
+    assert.match(panelHtml, /id="managementModuleEmpty" class="empty" hidden/);
 });
 
 test('nested tabs are alphabetical and folded by default', () => {

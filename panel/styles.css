@@ -432,6 +432,24 @@ button:hover {
     gap: 14px;
 }
 
+.management-module-search {
+    display: grid;
+    grid-template-columns: minmax(220px, 520px) auto;
+    align-items: end;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.management-module-search .sub {
+    margin: 0 0 11px;
+    white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+    .management-module-search { grid-template-columns: 1fr; gap: 6px; }
+    .management-module-search .sub { margin: 0; white-space: normal; }
+}
+
 .management-module-card {
     display: flex;
     min-height: 190px;

@@ -493,7 +493,14 @@
                 <h2 style="font-size:20px;">Management</h2>
                 <p class="sub tab-intro">Choose the server-management modules Flummi should expose. Enabled modules
                     appear directly beneath Management in the sidebar.</p>
+                <div class="management-module-search">
+                    <div class="field"><label for="managementModuleSearch">Search management modules</label><input
+                            id="managementModuleSearch" type="search" autocomplete="off"
+                            placeholder="Search tickets, roles, security..." aria-controls="managementModuleCards managementModuleEmpty"></div>
+                    <p id="managementModuleSearchSummary" class="sub" aria-live="polite"></p>
+                </div>
                 <div id="managementModuleCards" class="management-module-grid"></div>
+                <div id="managementModuleEmpty" class="empty" hidden>No management modules match that search.</div>
                 <p id="managementModuleStatus" class="status" aria-live="polite"></p>
             </section>
 

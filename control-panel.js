@@ -820,7 +820,8 @@ async function listGuilds(session) {
             role: getPanelGuildRole(session, guild.id),
             displayRole,
             isAdmin: displayRole === 'admin',
-            iconUrl: guild.iconURL({ size: 128, extension: 'png' }) || null
+            iconUrl: guild.iconURL({ size: 128, extension: 'png' }) || null,
+            bannerUrl: guild.bannerURL({ size: 512, extension: 'png' }) || null
         };
     }));
     const relationshipRank = { admin: 0, member: 1, 'not a member': 2 };

@@ -39,6 +39,157 @@ function backgroundUrlStyle(url) {
     return `background-image: url('${safeUrl}');`;
 }
 
+
+const imageAverageColorCache = new Map();
+
+function rgbToHex(red, green, blue) {
+    return `#${[red, green, blue]
+        .map(value =>
+            Math.max(0, Math.min(255, Math.round(value)))
+                .toString(16)
+                .padStart(2, '0')
+        )
+        .join('')}`;
+}
+
+async function getImageAverageColor(url) {
+    if (!url) return null;
+
+    if (imageAverageColorCache.has(url)) {
+        return imageAverageColorCache.get(url);
+    }
+
+    const pending = new Promise(resolve => {
+        const image = new Image();
+
+        image.crossOrigin = 'anonymous';
+        image.decoding = 'async';
+
+        image.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const size = 24;
+
+                canvas.width = size;
+                canvas.height = size;
+
+                const context = canvas.getContext('2d', {
+                    willReadFrequently: true
+                });
+
+                if (!context) {
+                    resolve(null);
+                    return;
+                }
+
+                context.drawImage(
+                    image,
+                    0,
+                    0,
+                    size,
+                    size
+                );
+
+                const pixels = context.getImageData(
+                    0,
+                    0,
+                    size,
+                    size
+                ).data;
+
+                let red = 0;
+                let green = 0;
+                let blue = 0;
+                let weightTotal = 0;
+
+                for (
+                    let index = 0;
+                    index < pixels.length;
+                    index += 4
+                ) {
+                    const alpha =
+                        pixels[index + 3] / 255;
+
+                    if (alpha < 0.2) {
+                        continue;
+                    }
+
+                    const r = pixels[index];
+                    const g = pixels[index + 1];
+                    const b = pixels[index + 2];
+
+                    const max = Math.max(r, g, b);
+                    const min = Math.min(r, g, b);
+
+                    const saturation =
+                        max === 0
+                            ? 0
+                            : (max - min) / max;
+
+                    /*
+                     * Slightly favour saturated pixels.
+                     * This prevents colourful guild icons from
+                     * averaging down into a muddy grey.
+                     */
+                    const weight =
+                        alpha *
+                        (0.65 + saturation * 0.75);
+
+                    red += r * weight;
+                    green += g * weight;
+                    blue += b * weight;
+
+                    weightTotal += weight;
+                }
+
+                if (!weightTotal) {
+                    resolve(null);
+                    return;
+                }
+
+                resolve(
+                    rgbToHex(
+                        red / weightTotal,
+                        green / weightTotal,
+                        blue / weightTotal
+                    )
+                );
+            } catch {
+                resolve(null);
+            }
+        };
+
+        image.onerror = () => resolve(null);
+
+        image.src = url;
+    });
+
+    imageAverageColorCache.set(
+        url,
+        pending
+    );
+
+    return pending;
+}
+
+async function applyBannerlessGuildAccent(element, iconUrl) {
+    if (!element || !iconUrl) {
+        return;
+    }
+
+    const color =
+        await getImageAverageColor(iconUrl);
+
+    if (!color || !element.isConnected) {
+        return;
+    }
+
+    element.style.setProperty(
+        '--guild-accent',
+        color
+    );
+}
+
 // Wraps a username with a title tooltip showing their current server nickname, when known.
 function withNicknameTitle(label, nickname) {
     const safeLabel = escapeHtml(label);
@@ -1239,9 +1390,27 @@ function showHomeView(name = 'servers', developerTool = null) {
 }
 
 function guildCard(row) {
-    const icon = row.iconUrl ? `<img src="${escapeHtml(row.iconUrl)}" alt="">` : escapeHtml(row.name.slice(0, 2).toUpperCase());
-    row = { ...row, role: row.displayRole || row.role };
-    return `<button class="home-guild-card" type="button" data-open-guild="${escapeHtml(row.id)}"><span class="home-guild-icon">${icon}</span><span class="home-guild-copy"><strong class="home-guild-name">${escapeHtml(row.name)}</strong><span class="home-guild-role">${escapeHtml(row.role || 'member')}</span></span><span class="home-guild-arrow" aria-hidden="true">→</span></button>`;
+    const icon = row.iconUrl
+        ? `<img src="${escapeHtml(row.iconUrl)}" alt="">`
+        : escapeHtml(
+            row.name
+                .slice(0, 2)
+                .toUpperCase()
+        );
+
+    row = {
+        ...row,
+        role: row.displayRole || row.role
+    };
+
+    const bannerless = !row.bannerUrl;
+
+    return `<button
+        class="home-guild-card${bannerless ? ' bannerless' : ''}"
+        type="button"
+        data-open-guild="${escapeHtml(row.id)}"
+        data-icon-url="${escapeHtml(row.iconUrl || '')}"
+    ><span class="home-guild-icon">${icon}</span><span class="home-guild-copy"><strong class="home-guild-name">${escapeHtml(row.name)}</strong><span class="home-guild-role">${escapeHtml(row.role || 'member')}</span></span><span class="home-guild-arrow" aria-hidden="true">→</span></button>`;
 }
 
 function renderHomeGuilds(rows) {
@@ -1257,6 +1426,15 @@ function renderHomeGuilds(rows) {
     summary.hidden = false;
     summary.textContent = `${rows.length} ${rows.length === 1 ? 'server' : 'servers'} available`;
     container.innerHTML = groups.map(group => `<section class="guild-group"><div class="guild-group-heading"><h2>${escapeHtml(group.title)}</h2><span class="guild-count">${group.rows.length} ${group.rows.length === 1 ? 'server' : 'servers'}</span></div><div class="home-guild-grid">${group.rows.map(guildCard).join('')}</div></section>`).join('') || '<div class="home-panel empty">No servers shared with Flummi were found.</div>';
+
+    container
+        .querySelectorAll('.home-guild-card.bannerless')
+        .forEach(card => {
+            applyBannerlessGuildAccent(
+                card,
+                card.dataset.iconUrl
+            );
+        });
 }
 
 async function activateDeveloperWorkspace(preferredTab = null) {
@@ -1506,14 +1684,16 @@ function renderGuildHeader(containerId, guildInfo) {
         return;
     }
 
-    const bannerStyle = backgroundUrlStyle(guildInfo.bannerUrl || '/assets/branding/flummi-banner-color.jpg');
+    const bannerStyle = guildInfo.bannerUrl
+        ? backgroundUrlStyle(guildInfo.bannerUrl)
+        : '';
     const iconStyle = guildInfo.iconUrl
         ? `background-image: url('${guildInfo.iconUrl.replace(/'/g, '%27')}');`
         : '';
 
     container.innerHTML = `
         <div class="guild-header">
-            <div class="guild-banner" style="${bannerStyle}"></div>
+            <div class="guild-banner${guildInfo.bannerUrl ? '' : ' guild-banner-fallback'}" style="${bannerStyle}"></div>
             <div class="guild-info">
                 <div class="guild-icon" style="${iconStyle}"></div>
                 <div class="guild-meta">
@@ -1523,6 +1703,37 @@ function renderGuildHeader(containerId, guildInfo) {
             </div>
         </div>
     `;
+
+    if (!guildInfo.bannerUrl && guildInfo.iconUrl) {
+        const header =
+            container.querySelector('.guild-header');
+
+        const fallbackBanner =
+            container.querySelector(
+                '.guild-banner-fallback'
+            );
+
+        getImageAverageColor(
+            guildInfo.iconUrl
+        ).then(color => {
+            if (
+                !color ||
+                !header?.isConnected ||
+                !fallbackBanner?.isConnected
+            ) {
+                return;
+            }
+
+            header.style.setProperty(
+                '--guild-accent',
+                color
+            );
+
+            fallbackBanner.style.background =
+                color;
+        });
+    }
+
 }
 
 function guildInfoStatCards(guildInfo) {

@@ -2733,6 +2733,7 @@ code {
 }
 
 .home-guild-card {
+    --guild-accent: #7480ff;
     position: relative;
     display: grid;
     grid-template-columns: auto 1fr auto;
@@ -2754,7 +2755,7 @@ code {
     width: 3px;
     content: "";
     opacity: 0;
-    background: linear-gradient(#7e8cff, #4eb8ff);
+    background: var(--guild-accent);
     transition: opacity .2s ease;
 }
 
@@ -2762,6 +2763,10 @@ code {
     transform: translateY(-3px);
     border-color: rgba(116, 128, 255, .62);
     box-shadow: 0 20px 44px rgba(0, 0, 0, .24);
+}
+
+.home-guild-card.bannerless:hover {
+    border-color: var(--guild-accent);
 }
 
 .home-guild-card:hover::before {
@@ -2828,6 +2833,15 @@ code {
 .home-guild-card:hover .home-guild-arrow {
     color: #fff;
     background: rgba(88, 101, 242, .22);
+}
+
+.home-guild-card.bannerless:hover .home-guild-arrow {
+    background: var(--guild-accent);
+}
+
+.guild-banner-fallback {
+    background-image: none;
+    background-color: var(--guild-accent, #5865f2);
 }
 
 .home-panel {

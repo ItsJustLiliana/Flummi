@@ -32,3 +32,5 @@ Thumbs.db
 update-flummi.bat
 scripts/*.bat
 docs/
+
+*.patch

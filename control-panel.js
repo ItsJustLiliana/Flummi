@@ -38,6 +38,7 @@ const { executeModerationAction, parseDuration } = require('./services/moderatio
 const { publishRoleMenu } = require('./services/role-service');
 const operationsStore = require('./stores/operations-store');
 const { scanServer, snapshotGuild, previewSnapshot, restoreSnapshot } = require('./services/operations-service');
+const { createOverwatchHistoryService } = require('./services/overwatch-history-service');
 
 installTimestampedConsole();
 loadEnv();
@@ -61,6 +62,7 @@ const lottiePlayerPath = path.join(__dirname, 'node_modules', 'lottie-web', 'bui
 const runtimeFilePath = path.join(__dirname, 'data', 'runtime', 'runtime.json');
 const updateStatusFilePath = path.join(__dirname, 'data', 'runtime', 'update-status.json');
 const dataDir = path.join(__dirname, 'data');
+const overwatchHistoryService = createOverwatchHistoryService();
 const repositoryFileManager = new RepositoryFileManager({
     rootDir: __dirname,
     stateDir: path.join(dataDir, 'runtime', 'file-manager')
@@ -1524,7 +1526,7 @@ function createServer() {
                 panelSession = requirePanelAccess(req, res);
                 if (!panelSession) return;
 
-                if (requestUrl.pathname === '/api/experiments' && !isDeveloperSession(panelSession)) {
+                if ((requestUrl.pathname === '/api/experiments' || requestUrl.pathname.startsWith('/api/experiments/')) && !isDeveloperSession(panelSession)) {
                     sendJson(res, 403, { error: 'Experiments are only available to configured developers.' });
                     return;
                 }
@@ -1667,6 +1669,23 @@ function createServer() {
                     discordRole: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.role || 'developer',
                     expiresAt: accessStore.getDeveloperRoleSimulation(panelSession.userId)?.expiresAt || null
                 });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/experiments/overwatch-history') {
+                sendJson(res, 200, overwatchHistoryService.getPublicState());
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/experiments/overwatch-history/refresh') {
+                const result = await overwatchHistoryService.refresh({ manual: true });
+                const payload = {
+                    ...overwatchHistoryService.getPublicState(),
+                    refreshing: result.refreshing === true || overwatchHistoryService.getPublicState().refreshing,
+                    cooldown: result.cooldown === true,
+                    retryAt: result.retryAt || null
+                };
+                sendJson(res, result.cooldown ? 429 : (result.refreshing ? 202 : 200), payload);
                 return;
             }
 
@@ -2899,12 +2918,15 @@ async function start() {
     const urls = listenHosts.map(listenHost => `http://${listenHost}:${port}`);
     console.log(`Bot control panel running at ${urls.join(' and ')}`);
 
+    overwatchHistoryService.start();
+
     if (openBrowserOnStart) {
         openBrowser(urls[0]);
     }
 }
 
 function shutdown() {
+    overwatchHistoryService.stop();
     for (const panelServer of servers) panelServer.close();
     servers = [];
 

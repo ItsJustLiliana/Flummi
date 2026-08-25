@@ -780,6 +780,158 @@ button:hover {
     color: var(--warning);
 }
 
+.overwatch-history-section {
+    margin-top: 24px;
+}
+
+.overwatch-history-heading,
+.overwatch-account-row,
+.overwatch-match-heading,
+.overwatch-match-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.overwatch-history-heading {
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.overwatch-history-heading h2,
+.overwatch-match-heading h3 {
+    margin: 0 0 5px;
+}
+
+.overwatch-history-heading .sub {
+    margin: 0;
+}
+
+.overwatch-history-heading button {
+    width: auto;
+    flex: none;
+}
+
+.overwatch-experimental-label {
+    margin: 0 0 5px;
+    color: var(--warning);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+
+.overwatch-account-row {
+    margin: 18px 0 14px;
+    font-size: 18px;
+}
+
+.overwatch-status {
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 176, 0, .32);
+    border-radius: 999px;
+    color: var(--warning);
+    background: rgba(255, 176, 0, .08);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.overwatch-status.tracking {
+    color: var(--ok);
+    border-color: rgba(64, 217, 129, .32);
+    background: rgba(64, 217, 129, .08);
+}
+
+.overwatch-status.error {
+    color: var(--danger);
+    border-color: rgba(255, 77, 109, .32);
+    background: rgba(255, 77, 109, .08);
+}
+
+.overwatch-match-heading {
+    align-items: baseline;
+    margin: 22px 0 12px;
+}
+
+.overwatch-match-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+}
+
+.overwatch-match-card {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--muted);
+    border-radius: 13px;
+    background: rgba(8, 15, 31, .62);
+}
+
+.overwatch-match-card.win {
+    border-top-color: var(--ok);
+}
+
+.overwatch-match-card.loss {
+    border-top-color: var(--danger);
+}
+
+.overwatch-match-result strong {
+    letter-spacing: .04em;
+}
+
+.overwatch-match-result time,
+.overwatch-reconstruction-note {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.overwatch-match-mode,
+.overwatch-match-outcomes {
+    margin: 5px 0 14px;
+    color: #b8c7f1;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.overwatch-match-detail {
+    display: grid;
+    gap: 3px;
+    padding: 9px 0;
+    border-top: 1px solid rgba(102, 130, 190, .13);
+}
+
+.overwatch-match-detail span {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.overwatch-match-detail strong {
+    overflow-wrap: anywhere;
+    font-size: 13px;
+}
+
+.overwatch-reconstruction-note {
+    margin: 10px 0 0;
+    line-height: 1.45;
+}
+
+@media (max-width: 650px) {
+    .overwatch-history-heading,
+    .overwatch-account-row,
+    .overwatch-match-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .overwatch-history-heading button {
+        width: 100%;
+    }
+}
+
 .banner.ok {
     background: rgba(64, 217, 129, 0.1);
     border-color: rgba(64, 217, 129, 0.35);
@@ -3303,19 +3455,13 @@ code {
     font-size: 13px;
 }
 
-.developer-tool-nav .tab-btn.search-muted {
-    opacity: .34;
-    filter: saturate(.4);
-}
+.developer-tool-nav .tab-btn.search-muted { opacity: .34; filter: saturate(.4); }
 
 .developer-tool-nav .tab-btn.search-match {
     border-color: rgba(117, 207, 255, .34);
 }
 
-#dashboardLayout .tabs .tab-btn.search-muted {
-    opacity: .34;
-    filter: saturate(.4);
-}
+#dashboardLayout .tabs .tab-btn.search-muted { opacity: .34; filter: saturate(.4); }
 
 #dashboardLayout .tabs .tab-btn.search-match {
     border-color: rgba(117, 207, 255, .34);
@@ -3665,11 +3811,7 @@ code {
         padding: 10px 12px;
     }
 
-    #dashboardLayout .brand {
-        width: 100%;
-        padding: 0;
-        border-bottom: 0;
-    }
+    #dashboardLayout .brand { width: 100%; padding: 0; border-bottom: 0; }
 
     #dashboardLayout .brand-copy {
         margin-right: auto;
@@ -3804,10 +3946,7 @@ code {
         border-radius: 15px;
     }
 
-    .developer-search-result {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 3px;
-    }
+    .developer-search-result { grid-template-columns: minmax(0, 1fr); gap: 3px; }
 
     .developer-search-result span {
         white-space: normal;
@@ -3820,9 +3959,7 @@ code {
 }
 
 @media (max-width: 460px) {
-    .overview-quad {
-        grid-template-columns: 1fr;
-    }
+    .overview-quad { grid-template-columns: 1fr; }
 
     #dashboardLayout .brand h1 {
         font-size: 18px;

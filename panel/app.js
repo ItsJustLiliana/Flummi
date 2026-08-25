@@ -4930,7 +4930,107 @@ async function loadExperiments() {
     document.getElementById('experimentExpiry').textContent = data.expiresAt
         ? `Automatically resets to Developer at ${formatDateTime(data.expiresAt)}.`
         : 'No Discord role simulation is active.';
+    await loadOverwatchHistory();
 }
+
+function overwatchCountdown(value) {
+    if (!value) return 'Not scheduled';
+    const milliseconds = new Date(value).getTime() - Date.now();
+    if (!Number.isFinite(milliseconds)) return 'Unknown';
+    if (milliseconds <= 0) return 'Due now';
+    const minutes = Math.floor(milliseconds / 60000);
+    const seconds = Math.ceil((milliseconds % 60000) / 1000);
+    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
+function overwatchHeroName(key) {
+    const special = { dva: 'D.Va', lucio: 'Lúcio', torbjorn: 'Torbjörn', 'soldier-76': 'Soldier: 76' };
+    if (special[key]) return special[key];
+    return String(key || '').split('-').map(part => part ? `${part[0].toUpperCase()}${part.slice(1)}` : '').join(' ');
+}
+
+function renderOverwatchMatch(match) {
+    const grouped = match.kind === 'group' || Number(match.games) > 1;
+    const result = grouped ? `${Number(match.games) || 0} MATCHES DETECTED` : (match.result || 'UNKNOWN');
+    const outcomeParts = [];
+    if (Number.isFinite(match.wins)) outcomeParts.push(`${match.wins} win${match.wins === 1 ? '' : 's'}`);
+    if (Number.isFinite(match.losses)) outcomeParts.push(`${match.losses} loss${match.losses === 1 ? '' : 'es'}`);
+    const heroes = Array.isArray(match.heroes) && match.heroes.length
+        ? match.heroes.map(overwatchHeroName).join(', ')
+        : 'Unknown';
+    const statChanges = Array.isArray(match.statChanges) && match.statChanges.length
+        ? `<div class="overwatch-match-detail"><span>Stat changes</span><strong>${match.statChanges.map(change => `+${escapeHtml(change.change)} ${escapeHtml(change.label)}`).join(' • ')}</strong></div>`
+        : '';
+    const groupedNote = grouped ? '<p class="overwatch-reconstruction-note">Exact individual match order unavailable</p>' : '';
+    return `<article class="overwatch-match-card ${escapeHtml(String(match.result || 'unknown').toLowerCase())}">
+        <div class="overwatch-match-result"><strong>${escapeHtml(result)}</strong><time title="${escapeHtml(formatDateTime(match.detectedAt))}">${escapeHtml(formatAgo(match.detectedAt))}</time></div>
+        ${outcomeParts.length ? `<p class="overwatch-match-outcomes">${escapeHtml(outcomeParts.join(' • '))}</p>` : ''}
+        <p class="overwatch-match-mode">${escapeHtml(match.mode || 'Unknown')}</p>
+        <div class="overwatch-match-detail"><span>Games change</span><strong>+${escapeHtml(match.games || 0)}</strong></div>
+        <div class="overwatch-match-detail"><span>Heroes detected</span><strong>${escapeHtml(heroes)}</strong></div>
+        ${statChanges}
+        ${groupedNote}
+        <p class="overwatch-reconstruction-note">Detected from a career-stat snapshot change</p>
+    </article>`;
+}
+
+function renderOverwatchHistory(data) {
+    const statusLabels = { tracking: 'Tracking', waiting: 'Waiting for baseline', error: 'Error' };
+    const status = statusLabels[data.status] || 'Waiting for baseline';
+    const badge = document.getElementById('overwatchTrackingStatus');
+    badge.textContent = status;
+    badge.className = `overwatch-status ${escapeHtml(data.status || 'waiting')}`;
+    document.getElementById('overwatchHistoryStats').innerHTML = [
+        statCard('Status', status),
+        statCard('Last checked', formatAgo(data.lastCheckedAt)),
+        statCard('Last stats change', formatAgo(data.lastUpdatedAt)),
+        statCard('Next automatic check', overwatchCountdown(data.nextAutomaticCheckAt))
+    ].join('');
+
+    document.getElementById('overwatchBaselineNote').textContent = data.trackingStartedAt
+        ? `Tracking started ${formatDateTime(data.trackingStartedAt)}. Matches before this point are unavailable.`
+        : 'The first successful lookup creates a baseline; existing career totals will not become fake matches.';
+    setStatus(document.getElementById('overwatchHistoryError'), data.error || '', data.error ? 'error' : '');
+    const matches = Array.isArray(data.matches) ? data.matches.slice(0, 3) : [];
+    document.getElementById('overwatchMatches').innerHTML = matches.length
+        ? matches.map(renderOverwatchMatch).join('')
+        : '<div class="empty">No matches detected since tracking started.</div>';
+    const refreshButton = document.getElementById('refreshOverwatchHistory');
+    refreshButton.disabled = data.refreshing === true;
+    refreshButton.textContent = data.refreshing ? 'Refreshing...' : 'Refresh now';
+}
+
+async function loadOverwatchHistory() {
+    try {
+        const data = await api('/api/experiments/overwatch-history');
+        renderOverwatchHistory(data);
+    } catch (error) {
+        setStatus(document.getElementById('overwatchHistoryError'), `Overwatch tracker unavailable: ${error.message}`, 'error');
+    }
+}
+
+document.getElementById('refreshOverwatchHistory').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Refreshing...';
+    try {
+        const data = await api('/api/experiments/overwatch-history/refresh', { method: 'POST' });
+        renderOverwatchHistory(data);
+    } catch (error) {
+        if (error.data?.account) renderOverwatchHistory(error.data);
+        setStatus(document.getElementById('overwatchHistoryError'), error.status === 429
+            ? `Refresh is rate-limited. Try again ${overwatchCountdown(error.data?.retryAt)}.`
+            : error.message, 'error');
+        button.disabled = false;
+        button.textContent = 'Refresh now';
+    }
+});
+
+window.setInterval(() => {
+    if (state.actualRole === 'developer' && activeTab() === 'experiments' && document.visibilityState === 'visible') {
+        loadOverwatchHistory();
+    }
+}, 30 * 1000);
 
 document.getElementById('saveExperiments').addEventListener('click', async () => {
     const previewAdminView = document.getElementById('experimentAdminView').checked;

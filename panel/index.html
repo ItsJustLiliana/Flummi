@@ -1400,6 +1400,31 @@
                 <div class="actions"><span class="sub">Changes are logged and require confirmation.</span><button
                         id="saveExperiments" class="primary" type="button">Apply experiment</button></div>
                 <p id="experimentsStatus" class="status"></p>
+                <div class="section overwatch-history-section">
+                    <div class="overwatch-history-heading">
+                        <div>
+                            <p class="overwatch-experimental-label">Experimental</p>
+                            <h2>Overwatch History</h2>
+                            <p class="sub">Experimental snapshot-based match tracking for Liliana#21184.</p>
+                        </div>
+                        <button id="refreshOverwatchHistory" class="secondary" type="button">Refresh now</button>
+                    </div>
+                    <div class="banner warn">Match history is reconstructed from Blizzard career-stat changes. Some details may be unavailable when multiple matches occur between API updates.</div>
+                    <div class="overwatch-account-row">
+                        <strong>Liliana#21184</strong>
+                        <span id="overwatchTrackingStatus" class="overwatch-status waiting">Waiting for baseline</span>
+                    </div>
+                    <div id="overwatchHistoryStats" class="card-grid">
+                        <div class="stat-card"><div class="label">Status</div><div class="value">Loading...</div></div>
+                    </div>
+                    <p id="overwatchBaselineNote" class="sub">Loading tracking baseline...</p>
+                    <p id="overwatchHistoryError" class="status"></p>
+                    <div class="overwatch-match-heading">
+                        <h3>Last detected matches</h3>
+                        <span class="sub">Maximum 3 reconstructed events</span>
+                    </div>
+                    <div id="overwatchMatches" class="overwatch-match-grid"><div class="empty">Loading...</div></div>
+                </div>
             </section>
         </main>
 

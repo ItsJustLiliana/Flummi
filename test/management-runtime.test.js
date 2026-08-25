@@ -81,6 +81,7 @@ test('common moderation actions are simple top-level admin commands', () => {
     const expectedOptions = {
         warn: ['member', 'reason'],
         timeout: ['member', 'duration', 'reason'],
+        tempban: ['member', 'duration', 'reason'],
         untimeout: ['member', 'reason'],
         kick: ['member', 'reason'],
         ban: ['member', 'reason'],

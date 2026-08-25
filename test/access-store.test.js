@@ -14,10 +14,11 @@ const {
     getUserPermissions,
     isAdmin,
     roleMeetsRequirement,
+    setCommandPermissions,
     setGuildOwner,
-    setUserCommandPermission,
     setUserPermission
 } = require('../stores/access-store');
+const { readConfig } = require('../utils/config');
 
 function cleanupGuild(guildId) {
     const guildPath = path.join(__dirname, '..', 'data', 'guilds', guildId);
@@ -34,6 +35,16 @@ test('command permissions resolve top-level and subcommand roles from config', (
     assert.equal(getRequiredCommandRole('dashboard', null, { public: true }), 'member');
     assert.equal(getRequiredCommandRole('ticket', 'open', { adminSubcommands: ['claim'] }), 'member');
     assert.equal(getRequiredCommandRole('ticket', 'claim', { adminSubcommands: ['claim'] }), 'admin');
+});
+
+test('command permission requirements can be refreshed without restarting the process', () => {
+    const original = readConfig().commandPermissions || {};
+    try {
+        setCommandPermissions({ ...original, serverstats: 'member' });
+        assert.equal(getRequiredCommandRole('serverstats', null, null), 'member');
+    } finally {
+        setCommandPermissions(original);
+    }
 });
 
 test('role requirements follow member admin developer order', () => {
@@ -68,43 +79,6 @@ test('Discord Administrator permission grants admin while other server users are
             commandDefinition: { adminOnly: true },
             memberPermissions: 8n
         }).allowed, true);
-    } finally {
-        cleanupGuild(guildId);
-    }
-});
-
-test('user command overrides can block, allow, and inherit command paths', () => {
-    const guildId = `test-access-${process.pid}`;
-    const userId = '999001';
-    cleanupGuild(guildId);
-
-    try {
-        setUserCommandPermission(userId, 'trigger.add', false, guildId);
-
-        assert.deepEqual(getUserPermissions(userId, guildId).commandOverrides, {
-            'trigger.add': false
-        });
-        assert.equal(canUseCommandPath({
-            userId,
-            guildId,
-            commandName: 'trigger',
-            subcommandName: 'add',
-            commandDefinition: null
-        }).allowed, false);
-
-        setUserCommandPermission(userId, 'serverstats', true, guildId);
-        assert.equal(canUseCommandPath({
-            userId,
-            guildId,
-            commandName: 'serverstats',
-            subcommandName: null,
-            commandDefinition: null
-        }).allowed, true);
-
-        setUserCommandPermission(userId, 'trigger.add', null, guildId);
-        assert.deepEqual(getUserPermissions(userId, guildId).commandOverrides, {
-            serverstats: true
-        });
     } finally {
         cleanupGuild(guildId);
     }

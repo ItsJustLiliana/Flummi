@@ -37,7 +37,8 @@ module.exports = {
         .addSubcommand(command => command.setName('temporary-role').setDescription('Give a member a role for a limited time')
             .addUserOption(option => option.setName('member').setDescription('Member').setRequired(true))
             .addRoleOption(option => option.setName('role').setDescription('Role to assign').setRequired(true))
-            .addIntegerOption(option => option.setName('minutes').setDescription('Duration in minutes').setRequired(true).setMinValue(1).setMaxValue(43200)))
+            .addIntegerOption(option => option.setName('minutes').setDescription('Duration in minutes').setRequired(true).setMinValue(1).setMaxValue(43200))
+            .addStringOption(option => option.setName('reason').setDescription('Why this role is temporary').setMaxLength(500)))
         .addSubcommand(command => command.setName('voice-role').setDescription('Link a role to presence in one voice channel')
             .addChannelOption(option => option.setName('channel').setDescription('Voice channel').addChannelTypes(ChannelType.GuildVoice, ChannelType.GuildStageVoice).setRequired(true))
             .addRoleOption(option => option.setName('role').setDescription('Role to assign while connected').setRequired(true)))
@@ -124,9 +125,10 @@ module.exports = {
             const member = interaction.options.getMember('member');
             const role = interaction.options.getRole('role', true);
             const minutes = interaction.options.getInteger('minutes', true);
+            const reason = interaction.options.getString('reason') || 'Temporary role';
             if (!member || role.managed || role.position >= interaction.guild.members.me.roles.highest.position) return interaction.reply({ content: 'Flummi cannot assign that role because of the Discord role hierarchy.', flags: MessageFlags.Ephemeral });
             await member.roles.add(role, `Temporary role by ${interaction.user.tag}`);
-            operationsStore.addTemporaryRole(interaction.guildId, { userId: member.id, roleId: role.id, removeAt: new Date(Date.now() + minutes * 60000).toISOString() });
+            operationsStore.addTemporaryRole(interaction.guildId, { userId: member.id, roleId: role.id, moderatorId: interaction.user.id, reason, removeAt: new Date(Date.now() + minutes * 60000).toISOString() });
             return interaction.reply({ content: `<@${member.id}> has <@&${role.id}> for ${minutes} minute${minutes === 1 ? '' : 's'}.`, allowedMentions: { parse: [] }, flags: MessageFlags.Ephemeral });
         }
         if (subcommand === 'voice-role') {

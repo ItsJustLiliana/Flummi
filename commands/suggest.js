@@ -7,7 +7,13 @@ module.exports = {
     adminSubcommands: ['review'],
     data: new SlashCommandBuilder().setName('suggest').setDescription('Submit and review server suggestions')
         .addSubcommand(command => command.setName('submit').setDescription('Submit a suggestion').addStringOption(option => option.setName('idea').setDescription('Your suggestion').setRequired(true).setMaxLength(1500)))
-        .addSubcommand(command => command.setName('review').setDescription('Set a suggestion status').addStringOption(option => option.setName('id').setDescription('Suggestion ID').setRequired(true)).addStringOption(option => option.setName('status').setDescription('New status').setRequired(true).addChoices({ name: 'Planned', value: 'planned' }, { name: 'Accepted', value: 'accepted' }, { name: 'Declined', value: 'declined' })).addStringOption(option => option.setName('note').setDescription('Admin response').setMaxLength(500))),
+        .addSubcommand(command => command.setName('review').setDescription('Set a suggestion roadmap status').addStringOption(option => option.setName('id').setDescription('Suggestion ID').setRequired(true)).addStringOption(option => option.setName('status').setDescription('New status').setRequired(true).addChoices(
+            { name: 'Under Review', value: 'under-review' },
+            { name: 'Planned', value: 'planned' },
+            { name: 'In Progress', value: 'in-progress' },
+            { name: 'Implemented', value: 'implemented' },
+            { name: 'Rejected', value: 'rejected' }
+        )).addStringOption(option => option.setName('note').setDescription('Staff response').setMaxLength(500))),
     async execute(interaction) {
         const config = moduleConfig(interaction.guildId, 'suggestions');
         if (!config) return interaction.reply({ content: 'Suggestions are not enabled in this server.', flags: MessageFlags.Ephemeral });
@@ -15,7 +21,7 @@ module.exports = {
             const channel = interaction.guild.channels.cache.get(config.channelId) || await interaction.guild.channels.fetch(config.channelId).catch(() => null);
             if (!channel?.isTextBased()) return interaction.reply({ content: 'An admin needs to select a suggestions channel first.', flags: MessageFlags.Ephemeral });
             const idea = interaction.options.getString('idea');
-            const suggestion = store.addSuggestion(interaction.guildId, { authorId: interaction.user.id, channelId: channel.id, idea });
+            const suggestion = store.addSuggestion(interaction.guildId, { authorId: interaction.user.id, channelId: channel.id, idea, status: 'submitted' });
             const embed = new EmbedBuilder().setTitle(`Suggestion ${suggestion.id}`).setDescription(idea).addFields({ name: 'Voting target', value: `${config.minimumApprovalVotes} approval vote(s)` }).setColor(0x7785ff).setFooter({ text: config.anonymous ? 'Submitted anonymously' : `Submitted by ${interaction.user.tag}` }).setTimestamp();
             const posted = await channel.send({ embeds: [embed] });
             await Promise.all([posted.react('👍'), posted.react('👎')]);
@@ -35,7 +41,8 @@ module.exports = {
         const channel = await interaction.guild.channels.fetch(record.channelId).catch(() => null);
         const message = await channel?.messages.fetch(record.messageId).catch(() => null);
         if (message?.embeds[0]) {
-            const embed = EmbedBuilder.from(message.embeds[0]).setColor(status === 'accepted' ? 0x44bb77 : status === 'planned' ? 0xf5c542 : 0xdd5566).addFields({ name: `Status: ${status}`, value: note || 'No admin note.' });
+            const colors = { implemented: 0x44bb77, planned: 0xf5c542, 'in-progress': 0x7785ff, 'under-review': 0x75cfff, rejected: 0xdd5566 };
+            const embed = EmbedBuilder.from(message.embeds[0]).setColor(colors[status] || 0x7785ff).addFields({ name: `Status: ${status}`, value: note || 'No staff response.' });
             await message.edit({ embeds: [embed] });
         }
         return interaction.reply({ content: `Suggestion **${id}** marked **${status}**.`, flags: MessageFlags.Ephemeral });

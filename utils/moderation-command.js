@@ -12,6 +12,7 @@ const completedLabels = {
     untimeout: 'Removed the timeout from',
     kick: 'Kicked',
     ban: 'Banned',
+    tempban: 'Temporarily banned',
     unban: 'Unbanned'
 };
 
@@ -60,7 +61,7 @@ async function runMemberAction(interaction, action, { durationInput = null } = {
             return interaction.editReply(`Ban request created as **${result.id}**. A different admin must approve it with \`/server approve-ban\`.`);
         }
 
-        const duration = action === 'timeout' ? ` for **${durationLabel(result.durationMs)}**` : '';
+        const duration = ['timeout', 'tempban'].includes(action) ? ` for **${durationLabel(result.durationMs)}**` : '';
         return interaction.editReply(`${completedLabels[action]} **${member.tag}**${duration}. Case **${result.id}**.`);
     } catch (error) {
         return replyWithError(interaction, error);

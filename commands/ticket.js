@@ -23,12 +23,24 @@ module.exports = {
             const admin = isAdmin(interaction.user.id, interaction.guildId, interaction.memberPermissions);
             if (subcommand === 'claim') {
                 if (!admin) throw new Error('Only server admins can claim tickets.');
-                store.updateTicket(interaction.guildId, ticket.id, { claimedBy: interaction.user.id });
+                const claimedAt = new Date().toISOString();
+                store.updateTicket(interaction.guildId, ticket.id, {
+                    claimedBy: interaction.user.id,
+                    claimedAt,
+                    firstResponseAt: ticket.firstResponseAt || claimedAt
+                });
                 return interaction.reply(`Ticket claimed by <@${interaction.user.id}>.`);
             }
             if (!admin && ticket.ownerId !== interaction.user.id) throw new Error('Only the ticket owner or a server admin can close this ticket.');
             const reason = interaction.options.getString('reason') || 'Closed without a reason';
-            store.updateTicket(interaction.guildId, ticket.id, { status: 'closed', closedBy: interaction.user.id, closeReason: reason });
+            const closedAt = new Date().toISOString();
+            store.updateTicket(interaction.guildId, ticket.id, {
+                status: 'closed',
+                closedBy: interaction.user.id,
+                closedAt,
+                firstResponseAt: ticket.firstResponseAt || (admin ? closedAt : null),
+                closeReason: reason
+            });
             await interaction.channel.permissionOverwrites.edit(ticket.ownerId, { SendMessages: false }).catch(() => {});
             await interaction.channel.setName(`closed-${interaction.channel.name.replace(/^ticket-/, '')}`.slice(0, 100)).catch(() => {});
             const config = moduleConfig(interaction.guildId, 'tickets');

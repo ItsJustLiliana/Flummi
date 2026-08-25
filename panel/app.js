@@ -11,6 +11,7 @@ const state = {
     management: null,
     publicCommands: [],
     accountUsername: '',
+    accountUserId: '',
     guildRoles: new Map()
 };
 
@@ -785,14 +786,14 @@ const tabLoaders = {
     stats: loadStats,
     users: loadUsers,
     management: loadManagement,
-    'management-moderation': loadManagement,
+    'management-moderation': loadAdvancedManagement,
     'management-automod': loadManagement,
-    'management-cases': async () => { await loadManagement(); await loadManagementTimeline(); },
+    'management-cases': async () => { await loadAdvancedManagement(); await loadManagementTimeline(); },
     'management-roles': loadManagement,
     'management-automation': loadManagement,
-    'management-tickets': loadManagement,
-    'management-suggestions': loadManagement,
-    'management-join-security': loadManagement,
+    'management-tickets': loadAdvancedManagement,
+    'management-suggestions': loadAdvancedManagement,
+    'management-join-security': loadAdvancedManagement,
     'management-starboard': loadManagement,
     'management-forms': loadManagement,
     'management-channels': loadManagement,
@@ -1174,6 +1175,7 @@ async function loadPanelAccount() {
     state.actualRole = data.actualRole === 'developer' ? 'developer' : 'admin';
     state.globalFeatures = data.globalFeatures || {};
     state.accountUsername = data.user.username;
+    state.accountUserId = data.user.id;
     const avatar = document.getElementById('panelAccountAvatar');
     avatar.src = data.user.avatarUrl;
     avatar.alt = `${data.user.username}'s Discord avatar`;
@@ -2586,6 +2588,9 @@ function renderMemberRoleCell(member) {
     if (member.isDeveloper) {
         return '<span class="badge dev">Developer</span>';
     }
+    if (member.isOwner) {
+        return '<span class="badge owner">Owner</span>';
+    }
     return member.role === 'admin'
         ? '<span class="badge admin">Admin</span>'
         : '<span class="badge member">Member</span>';
@@ -2597,13 +2602,9 @@ function renderMemberActionsCell(member) {
     }
 
     const canEditMember = state.role === 'developer'
-        || (state.role === 'admin' && member.role === 'member');
+        || (state.role === 'admin' && (member.role === 'member' || String(member.id) === String(state.accountUserId)));
     if (!canEditMember) {
         return '<span class="muted">Read-only</span>';
-    }
-
-    if (member.isOwner) {
-        return `<button type="button" class="secondary" data-manage-user="${escapeHtml(member.id)}">Manage permissions</button>`;
     }
 
     return `<div class="row">` +
@@ -2630,7 +2631,7 @@ async function loadServerMembers() {
             { label: 'Nickname', key: 'nickname', render: r => r.nickname ? escapeHtml(r.nickname) : '<span class="muted">-</span>' },
             { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
             { label: 'Role', sortValue: r => r.isDeveloper ? 2 : (r.role === 'admin' ? 1 : 0), render: renderMemberRoleCell },
-            { label: 'Custom Permissions', sortValue: r => r.overrideCount + r.nonDefaultFeatureCount, render: r => (r.overrideCount + r.nonDefaultFeatureCount) > 0 ? `<span class="badge accent">${r.overrideCount + r.nonDefaultFeatureCount} custom</span>` : '<span class="muted">Default</span>' },
+            { label: 'Custom Permissions', sortValue: r => r.nonDefaultFeatureCount, render: r => r.nonDefaultFeatureCount > 0 ? `<span class="badge accent">${r.nonDefaultFeatureCount} custom</span>` : '<span class="muted">Default</span>' },
             { label: '', sortable: false, render: renderMemberActionsCell }
         ],
         data.members, 'No members found.');
@@ -2671,20 +2672,25 @@ async function loadUsers() {
     await populateGuildUserSelects();
     await loadServerMembers();
 
-    if (state.role === 'developer') {
-        const configData = await api('/api/config');
-        const rows = Object.entries(configData.commandPermissions || {}).map(([path, role]) => ({ path, role }));
-        renderTable(document.getElementById('commandPermissionsTable'),
-            [
-                { label: 'Command', key: 'path', render: r => `<code>/${escapeHtml(r.path.replace(/\./g, ' '))}</code>` },
-                { label: 'Required Role', key: 'role', render: r => `<select data-command-role="${escapeHtml(r.path)}"><option value="member" ${r.role === 'member' ? 'selected' : ''}>member</option><option value="admin" ${r.role === 'admin' ? 'selected' : ''}>admin</option><option value="developer" ${r.role === 'developer' ? 'selected' : ''}>developer</option></select>` }
-            ], rows, 'No configured command permissions.');
-    }
+}
+
+function renderCommandPermissions(configData) {
+    const rows = Object.entries(configData.commandPermissions || {}).map(([path, role]) => ({ path, role }));
+    renderTable(document.getElementById('commandPermissionsTable'), [
+        { label: 'Command', key: 'path', render: row => `<code>/${escapeHtml(row.path.replace(/\./g, ' '))}</code>` },
+        { label: 'Required Role', key: 'role', render: row => `<select data-command-role="${escapeHtml(row.path)}"><option value="member" ${row.role === 'member' ? 'selected' : ''}>member</option><option value="admin" ${row.role === 'admin' ? 'selected' : ''}>admin</option><option value="developer" ${row.role === 'developer' ? 'selected' : ''}>developer</option></select>` }
+    ], rows, 'No configured command permissions.');
 }
 
 document.getElementById('commandPermissionsTable').addEventListener('change', async event => {
     const path = event.target.dataset.commandRole; if (!path) return;
-    try { const current = await api('/api/config'); await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commandPermissions: { ...current.commandPermissions, [path]: event.target.value } }) }); } catch (error) { console.error(error); }
+    try {
+        const current = await api('/api/config');
+        const result = await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commandPermissions: { ...current.commandPermissions, [path]: event.target.value } }) });
+        renderCommandPermissions(result.config);
+        state.publicCommands = [];
+        await loadPublicCommands();
+    } catch (error) { console.error(error); }
 });
 
 const FEATURE_DEFINITIONS = [
@@ -2708,48 +2714,30 @@ function memberIdentityCard(userId) {
 
 function renderPermissionsEditor(userId, data) {
     const perms = data.permissions;
-    const overrides = Object.entries(perms.commandOverrides || {});
     const readOnly = data.canEdit !== true;
 
-    const featureRows = FEATURE_DEFINITIONS.map(feature => `
-        <div class="checkbox-row">
-            <input type="checkbox" data-feature-toggle data-feature-key="${escapeHtml(feature.key)}" ${perms[feature.key] ? 'checked' : ''} ${readOnly ? 'disabled' : ''}>
+    const featureRows = FEATURE_DEFINITIONS.map(feature => {
+        const availability = data.featureAvailability?.[feature.key];
+        const unavailable = availability?.enabled === false;
+        const reason = unavailable ? availability.reason : '';
+        return `
+        <div class="checkbox-row" ${reason ? `data-tooltip="${escapeHtml(reason)}"` : ''} style="${unavailable ? 'opacity:.55' : ''}">
+            <input type="checkbox" data-feature-toggle data-feature-key="${escapeHtml(feature.key)}" ${perms[feature.key] ? 'checked' : ''} ${readOnly || unavailable ? 'disabled' : ''}>
             <label style="margin:0;">${escapeHtml(feature.label)}</label>
+            ${reason ? `<small class="muted">${escapeHtml(reason)}</small>` : ''}
         </div>
-    `).join('');
-
-    const overrideRows = overrides.length
-        ? overrides.map(([path, allowed]) => `
-            <tr>
-                <td><code>/${escapeHtml(path.replace(/\./g, ' '))}</code></td>
-                <td>${allowed ? '<span class="badge on">Allowed</span>' : '<span class="badge off">Blocked</span>'}</td>
-                <td><button type="button" class="secondary" data-clear-override="${escapeHtml(path)}" ${readOnly ? 'disabled' : ''}>Clear</button></td>
-            </tr>
-        `).join('')
-        : '<tr><td colspan="3" class="muted">No command overrides (blockades) set.</td></tr>';
+    `;
+    }).join('');
 
     permissionsEditor.dataset.userId = userId;
     permissionsEditor.innerHTML = `
         ${memberIdentityCard(userId)}
         <p class="sub">
             Member ID: ${escapeHtml(userId)}
-            <span class="badge ${data.role === 'developer' ? 'dev' : data.role === 'admin' ? 'admin' : 'member'}">${escapeHtml(data.role)}</span>
+            <span class="badge ${data.role === 'developer' ? 'dev' : data.role === 'owner' ? 'owner' : data.role === 'admin' ? 'admin' : 'member'}">${escapeHtml(data.role)}</span>
             ${readOnly ? '<span class="sub">You can view these permissions, but your role cannot edit this member.</span>' : ''}
         </p>
         <div class="two-col">${featureRows}</div>
-        <h2 style="margin-top:16px; font-size:14px;">Command Overrides (Blockades)</h2>
-        <table>
-            <thead><tr><th>Command</th><th>Status</th><th></th></tr></thead>
-            <tbody>${overrideRows}</tbody>
-        </table>
-        <div class="row" style="margin-top:10px;">
-            <input id="overrideCommandPath" type="text" placeholder="e.g. trigger.add" style="flex:1;" ${readOnly ? 'disabled' : ''}>
-            <select id="overrideAccess" ${readOnly ? 'disabled' : ''}>
-                <option value="allow">Allow</option>
-                <option value="block">Block</option>
-            </select>
-            <button id="setOverride" type="button" class="secondary" ${readOnly ? 'disabled' : ''}>Set override</button>
-        </div>
     `;
 }
 
@@ -2787,54 +2775,6 @@ permissionsEditor.addEventListener('change', async event => {
         body: JSON.stringify({ userId, [key]: toggle.checked })
     }).then(data => {
         setStatus(permissionsStatusField, `Updated ${key} for ${userId}.`, 'ok');
-        renderPermissionsEditor(userId, data);
-    }).catch(error => {
-        setStatus(permissionsStatusField, error.message, 'error');
-    });
-});
-
-permissionsEditor.addEventListener('click', async event => {
-    const clearButton = event.target.closest('[data-clear-override]');
-
-    if (clearButton) {
-        const userId = permissionsEditor.dataset.userId;
-        const commandPath = clearButton.dataset.clearOverride;
-        const confirmed = await confirmAction({ title: 'Clear command override?', message: `Return /${commandPath.replace(/\./g, ' ')} to its inherited permission for ${userId}?`, confirmLabel: 'Clear override', danger: false });
-        if (!confirmed) return;
-
-        api(withGuild('/api/permissions'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, commandPath, commandAccess: 'inherit' })
-        }).then(data => {
-            setStatus(permissionsStatusField, `Cleared override for ${commandPath}.`, 'ok');
-            renderPermissionsEditor(userId, data);
-        }).catch(error => {
-            setStatus(permissionsStatusField, error.message, 'error');
-        });
-        return;
-    }
-
-    if (event.target.id !== 'setOverride') return;
-
-    const userId = permissionsEditor.dataset.userId;
-    const commandPath = document.getElementById('overrideCommandPath').value.trim();
-    const commandAccess = document.getElementById('overrideAccess').value;
-
-    if (!commandPath) {
-        setStatus(permissionsStatusField, 'Enter a command path, e.g. trigger.add.', 'error');
-        return;
-    }
-
-    const confirmed = await confirmAction({ title: 'Set command override?', message: `${commandAccess === 'allow' ? 'Allow' : 'Block'} /${commandPath.replace(/\./g, ' ')} for ${userId}?`, confirmLabel: 'Set override' });
-    if (!confirmed) return;
-
-    api(withGuild('/api/permissions'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, commandPath, commandAccess })
-    }).then(data => {
-        setStatus(permissionsStatusField, `Set ${commandPath} to ${commandAccess} for ${userId}.`, 'ok');
         renderPermissionsEditor(userId, data);
     }).catch(error => {
         setStatus(permissionsStatusField, error.message, 'error');
@@ -3514,12 +3454,56 @@ function renderAdvancedOperations(data) {
     document.getElementById('engagementUtilitiesTable').innerHTML = operationTable(utilities, [
         { label: 'Type', key: 'type' }, { label: 'Feed / role', key: 'name' }, { label: 'Channel / member', key: 'destination' }, { label: 'Status', key: 'status' }
     ], 'No feeds, voice roles, or temporary roles configured.');
+    document.getElementById('managementActivePunishments').innerHTML = operationTable(data.activePunishments || [], [
+        { label: 'Action', key: 'action' }, { label: 'Member', key: 'targetId' }, { label: 'Moderator', key: 'moderatorId' },
+        { label: 'Reason', key: 'reason' }, { label: 'Remaining', render: row => escapeHtml(formatDuration(row.remainingMs)) },
+        { label: '', render: row => `<button class="secondary" type="button" data-cancel-punishment="${escapeHtml(row.id)}">Cancel</button>` }
+    ], 'No active temporary punishments.');
+
+    const ticketStats = data.ticketStats || {};
+    document.getElementById('ticketSlaCards').innerHTML = [
+        ['Open / closed', `${ticketStats.open || 0} / ${ticketStats.closed || 0}`],
+        ['Average first response', ticketStats.averageFirstResponseMs == null ? '—' : formatDuration(ticketStats.averageFirstResponseMs)],
+        ['Average resolution', ticketStats.averageResolutionMs == null ? '—' : formatDuration(ticketStats.averageResolutionMs)],
+        ['Oldest unanswered', ticketStats.oldestUnanswered ? formatDuration(ticketStats.oldestUnanswered.waitingMs) : 'None']
+    ].map(([label, value]) => `<article class="card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
+    document.getElementById('managementTicketsTable').innerHTML = operationTable(data.tickets || [], [
+        { label: 'Ticket', key: 'id' }, { label: 'Owner', key: 'ownerId' }, { label: 'Topic', key: 'topic' },
+        { label: 'Status', key: 'status' }, { label: 'Claimed by', key: 'claimedBy' }, { label: 'Created', render: row => escapeHtml(formatDateTime(row.createdAt)) }
+    ], 'No tickets recorded.');
+
+    const suggestionStatuses = [['submitted', 'Submitted'], ['under-review', 'Under Review'], ['planned', 'Planned'], ['in-progress', 'In Progress'], ['implemented', 'Implemented'], ['rejected', 'Rejected']];
+    document.getElementById('managementSuggestionsRoadmap').innerHTML = operationTable(data.suggestions || [], [
+        { label: 'Suggestion', key: 'id' }, { label: 'Idea', key: 'idea' }, { label: 'Author', key: 'authorId' },
+        { label: 'Roadmap status', render: row => `<select data-suggestion-status="${escapeHtml(row.id)}">${suggestionStatuses.map(([value, label]) => `<option value="${value}" ${row.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select>` },
+        { label: 'Staff response', render: row => escapeHtml(row.staffResponse || row.note || '—') }
+    ], 'No suggestions recorded.');
+
+    const threat = data.threat || { level: 'Low', score: 0, signals: [] };
+    const threatTone = threat.level === 'Raid' ? 'error' : threat.level === 'Elevated' ? 'warn' : 'ok';
+    document.getElementById('managementThreatLevel').innerHTML = `<div class="section-title-row"><div><h2>Server threat level: ${escapeHtml(threat.level)}</h2><p class="sub">Risk score ${Number(threat.score) || 0}/100 · assessed ${escapeHtml(formatDateTime(threat.assessedAt))}</p></div><span class="badge ${threatTone}">${escapeHtml(threat.level)}</span></div>`;
+    document.getElementById('managementThreatSignals').innerHTML = (threat.signals || []).map(signal => `<article class="card"><span>${escapeHtml(signal.label)}</span><strong>${Number(signal.value) || 0}</strong><small>${escapeHtml(signal.detail)}</small></article>`).join('');
+
     const health = data.health || {};
     document.getElementById('communityHealthCards').innerHTML = [
         ['Messages (30d)', health.messages30d || 0], ['Active members (30d)', health.activeMembers30d || 0],
         ['Joins (30d)', health.joins30d || 0], ['Leaves (30d)', health.leaves30d || 0],
         ['Pulse score (30d)', health.pulseAverage30d == null ? '—' : `${health.pulseAverage30d}/5`], ['Pulse responses', health.pulseResponses30d || 0]
     ].map(([label, value]) => `<article class="card"><span>${escapeHtml(label)}</span><strong>${typeof value === 'number' ? value.toLocaleString() : escapeHtml(value)}</strong></article>`).join('');
+    const intelligence = data.communityIntelligence || { score: 0, factors: [], onboarding: [] };
+    const healthTone = intelligence.score >= 75 ? 'ok' : intelligence.score >= 50 ? 'warn' : 'error';
+    document.getElementById('communityHealthScore').innerHTML = `<div class="section-title-row"><div><h2>Community Health: ${Number(intelligence.score) || 0}/100</h2><p class="sub">Activity, retention, safety, and support quality over the last 30 days.</p></div><span class="badge ${healthTone}">${intelligence.score >= 75 ? 'Healthy' : intelligence.score >= 50 ? 'Watch' : 'Needs attention'}</span></div>`;
+    document.getElementById('communityHealthFactors').innerHTML = operationTable(intelligence.factors || [], [
+        { label: 'Factor', key: 'label' }, { label: 'Current', render: row => escapeHtml(row.unit === 'ms' ? formatDuration(row.current) : row.current) },
+        { label: 'Previous', render: row => escapeHtml(row.previous == null ? '—' : row.unit === 'ms' ? formatDuration(row.previous) : row.previous) },
+        { label: 'Trend', render: row => escapeHtml(row.changePercent == null ? '—' : `${row.changePercent >= 0 ? '↑' : '↓'} ${Math.abs(row.changePercent)}%`) }
+    ], 'Not enough activity for a health trend yet.');
+    document.getElementById('communityOnboardingTable').innerHTML = operationTable(intelligence.onboarding || [], [
+        { label: 'Invite', key: 'invite' }, { label: 'Joins', key: 'joins' },
+        { label: '1-day active', render: row => escapeHtml(row.active1d == null ? '—' : `${row.active1d}%`) },
+        { label: '7-day active', render: row => escapeHtml(row.active7d == null ? '—' : `${row.active7d}%`) },
+        { label: '30-day active', render: row => escapeHtml(row.active30d == null ? '—' : `${row.active30d}%`) }
+    ], 'No invite retention data yet.');
 }
 
 async function loadAdvancedManagement() {
@@ -3700,6 +3684,21 @@ document.getElementById('reportsOperationsTable').addEventListener('change', eve
 document.getElementById('incidentCenterTable').addEventListener('change', event => {
     if (event.target.matches('[data-incident-status]')) updateOperationStatus('incident-status', event.target.dataset.incidentStatus, event.target.value).catch(handleUiError);
 });
+document.getElementById('managementSuggestionsRoadmap').addEventListener('change', event => {
+    if (event.target.matches('[data-suggestion-status]')) updateOperationStatus('suggestion-status', event.target.dataset.suggestionStatus, event.target.value).catch(handleUiError);
+});
+document.getElementById('managementActivePunishments').addEventListener('click', async event => {
+    const button = event.target.closest('[data-cancel-punishment]');
+    if (!button) return;
+    const confirmed = await confirmAction({ title: 'Cancel this punishment?', message: 'The timeout, ban, or temporary role will be reversed immediately.', confirmLabel: 'Cancel punishment' });
+    if (!confirmed) return;
+    button.disabled = true;
+    try {
+        await api(withGuild('/api/management/operations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel-punishment', id: button.dataset.cancelPunishment }) });
+        await loadAdvancedManagement();
+    } catch (error) { handleUiError(error); }
+    finally { button.disabled = false; }
+});
 document.getElementById('runServerDoctor').addEventListener('click', async event => {
     event.currentTarget.disabled = true;
     try { renderAdvancedOperations(await api(withGuild('/api/management/operations'))); }
@@ -3740,15 +3739,42 @@ document.getElementById('serverSnapshotsTable').addEventListener('click', async 
 
 async function loadManagementTimeline() {
     if (!state.guildId || state.role === 'member') return;
-    const filter = document.getElementById('managementCaseUserFilter').value.trim();
-    const suffix = filter ? `&userId=${encodeURIComponent(filter)}` : '';
+    const filterIds = { userId: 'managementCaseUserFilter', moderatorId: 'managementAuditModeratorFilter', action: 'managementAuditActionFilter', channelId: 'managementAuditChannelFilter', from: 'managementAuditFrom', to: 'managementAuditTo' };
+    const parameters = new URLSearchParams();
+    for (const [key, id] of Object.entries(filterIds)) {
+        const value = document.getElementById(id).value.trim();
+        if (value) parameters.set(key, value);
+    }
+    const suffix = parameters.size ? `&${parameters}` : '';
     const data = await api(`${withGuild('/api/management/cases')}${suffix}`);
     document.getElementById('managementCasesTable').innerHTML = data.cases.length ? `<table><thead><tr><th>Case</th><th>Action</th><th>Target</th><th>Reason</th><th>Status</th><th>Created</th></tr></thead><tbody>${data.cases.map(entry => `<tr><td><code>${escapeHtml(entry.id)}</code></td><td>${escapeHtml(entry.action)}</td><td>${escapeHtml(entry.targetLabel || entry.targetId || '—')}</td><td>${escapeHtml(entry.reason)}</td><td>${escapeHtml(entry.status)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No cases found.</div>';
     document.getElementById('managementEventsTable').innerHTML = data.events.length ? `<table><thead><tr><th>Event</th><th>Member</th><th>Summary</th><th>Created</th></tr></thead><tbody>${data.events.map(entry => `<tr><td>${escapeHtml(entry.type)}</td><td>${escapeHtml(entry.userId || '—')}</td><td>${escapeHtml(entry.summary)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No events found.</div>';
+    document.getElementById('managementAuditTable').innerHTML = operationTable(data.audit || [], [
+        { label: 'Time', render: row => escapeHtml(formatDateTime(row.at)) }, { label: 'Source', key: 'source' },
+        { label: 'Action', key: 'action' }, { label: 'Member', render: row => row.memberId ? `<button class="secondary" type="button" data-dossier-member="${escapeHtml(row.memberId)}">${escapeHtml(row.memberId)}</button>` : '—' }, { label: 'Moderator', key: 'moderatorId' },
+        { label: 'Channel', key: 'channelId' }, { label: 'Summary', key: 'summary' }
+    ], 'No audit records match these filters.');
+    const dossier = data.dossier;
+    document.getElementById('managementMemberDossier').innerHTML = dossier ? `<div class="card-grid">
+        <article class="card"><span>Reputation</span><strong>${escapeHtml(dossier.profile.reputation)}</strong><small>${dossier.profile.activityPercentile == null ? 'No percentile yet' : `Activity percentile: ${escapeHtml(dossier.profile.activityPercentile)}%`}</small></article>
+        <article class="card"><span>Messages</span><strong>${Number(dossier.profile.messages) || 0}</strong><small>${Number(dossier.profile.activeDays) || 0} active days</small></article>
+        <article class="card"><span>Voice</span><strong>${Number(dossier.profile.voiceMinutes) || 0} min</strong><small>Last seen ${escapeHtml(dossier.profile.lastVoiceAt ? formatDateTime(dossier.profile.lastVoiceAt) : '—')}</small></article>
+        <article class="card"><span>Cases</span><strong>${dossier.cases.length}</strong><small>Privacy-safe metadata only</small></article>
+    </div>${operationTable(dossier.timeline || [], [
+        { label: 'Time', render: row => escapeHtml(formatDateTime(row.at)) }, { label: 'Type', key: 'type' }, { label: 'Event', key: 'label' }, { label: 'Channel', key: 'channelId' }, { label: 'Status', key: 'status' }
+    ], 'No timeline entries for this member.')}` : '<div class="empty">Enter a member ID to load their privacy-safe activity profile and timeline.</div>';
 }
 
 document.getElementById('managementRefreshCases').addEventListener('click', () => loadManagementTimeline().catch(error => setStatus(document.getElementById('managementCasesStatus'), error.message, 'error')));
-document.getElementById('managementCaseUserFilter').addEventListener('change', () => loadManagementTimeline().catch(() => { }));
+['managementCaseUserFilter', 'managementAuditModeratorFilter', 'managementAuditActionFilter', 'managementAuditChannelFilter', 'managementAuditFrom', 'managementAuditTo'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => loadManagementTimeline().catch(() => { }));
+});
+document.getElementById('managementAuditTable').addEventListener('click', event => {
+    const button = event.target.closest('[data-dossier-member]');
+    if (!button) return;
+    document.getElementById('managementCaseUserFilter').value = button.dataset.dossierMember;
+    loadManagementTimeline().catch(handleUiError);
+});
 
 document.getElementById('managementRunAction').addEventListener('click', async () => {
     const status = document.getElementById('managementActionStatus');
@@ -3807,6 +3833,7 @@ async function loadGlobalSettings() {
     const configData = await api('/api/config');
     document.getElementById('publicPanelEnabled').checked = configData.panel?.publicAccessEnabled !== false;
     applyDeveloperSettings(configData);
+    renderCommandPermissions(configData);
     syncGlobalFeatureState();
 }
 

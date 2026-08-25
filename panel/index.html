@@ -486,8 +486,7 @@
                 </div>
                 <div id="memberPermissionsSection" class="section">
                         <h2>Manage a Member's Permissions</h2>
-                    <p class="sub">Load a member (or click "Manage" next to them above) to toggle their features and
-                        command blockades.</p>
+                    <p class="sub">Load a member (or click "Manage" next to them above) to toggle their feature access.</p>
                     <div class="row">
                         <select id="permUserSelect" class="guild-user-select" style="flex:1;">
                             <option value="">Select a member</option>
@@ -497,12 +496,6 @@
                     </div>
                     <div id="permissionsEditor" style="margin-top: 12px;"></div>
                     <p id="permissionsStatus" class="status"></p>
-                </div>
-                <div class="section" data-developer-only>
-                    <h2>Command Permission Requirements</h2>
-                    <div id="commandPermissionsTable" class="table-wrap">
-                        <div class="empty">Loading...</div>
-                    </div>
                 </div>
             </section>
 
@@ -558,6 +551,11 @@
                         <div class="field"><label for="managementActionReason">Reason</label><input id="managementActionReason" maxlength="1000" placeholder="Why is this action needed?"></div>
                     </div>
                     <div class="actions"><span id="managementActionStatus" class="status"></span><button class="primary" id="managementRunAction" type="button">Run action</button></div>
+                </div>
+                <div class="section">
+                    <h2>Active temporary punishments</h2>
+                    <p class="sub">Timeouts, temporary bans, and temporary roles expire automatically. Canceling here immediately reverses the Discord action.</p>
+                    <div id="managementActivePunishments" class="table-wrap"><div class="empty">Open this tab to load active punishments.</div></div>
                 </div>
             </section>
 
@@ -622,7 +620,16 @@
                 </div>
                 <div class="section">
                     <div class="section-title-row"><div><h2>Case &amp; event timeline</h2><p class="sub">Stored separately from analytics and visible only to admins.</p></div><button id="managementRefreshCases" class="secondary" type="button">Refresh</button></div>
-                    <div class="field"><label for="managementCaseUserFilter">Filter cases by member ID</label><input id="managementCaseUserFilter" inputmode="numeric" placeholder="Leave empty for all cases"></div>
+                    <div class="two-col">
+                        <div class="field"><label for="managementCaseUserFilter">Member ID</label><input id="managementCaseUserFilter" inputmode="numeric" placeholder="All members"></div>
+                        <div class="field"><label for="managementAuditModeratorFilter">Moderator ID</label><input id="managementAuditModeratorFilter" inputmode="numeric" placeholder="All moderators"></div>
+                        <div class="field"><label for="managementAuditActionFilter">Action</label><input id="managementAuditActionFilter" placeholder="ban, role, ticket..."></div>
+                        <div class="field"><label for="managementAuditChannelFilter">Channel ID</label><input id="managementAuditChannelFilter" inputmode="numeric" placeholder="All channels"></div>
+                        <div class="field"><label for="managementAuditFrom">From</label><input id="managementAuditFrom" type="date"></div>
+                        <div class="field"><label for="managementAuditTo">Through</label><input id="managementAuditTo" type="date"></div>
+                    </div>
+                    <h3>Member dossier</h3><div id="managementMemberDossier"><div class="empty">Enter a member ID to load their privacy-safe activity profile and timeline.</div></div>
+                    <h3 style="margin-top:20px">Combined audit log</h3><div id="managementAuditTable" class="table-wrap"><div class="empty">Open this tab to load the audit log.</div></div>
                     <h3>Cases</h3><div id="managementCasesTable" class="table-wrap"><div class="empty">Open this tab to load cases.</div></div>
                     <h3 style="margin-top:20px">Events</h3><div id="managementEventsTable" class="table-wrap"><div class="empty">Open this tab to load events.</div></div>
                 </div>
@@ -689,18 +696,21 @@
                 <h2 style="font-size:20px;">Tickets</h2><p class="sub tab-intro">Give members a private, trackable way to contact your team.</p>
                 <div class="section module-page-switch" data-module-page-switch="tickets"><div class="management-module-heading"><div><h3>Ticket workflow</h3><p class="sub">Members use <code>/ticket open</code>; admins can claim and close tickets.</p></div><button class="module-toggle" type="button" data-page-module-toggle="tickets">Off</button></div></div>
                 <div class="section"><h2>Ticket setup</h2><div class="two-col"><div class="field"><label for="managementTicketCategory">Ticket category</label><select id="managementTicketCategory" data-management-channel><option value="">No category selected</option></select><small>New private ticket channels are created here.</small></div><div class="field"><label for="managementTicketLog">Ticket log channel</label><select id="managementTicketLog" data-management-channel><option value="">No channel selected</option></select></div><div class="field"><label for="managementTicketSupportRole">Support role ID</label><input id="managementTicketSupportRole" inputmode="numeric" placeholder="Discord role ID"></div><div class="field"><label for="managementTicketLimit">Open tickets per member</label><input id="managementTicketLimit" type="number" min="1" max="10"></div></div><div class="field"><label for="managementTicketWelcome">First message in a ticket</label><textarea id="managementTicketWelcome" rows="4" maxlength="1800"></textarea></div><div class="actions"><span id="managementTicketsStatus" class="status"></span><button class="primary" type="button" data-save-management="tickets">Save ticket settings</button></div></div>
+                <div class="section"><h2>SLA &amp; staff statistics</h2><div id="ticketSlaCards" class="card-grid"></div><div id="managementTicketsTable" class="table-wrap"><div class="empty">No tickets loaded.</div></div></div>
             </section>
 
             <section id="tab-management-suggestions" class="tab-panel" data-admin-only>
                 <h2 style="font-size:20px;">Suggestions</h2><p class="sub tab-intro">Collect ideas, let members vote, and publish a clear decision.</p>
                 <div class="section module-page-switch" data-module-page-switch="suggestions"><div class="management-module-heading"><div><h3>Suggestion workflow</h3><p class="sub">Submissions and admin decisions stay separate from support tickets.</p></div><button class="module-toggle" type="button" data-page-module-toggle="suggestions">Off</button></div></div>
                 <div class="section"><h2>Submission setup</h2><div class="two-col"><div class="field"><label for="managementSuggestionChannel">Public suggestions channel</label><select id="managementSuggestionChannel" data-management-channel><option value="">No channel selected</option></select></div><div class="field"><label for="managementSuggestionReview">Private review channel (optional)</label><select id="managementSuggestionReview" data-management-channel><option value="">No channel selected</option></select></div><div class="field"><label for="managementSuggestionVotes">Approval target</label><input id="managementSuggestionVotes" type="number" min="1" max="100"><small>Shown as the team’s voting target.</small></div><div class="checkbox-row"><input id="managementSuggestionAnonymous" type="checkbox"><label for="managementSuggestionAnonymous" style="margin:0">Hide the submitter on public posts</label></div></div><div class="actions"><span id="managementSuggestionsStatus" class="status"></span><button class="primary" type="button" data-save-management="suggestions">Save suggestion settings</button></div></div>
+                <div class="section"><h2>Suggestion roadmap</h2><p class="sub">Move ideas through a transparent review and delivery workflow.</p><div id="managementSuggestionsRoadmap" class="table-wrap"><div class="empty">No suggestions loaded.</div></div></div>
             </section>
 
             <section id="tab-management-join-security" class="tab-panel" data-admin-only>
                 <h2 style="font-size:20px;">Join Security</h2><p class="sub tab-intro">Handle risky new accounts and sudden join bursts before they become message spam.</p>
                 <div class="section module-page-switch" data-module-page-switch="joinSecurity"><div class="management-module-heading"><div><h3>Join-time protection</h3><p class="sub">This checks new members only; message rules remain in AutoMod.</p></div><button class="module-toggle" type="button" data-page-module-toggle="joinSecurity">Off</button></div></div>
                 <div class="section"><h2>Risk thresholds</h2><div class="two-col"><div class="field"><label for="managementSecurityAccountAge">Minimum account age (days)</label><input id="managementSecurityAccountAge" type="number" min="0" max="3650"></div><div class="field"><label for="managementSecurityBurstLimit">Join burst threshold</label><input id="managementSecurityBurstLimit" type="number" min="2" max="100"></div><div class="field"><label for="managementSecurityBurstWindow">Burst window (seconds)</label><input id="managementSecurityBurstWindow" type="number" min="5" max="600"></div><div class="field"><label for="managementSecurityAction">When flagged</label><select id="managementSecurityAction"><option value="alert">Alert only</option><option value="quarantine">Add quarantine role</option><option value="kick">Kick member</option></select></div><div class="field"><label for="managementSecurityRole">Quarantine role ID</label><input id="managementSecurityRole" inputmode="numeric" placeholder="Needed for quarantine action"></div><div class="field"><label for="managementSecurityLog">Security alerts channel</label><select id="managementSecurityLog" data-management-channel><option value="">No channel selected</option></select></div></div><div class="actions"><span id="managementJoinSecurityStatus" class="status"></span><button class="primary" type="button" data-save-management="joinSecurity">Save security settings</button></div></div>
+                <div class="section"><h2>Live threat assessment</h2><div id="managementThreatLevel"><div class="empty">Open this tab to assess current risk.</div></div><div id="managementThreatSignals" class="card-grid"></div></div>
             </section>
 
             <section id="tab-management-starboard" class="tab-panel" data-admin-only>
@@ -761,7 +771,7 @@
             <section id="tab-management-community-health" class="tab-panel" data-admin-only>
                 <h2 style="font-size:20px;">Community Health</h2><p class="sub tab-intro">Understand onboarding, retention, participation, and support quality without exposing individual members.</p>
                 <div class="section module-page-switch" data-module-page-switch="communityHealth"><div class="management-module-heading"><div><h3>Privacy-first health metrics</h3><p class="sub">Dashboard summaries use aggregate activity wherever privacy mode is enabled.</p></div><button class="module-toggle" type="button" data-page-module-toggle="communityHealth">Off</button></div></div>
-                <div class="section"><h2>Measurements</h2><div class="two-col"><div class="checkbox-row"><input id="advancedHealthRetention" type="checkbox" data-advanced-field="communityHealth.retentionMetrics"><label for="advancedHealthRetention">Retention trends</label></div><div class="checkbox-row"><input id="advancedHealthOnboarding" type="checkbox" data-advanced-field="communityHealth.onboardingFunnel"><label for="advancedHealthOnboarding">Onboarding funnel</label></div><div class="checkbox-row"><input id="advancedHealthPulse" type="checkbox" data-advanced-field="communityHealth.pulseSurveys"><label for="advancedHealthPulse">Anonymous pulse surveys</label></div><div class="checkbox-row"><input id="advancedHealthPrivacy" type="checkbox" data-advanced-field="communityHealth.privacyMode"><label for="advancedHealthPrivacy">Privacy mode</label></div></div><div class="actions"><span id="managementCommunityHealthStatus" class="status"></span><button class="primary" data-save-advanced="communityHealth" type="button">Save health settings</button></div></div><div id="communityHealthCards" class="card-grid"></div>
+                <div class="section"><h2>Measurements</h2><div class="two-col"><div class="checkbox-row"><input id="advancedHealthRetention" type="checkbox" data-advanced-field="communityHealth.retentionMetrics"><label for="advancedHealthRetention">Retention trends</label></div><div class="checkbox-row"><input id="advancedHealthOnboarding" type="checkbox" data-advanced-field="communityHealth.onboardingFunnel"><label for="advancedHealthOnboarding">Onboarding funnel</label></div><div class="checkbox-row"><input id="advancedHealthPulse" type="checkbox" data-advanced-field="communityHealth.pulseSurveys"><label for="advancedHealthPulse">Anonymous pulse surveys</label></div><div class="checkbox-row"><input id="advancedHealthPrivacy" type="checkbox" data-advanced-field="communityHealth.privacyMode"><label for="advancedHealthPrivacy">Privacy mode</label></div></div><div class="actions"><span id="managementCommunityHealthStatus" class="status"></span><button class="primary" data-save-advanced="communityHealth" type="button">Save health settings</button></div></div><div id="communityHealthScore"></div><div id="communityHealthCards" class="card-grid"></div><div class="section"><h2>Why this score?</h2><div id="communityHealthFactors" class="table-wrap"></div></div><div class="section"><h2>Retention by invite</h2><div id="communityOnboardingTable" class="table-wrap"></div></div>
             </section>
 
             <section id="tab-management-backups" class="tab-panel" data-admin-only>
@@ -885,6 +895,11 @@
                     <div class="actions"><button id="saveGlobalFeatures" class="primary" type="button">Save global
                             features</button></div>
                     <p id="globalFeatureStatus" class="status"></p>
+                </div>
+                <div id="developerCommandPermissions" class="section">
+                    <h2>Command Permission Requirements</h2>
+                    <p class="sub">Set the platform role required for every command. Changes immediately update command enforcement and the public Commands page.</p>
+                    <div id="commandPermissionsTable" class="table-wrap"><div class="empty">Loading...</div></div>
                 </div>
                 <div id="developerTabOrder" class="section">
                     <h2>Panel Tab Order</h2>

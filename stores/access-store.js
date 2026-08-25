@@ -151,20 +151,6 @@ function normalizeRole(role, fallbackRole = 'member') {
     return fallbackRole;
 }
 
-function normalizeCommandPath(commandPath) {
-    const normalized = String(commandPath || '')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '')
-        .replace(/^\//, '');
-
-    if (!/^[a-z0-9_-]+(?:\.[a-z0-9_-]+){0,2}$/.test(normalized)) {
-        return '';
-    }
-
-    return normalized;
-}
-
 function roleMeetsRequirement(userRole, requiredRole) {
     const ranks = {
         member: 0,
@@ -173,50 +159,6 @@ function roleMeetsRequirement(userRole, requiredRole) {
     };
 
     return ranks[normalizeRole(userRole)] >= ranks[normalizeRole(requiredRole)];
-}
-
-function getUserCommandOverrides(userId, guildId) {
-    if (isDeveloper(userId)) {
-        return {};
-    }
-
-    const record = getPermissionRecord(guildId);
-    const entry = record[userId] || {};
-    const overrides = entry.commandOverrides && typeof entry.commandOverrides === 'object' && !Array.isArray(entry.commandOverrides)
-        ? entry.commandOverrides
-        : {};
-
-    return Object.fromEntries(
-        Object.entries(overrides)
-            .map(([pathKey, value]) => [normalizeCommandPath(pathKey), value])
-            .filter(([pathKey, value]) => pathKey && typeof value === 'boolean')
-    );
-}
-
-function getCommandOverrideForPath(userId, guildId, commandName, subcommandName) {
-    if (isDeveloper(userId)) {
-        return null;
-    }
-
-    const overrides = getUserCommandOverrides(userId, guildId);
-    const commandKey = normalizeCommandPath(commandName);
-    const subcommandKey = subcommandName ? normalizeCommandPath(`${commandName}.${subcommandName}`) : '';
-
-    if (subcommandKey && Object.prototype.hasOwnProperty.call(overrides, subcommandKey)) {
-        return {
-            path: subcommandKey,
-            allowed: overrides[subcommandKey]
-        };
-    }
-
-    if (commandKey && Object.prototype.hasOwnProperty.call(overrides, commandKey)) {
-        return {
-            path: commandKey,
-            allowed: overrides[commandKey]
-        };
-    }
-
-    return null;
 }
 
 function getCommandPath(interaction) {
@@ -286,24 +228,15 @@ function getRequiredCommandRole(commandName, subcommandName, commandDefinition, 
     return 'member';
 }
 
+function setCommandPermissions(value) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    config.commandPermissions = Object.fromEntries(Object.entries(source).map(([commandPath, role]) => [commandPath, normalizeRole(role)]));
+    return { ...config.commandPermissions };
+}
+
 function canUseCommandPath({ userId, guildId, commandName, subcommandName, commandDefinition, subcommandGroupName = null, memberPermissions = null }) {
     const requiredRole = getRequiredCommandRole(commandName, subcommandName, commandDefinition, subcommandGroupName);
     const userRole = getUserRole(userId, guildId, memberPermissions);
-    const override = getCommandOverrideForPath(
-        userId,
-        guildId,
-        commandName,
-        subcommandGroupName && subcommandName ? `${subcommandGroupName}.${subcommandName}` : subcommandName
-    );
-
-    if (override) {
-        return {
-            allowed: override.allowed,
-            requiredRole,
-            userRole,
-            override
-        };
-    }
 
     return {
         allowed: roleMeetsRequirement(userRole, requiredRole),
@@ -336,8 +269,7 @@ function getUserPermissions(userId, guildId) {
             addTriggers: true,
             useAiChat: true,
             useBotMentions: true,
-            savePingRequests: true,
-            commandOverrides: {}
+            savePingRequests: true
         };
     }
 
@@ -348,8 +280,7 @@ function getUserPermissions(userId, guildId) {
         addTriggers: entry.addTriggers !== false,
         useAiChat: entry.useAiChat !== false,
         useBotMentions: entry.useBotMentions !== false,
-        savePingRequests: entry.savePingRequests !== false,
-        commandOverrides: getUserCommandOverrides(userId, guildId)
+        savePingRequests: entry.savePingRequests !== false
     };
 }
 
@@ -373,46 +304,6 @@ function setUserPermission(userId, permissionKey, value, guildId) {
     };
 
     writeJson(guildPaths.userPermissions, record);
-}
-
-function setUserCommandPermission(userId, commandPath, value, guildId) {
-    if (isDeveloper(userId)) {
-        return {};
-    }
-
-    const normalizedPath = normalizeCommandPath(commandPath);
-
-    if (!normalizedPath) {
-        throw new Error('Invalid command path.');
-    }
-
-    const guildPaths = resolveGuildPaths(guildId);
-
-    if (!guildPaths) {
-        return {};
-    }
-
-    const record = getPermissionRecord(guildId);
-    const existing = record[userId] || {};
-    const commandOverrides = existing.commandOverrides && typeof existing.commandOverrides === 'object' && !Array.isArray(existing.commandOverrides)
-        ? { ...existing.commandOverrides }
-        : {};
-
-    if (value === null) {
-        delete commandOverrides[normalizedPath];
-    } else if (typeof value === 'boolean') {
-        commandOverrides[normalizedPath] = value;
-    } else {
-        throw new Error('Command permission value must be true, false, or null.');
-    }
-
-    record[userId] = {
-        ...existing,
-        commandOverrides
-    };
-
-    writeJson(guildPaths.userPermissions, record);
-    return getUserCommandOverrides(userId, guildId);
 }
 
 function canUseTriggers(userId, guildId) {
@@ -448,7 +339,7 @@ function canUseTriggerCommands(userId) {
     return isDeveloper(userId) || isTriggerFeatureEnabled();
 }
 
-// Clears all stored feature and command overrides, returning the member to defaults.
+// Clears all stored feature permissions, returning the member to defaults.
 function resetUserPermissions(userId, guildId) {
     const guildPaths = resolveGuildPaths(guildId);
 
@@ -463,12 +354,11 @@ module.exports = {
     getGuildOwnerUserId,
     setGuildOwner,
     isGuildOwner,
+    setCommandPermissions,
     getDeveloperUserIds,
     getUserRole,
     getCommandPath,
     getRequiredCommandRole,
-    getUserCommandOverrides,
-    normalizeCommandPath,
     normalizeRole,
     roleMeetsRequirement,
     isConfiguredDeveloper,
@@ -479,7 +369,6 @@ module.exports = {
     isTriggerFeatureEnabled,
     getUserPermissions,
     setUserPermission,
-    setUserCommandPermission,
     canUseTriggers,
     canAddTriggers,
     canUseAiChat,

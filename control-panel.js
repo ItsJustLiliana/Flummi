@@ -19,6 +19,7 @@ const settingsStore = require('./stores/settings-store');
 const accessStore = require('./stores/access-store');
 config.commandPermissions = Object.fromEntries(Object.entries(config.commandPermissions).map(([commandPath, role]) => [commandPath, accessStore.normalizeRole(role)]));
 delete config.commandPermissions['manage.role'];
+accessStore.setCommandPermissions(config.commandPermissions);
 const triggerStore = require('./stores/trigger-store');
 const shotStore = require('./stores/shot-store');
 const voiceStore = require('./stores/voice-store');
@@ -34,11 +35,20 @@ const feedbackStore = require('./stores/feedback-store');
 const { getAiConfig, buildTextModelCandidates, buildVisionModelCandidates } = require('./services/ai-chat');
 const readyEvent = require('./events/ready');
 const moderationStore = require('./stores/moderation-store');
+const communityStore = require('./stores/community-management-store');
 const { executeModerationAction, parseDuration } = require('./services/moderation-service');
 const { publishRoleMenu } = require('./services/role-service');
 const operationsStore = require('./stores/operations-store');
 const { scanServer, snapshotGuild, previewSnapshot, restoreSnapshot } = require('./services/operations-service');
 const { createOverwatchHistoryService } = require('./services/overwatch-history-service');
+const {
+    activePunishments,
+    buildCommunityHealth,
+    buildMemberDossier,
+    buildThreatAssessment,
+    buildTicketStatistics,
+    queryAuditLog
+} = require('./services/community-intelligence-service');
 
 installTimestampedConsole();
 loadEnv();
@@ -556,12 +566,14 @@ function applySecurityHeaders(req, res) {
 async function canEditMemberPermissions(session, guildId, targetUserId) {
     if (hasDeveloperView(session)) return !accessStore.isConfiguredDeveloper(targetUserId);
     try {
-        const guild = await client.guilds.fetch(String(guildId));
+        const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
         accessStore.setGuildOwner(guild.id, guild.ownerId);
         const targetMember = guild.members.cache.get(String(targetUserId)) || await guild.members.fetch(String(targetUserId));
-        return getPanelGuildRole(session, guildId) === 'admin'
-            && !accessStore.isConfiguredDeveloper(targetUserId)
-            && !targetMember.permissions.has(PermissionsBitField.Flags.Administrator);
+        if (getPanelGuildRole(session, guildId) !== 'admin' || accessStore.isConfiguredDeveloper(targetUserId)) return false;
+        const isSelf = String(targetUserId) === String(session.userId);
+        if (String(targetUserId) === String(guild.ownerId)) return isSelf;
+        if (targetMember.permissions.has(PermissionsBitField.Flags.Administrator)) return isSelf;
+        return true;
     } catch {
         return false;
     }
@@ -571,6 +583,8 @@ async function getCurrentMemberRole(userId, guildId) {
     if (accessStore.isConfiguredDeveloper(userId)) return 'developer';
     try {
         const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId));
+        accessStore.setGuildOwner(guild.id, guild.ownerId);
+        if (String(userId) === String(guild.ownerId)) return 'owner';
         const member = guild.members.cache.get(String(userId)) || await guild.members.fetch(String(userId));
         return member.permissions.has(PermissionsBitField.Flags.Administrator) ? 'admin' : 'member';
     } catch {
@@ -580,8 +594,30 @@ async function getCurrentMemberRole(userId, guildId) {
 
 async function requireMemberPermissionAccess(session, guildId, targetUserId, res) {
     if (await canEditMemberPermissions(session, guildId, targetUserId)) return true;
-    sendJson(res, 403, { error: 'Admins can only edit members, not other admins or developers.' });
+    sendJson(res, 403, { error: 'Admins can edit members and themselves, but not the server owner, other admins, or developers.' });
     return false;
+}
+
+function getMemberFeatureAvailability(guildId) {
+    const settings = settingsStore.readSettings(guildId);
+    const guildFeatures = settings.features || {};
+    const definitions = {
+        useTriggers: ['triggersEnabled', settings.triggersEnabled, 'Triggers'],
+        addTriggers: ['triggersEnabled', settings.triggersEnabled, 'Triggers'],
+        useAiChat: ['aiConversationsEnabled', guildFeatures.aiConversationsEnabled, 'AI conversations'],
+        useBotMentions: ['pingResponsesEnabled', guildFeatures.pingResponsesEnabled, 'Ping responses'],
+        savePingRequests: ['pingRequestSaveEnabled', guildFeatures.pingRequestSaveEnabled, 'Save ping requests']
+    };
+    return Object.fromEntries(Object.entries(definitions).map(([key, [globalKey, guildEnabled, label]]) => {
+        const globalEnabled = config.features?.[globalKey] !== false;
+        const serverEnabled = guildEnabled !== false;
+        const reason = !globalEnabled
+            ? `${label} is disabled globally.`
+            : !serverEnabled
+                ? `${label} is disabled in this server's settings.`
+                : null;
+        return [key, { enabled: globalEnabled && serverEnabled, globalEnabled, serverEnabled, reason }];
+    }));
 }
 
 function auditPanelAction(session, type, message, details = {}) {
@@ -2248,7 +2284,21 @@ function createServer() {
                 if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Cases and event logs are only available to server administrators.')) return;
                 const userId = requestUrl.searchParams.get('userId');
                 const cases = userId ? moderationStore.getMemberCases(guildId, userId, { limit: 200 }) : moderationStore.readCases(guildId).slice(0, 200);
-                sendJson(res, 200, { cases, events: moderationStore.readEvents(guildId, { limit: 200 }) });
+                const filters = {
+                    memberId: userId,
+                    moderatorId: requestUrl.searchParams.get('moderatorId'),
+                    action: requestUrl.searchParams.get('action'),
+                    channelId: requestUrl.searchParams.get('channelId'),
+                    from: requestUrl.searchParams.get('from'),
+                    to: requestUrl.searchParams.get('to')
+                };
+                sendJson(res, 200, {
+                    cases,
+                    events: moderationStore.readEvents(guildId, { limit: 200 }),
+                    dossier: userId ? buildMemberDossier(guildId, userId) : null,
+                    audit: queryAuditLog(guildId, filters, readActivity()),
+                    activePunishments: activePunishments(guildId)
+                });
                 return;
             }
 
@@ -2258,8 +2308,11 @@ function createServer() {
                 const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
                 if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
                 const state = operationsStore.readState(guildId);
+                const community = communityStore.readState(guildId);
                 const analytics = analyticsStore.getAnalyticsSummary(guildId, 30);
                 const recentPulse = state.pulseResponses.filter(entry => Date.now() - new Date(entry.createdAt).getTime() <= 30 * 86400000);
+                const management = settingsStore.readSettings(guildId).management;
+                const intelligence = buildCommunityHealth(guildId);
                 sendJson(res, 200, {
                     doctor: await scanServer(guild),
                     reports: state.reports.slice(0, 100), incidents: state.incidents.slice(0, 100),
@@ -2267,6 +2320,12 @@ function createServer() {
                     feeds: state.feeds.slice(0, 25), voiceRoleLinks: state.voiceRoleLinks.slice(0, 25), temporaryRoles: state.temporaryRoles.filter(entry => entry.status === 'open').slice(0, 100),
                     snapshots: state.snapshots.map(snapshot => ({ id: snapshot.id, createdAt: snapshot.createdAt, reason: snapshot.reason, roleCount: snapshot.roles?.length || 0, channelCount: snapshot.channels?.length || 0 })),
                     levels: Object.entries(state.levels).map(([userId, value]) => ({ userId, ...value, level: Math.floor(Math.sqrt((value.xp || 0) / 25)) })).sort((left, right) => right.xp - left.xp).slice(0, 25),
+                    activePunishments: activePunishments(guildId),
+                    tickets: community.tickets.slice(0, 200),
+                    suggestions: community.suggestions.slice(0, 200),
+                    ticketStats: buildTicketStatistics(community.tickets),
+                    threat: buildThreatAssessment(guildId, { settings: management.joinSecurity }),
+                    communityIntelligence: intelligence,
                     health: { messages30d: analytics.messageCount || 0, activeMembers30d: analytics.uniqueAuthors || 0, joins30d: analytics.moderation?.joins || 0, leaves30d: analytics.moderation?.leaves || 0, pulseResponses30d: recentPulse.length, pulseAverage30d: recentPulse.length ? Math.round(recentPulse.reduce((sum, entry) => sum + entry.rating, 0) / recentPulse.length * 10) / 10 : null }
                 });
                 return;
@@ -2276,6 +2335,38 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
                 if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Management operations are only available to server administrators.')) return;
                 const parsed = JSON.parse(await readBody(req) || '{}');
+                if (parsed.action === 'cancel-punishment') {
+                    const punishment = activePunishments(guildId).find(entry => entry.id === String(parsed.id));
+                    if (!punishment) { sendJson(res, 404, { error: 'Active punishment not found.' }); return; }
+                    const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                    if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
+                    if (punishment.kind === 'temporary-role') {
+                        const member = guild.members.cache.get(punishment.targetId) || await guild.members.fetch(punishment.targetId).catch(() => null);
+                        if (member) await member.roles.remove(punishment.roleId, `Canceled from dashboard by ${panelSession.userId}`);
+                        operationsStore.updateTemporaryRole(guildId, punishment.id, { status: 'canceled', removedAt: new Date().toISOString(), canceledBy: panelSession.userId });
+                    } else {
+                        if (punishment.action === 'timeout') {
+                            const member = guild.members.cache.get(punishment.targetId) || await guild.members.fetch(punishment.targetId).catch(() => null);
+                            if (member) await member.timeout(null, `Canceled from dashboard by ${panelSession.userId}`);
+                        } else if (punishment.action === 'tempban' || punishment.action === 'ban') {
+                            await guild.members.unban(punishment.targetId, `Canceled from dashboard by ${panelSession.userId}`).catch(error => {
+                                if (error?.code !== 10026) throw error;
+                            });
+                        }
+                        const currentCase = moderationStore.getCase(guildId, punishment.id);
+                        moderationStore.updateCase(guildId, punishment.id, { status: 'canceled', metadata: { ...(currentCase?.metadata || {}), canceledBy: panelSession.userId, canceledAt: new Date().toISOString() } }, { id: panelSession.userId, label: panelSession.username });
+                    }
+                    auditPanelAction(panelSession, 'punishment-canceled', `Canceled ${punishment.action} ${punishment.id}`, { guildId, targetId: punishment.targetId });
+                    sendJson(res, 200, { ok: true }); return;
+                }
+                if (parsed.action === 'suggestion-status') {
+                    const statuses = new Set(['submitted', 'under-review', 'planned', 'in-progress', 'implemented', 'rejected']);
+                    if (!statuses.has(parsed.status)) { sendJson(res, 400, { error: 'Invalid suggestion status.' }); return; }
+                    const suggestion = communityStore.updateSuggestion(guildId, String(parsed.id), { status: parsed.status, staffResponse: String(parsed.response || '').slice(0, 1000), reviewedBy: panelSession.userId });
+                    if (!suggestion) { sendJson(res, 404, { error: 'Suggestion not found.' }); return; }
+                    auditPanelAction(panelSession, 'suggestion-status', `Changed suggestion ${suggestion.id} to ${suggestion.status}`, { guildId });
+                    sendJson(res, 200, { ok: true, suggestion }); return;
+                }
                 if (parsed.action === 'snapshot') {
                     const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
                     if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
@@ -2318,8 +2409,9 @@ function createServer() {
                 const channel = parsed.channelId ? (guild.channels.cache.get(String(parsed.channelId)) || await guild.channels.fetch(String(parsed.channelId)).catch(() => null)) : null;
                 const durationMs = parsed.duration ? parseDuration(parsed.duration) : null;
                 if (parsed.duration && durationMs === null) return sendJson(res, 400, { error: 'Invalid duration. Use 30m, 2h or 7d.' });
+                if (parsed.action === 'tempban' && !durationMs) return sendJson(res, 400, { error: 'A temporary ban requires a duration such as 3d.' });
                 try {
-                    const entry = await executeModerationAction({ guild, action: parsed.action, actorId: panelSession.userId, actorLabel: panelSession.userTag || panelSession.userId, targetId: parsed.targetId, reason: parsed.reason, durationMs, channel, count: parsed.count, seconds: parsed.seconds });
+                    const entry = await executeModerationAction({ guild, action: parsed.action, actorId: panelSession.userId, actorLabel: panelSession.userTag || panelSession.userId, targetId: parsed.targetId, reason: parsed.reason, durationMs: ['timeout', 'tempban'].includes(parsed.action) ? durationMs : null, channel, count: parsed.count, seconds: parsed.seconds });
                     auditPanelAction(panelSession, 'moderation-action', `${entry.action} created case ${entry.id}`, { guildId, caseId: entry.id, targetId: entry.targetId });
                     sendJson(res, 200, { ok: true, case: entry });
                 } catch (error) {
@@ -2399,7 +2491,6 @@ function createServer() {
                         role: accessStore.isConfiguredDeveloper(member.id) ? 'developer' : member.isAdministrator ? 'admin' : 'member',
                         isOwner: accessStore.isGuildOwner(member.id, guildId),
                         isDeveloper: accessStore.isConfiguredDeveloper(member.id),
-                        overrideCount: Object.keys(permissions.commandOverrides || {}).length,
                         nonDefaultFeatureCount: featureKeys.filter(key => permissions[key] === false).length
                     };
                 });
@@ -2426,11 +2517,6 @@ function createServer() {
 
                 if (!await requireMemberPermissionAccess(panelSession, guildId, parsed.userId, res)) return;
 
-                if (accessStore.isGuildOwner(parsed.userId, guildId)) {
-                    sendJson(res, 400, { error: 'The server owner role and permissions cannot be reset.' });
-                    return;
-                }
-
                 if (accessStore.isConfiguredDeveloper(parsed.userId)) {
                     sendJson(res, 400, { error: 'Developers cannot be reset from this panel.' });
                     return;
@@ -2456,7 +2542,8 @@ function createServer() {
                 sendJson(res, 200, {
                     role: await getCurrentMemberRole(userId, guildId),
                     permissions: accessStore.getUserPermissions(userId, guildId),
-                    canEdit: await canEditMemberPermissions(panelSession, guildId, userId)
+                    canEdit: await canEditMemberPermissions(panelSession, guildId, userId),
+                    featureAvailability: getMemberFeatureAvailability(guildId)
                 });
                 return;
             }
@@ -2485,43 +2572,31 @@ function createServer() {
                     return;
                 }
 
+                if (parsed.commandPath) {
+                    sendJson(res, 400, { error: 'Per-member command overrides are no longer supported.' });
+                    return;
+                }
+
                 const featureKeys = ['useTriggers', 'addTriggers', 'useAiChat', 'useBotMentions', 'savePingRequests'];
+                const featureAvailability = getMemberFeatureAvailability(guildId);
 
                 for (const key of featureKeys) {
                     if (typeof parsed[key] === 'boolean') {
+                        if (!featureAvailability[key]?.enabled) {
+                            sendJson(res, 400, { error: featureAvailability[key]?.reason || 'This feature is disabled.' });
+                            return;
+                        }
                         accessStore.setUserPermission(userId, key, parsed[key], guildId);
                     }
-                }
-
-                if (parsed.commandPath) {
-                    const normalizedPath = accessStore.normalizeCommandPath(parsed.commandPath);
-
-                    if (!normalizedPath) {
-                        sendJson(res, 400, { error: `Invalid command path: ${parsed.commandPath}` });
-                        return;
-                    }
-
-                    const accessValue = parsed.commandAccess === 'allow'
-                        ? true
-                        : parsed.commandAccess === 'block'
-                            ? false
-                            : parsed.commandAccess === 'inherit'
-                                ? null
-                                : undefined;
-
-                    if (accessValue === undefined) {
-                        sendJson(res, 400, { error: 'commandAccess must be allow, block, or inherit.' });
-                        return;
-                    }
-
-                    accessStore.setUserCommandPermission(userId, normalizedPath, accessValue, guildId);
                 }
 
                 auditPanelAction(panelSession, 'permissions-update', `Updated permissions for ${userId}`, { guildId, userId: String(userId) });
 
                 sendJson(res, 200, {
                     role: await getCurrentMemberRole(userId, guildId),
-                    permissions: accessStore.getUserPermissions(userId, guildId)
+                    permissions: accessStore.getUserPermissions(userId, guildId),
+                    canEdit: await canEditMemberPermissions(panelSession, guildId, userId),
+                    featureAvailability
                 });
                 return;
             }
@@ -2717,6 +2792,7 @@ function createServer() {
                 Object.assign(config, updates);
                 config.commandPermissions = Object.fromEntries(Object.entries({ ...(config.commandPermissions || {}), dashboard: 'member' }).map(([commandPath, role]) => [commandPath, accessStore.normalizeRole(role)]));
                 delete config.commandPermissions['manage.role'];
+                accessStore.setCommandPermissions(config.commandPermissions);
                 saveConfig(config);
                 if (updates.presence) {
                     applyConfiguredPresence(client);

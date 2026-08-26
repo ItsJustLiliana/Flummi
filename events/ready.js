@@ -10,6 +10,9 @@ const { processAutomation } = require('../services/automation-service');
 const { pruneModerationData } = require('../stores/moderation-store');
 const { readSettings } = require('../stores/settings-store');
 const { processOperations } = require('../services/operations-service');
+const { processTicketMaintenance } = require('../services/ticket-maintenance-service');
+const customCommandStore = require('../stores/custom-command-store');
+const { syncCommand } = require('../services/custom-command-service');
 
 function getVoiceStateData(voiceState) {
     return {
@@ -93,6 +96,9 @@ module.exports = {
             reconcileVoiceSessions(guild);
             pruneAnalytics(guild.id, readConfig().analytics?.retentionDays || 365);
             snapshotGuildInvites(guild);
+            for (const command of customCommandStore.readCommands(guild.id).filter(item => item.enabled !== false)) {
+                syncCommand(guild, command).catch(error => console.warn(`Custom command /${command.name} sync failed: ${error.message}`));
+            }
         }
 
         setInterval(() => {
@@ -102,7 +108,9 @@ module.exports = {
         setInterval(() => processExpiredCases(client).catch(error => console.warn(`Moderation timer failed: ${error.message}`)), 60000).unref();
         setInterval(() => processAutomation(client).catch(error => console.warn(`Automation timer failed: ${error.message}`)), 60000).unref();
         setInterval(() => processOperations(client).catch(error => console.warn(`Operations timer failed: ${error.message}`)), 60000).unref();
+        setInterval(() => processTicketMaintenance(client).catch(error => console.warn(`Ticket maintenance failed: ${error.message}`)), 60 * 60 * 1000).unref();
         processOperations(client).catch(error => console.warn(`Initial operations run failed: ${error.message}`));
+        processTicketMaintenance(client).catch(error => console.warn(`Initial ticket maintenance failed: ${error.message}`));
 
         setInterval(() => {
             const retentionDays = readConfig().analytics?.retentionDays || 365;

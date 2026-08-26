@@ -1,11 +1,12 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const { readSettings } = require('../stores/settings-store');
+const { readSettings, isModuleGloballyDisabled } = require('../stores/settings-store');
 const communityStore = require('../stores/community-management-store');
 
 const recentJoins = new Map();
 const stickyMessages = new Map();
 
 function moduleConfig(guildId, key) {
+    if (isModuleGloballyDisabled(key)) return null;
     const management = readSettings(guildId).management;
     return management.modules[key] ? management[key] : null;
 }
@@ -88,7 +89,7 @@ async function createTicket(interaction, topic) {
     const config = moduleConfig(interaction.guildId, 'tickets');
     if (!config) throw new Error('Tickets are not enabled in this server.');
     const state = communityStore.readState(interaction.guildId);
-    const open = state.tickets.filter(ticket => ticket.ownerId === interaction.user.id && ticket.status === 'open');
+    const open = state.tickets.filter(ticket => ticket.ownerId === interaction.user.id && ticket.status !== 'closed');
     if (open.length >= config.maxOpenPerMember) throw new Error(`You already have ${open.length} open ticket(s).`);
     const safeName = interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 40) || 'member';
     const channel = await interaction.guild.channels.create({

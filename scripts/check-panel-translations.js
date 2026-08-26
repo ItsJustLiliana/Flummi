@@ -3,8 +3,8 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'panel', 'index.html'), 'utf8');
-const i18n = fs.readFileSync(path.join(root, 'panel', 'i18n.js'), 'utf8');
-const translated = new Set(Array.from(i18n.matchAll(/^\s*'((?:\\'|[^'])+)':/gm), match => match[1].replace(/\\'/g, "'")));
+const locale = fs.readFileSync(path.join(root, 'panel', 'i18n', 'locales', 'nl.js'), 'utf8');
+const translated = new Set(Array.from(locale.matchAll(/^\s*'((?:\\'|[^'])+)':/gm), match => match[1].replace(/\\'/g, "'")));
 const visibleElement = /<(?:h1|h2|h3|p|label|button|summary|option|a|span)[^>]*>([\s\S]*?)<\/(?:h1|h2|h3|p|label|button|summary|option|a|span)>/g;
 const ignored = new Set(['English', 'Nederlands', 'Flummi', 'Dashboard']);
 const missing = [];
@@ -21,7 +21,7 @@ for (const match of html.matchAll(visibleElement)) {
 }
 
 if (require.main === module) {
-    const wordBlock = i18n.match(/const dutchWords = \{([\s\S]*?)\n    \};/)?.[1] || '';
+    const wordBlock = locale.match(/const dutchWords = \{([\s\S]*?)\n    \};/)?.[1] || '';
     const knownWords = new Set(Array.from(wordBlock.matchAll(/\b([a-z]+):/g), match => match[1]));
     const unknownWords = new Map();
     for (const text of missing) {

@@ -637,12 +637,19 @@ module.exports = {
     name: 'messageCreate',
 
     async execute(message, client) {
+        const { handleDirectMessage, handleStaffMessage } = require('../services/modmail-service');
+        if (!message.guildId) {
+            await handleDirectMessage(message, client).catch(error => console.warn(`Modmail DM failed: ${error.message}`));
+            return;
+        }
+        if (await handleStaffMessage(message).catch(error => { console.warn(`Modmail relay failed: ${error.message}`); return false; })) return;
+        require('../services/ticket-maintenance-service').recordTicketActivity(message);
         await handleStickyMessage(message).catch(error => console.warn(`Sticky message update failed: ${error.message}`));
         const guildId = message.guildId;
 
-        if (!guildId) return;
-
         if (message.author.bot) return;
+
+        require('../services/workflow-service').runWorkflows(message.guild, 'message.created', { userId: message.author.id, channelId: message.channelId, message: { content: message.content, attachmentCount: message.attachments?.size || 0 } }).catch(error => console.warn(`Message workflow failed: ${error.message}`));
 
         const management = readSettings(guildId).management;
         if (management.modules.engagement) {
@@ -671,7 +678,8 @@ module.exports = {
                 channelId: message.channelId,
                 channelName: message.channel?.name || message.channelId,
                 userId: message.author.id,
-                userTag: message.author.tag || message.author.username || message.author.id
+                userTag: message.author.tag || message.author.username || message.author.id,
+                messageId: message.id
             });
             recordMessageEvent({
                 guildId, channelId: message.channelId, channelName: message.channel?.name || message.channelId,

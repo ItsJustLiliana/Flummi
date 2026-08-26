@@ -1,6 +1,7 @@
-const { readSettings } = require('../stores/settings-store');
+const { readSettings, isModuleGloballyDisabled } = require('../stores/settings-store');
 const { isDue, markRun } = require('../stores/automation-state-store');
 const { addEvent } = require('../stores/moderation-store');
+const { scheduleMatches } = require('./schedule-service');
 
 async function resolveTextChannel(guild, channelId) {
     const channel = guild.channels.cache.get(channelId) || await guild.channels.fetch(channelId).catch(() => null);
@@ -10,11 +11,12 @@ async function resolveTextChannel(guild, channelId) {
 async function processAutomation(client, now = new Date()) {
     for (const guild of client.guilds.cache.values()) {
         const management = readSettings(guild.id).management;
-        if (!management.modules.automation) continue;
+        if (!management.modules.automation || isModuleGloballyDisabled('automation')) continue;
         if (management.automation.scheduledMessagesEnabled) {
             for (const schedule of management.automation.schedules.filter(item => item.enabled)) {
                 const key = `schedule:${schedule.id}`;
-                if (!isDue(guild.id, key, schedule.intervalMinutes, now)) continue;
+                const previousRun = require('../stores/automation-state-store').readState(guild.id)[key] || schedule.lastRunAt;
+                if (!scheduleMatches({ ...schedule, lastRunAt: previousRun }, now)) continue;
                 const channel = await resolveTextChannel(guild, schedule.channelId);
                 if (!channel) continue;
                 await channel.send({ content: schedule.message, allowedMentions: { parse: [] } });

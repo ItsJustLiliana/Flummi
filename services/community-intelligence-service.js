@@ -74,7 +74,7 @@ function buildThreatAssessment(guildId, { now = Date.now(), settings = {} } = {}
 
 function buildTicketStatistics(tickets, { now = Date.now() } = {}) {
     const closed = tickets.filter(ticket => ticket.status === 'closed');
-    const open = tickets.filter(ticket => ticket.status === 'open');
+    const open = tickets.filter(ticket => ticket.status !== 'closed');
     const firstResponseTimes = tickets
         .map(ticket => validTime(ticket.firstResponseAt || ticket.claimedAt) - validTime(ticket.createdAt))
         .filter(value => value >= 0);
@@ -152,7 +152,7 @@ function buildCommunityHealth(guildId, { now = Date.now() } = {}) {
     const incidents = currentModeration.filter(row => !['member-join', 'member-leave', 'invite-use', 'role-change'].includes(row.action)).length;
     const previousIncidents = previousModeration.filter(row => !['member-join', 'member-leave', 'invite-use', 'role-change'].includes(row.action)).length;
     const tickets = buildTicketStatistics(community.tickets, { now });
-    const unansweredPenalty = Math.min(15, community.tickets.filter(ticket => ticket.status === 'open' && !ticket.claimedAt && now - validTime(ticket.createdAt) > 8 * 3600000).length * 5);
+    const unansweredPenalty = Math.min(15, community.tickets.filter(ticket => ticket.status !== 'closed' && !ticket.claimedAt && now - validTime(ticket.createdAt) > 8 * 3600000).length * 5);
     const joinBalance = joins + leaves ? Math.round((joins - leaves) / Math.max(1, joins + leaves) * 10) : 0;
     let score = 70 + Math.max(-10, Math.min(10, joinBalance));
     if (currentMessages > previousMessages) score += 8;

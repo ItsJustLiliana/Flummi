@@ -26,6 +26,7 @@ function getStatsPath(guildId) {
 
 function emptyStats() {
     return {
+        recentMessageIds: [],
         messages: {
             total: 0,
             byChannel: {},
@@ -41,6 +42,7 @@ function normalizeStats(raw) {
         : {};
 
     return {
+        recentMessageIds: Array.isArray(stats.recentMessageIds) ? stats.recentMessageIds.map(String).slice(-5000) : [],
         messages: {
             total: Number(messages.total) || 0,
             byChannel: messages.byChannel && typeof messages.byChannel === 'object' && !Array.isArray(messages.byChannel)
@@ -92,8 +94,11 @@ function incrementCounter(bucket, id, label) {
     };
 }
 
-function incrementMessageStats({ guildId, channelId, channelName, userId, userTag }) {
+function incrementMessageStats({ guildId, channelId, channelName, userId, userTag, messageId }) {
     const stats = readServerStats(guildId);
+
+    if (messageId && stats.recentMessageIds.includes(String(messageId))) return stats;
+    if (messageId) stats.recentMessageIds = [...stats.recentMessageIds, String(messageId)].slice(-5000);
 
     stats.messages.total += 1;
     incrementCounter(stats.messages.byChannel, channelId, channelName);

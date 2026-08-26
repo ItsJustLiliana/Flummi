@@ -1309,6 +1309,17 @@ th.sortable:hover {
 }
 
 @media (max-width: 820px) {
+    #dashboardLayout .tabs,
+    .developer-tool-nav,
+    .home-nav-links {
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
+        overflow-x: visible;
+    }
+
+    .home-nav-links button { width: 100%; }
+
     :root {
         --sidebar-width: 100%;
     }

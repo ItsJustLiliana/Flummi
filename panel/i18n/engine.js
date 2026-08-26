@@ -131,17 +131,22 @@
                 if (record && node.nodeValue === record.rendered) continue;
                 if (record) {
                     record.source = node.nodeValue.trim();
-                    record.exactOnly = true;
+                    record.exactOnly = false;
                     record.leading = node.nodeValue.match(/^\s*/)?.[0] || '';
                     record.trailing = node.nodeValue.match(/\s*$/)?.[0] || '';
                 } else {
-                    registerStaticContent(node.parentElement || document.body, { exactOnly: true });
+                    registerStaticContent(node.parentElement || document.body);
                 }
                 changed = true;
             }
             for (const node of mutation.addedNodes || []) {
-                if (node.nodeType === Node.TEXT_NODE) registerStaticContent(node.parentElement || document.body, { exactOnly: true });
-                if (node.nodeType === Node.ELEMENT_NODE) registerStaticContent(node, { exactOnly: true });
+                if (node.nodeType === Node.TEXT_NODE) registerStaticContent(node.parentElement || document.body);
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    registerStaticContent(node, { exactOnly: true });
+                    // A second pass registers text without an exact entry so dynamic
+                    // module descriptions still receive phrase/word fallback translation.
+                    registerStaticContent(node);
+                }
                 changed = true;
             }
         }
@@ -156,4 +161,3 @@
         tExact
     };
 })();
-

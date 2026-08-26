@@ -20,8 +20,10 @@ test('message activity heatmap supports exact ranges and channel and member filt
         const selectedWeek = getMessageActivityHeatmap(guildId, '2026-08-17T00:00:00.000Z', '2026-08-23T23:59:59.999Z', 'one', 'alice');
         assert.equal(allTime[1][8], 3);
         assert.equal(selectedWeek[1][8], 1);
-        assert.equal(getAnalyticsSummary(guildId, 7).totalMessageCount, 3);
-        assert.equal(getAnalyticsSummary(guildId, 7).engagement.gifs, 2);
+        // Keep the fixture stable over time: the exact-range assertions above test
+        // the selected week, while this wider window tests summary aggregation.
+        assert.equal(getAnalyticsSummary(guildId, 30).totalMessageCount, 3);
+        assert.equal(getAnalyticsSummary(guildId, 30).engagement.gifs, 2);
         assert.equal(getAnalyticsSummary(guildId, 'all').messageCount, 3);
     } finally {
         cleanupGuild(guildId);

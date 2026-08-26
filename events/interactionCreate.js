@@ -151,7 +151,11 @@ module.exports = {
         const command =
             interaction.client.commands.get(interaction.commandName);
 
-        if (!command) return;
+        if (!command) {
+            const { executeCustomCommand } = require('../services/custom-command-service');
+            await executeCustomCommand(interaction);
+            return;
+        }
 
         const guildId = interaction.guildId;
         const settings = readSettings(guildId);

@@ -207,6 +207,10 @@ async function executeModerationAction({ guild, action, actorId, actorLabel, tar
             if (!workflow.dryRun) await executeModerationAction({ guild, action: 'timeout', actorId: guild.client.user.id, actorLabel: 'Flummi workflow', targetId, reason: `${warningCount} active warnings`, durationMs: settings.management.moderation.defaultTimeoutMinutes * 60000, source: 'workflow', metadata: { workflow: 'warning-escalation', warningCount } });
         }
     }
+    if (action === 'warn') {
+        const warningCount = moderationStore.getMemberCases(guild.id, targetId).filter(entry => entry.action === 'warn' && entry.status === 'active').length;
+        await require('./workflow-service').runWorkflows(guild, 'warning.created', { userId: String(targetId), warningCount, moderationCase }).catch(error => console.warn(`Warning workflow failed: ${error.message}`));
+    }
     return moderationCase;
 }
 

@@ -102,7 +102,10 @@ const defaultSettings = {
         },
         tickets: {
             categoryId: '', supportRoleId: '', logChannelId: '', maxOpenPerMember: 1,
-            welcomeMessage: 'Thanks for contacting the team. Describe what you need help with.'
+            welcomeMessage: 'Thanks for contacting the team. Describe what you need help with.',
+            transcriptFormats: ['html', 'txt', 'json'], dmTranscript: false,
+            retentionDays: 90, deleteClosedChannels: false, deleteDelayMinutes: 0,
+            autoCloseInactiveDays: 0, supportTeams: []
         },
         suggestions: {
             channelId: '', reviewChannelId: '', anonymous: false, minimumApprovalVotes: 3
@@ -131,10 +134,13 @@ const defaultSettings = {
             logChannelId: '', actionThreshold: 5, windowSeconds: 30, autoLockdown: false, snapshotEnabled: true
         },
         reports: {
-            channelId: '', allowAnonymous: true, includeMessageContext: true
+            channelId: '', allowAnonymous: true, includeMessageContext: true,
+            modmailEnabled: false, modmailCategoryId: '', modmailLogChannelId: '',
+            modmailGuildId: '', anonymousStaffReplies: false
         },
         workflows: {
-            dryRun: true, welcomeReview: false, warningEscalation: false, ticketFollowUp: false, eventLaunch: false
+            dryRun: true, welcomeReview: false, warningEscalation: false, ticketFollowUp: false, eventLaunch: false,
+            rules: []
         },
         staffOperations: {
             requireBanApproval: false, caseReviewHours: 48, privateNotes: true
@@ -191,6 +197,14 @@ function normalizeSchedules(value) {
         channelId: snowflakeOrEmpty(entry?.channelId),
         message: textOr(entry?.message, '', 1800).trim(),
         intervalMinutes: boundedInteger(Number(entry?.intervalMinutes), 5, 43200, 1440),
+        scheduleType: ['interval', 'once', 'weekly', 'cron'].includes(entry?.scheduleType) ? entry.scheduleType : 'interval',
+        runAt: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(entry?.runAt || '')) ? String(entry.runAt) : '',
+        time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(entry?.time || '')) ? String(entry.time) : '09:00',
+        weekdays: [...new Set((Array.isArray(entry?.weekdays) ? entry.weekdays : []).map(Number).filter(day => Number.isInteger(day) && day >= 0 && day <= 6))],
+        cron: textOr(entry?.cron, '', 100).trim(),
+        timezone: textOr(entry?.timezone, 'UTC', 100).trim() || 'UTC',
+        startAt: entry?.startAt ? String(entry.startAt) : '',
+        endAt: entry?.endAt ? String(entry.endAt) : '',
         lastRunAt: entry?.lastRunAt || null
     })).filter(entry => entry.channelId && entry.message);
 }
@@ -302,7 +316,19 @@ function normalizeManagement(value) {
             supportRoleId: snowflakeOrEmpty(tickets.supportRoleId),
             logChannelId: snowflakeOrEmpty(tickets.logChannelId),
             maxOpenPerMember: boundedInteger(Number(tickets.maxOpenPerMember), 1, 10, defaults.tickets.maxOpenPerMember),
-            welcomeMessage: textOr(tickets.welcomeMessage, defaults.tickets.welcomeMessage, 1800).trim()
+            welcomeMessage: textOr(tickets.welcomeMessage, defaults.tickets.welcomeMessage, 1800).trim(),
+            transcriptFormats: [...new Set((Array.isArray(tickets.transcriptFormats) ? tickets.transcriptFormats : defaults.tickets.transcriptFormats).filter(format => ['html', 'txt', 'json'].includes(format)))],
+            dmTranscript: booleanOr(tickets.dmTranscript, defaults.tickets.dmTranscript),
+            retentionDays: boundedInteger(Number(tickets.retentionDays), 1, 3650, defaults.tickets.retentionDays),
+            deleteClosedChannels: booleanOr(tickets.deleteClosedChannels, defaults.tickets.deleteClosedChannels),
+            deleteDelayMinutes: boundedInteger(Number(tickets.deleteDelayMinutes), 0, 10080, defaults.tickets.deleteDelayMinutes),
+            autoCloseInactiveDays: boundedInteger(Number(tickets.autoCloseInactiveDays), 0, 365, defaults.tickets.autoCloseInactiveDays),
+            supportTeams: (Array.isArray(tickets.supportTeams) ? tickets.supportTeams : []).slice(0, 20).map(team => ({
+                id: textOr(team?.id, '', 80).replace(/[^a-z0-9-]/gi, ''),
+                name: textOr(team?.name, '', 100).trim(),
+                roleId: snowflakeOrEmpty(team?.roleId),
+                categoryId: snowflakeOrEmpty(team?.categoryId)
+            })).filter(team => team.id && team.name)
         },
         suggestions: {
             channelId: snowflakeOrEmpty(suggestions.channelId),
@@ -359,14 +385,27 @@ function normalizeManagement(value) {
         reports: {
             channelId: snowflakeOrEmpty(reports.channelId),
             allowAnonymous: booleanOr(reports.allowAnonymous, defaults.reports.allowAnonymous),
-            includeMessageContext: booleanOr(reports.includeMessageContext, defaults.reports.includeMessageContext)
+            includeMessageContext: booleanOr(reports.includeMessageContext, defaults.reports.includeMessageContext),
+            modmailEnabled: booleanOr(reports.modmailEnabled, defaults.reports.modmailEnabled),
+            modmailCategoryId: snowflakeOrEmpty(reports.modmailCategoryId),
+            modmailLogChannelId: snowflakeOrEmpty(reports.modmailLogChannelId),
+            modmailGuildId: snowflakeOrEmpty(reports.modmailGuildId),
+            anonymousStaffReplies: booleanOr(reports.anonymousStaffReplies, defaults.reports.anonymousStaffReplies)
         },
         workflows: {
             dryRun: booleanOr(workflows.dryRun, defaults.workflows.dryRun),
             welcomeReview: booleanOr(workflows.welcomeReview, defaults.workflows.welcomeReview),
             warningEscalation: booleanOr(workflows.warningEscalation, defaults.workflows.warningEscalation),
             ticketFollowUp: booleanOr(workflows.ticketFollowUp, defaults.workflows.ticketFollowUp),
-            eventLaunch: booleanOr(workflows.eventLaunch, defaults.workflows.eventLaunch)
+            eventLaunch: booleanOr(workflows.eventLaunch, defaults.workflows.eventLaunch),
+            rules: (Array.isArray(workflows.rules) ? workflows.rules : []).slice(0, 100).map((rule, index) => ({
+                id: /^[a-z0-9-]{3,80}$/i.test(String(rule?.id || '')) ? String(rule.id) : `workflow-${index + 1}`,
+                name: textOr(rule?.name, `Workflow ${index + 1}`, 100).trim(),
+                enabled: booleanOr(rule?.enabled, true),
+                event: ['member.join', 'warning.created', 'ticket.closed', 'ticket.rating', 'message.created'].includes(rule?.event) ? rule.event : 'message.created',
+                conditions: Array.isArray(rule?.conditions) ? rule.conditions.slice(0, 20) : [],
+                actions: Array.isArray(rule?.actions) ? rule.actions.slice(0, 20) : []
+            }))
         },
         staffOperations: {
             requireBanApproval: booleanOr(staffOperations.requireBanApproval, defaults.staffOperations.requireBanApproval),
@@ -473,6 +512,13 @@ function readSettings(guildId) {
     }
 }
 
+function isModuleGloballyDisabled(key) {
+    try {
+        const { readConfig } = require('../utils/config');
+        return (readConfig().features?.disabledModules || []).map(String).includes(String(key));
+    } catch { return false; }
+}
+
 function writeSettings(settings, guildId) {
     const nextSettings = {
         botEnabled:
@@ -533,6 +579,7 @@ function setBotEnabled(enabled, guildId) {
 
 module.exports = {
     defaultSettings,
+    isModuleGloballyDisabled,
     readSettings,
     writeSettings,
     setTriggerActionCooldownSeconds,

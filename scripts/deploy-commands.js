@@ -6,6 +6,7 @@ const { loadEnv } = require('../utils/env-loader');
 const { readConfig } = require('../utils/config');
 const { getRequiredCommandRole } = require('../stores/access-store');
 const { commandPayloadWithAccessDescriptions } = require('../utils/command-description');
+const customCommandStore = require('../stores/custom-command-store');
 
 loadEnv();
 const config = readConfig();
@@ -27,6 +28,13 @@ for (const file of commandFiles) {
 
 const rest = new REST({ version: '10' })
     .setToken(process.env.DISCORD_BOT_TOKEN || config.token);
+
+function customCommandPayloads(guildId, builtInCommands) {
+    const reservedNames = new Set(builtInCommands.map(command => command.data?.name).filter(Boolean));
+    return customCommandStore.readCommands(guildId)
+        .filter(command => command.enabled !== false && !reservedNames.has(command.name))
+        .map(command => ({ name: command.name, description: command.description || 'Custom server command' }));
+}
 
 async function deployCommands() {
     console.log(`Preparing ${commands.length} commands...`);
@@ -61,6 +69,7 @@ async function deployCommands() {
                 const guildCommands = commands
                     .filter(command => !Array.isArray(command.allowedGuildIds) || command.allowedGuildIds.includes(guildId))
                     .map(command => commandPayloadWithAccessDescriptions(command, getRequiredCommandRole));
+                guildCommands.push(...customCommandPayloads(guildId, commands));
 
                 await rest.put(Routes.applicationGuildCommands(config.clientId, guildId), { body: guildCommands });
                 console.log(`Registered ${guildCommands.length} staging commands for guild ${guildId}.`);
@@ -98,6 +107,7 @@ async function deployCommands() {
                 const guildCommands = commands
                     .filter(command => Array.isArray(command.allowedGuildIds) && command.allowedGuildIds.includes(guildId))
                     .map(command => commandPayloadWithAccessDescriptions(command, getRequiredCommandRole));
+                guildCommands.push(...customCommandPayloads(guildId, commands));
 
                 await rest.put(
                     Routes.applicationGuildCommands(config.clientId, guildId),

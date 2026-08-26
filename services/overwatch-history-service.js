@@ -9,11 +9,12 @@ const MANUAL_REFRESH_COOLDOWN_MS = 30 * 1000;
 const REDISCOVERY_NOT_FOUND_COUNT = 2;
 
 class OverwatchApiError extends Error {
-    constructor(message, { status = null, retryAfterMs = 0 } = {}) {
+    constructor(message, { status = null, retryAfterMs = 0, candidates = [] } = {}) {
         super(message);
         this.name = 'OverwatchApiError';
         this.status = status;
         this.retryAfterMs = retryAfterMs;
+        this.candidates = candidates;
     }
 }
 
@@ -239,10 +240,21 @@ function createOverwatchHistoryService({
         const exact = results.filter(result => exactBattletagCandidate(result, DEFAULT_BATTLETAG));
         if (exact.length !== 1 || !exact[0]?.player_id) {
             const plausible = results.filter(result => String(result?.name || result?.username || '').toLowerCase() === TRACKED_USERNAME.toLowerCase());
+            const candidates = await Promise.all(plausible.map(async result => {
+                const playerId = String(result.player_id || '');
+                const summary = playerId ? await fetchJson(`/players/${safePlayerPath(playerId)}/summary`).catch(() => null) : null;
+                return {
+                    playerId, name: String(result.name || result.username || TRACKED_USERNAME),
+                    avatar: summary?.avatar || null, namecard: summary?.namecard || null,
+                    title: summary?.title || null, endorsementLevel: finiteNumber(summary?.endorsement?.level),
+                    platform: summary?.competitive?.console ? 'console' : summary?.competitive?.pc ? 'pc' : 'unknown',
+                    lastUpdatedAt: finiteNumber(result.last_updated_at) === null ? null : new Date(Number(result.last_updated_at) * 1000).toISOString()
+                };
+            }));
             const detail = plausible.length === 1
                 ? 'One plausible Liliana account was found, but OverFast did not expose enough BattleTag information to verify Liliana#21184 safely.'
                 : `Could not safely resolve Liliana#21184 (${plausible.length} plausible Liliana results).`;
-            throw new OverwatchApiError(detail);
+            throw new OverwatchApiError(detail, { candidates });
         }
         return {
             playerId: String(exact[0].player_id),
@@ -301,7 +313,8 @@ function createOverwatchHistoryService({
                 lastSnapshot: snapshot,
                 history: nextHistory,
                 consecutiveNotFound: 0,
-                error: null
+                error: null,
+                candidates: []
             });
             return { refreshing: false, updated: true, state: next };
         } catch (error) {
@@ -312,7 +325,8 @@ function createOverwatchHistoryService({
                 lastCheckedAt: checkedAt,
                 consecutiveNotFound: error.notFoundCount || current.consecutiveNotFound || 0,
                 nextAllowedRefreshAt: retryAt || null,
-                error: error.message || 'OverFast refresh failed.'
+                error: error.message || 'OverFast refresh failed.',
+                candidates: Array.isArray(error.candidates) ? error.candidates : (current.candidates || [])
             });
             return { refreshing: false, updated: false, error, state: failed };
         }
@@ -385,6 +399,7 @@ function createOverwatchHistoryService({
             nextAllowedRefreshAt: state.nextAllowedRefreshAt,
             refreshing: Boolean(refreshPromise),
             error: state.error,
+            candidates: state.candidates || [],
             matches: (state.history || []).slice(0, 3)
         };
     }

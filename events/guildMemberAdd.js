@@ -15,10 +15,11 @@ module.exports = {
         logConfiguredEvent(member.guild.id, 'member', { type: 'member-join', userId: member.id, summary: `${member.user.tag} joined`, metadata: { accountCreatedAt: member.user.createdAt?.toISOString() } });
         await handleJoinSecurity(member).catch(error => console.warn(`Join Security check failed: ${error.message}`));
         await handleMemberAdd(member).catch(error => console.warn(`Onboarding failed: ${error.message}`));
+        const accountAgeDays = Math.floor((Date.now() - member.user.createdTimestamp) / 86400000);
+        await require('../services/workflow-service').runWorkflows(member.guild, 'member.join', { userId: member.id, member, accountAgeDays }).catch(error => console.warn(`Join workflow failed: ${error.message}`));
         const management = readSettings(member.guild.id).management;
         const workflow = management.modules.workflows ? management.workflows : null;
         if (workflow?.welcomeReview) {
-            const accountAgeDays = Math.floor((Date.now() - member.user.createdTimestamp) / 86400000);
             const findings = [];
             if (accountAgeDays < management.joinSecurity.minimumAccountAgeDays) findings.push(`account age ${accountAgeDays}d`);
             if (management.modules.roles && management.roles.autoroleId && !member.roles.cache.has(management.roles.autoroleId) && management.roles.autoroleDelayMinutes === 0) findings.push('expected autorole missing');

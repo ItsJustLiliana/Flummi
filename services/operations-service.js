@@ -1,7 +1,7 @@
 const { AuditLogEvent, ChannelType, GuildVerificationLevel, PermissionFlagsBits } = require('discord.js');
 const dns = require('dns').promises;
 const net = require('net');
-const { readSettings } = require('../stores/settings-store');
+const { readSettings, isModuleGloballyDisabled } = require('../stores/settings-store');
 const operationsStore = require('../stores/operations-store');
 const communityStore = require('../stores/community-management-store');
 
@@ -72,6 +72,7 @@ const auditTypes = {
 };
 
 function moduleConfig(guildId, key) {
+    if (isModuleGloballyDisabled(key)) return null;
     const management = readSettings(guildId).management;
     return management.modules[key] ? management[key] : null;
 }

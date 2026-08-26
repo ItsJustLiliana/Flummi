@@ -19,6 +19,7 @@ function emptyState(battletag = DEFAULT_BATTLETAG) {
         nextAllowedRefreshAt: null,
         lastSnapshot: null,
         history: [],
+        candidates: [],
         error: null
     };
 }

@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
 const { exec, execFile, spawn } = require('child_process');
-const { Client, GatewayIntentBits, ChannelType, PermissionsBitField, GuildVerificationLevel } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, Client, EmbedBuilder, GatewayIntentBits, ChannelType, PermissionsBitField, GuildVerificationLevel } = require('discord.js');
 const { installTimestampedConsole, readRecentLogs } = require('./utils/logger');
 const { readActivity, recordActivity } = require('./stores/activity-store');
 const { loadEnv } = require('./utils/env-loader');
@@ -39,6 +39,9 @@ const communityStore = require('./stores/community-management-store');
 const { executeModerationAction, parseDuration } = require('./services/moderation-service');
 const { publishRoleMenu } = require('./services/role-service');
 const operationsStore = require('./stores/operations-store');
+const customCommandStore = require('./stores/custom-command-store');
+const { syncCommand, removeSyncedCommand } = require('./services/custom-command-service');
+const { nextExecutions } = require('./services/schedule-service');
 const { scanServer, snapshotGuild, previewSnapshot, restoreSnapshot } = require('./services/operations-service');
 const { createOverwatchHistoryService } = require('./services/overwatch-history-service');
 const {
@@ -67,6 +70,7 @@ const panelLocaleDir = path.join(__dirname, 'panel', 'i18n', 'locales');
 const panelStylesPath = path.join(__dirname, 'panel', 'styles.css');
 const faviconPath = path.join(__dirname, 'panel', 'favicon.png');
 const commandsDir = path.join(__dirname, 'commands');
+const builtInCommandNames = new Set(fs.readdirSync(commandsDir).filter(name => name.endsWith('.js')).map(name => name.replace(/\.js$/, '')));
 const brandingDir = path.join(__dirname, 'assets', 'branding');
 const lottiePlayerPath = path.join(__dirname, 'node_modules', 'lottie-web', 'build', 'player', 'lottie.min.js');
 const runtimeFilePath = path.join(__dirname, 'data', 'runtime', 'runtime.json');
@@ -904,6 +908,8 @@ async function listGuildMembers(guildId) {
             displayName: member.displayName || member.nickname || member.user.globalName || member.user.username,
             nickname: member.nickname || null,
             avatarUrl: member.displayAvatarURL({ size: 128 }),
+            serverAvatarUrl: member.avatarURL({ size: 256 }) || null,
+            globalAvatarUrl: member.user.displayAvatarURL({ size: 256 }),
             bannerUrl: typeof member.bannerURL === 'function' ? member.bannerURL({ size: 1024 }) : null,
             isAdministrator: member.permissions.has(PermissionsBitField.Flags.Administrator)
         }))
@@ -911,6 +917,23 @@ async function listGuildMembers(guildId) {
 
     memberCache.set(guildId, { members, botCount, fetchedAt: Date.now() });
     return members;
+}
+
+async function getMemberIdentity(guildId, userId) {
+    const guild = await client.guilds.fetch(String(guildId));
+    const member = guild.members.cache.get(String(userId)) || await guild.members.fetch(String(userId)).catch(() => null);
+    const user = await client.users.fetch(String(userId), { force: true }).catch(() => member?.user || null);
+    if (!user) return null;
+    const fallbackHue = [...String(userId)].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360;
+    return {
+        id: String(userId), tag: user.tag, username: user.username, globalName: user.globalName || null,
+        displayName: member?.displayName || user.globalName || user.username, nickname: member?.nickname || null,
+        serverAvatarUrl: member?.avatarURL?.({ size: 256 }) || null,
+        globalAvatarUrl: user.displayAvatarURL({ size: 256 }),
+        serverBannerUrl: member?.bannerURL?.({ size: 1024 }) || null,
+        globalBannerUrl: user.bannerURL?.({ size: 1024 }) || null,
+        bannerColor: user.hexAccentColor || `hsl(${fallbackHue} 48% 35%)`
+    };
 }
 
 function publicSiteUnavailablePage() {
@@ -2331,6 +2354,57 @@ function createServer() {
                 return;
             }
 
+            if (requestUrl.pathname === '/api/management/custom-commands') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Custom commands are only available to server administrators.')) return;
+                if (req.method === 'GET') { sendJson(res, 200, { commands: customCommandStore.readCommands(guildId) }); return; }
+                if (req.method === 'POST') {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId);
+                    try {
+                        if (parsed.action === 'remove') { const removed = customCommandStore.removeCommand(guildId, parsed.name); if (removed) await removeSyncedCommand(guild, customCommandStore.normalizeName(parsed.name)); sendJson(res, 200, { ok: true, commands: customCommandStore.readCommands(guildId) }); return; }
+                        const command = customCommandStore.upsertCommand(guildId, parsed.command || {});
+                        if (builtInCommandNames.has(command.name)) throw new Error('That name belongs to a built-in Flummi command.');
+                        await syncCommand(guild, command);
+                        auditPanelAction(panelSession, 'custom-command', `Saved /${command.name}`, { guildId });
+                        sendJson(res, 200, { ok: true, command, commands: customCommandStore.readCommands(guildId) });
+                    } catch (error) { sendJson(res, 400, { error: error.message }); }
+                    return;
+                }
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/management/schedule-preview') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Schedule previews require server administrator access.')) return;
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                sendJson(res, 200, { next: nextExecutions(parsed.schedule || {}, new Date(), 5) });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/management/webhook-publish') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Publishing requires server administrator access.')) return;
+                try {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId);
+                    const channel = guild.channels.cache.get(String(parsed.channelId)) || await guild.channels.fetch(String(parsed.channelId));
+                    if (!channel?.isTextBased() || !channel.createWebhook) throw new Error('Choose a webhook-capable text channel.');
+                    const embed = new EmbedBuilder().setDescription(String(parsed.description || '').slice(0, 4000) || ' ').setColor(0x7785ff);
+                    if (parsed.title) embed.setTitle(String(parsed.title).slice(0, 256));
+                    if (/^https?:\/\//i.test(parsed.imageUrl || '')) embed.setImage(parsed.imageUrl);
+                    if (/^https?:\/\//i.test(parsed.thumbnailUrl || '')) embed.setThumbnail(parsed.thumbnailUrl);
+                    if (parsed.timestamp) embed.setTimestamp();
+                    if (Array.isArray(parsed.fields)) embed.addFields(parsed.fields.slice(0, 25).map(field => ({ name: String(field.name || 'Field').slice(0, 256), value: String(field.value || '-').slice(0, 1024), inline: Boolean(field.inline) })));
+                    const validButtons = Array.isArray(parsed.buttons) ? parsed.buttons.slice(0, 5).filter(button => /^https?:\/\//i.test(button.url || '')) : [];
+                    const components = validButtons.length ? [new ActionRowBuilder().addComponents(validButtons.map(button => new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(String(button.label || 'Open').slice(0, 80)).setURL(button.url)))] : [];
+                    const hooks = await channel.fetchWebhooks();
+                    const webhook = hooks.find(hook => hook.owner?.id === client.user.id && hook.name === 'Flummi Publisher') || await channel.createWebhook({ name: 'Flummi Publisher' });
+                    const message = await webhook.send({ username: String(parsed.username || 'Flummi').slice(0, 80), avatarURL: /^https?:\/\//i.test(parsed.avatarUrl || '') ? parsed.avatarUrl : undefined, content: parsed.roleId ? `<@&${parsed.roleId}>` : undefined, embeds: [embed], components, allowedMentions: parsed.roleId ? { roles: [String(parsed.roleId)] } : { parse: [] } });
+                    sendJson(res, 200, { ok: true, messageId: message.id });
+                } catch (error) { sendJson(res, 400, { error: error.message }); }
+                return;
+            }
+
             if (req.method === 'POST' && requestUrl.pathname === '/api/management/operations') {
                 const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
                 if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Management operations are only available to server administrators.')) return;
@@ -2541,6 +2615,7 @@ function createServer() {
 
                 sendJson(res, 200, {
                     role: await getCurrentMemberRole(userId, guildId),
+                    member: await getMemberIdentity(guildId, userId),
                     permissions: accessStore.getUserPermissions(userId, guildId),
                     canEdit: await canEditMemberPermissions(panelSession, guildId, userId),
                     featureAvailability: getMemberFeatureAvailability(guildId)

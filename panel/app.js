@@ -872,7 +872,7 @@ async function refreshActiveTab() {
 }
 
 // Server tabs stay in the dashboard sidebar. Developer tools have their own top-level workspace.
-const defaultDeveloperTabOrder = ['messenger', 'profiles', 'ai', 'global', 'reliability', 'adoption', 'files', 'logs', 'experiments'];
+const defaultDeveloperTabOrder = ['global', 'messenger', 'profiles', 'ai', 'adoption', 'reliability', 'logs', 'files', 'experiments'];
 const fixedDeveloperTabIds = new Set(defaultDeveloperTabOrder);
 let activeDeveloperTabOrder = [...defaultDeveloperTabOrder];
 
@@ -2586,7 +2586,7 @@ const serverMembersContainer = document.getElementById('serverMembersTable');
 
 function renderMemberRoleCell(member) {
     if (member.isDeveloper) {
-        return '<span class="badge dev">Developer</span>';
+        return `<span class="badge dev">Developer</span> <span class="badge ${member.isAdministrator ? 'admin' : 'member'}">${member.isAdministrator ? 'Admin' : 'Member'}</span>`;
     }
     if (member.isOwner) {
         return '<span class="badge owner">Owner</span>';
@@ -2642,7 +2642,7 @@ serverMembersContainer.addEventListener('click', async event => {
 
     if (manageButton) {
         const userId = manageButton.dataset.manageUser;
-        document.getElementById('permUserId').value = userId;
+        document.getElementById('memberPermissionsSection').hidden = false;
         loadPermissionsEditor(userId).catch(error => console.error(error));
         document.getElementById('permissionsEditor').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
@@ -2671,7 +2671,7 @@ async function loadUsers() {
     if (!state.guildId) return;
     await populateGuildUserSelects();
     await loadServerMembers();
-
+    document.getElementById('memberPermissionsSection').hidden = true;
 }
 
 function renderCommandPermissions(configData) {
@@ -2707,8 +2707,10 @@ function memberIdentityCard(userId) {
     const member = state.guildMembers.get(String(userId));
     const displayName = member?.nickname || member?.displayName || member?.globalName || member?.username || `Member ${userId}`;
     const username = member?.username ? `@${member.username}` : (member?.tag || `ID ${userId}`);
-    const bannerStyle = member?.bannerUrl ? ` style="background-image:url('${escapeHtml(member.bannerUrl)}')"` : '';
-    const avatar = member?.avatarUrl ? `<img class="member-identity-avatar" src="${escapeHtml(member.avatarUrl)}" alt="">` : '<div class="member-identity-avatar"></div>';
+    const bannerUrl = member?.serverBannerUrl || member?.globalBannerUrl || member?.bannerUrl;
+    const bannerStyle = bannerUrl ? ` style="background-image:url('${escapeHtml(bannerUrl)}')"` : ` style="background:${escapeHtml(member?.bannerColor || '#5865f2')}"`;
+    const avatarUrl = member?.serverAvatarUrl || member?.globalAvatarUrl || member?.avatarUrl;
+    const avatar = avatarUrl ? `<img class="member-identity-avatar" src="${escapeHtml(avatarUrl)}" alt="">` : '<div class="member-identity-avatar"></div>';
     return `<div class="member-identity"><div class="member-identity-banner"${bannerStyle}></div><div class="member-identity-content">${avatar}<div class="member-identity-name"><strong>${escapeHtml(displayName)}</strong><span>${escapeHtml(username)}</span></div></div></div>`;
 }
 
@@ -2749,16 +2751,13 @@ async function loadPermissionsEditor(userId) {
 
     try {
         const data = await api(withGuild(`/api/permissions?userId=${encodeURIComponent(userId)}`));
+        if (data.member) state.guildMembers.set(String(userId), { ...(state.guildMembers.get(String(userId)) || {}), ...data.member });
         renderPermissionsEditor(userId, data);
         setStatus(permissionsStatusField, '');
     } catch (error) {
         setStatus(permissionsStatusField, error.message, 'error');
     }
 }
-
-document.getElementById('loadPermissions').addEventListener('click', () => {
-    loadPermissionsEditor(document.getElementById('permUserId').value.trim()).catch(error => console.error(error));
-});
 
 permissionsEditor.addEventListener('change', async event => {
     const toggle = event.target.closest('[data-feature-toggle]');
@@ -3307,7 +3306,7 @@ function managementChannelOptions(selected = '') {
 function renderAutomationRules() {
     const schedules = state.management?.automation?.schedules || [];
     const purges = state.management?.automation?.purgeRules || [];
-    document.getElementById('managementSchedules').innerHTML = schedules.length ? schedules.map((rule, index) => `<div class="automation-rule" data-schedule-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="5" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="field"><label>Message</label><textarea data-rule-message rows="3" maxlength="1800">${escapeHtml(rule.message)}</textarea></div><div class="actions"><button class="danger" type="button" data-remove-schedule="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No scheduled messages yet.</div>';
+    document.getElementById('managementSchedules').innerHTML = schedules.length ? schedules.map((rule, index) => `<div class="automation-rule" data-schedule-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Schedule type</label><select data-rule-type><option value="interval" ${rule.scheduleType === 'interval' ? 'selected' : ''}>Interval</option><option value="once" ${rule.scheduleType === 'once' ? 'selected' : ''}>One-time</option><option value="weekly" ${rule.scheduleType === 'weekly' ? 'selected' : ''}>Weekdays</option><option value="cron" ${rule.scheduleType === 'cron' ? 'selected' : ''}>Cron</option></select></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="5" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="field"><label>Date/time (one-time)</label><input data-rule-run-at type="datetime-local" value="${escapeHtml(rule.runAt || '')}"></div><div class="field"><label>Time (weekly)</label><input data-rule-time type="time" value="${escapeHtml(rule.time || '09:00')}"></div><div class="field"><label>Weekdays (0=Sun â€¦ 6=Sat)</label><input data-rule-weekdays value="${escapeHtml((rule.weekdays || []).join(','))}" placeholder="1,3,5"></div><div class="field"><label>Cron (min hour day month weekday)</label><input data-rule-cron value="${escapeHtml(rule.cron || '')}" placeholder="0 20 * * 5"></div><div class="field"><label>Timezone</label><input data-rule-timezone value="${escapeHtml(rule.timezone || 'UTC')}" placeholder="Europe/Amsterdam"></div><div class="field"><label>Start date (optional)</label><input data-rule-start type="datetime-local" value="${escapeHtml(rule.startAt || '')}"></div><div class="field"><label>End date (optional)</label><input data-rule-end type="datetime-local" value="${escapeHtml(rule.endAt || '')}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="field"><label>Message</label><textarea data-rule-message rows="3" maxlength="1800">${escapeHtml(rule.message)}</textarea></div><div class="actions"><button class="danger" type="button" data-remove-schedule="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No scheduled messages yet.</div>';
     document.getElementById('managementPurgeRules').innerHTML = purges.length ? purges.map((rule, index) => `<div class="automation-rule" data-purge-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Keep newest messages</label><input data-rule-keep type="number" min="0" max="100" value="${Number(rule.keepMessages) || 0}"></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="10" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="actions"><button class="danger" type="button" data-remove-purge="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No auto-purge rules yet.</div>';
 }
 
@@ -3369,6 +3368,13 @@ function hydrateManagementEditors() {
     document.getElementById('managementTicketLog').value = management.tickets.logChannelId || '';
     document.getElementById('managementTicketLimit').value = management.tickets.maxOpenPerMember;
     document.getElementById('managementTicketWelcome').value = management.tickets.welcomeMessage || '';
+    document.getElementById('managementTicketRetention').value = management.tickets.retentionDays;
+    document.getElementById('managementTicketAutoClose').value = management.tickets.autoCloseInactiveDays;
+    document.getElementById('managementTicketDeleteDelay').value = management.tickets.deleteDelayMinutes;
+    document.getElementById('managementTicketDmTranscript').checked = management.tickets.dmTranscript;
+    document.getElementById('managementTicketDelete').checked = management.tickets.deleteClosedChannels;
+    for (const option of document.getElementById('managementTicketFormats').options) option.selected = (management.tickets.transcriptFormats || []).includes(option.value);
+    document.getElementById('managementTicketTeams').value = JSON.stringify(management.tickets.supportTeams || [], null, 2);
     document.getElementById('managementSuggestionChannel').value = management.suggestions.channelId || '';
     document.getElementById('managementSuggestionReview').value = management.suggestions.reviewChannelId || '';
     document.getElementById('managementSuggestionAnonymous').checked = management.suggestions.anonymous;
@@ -3399,7 +3405,8 @@ function hydrateManagementEditors() {
     for (const field of document.querySelectorAll('[data-advanced-field]')) {
         const [section, key] = field.dataset.advancedField.split('.');
         const value = management[section]?.[key];
-        if (field.type === 'checkbox') field.checked = value === true;
+        if (field.dataset.jsonField !== undefined) field.value = JSON.stringify(value || [], null, 2);
+        else if (field.type === 'checkbox') field.checked = value === true;
         else field.value = value ?? '';
     }
 }
@@ -3408,7 +3415,9 @@ function collectAdvancedManagement(section) {
     const current = { ...(state.management[section] || {}) };
     for (const field of document.querySelectorAll(`[data-advanced-field^="${section}."]`)) {
         const key = field.dataset.advancedField.split('.')[1];
-        if (field.type === 'checkbox') current[key] = field.checked;
+        if (field.dataset.jsonField !== undefined) {
+            try { current[key] = JSON.parse(field.value || '[]'); } catch { throw new Error(`${field.labels?.[0]?.textContent || key} must contain valid JSON.`); }
+        } else if (field.type === 'checkbox') current[key] = field.checked;
         else if (field.type === 'number') {
             if (!field.checkValidity()) throw new Error(`${field.labels?.[0]?.textContent || key} is outside the allowed range.`);
             current[key] = Number(field.value);
@@ -3510,7 +3519,51 @@ async function loadAdvancedManagement() {
     await loadManagement();
     const data = await api(withGuild('/api/management/operations'));
     renderAdvancedOperations(data);
+    if (document.getElementById('tab-management-workflows').classList.contains('active')) await loadCustomCommands();
 }
+
+async function loadCustomCommands() {
+    if (!state.guildId || state.role === 'member') return;
+    const data = await api(withGuild('/api/management/custom-commands'));
+    const rows = data.commands || [];
+    document.getElementById('customCommandsTable').innerHTML = operationTable(rows, [
+        { label: 'Command', render: row => `<code>/${escapeHtml(row.name)}</code>` },
+        { label: 'Description', key: 'description' }, { label: 'Type', key: 'responseType' },
+        { label: 'Visibility', render: row => row.ephemeral ? 'Ephemeral' : 'Public' },
+        { label: '', render: row => `<button class="danger" type="button" data-remove-custom-command="${escapeHtml(row.name)}">Remove</button>` }
+    ], 'No custom commands configured.');
+}
+
+document.getElementById('saveCustomCommand').addEventListener('click', async () => {
+    const status = document.getElementById('customCommandStatus');
+    let buttons;
+    try { buttons = JSON.parse(document.getElementById('customCommandButtons').value || '[]'); } catch { return setStatus(status, 'Buttons must be valid JSON.', 'error'); }
+    const command = { name: document.getElementById('customCommandName').value, description: document.getElementById('customCommandDescription').value, responseType: document.getElementById('customCommandType').value, content: document.getElementById('customCommandContent').value, imageUrl: document.getElementById('customCommandImage').value, buttons, requiredRoleId: document.getElementById('customCommandRole').value, allowedChannelIds: document.getElementById('customCommandChannels').value.split(/\s+/).filter(Boolean), cooldownSeconds: Number(document.getElementById('customCommandCooldown').value), ephemeral: document.getElementById('customCommandEphemeral').checked, enabled: document.getElementById('customCommandEnabled').checked };
+    try { await api(withGuild('/api/management/custom-commands'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command }) }); setStatus(status, `/${command.name} saved.`, 'ok'); await loadCustomCommands(); } catch (error) { setStatus(status, error.message, 'error'); }
+});
+
+document.getElementById('customCommandsTable').addEventListener('click', async event => {
+    const button = event.target.closest('[data-remove-custom-command]'); if (!button) return;
+    if (!await confirmAction({ title: 'Remove custom command?', message: `Remove /${button.dataset.removeCustomCommand}?`, confirmLabel: 'Remove' })) return;
+    await api(withGuild('/api/management/custom-commands'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'remove', name: button.dataset.removeCustomCommand }) });
+    await loadCustomCommands();
+});
+
+function renderWebhookPreview() {
+    const title = document.getElementById('webhookTitle').value.trim();
+    const description = document.getElementById('webhookDescription').value.trim();
+    const image = document.getElementById('webhookImage').value.trim();
+    const thumbnail = document.getElementById('webhookThumbnail').value.trim();
+    document.getElementById('webhookPreview').innerHTML = `<h3>${escapeHtml(title || 'Announcement title')}</h3><p>${escapeHtml(description || 'Announcement description').replace(/\n/g, '<br>')}</p>${thumbnail ? `<img src="${escapeHtml(thumbnail)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px">` : ''}${image ? `<img src="${escapeHtml(image)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;margin-top:12px">` : ''}`;
+}
+for (const id of ['webhookTitle', 'webhookDescription', 'webhookImage', 'webhookThumbnail']) document.getElementById(id).addEventListener('input', renderWebhookPreview);
+document.getElementById('publishWebhook').addEventListener('click', async () => {
+    const status = document.getElementById('webhookStatus');
+    let fields, buttons;
+    try { fields = JSON.parse(document.getElementById('webhookFields').value || '[]'); buttons = JSON.parse(document.getElementById('webhookButtons').value || '[]'); } catch { return setStatus(status, 'Fields and buttons must be valid JSON.', 'error'); }
+    const payload = { channelId: document.getElementById('webhookChannel').value, username: document.getElementById('webhookUsername').value, avatarUrl: document.getElementById('webhookAvatar').value, title: document.getElementById('webhookTitle').value, description: document.getElementById('webhookDescription').value, imageUrl: document.getElementById('webhookImage').value, thumbnailUrl: document.getElementById('webhookThumbnail').value, roleId: document.getElementById('webhookRole').value, fields, buttons, timestamp: true };
+    try { await api(withGuild('/api/management/webhook-publish'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); setStatus(status, 'Announcement published.', 'ok'); } catch (error) { setStatus(status, error.message, 'error'); }
+});
 
 async function persistManagement(statusField) {
     const result = await api(withGuild('/api/settings'), {
@@ -3601,11 +3654,13 @@ function collectManagementSection(section) {
         if (!delay.checkValidity()) throw new Error('Autorole delay must be between 0 and 10080 minutes.');
         state.management.roles = { autoroleId: roleId, autoroleDelayMinutes: Number(delay.value), persistRoles: document.getElementById('managementPersistRoles').checked, interactiveRoles: document.getElementById('managementInteractiveRoles').checked, selfAssignableRoleIds: textLines('managementSelfRoles'), onboardingChannelId: document.getElementById('managementOnboardingChannel').value, onboardingTitle: document.getElementById('managementOnboardingTitle').value, onboardingMessage: document.getElementById('managementOnboardingMessage').value };
     } else if (section === 'automation') {
-        const schedules = [...document.querySelectorAll('[data-schedule-row]')].map((row, index) => ({ id: row.querySelector('[data-rule-id]').value.trim() || `schedule-${index + 1}`, enabled: row.querySelector('[data-rule-enabled]').checked, channelId: row.querySelector('[data-rule-channel]').value, message: row.querySelector('[data-rule-message]').value.trim(), intervalMinutes: Number(row.querySelector('[data-rule-interval]').value) }));
+        const schedules = [...document.querySelectorAll('[data-schedule-row]')].map((row, index) => ({ id: row.querySelector('[data-rule-id]').value.trim() || `schedule-${index + 1}`, enabled: row.querySelector('[data-rule-enabled]').checked, channelId: row.querySelector('[data-rule-channel]').value, message: row.querySelector('[data-rule-message]').value.trim(), intervalMinutes: Number(row.querySelector('[data-rule-interval]').value), scheduleType: row.querySelector('[data-rule-type]').value, runAt: row.querySelector('[data-rule-run-at]').value, time: row.querySelector('[data-rule-time]').value, weekdays: row.querySelector('[data-rule-weekdays]').value.split(',').map(Number).filter(Number.isInteger), cron: row.querySelector('[data-rule-cron]').value, timezone: row.querySelector('[data-rule-timezone]').value, startAt: row.querySelector('[data-rule-start]').value, endAt: row.querySelector('[data-rule-end]').value }));
         const purgeRules = [...document.querySelectorAll('[data-purge-row]')].map((row, index) => ({ id: row.querySelector('[data-rule-id]').value.trim() || `purge-${index + 1}`, enabled: row.querySelector('[data-rule-enabled]').checked, channelId: row.querySelector('[data-rule-channel]').value, keepMessages: Number(row.querySelector('[data-rule-keep]').value), intervalMinutes: Number(row.querySelector('[data-rule-interval]').value) }));
         state.management.automation = { welcomeEnabled: document.getElementById('managementWelcomeEnabled').checked, goodbyeEnabled: document.getElementById('managementGoodbyeEnabled').checked, scheduledMessagesEnabled: document.getElementById('managementScheduledMessages').checked, autoPurgeEnabled: document.getElementById('managementAutoPurge').checked, welcomeChannelId: document.getElementById('managementWelcomeChannel').value, welcomeMessage: document.getElementById('managementWelcomeMessage').value, goodbyeChannelId: document.getElementById('managementGoodbyeChannel').value, goodbyeMessage: document.getElementById('managementGoodbyeMessage').value, schedules, purgeRules };
     } else if (section === 'tickets') {
-        state.management.tickets = { categoryId: document.getElementById('managementTicketCategory').value, supportRoleId: requireOptionalSnowflake('managementTicketSupportRole', 'Support role ID'), logChannelId: document.getElementById('managementTicketLog').value, maxOpenPerMember: Number(document.getElementById('managementTicketLimit').value), welcomeMessage: document.getElementById('managementTicketWelcome').value };
+        let supportTeams;
+        try { supportTeams = JSON.parse(document.getElementById('managementTicketTeams').value || '[]'); } catch { throw new Error('Support teams must contain valid JSON.'); }
+        state.management.tickets = { categoryId: document.getElementById('managementTicketCategory').value, supportRoleId: requireOptionalSnowflake('managementTicketSupportRole', 'Support role ID'), logChannelId: document.getElementById('managementTicketLog').value, maxOpenPerMember: Number(document.getElementById('managementTicketLimit').value), welcomeMessage: document.getElementById('managementTicketWelcome').value, transcriptFormats: [...document.getElementById('managementTicketFormats').selectedOptions].map(option => option.value), dmTranscript: document.getElementById('managementTicketDmTranscript').checked, retentionDays: Number(document.getElementById('managementTicketRetention').value), deleteClosedChannels: document.getElementById('managementTicketDelete').checked, deleteDelayMinutes: Number(document.getElementById('managementTicketDeleteDelay').value), autoCloseInactiveDays: Number(document.getElementById('managementTicketAutoClose').value), supportTeams };
     } else if (section === 'suggestions') {
         state.management.suggestions = { channelId: document.getElementById('managementSuggestionChannel').value, reviewChannelId: document.getElementById('managementSuggestionReview').value, anonymous: document.getElementById('managementSuggestionAnonymous').checked, minimumApprovalVotes: Number(document.getElementById('managementSuggestionVotes').value) };
     } else if (section === 'joinSecurity') {
@@ -3642,9 +3697,15 @@ document.getElementById('managementAutomodPreset').addEventListener('change', ev
     }
 });
 
-document.getElementById('managementAddSchedule').addEventListener('click', () => { state.management.automation.schedules.push({ id: `schedule-${Date.now()}`, enabled: true, channelId: '', message: '', intervalMinutes: 1440 }); renderAutomationRules(); });
+document.getElementById('managementAddSchedule').addEventListener('click', () => { state.management.automation.schedules.push({ id: `schedule-${Date.now()}`, enabled: true, channelId: '', message: '', intervalMinutes: 1440, scheduleType: 'interval', timezone: 'UTC', weekdays: [], time: '09:00' }); renderAutomationRules(); });
 document.getElementById('managementAddPurgeRule').addEventListener('click', () => { state.management.automation.purgeRules.push({ id: `purge-${Date.now()}`, enabled: true, channelId: '', keepMessages: 20, intervalMinutes: 1440 }); renderAutomationRules(); });
 document.getElementById('managementSchedules').addEventListener('click', event => { const button = event.target.closest('[data-remove-schedule]'); if (!button) return; state.management.automation.schedules.splice(Number(button.dataset.removeSchedule), 1); renderAutomationRules(); });
+document.getElementById('managementSchedules').addEventListener('dblclick', async event => {
+    const row = event.target.closest('[data-schedule-row]'); if (!row) return;
+    const schedule = { enabled: true, scheduleType: row.querySelector('[data-rule-type]').value, intervalMinutes: Number(row.querySelector('[data-rule-interval]').value), runAt: row.querySelector('[data-rule-run-at]').value, time: row.querySelector('[data-rule-time]').value, weekdays: row.querySelector('[data-rule-weekdays]').value.split(',').map(Number).filter(Number.isInteger), cron: row.querySelector('[data-rule-cron]').value, timezone: row.querySelector('[data-rule-timezone]').value, startAt: row.querySelector('[data-rule-start]').value, endAt: row.querySelector('[data-rule-end]').value };
+    const result = await api(withGuild('/api/management/schedule-preview'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ schedule }) });
+    await alertDialog({ title: 'Next executions', message: result.next.length ? result.next.map(formatDateTime).join('\n') : 'No execution falls within the next year.' });
+});
 document.getElementById('managementPurgeRules').addEventListener('click', event => { const button = event.target.closest('[data-remove-purge]'); if (!button) return; state.management.automation.purgeRules.splice(Number(button.dataset.removePurge), 1); renderAutomationRules(); });
 
 const managementStatusIds = { moderation: 'managementModerationStatus', automod: 'managementAutomodStatus', cases: 'managementCasesStatus', roles: 'managementRolesStatus', automation: 'managementAutomationStatus', tickets: 'managementTicketsStatus', suggestions: 'managementSuggestionsStatus', joinSecurity: 'managementJoinSecurityStatus', starboard: 'managementStarboardStatus', forms: 'managementFormsStatus', channels: 'managementChannelsStatus', integrations: 'managementIntegrationsStatus', serverDoctor: 'managementServerDoctorStatus', incidentCenter: 'managementIncidentCenterStatus', reports: 'managementReportsStatus', workflows: 'managementWorkflowsStatus', staffOperations: 'managementStaffOperationsStatus', communityHealth: 'managementCommunityHealthStatus', backups: 'managementBackupsStatus', copilot: 'managementCopilotStatus', engagement: 'managementEngagementStatus' };
@@ -3847,6 +3908,8 @@ function applyDeveloperSettings(configData) {
     document.getElementById('featurePingResponses').checked = f.pingResponsesEnabled !== false;
     document.getElementById('featurePingSave').checked = f.pingRequestSaveEnabled !== false;
     document.getElementById('featureShots').checked = f.shotsEnabled !== false;
+    const disabledModules = new Set(Array.isArray(f.disabledModules) ? f.disabledModules : []);
+    document.getElementById('globalModuleSwitches').innerHTML = Object.entries(managementModuleDefinitions).map(([key, definition]) => `<div class="checkbox-row"><input id="global-module-${escapeHtml(key)}" data-global-module="${escapeHtml(key)}" type="checkbox" ${disabledModules.has(key) ? 'checked' : ''}><label for="global-module-${escapeHtml(key)}">Disable ${escapeHtml(definition.title)}</label></div>`).join('');
     const configuredTabOrder = Array.isArray(configData.panel?.tabOrder) && configData.panel.tabOrder.length
         ? [...configData.panel.tabOrder]
         : [];
@@ -5018,6 +5081,8 @@ function renderOverwatchHistory(data) {
         ? `Tracking started ${formatDateTime(data.trackingStartedAt)}. Matches before this point are unavailable.`
         : 'The first successful lookup creates a baseline; existing career totals will not become fake matches.';
     setStatus(document.getElementById('overwatchHistoryError'), data.error || '', data.error ? 'error' : '');
+    const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+    document.getElementById('overwatchCandidates').innerHTML = candidates.map((candidate, index) => `<article class="overwatch-match-card"><div class="overwatch-match-result"><strong>Candidate ${index + 1}: ${escapeHtml(candidate.name)}</strong><span>${escapeHtml(candidate.platform || 'unknown')}</span></div>${candidate.namecard ? `<img src="${escapeHtml(candidate.namecard)}" alt="" style="width:100%;max-height:110px;object-fit:cover;border-radius:8px">` : ''}<div class="row">${candidate.avatar ? `<img src="${escapeHtml(candidate.avatar)}" alt="" style="width:48px;height:48px;border-radius:50%">` : ''}<div><div>${escapeHtml(candidate.title || 'No player title')}</div><small>Endorsement ${escapeHtml(candidate.endorsementLevel ?? '?')} â€¢ ${escapeHtml(formatDateTime(candidate.lastUpdatedAt))}</small></div></div><code>${escapeHtml(candidate.playerId)}</code></article>`).join('');
     const matches = Array.isArray(data.matches) ? data.matches.slice(0, 3) : [];
     document.getElementById('overwatchMatches').innerHTML = matches.length
         ? matches.map(renderOverwatchMatch).join('')
@@ -5051,6 +5116,16 @@ document.getElementById('refreshOverwatchHistory').addEventListener('click', asy
         button.disabled = false;
         button.textContent = 'Refresh now';
     }
+});
+
+document.getElementById('saveGlobalModuleSwitches').addEventListener('click', async () => {
+    const status = document.getElementById('globalModuleSwitchStatus');
+    const disabledModules = [...document.querySelectorAll('[data-global-module]:checked')].map(input => input.dataset.globalModule);
+    if (!await confirmAction({ title: 'Save temporary module switches?', message: `${disabledModules.length} module(s) will be disabled platform-wide.`, confirmLabel: 'Save switches' })) return;
+    try {
+        await api('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: { disabledModules } }) });
+        setStatus(status, 'Temporary module switches saved.', 'ok');
+    } catch (error) { setStatus(status, error.message, 'error'); }
 });
 
 window.setInterval(() => {

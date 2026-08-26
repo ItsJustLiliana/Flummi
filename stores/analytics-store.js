@@ -65,7 +65,7 @@ function extractMessageMediaUsage(message) {
 function recordMessageEvent({ guildId, channelId, channelName, userId, userTag, message }) {
     const { customEmojiIds, stickerIds, gifs } = extractMessageMediaUsage(message);
     return appendEvent(guildId, 'messages', {
-        type: 'message', channelId: String(channelId || ''), channelName: channelName || String(channelId || ''),
+        type: 'message', messageId: message?.id ? String(message.id) : null, channelId: String(channelId || ''), channelName: channelName || String(channelId || ''),
         userId: String(userId || ''), userTag: userTag || String(userId || ''),
         characters: String(message?.content || '').length, attachments: message?.attachments?.size || 0,
         embeds: message?.embeds?.length || 0, reactions: message?.reactions?.cache?.size || 0,
@@ -203,11 +203,18 @@ function listFiles(folder) {
 
 function readEvents(guildId, category, from = 0, to = Date.now()) {
     const rows = [];
+    const seenMessageIds = new Set();
     for (const file of listFiles(analyticsDir(guildId, category))) {
         for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
             try {
                 const row = JSON.parse(line); const at = new Date(row.at).getTime();
-                if (at >= from && at <= to) rows.push(row);
+                if (at >= from && at <= to) {
+                    if (category === 'messages' && row.messageId) {
+                        if (seenMessageIds.has(String(row.messageId))) continue;
+                        seenMessageIds.add(String(row.messageId));
+                    }
+                    rows.push(row);
+                }
             } catch { /* an incomplete final line after a power loss is safely ignored */ }
             if (rows.length >= MAX_QUERY_EVENTS) return rows;
         }

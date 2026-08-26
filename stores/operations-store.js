@@ -6,7 +6,7 @@ function filePath(guildId) {
 }
 
 function emptyState() {
-    return { reports: [], incidents: [], reminders: [], levels: {}, afk: {}, giveaways: [], snapshots: [], temporaryRoles: [], voiceRoleLinks: [], feeds: [], pulseResponses: [] };
+    return { reports: [], modmail: [], incidents: [], reminders: [], levels: {}, afk: {}, giveaways: [], snapshots: [], temporaryRoles: [], voiceRoleLinks: [], feeds: [], pulseResponses: [] };
 }
 
 function readState(guildId) {
@@ -79,6 +79,8 @@ module.exports = {
     writeState,
     addReport: (guildId, record) => add(guildId, 'reports', 'report', record),
     updateReport: (guildId, recordId, changes) => update(guildId, 'reports', recordId, changes),
+    addModmail: (guildId, record) => add(guildId, 'modmail', 'modmail', record),
+    updateModmail: (guildId, recordId, changes) => update(guildId, 'modmail', recordId, changes),
     addIncident: (guildId, record) => add(guildId, 'incidents', 'incident', record),
     updateIncident: (guildId, recordId, changes) => update(guildId, 'incidents', recordId, changes),
     addReminder: (guildId, record) => add(guildId, 'reminders', 'reminder', record),

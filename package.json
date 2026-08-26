@@ -1,7 +1,7 @@
 {
   "name": "flummi",
   "version": "1.0.0",
-  "description": "",
+  "description": "Friendly Discord server management, moderation, automation, analytics, tickets, workflows, and community tools.",
   "main": "index.js",
   "scripts": {
     "start": "node scripts/start.js",
@@ -11,8 +11,8 @@
     "deploy": "node scripts/deploy-commands.js",
     "test": "node --test"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["discord", "discord-bot", "moderation", "automation", "tickets", "analytics"],
+  "author": "Flummi",
   "license": "ISC",
   "dependencies": {
     "discord.js": "^14.26.4",

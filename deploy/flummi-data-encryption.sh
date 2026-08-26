@@ -270,7 +270,8 @@ Before=${service_name}
 [Service]
 Type=simple
 ExecStart=/usr/bin/gocryptfs -fg -q -passfile=${passfile} ${cipher_dir} ${plain_dir}
-ExecStop=/usr/bin/fusermount3 -u ${plain_dir}
+ExecStartPost=/usr/bin/bash -c 'for attempt in {1..100}; do /usr/bin/mountpoint -q ${plain_dir} && exit 0; /usr/bin/sleep 0.1; done; exit 1'
+ExecStop=-/usr/bin/fusermount3 -u ${plain_dir}
 Restart=on-failure
 RestartSec=5
 
@@ -287,12 +288,21 @@ ExecStartPre=/usr/bin/mountpoint -q ${plain_dir}
 EOF
   systemctl --user daemon-reload
   systemctl --user enable "$mount_service_name"
-  if mountpoint -q "$plain_dir"; then
+  systemctl --user stop "$service_name"
+  if systemctl --user is-active --quiet "$mount_service_name"; then
+    note "Restarting the systemd-managed encrypted mount."
+    systemctl --user restart "$mount_service_name"
+  else
+    systemctl --user stop "$mount_service_name" || true
+    systemctl --user reset-failed "$mount_service_name" || true
+  fi
+  if ! systemctl --user is-active --quiet "$mount_service_name" && mountpoint -q "$plain_dir"; then
     note "Restarting the existing encrypted mount under systemd management."
-    systemctl --user stop "$service_name"
     unmount_plain
   fi
-  systemctl --user start "$mount_service_name"
+  if ! systemctl --user is-active --quiet "$mount_service_name"; then
+    systemctl --user start "$mount_service_name"
+  fi
   mountpoint -q "$plain_dir" || die "Automatic encrypted mount did not become active."
   systemctl --user restart "$service_name"
   note "Automatic mount installed and $service_name restarted."

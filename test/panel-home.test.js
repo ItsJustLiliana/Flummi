@@ -105,6 +105,12 @@ test('dashboard access follows Discord membership and Administrator permission',
     assert.doesNotMatch(panelScript, /data-role-select|canManageManagers/);
 });
 
+test('removed permission selectors cannot stop panel initialization after Discord OAuth', () => {
+    assert.doesNotMatch(panelMarkup, /id="permUserSelect"/);
+    assert.match(panelScript, /const select = document\.getElementById\(selectId\);[\s\S]*?if \(!select \|\| !input\) continue;/);
+    assert.ok(panelScript.indexOf('if (!select || !input) continue;') < panelScript.indexOf('async function initializePanel()'));
+});
+
 test('developer home cards show the real per-server Discord relationship', () => {
     assert.match(panelServer, /displayRole = member\.permissions\.has\(PermissionsBitField\.Flags\.Administrator\) \? 'admin' : 'member'/);
     assert.match(panelServer, /displayRole = 'not a member'/);

@@ -2953,8 +2953,11 @@ const guildUserSelectTargets = {
 };
 
 for (const [selectId, inputId] of Object.entries(guildUserSelectTargets)) {
-    document.getElementById(selectId).addEventListener('change', event => {
-        if (event.target.value) document.getElementById(inputId).value = event.target.value;
+    const select = document.getElementById(selectId);
+    const input = document.getElementById(inputId);
+    if (!select || !input) continue;
+    select.addEventListener('change', event => {
+        if (event.target.value) input.value = event.target.value;
     });
 }
 

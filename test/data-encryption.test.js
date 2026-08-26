@@ -39,7 +39,7 @@ test('secret migration encrypts env and local config with rollback and guarded f
     const script = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'flummi-secrets-encryption.sh'), 'utf8');
     assert.match(script, /secret_names=\(\.env config\.local\.json config\.json\)/);
     assert.match(script, /\.flummi-secrets\.encrypted/);
-    assert.match(script, /rsync -a --checksum --delete --dry-run/);
+    assert.match(script, /rsync -a --omit-dir-times --checksum --delete --dry-run/);
     assert.match(script, /gocryptfs -fsck/);
     assert.match(script, /migration_failed/);
     assert.match(script, /Type ERASE PLAINTEXT SECRETS/);

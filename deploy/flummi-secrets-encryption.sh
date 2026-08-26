@@ -90,8 +90,12 @@ verify() {
   [[ -d "$backup_dir" && -f "$marker" ]] || die "Verified migration and rollback copy are required."
   mountpoint -q "$plain_dir" || die "Encrypted secrets are not mounted."
   local changes
-  changes="$(rsync -a --checksum --delete --dry-run --itemize-changes --exclude=.flummi-secrets-verified "$backup_dir/" "$plain_dir/")"
-  [[ -z "$changes" ]] || { echo "$changes" >&2; die "Secrets checksum verification failed."; }
+  changes="$(rsync -a --omit-dir-times --checksum --delete --dry-run --itemize-changes --exclude=.flummi-secrets-verified "$backup_dir/" "$plain_dir/")"
+  if [[ -n "$changes" ]]; then
+    echo "$changes" >&2
+    echo "ERROR: Secrets checksum verification failed." >&2
+    return 1
+  fi
   note "Secrets checksum verification passed."
 }
 

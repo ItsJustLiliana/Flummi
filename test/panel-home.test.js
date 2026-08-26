@@ -30,7 +30,9 @@ test('public root is a landing page with role-aware navigation and server groups
     assert.match(panelHtml, /class="home-auth-button" href="\/auth\/login"/);
     assert.match(panelHtml, /id="homeSignedIn" class="home-account-card"/);
     assert.match(panelMarkup, /class="home-footer"[\s\S]*?id="homeInviteLink"[\s\S]*?data-invite-link/);
-    assert.equal((panelMarkup.match(/data-invite-link/g) || []).length, 2);
+    assert.equal((panelMarkup.match(/data-invite-link/g) || []).length, 3);
+    assert.match(panelMarkup, /class="home-nav-links"[\s\S]*?class="home-nav-invite"[\s\S]*?>Home<\/button>/);
+    assert.match(panelStyles, /\.home-nav-invite \{[\s\S]*?background: linear-gradient\(135deg, #9be2ff, #65bff2\)/);
     assert.match(panelScript, /document\.querySelectorAll\('\[data-invite-link\]'\)/);
     assert.match(panelScript, /loadInviteLink\(\)[\s\S]*?const authenticated = await loadPanelAccount\(\)/);
     assert.match(panelServer, /pathname === '\/api\/invite-link'[\s\S]*?let panelSession = null/);

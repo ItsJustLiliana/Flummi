@@ -2617,6 +2617,48 @@ code {
     font-weight: 700;
 }
 
+.home-nav-invite {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 8px 14px;
+    border: 1px solid rgba(150, 220, 255, .82);
+    border-radius: 9px;
+    color: #071426;
+    background: linear-gradient(135deg, #9be2ff, #65bff2);
+    box-shadow: 0 8px 22px rgba(75, 181, 239, .28), inset 0 1px rgba(255, 255, 255, .48);
+    font-size: 13px;
+    font-weight: 850;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
+}
+
+.home-nav-invite span {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 0;
+}
+
+.home-nav-invite:hover {
+    color: #071426;
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: 0 11px 28px rgba(75, 181, 239, .38), inset 0 1px rgba(255, 255, 255, .55);
+}
+
+.home-nav-invite:focus-visible {
+    outline: 2px solid #bcecff;
+    outline-offset: 3px;
+}
+
+.home-nav-invite[aria-disabled="true"] {
+    opacity: .55;
+    pointer-events: none;
+}
+
 .home-nav-links button.active,
 .home-nav-links button:hover {
     color: var(--text);
@@ -3825,6 +3867,11 @@ code {
         flex: 1 0 auto;
         min-height: 44px;
         white-space: nowrap;
+    }
+
+    .home-nav-invite {
+        flex: 1 0 auto;
+        min-height: 44px;
     }
 
     .home-main {

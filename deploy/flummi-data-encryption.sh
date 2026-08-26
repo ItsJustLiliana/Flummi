@@ -96,6 +96,7 @@ validate_paths() {
 gocryptfs_password_args() {
   GOCRYPTFS_PASSWORD_ARGS=()
   [[ -n "$passfile" ]] && GOCRYPTFS_PASSWORD_ARGS=(-passfile "$passfile")
+  return 0
 }
 
 unmount_plain() {

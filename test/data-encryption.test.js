@@ -18,6 +18,7 @@ test('remote data encryption migration has verification, rollback, and guarded f
     assert.match(script, /mount_service_name="\$\{instance_name\}-data-mount\.service"/);
     assert.match(script, /--root/);
     assert.match(script, /--instance/);
+    assert.match(script, /gocryptfs_password_args\(\).*?return 0/s);
 });
 
 test('production and staging encryption wrapper keeps roots and services separate', () => {

@@ -51,5 +51,6 @@ test('production and staging secrets wrapper keeps roots and services separate',
     const wrapper = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'flummi-encrypt-secrets-both.sh'), 'utf8');
     assert.match(wrapper, /--root \/projects\/Flummi --service flummi\.service --instance flummi/);
     assert.match(wrapper, /--root \/projects\/Flummi-staging --service flummi-staging\.service --instance flummi-staging/);
+    assert.equal((wrapper.match(/bash "\$script_dir\/flummi-secrets-encryption\.sh"/g) || []).length, 2);
     assert.match(wrapper, /different passfiles/i);
 });

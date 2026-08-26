@@ -9,6 +9,6 @@ case "$command_name" in
   *) echo "Unsupported command: $command_name" >&2; exit 2 ;;
 esac
 echo '=== Production secrets ==='
-"$script_dir/flummi-secrets-encryption.sh" "$command_name" --root /projects/Flummi --service flummi.service --instance flummi
+bash "$script_dir/flummi-secrets-encryption.sh" "$command_name" --root /projects/Flummi --service flummi.service --instance flummi
 echo '=== Staging secrets ==='
-"$script_dir/flummi-secrets-encryption.sh" "$command_name" --root /projects/Flummi-staging --service flummi-staging.service --instance flummi-staging
+bash "$script_dir/flummi-secrets-encryption.sh" "$command_name" --root /projects/Flummi-staging --service flummi-staging.service --instance flummi-staging

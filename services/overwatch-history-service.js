@@ -1,4 +1,4 @@
-const { createOverwatchHistoryStore, DEFAULT_BATTLETAG, DEFAULT_HISTORY_LIMIT } = require('../stores/overwatch-history-store');
+const { createOverwatchHistoryStore, DEFAULT_BATTLETAG, DEFAULT_PLAYER_ID, DEFAULT_HISTORY_LIMIT } = require('../stores/overwatch-history-store');
 
 const OVERFAST_BASE_URL = 'https://overfast-api.tekrop.fr';
 const TRACKED_USERNAME = 'Liliana';
@@ -6,7 +6,6 @@ const POLL_INTERVAL_MS = 5 * 60 * 1000;
 const STARTUP_DELAY_MS = 3 * 1000;
 const REQUEST_TIMEOUT_MS = 20 * 1000;
 const MANUAL_REFRESH_COOLDOWN_MS = 30 * 1000;
-const REDISCOVERY_NOT_FOUND_COUNT = 2;
 
 class OverwatchApiError extends Error {
     constructor(message, { status = null, retryAfterMs = 0, candidates = [] } = {}) {
@@ -280,23 +279,31 @@ function createOverwatchHistoryService({
         const checkedAt = new Date(now()).toISOString();
         let state = store.read();
         try {
-            if (!state.playerId) {
-                const discovered = await discoverPlayerId();
-                state = store.write({ ...state, ...discovered, consecutiveNotFound: 0, error: null });
+            // This opaque OverFast ID was explicitly verified by the account owner.
+            // Reset any baseline from an earlier candidate so their histories can never mix.
+            if (state.playerId !== DEFAULT_PLAYER_ID) {
+                state = store.write({
+                    ...state,
+                    playerId: DEFAULT_PLAYER_ID,
+                    playerName: 'Liliana',
+                    lastSnapshot: null,
+                    history: [],
+                    trackingStartedAt: null,
+                    lastStatsChangeAt: null,
+                    consecutiveNotFound: 0,
+                    candidates: [],
+                    error: null
+                });
             }
 
             let snapshot;
             try {
                 snapshot = await fetchSnapshot(state.playerId, checkedAt);
             } catch (error) {
-                if (error.status !== 404) throw error;
-                const notFoundCount = (Number(state.consecutiveNotFound) || 0) + 1;
-                if (notFoundCount < REDISCOVERY_NOT_FOUND_COUNT) {
-                    throw Object.assign(error, { notFoundCount });
+                if (error.status === 404) {
+                    throw Object.assign(error, { notFoundCount: (Number(state.consecutiveNotFound) || 0) + 1 });
                 }
-                const discovered = await discoverPlayerId();
-                state = store.write({ ...state, ...discovered, consecutiveNotFound: 0, error: null });
-                snapshot = await fetchSnapshot(state.playerId, checkedAt);
+                throw error;
             }
 
             const changed = !state.lastSnapshot || !snapshotsEqual(state.lastSnapshot, snapshot);
@@ -388,6 +395,7 @@ function createOverwatchHistoryService({
         const state = store.read();
         return {
             account: DEFAULT_BATTLETAG,
+            playerId: DEFAULT_PLAYER_ID,
             status: state.error ? 'error' : (state.lastSnapshot ? 'tracking' : 'waiting'),
             playerIdResolved: Boolean(state.playerId),
             lastCheckedAt: state.lastCheckedAt,

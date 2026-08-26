@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { createOverwatchHistoryStore, emptyState } = require('../stores/overwatch-history-store');
+const { createOverwatchHistoryStore, DEFAULT_PLAYER_ID, emptyState } = require('../stores/overwatch-history-store');
 const {
     createOverwatchHistoryService,
     reconstructHistoryEvent,
@@ -129,7 +129,7 @@ test('equivalent hero data remains duplicate-safe regardless of API key order', 
 
 test('API errors preserve the previous valid snapshot', async () => {
     const previous = stats(10, 6, 4);
-    const store = memoryStore({ ...emptyState(), playerId: 'opaque%7Cplayer', lastSnapshot: previous });
+    const store = memoryStore({ ...emptyState(), playerId: DEFAULT_PLAYER_ID, lastSnapshot: previous });
     const service = createOverwatchHistoryService({
         store,
         fetchImpl: async () => response({ error: 'Unavailable' }, 503, { 'retry-after': '60' }),
@@ -182,6 +182,28 @@ test('manual refresh does not start a concurrent request', async () => {
 test('opaque OverFast IDs retain existing percent escapes', () => {
     assert.equal(safePlayerPath('d358b8%7C905d21'), 'd358b8%7C905d21');
     assert.doesNotMatch(safePlayerPath('d358b8%7C905d21'), /%257C/i);
+});
+
+test('the owner-selected Overwatch candidate is pinned and bypasses rediscovery', async () => {
+    const requestedUrls = [];
+    const store = memoryStore({ ...emptyState(), playerId: 'wrong-candidate', lastSnapshot: stats(99, 99, 0), history: [{ id: 'wrong-history' }] });
+    const service = createOverwatchHistoryService({
+        store,
+        fetchImpl: async url => {
+            requestedUrls.push(url);
+            return successfulFetch()(url);
+        },
+        now: () => Date.parse('2026-08-26T12:00:00Z')
+    });
+
+    await service.refresh();
+
+    assert.equal(store.read().playerId, DEFAULT_PLAYER_ID);
+    assert.equal(store.read().history.length, 0);
+    assert.equal(store.read().candidates.length, 0);
+    assert.equal(requestedUrls.some(url => url.includes('/players?')), false);
+    assert.equal(requestedUrls.every(url => url.includes(DEFAULT_PLAYER_ID)), true);
+    assert.equal(service.getPublicState().playerId, DEFAULT_PLAYER_ID);
 });
 
 test('Overwatch experiment endpoints use developer authorization and preserve existing experiments', () => {

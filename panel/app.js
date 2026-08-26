@@ -5071,6 +5071,7 @@ function renderOverwatchHistory(data) {
     const statusLabels = { tracking: 'Tracking', waiting: 'Waiting for baseline', error: 'Error' };
     const status = statusLabels[data.status] || 'Waiting for baseline';
     const badge = document.getElementById('overwatchTrackingStatus');
+    document.getElementById('overwatchPlayerId').textContent = data.playerId || '';
     badge.textContent = status;
     badge.className = `overwatch-status ${escapeHtml(data.status || 'waiting')}`;
     document.getElementById('overwatchHistoryStats').innerHTML = [

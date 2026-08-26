@@ -2,14 +2,15 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_BATTLETAG = 'Liliana#21184';
+const DEFAULT_PLAYER_ID = 'de57a083b27f9ae0bba126a8d0%7C71297088c2a881633dd6ea060ac5593d';
 const DEFAULT_HISTORY_LIMIT = 25;
 
 function emptyState(battletag = DEFAULT_BATTLETAG) {
     return {
         version: 1,
         battletag,
-        playerId: null,
-        playerName: null,
+        playerId: DEFAULT_PLAYER_ID,
+        playerName: 'Liliana',
         consecutiveNotFound: 0,
         trackingStartedAt: null,
         lastCheckedAt: null,
@@ -31,6 +32,8 @@ function normalizeState(value, battletag, historyLimit) {
         ...fallback,
         ...parsed,
         battletag,
+        playerId: Object.prototype.hasOwnProperty.call(parsed, 'playerId') ? parsed.playerId : DEFAULT_PLAYER_ID,
+        candidates: [],
         history: Array.isArray(parsed.history) ? parsed.history.slice(0, historyLimit) : [],
         lastSnapshot: parsed.lastSnapshot && typeof parsed.lastSnapshot === 'object'
             ? parsed.lastSnapshot
@@ -75,6 +78,7 @@ function createOverwatchHistoryStore({
 
 module.exports = {
     DEFAULT_BATTLETAG,
+    DEFAULT_PLAYER_ID,
     DEFAULT_HISTORY_LIMIT,
     createOverwatchHistoryStore,
     emptyState

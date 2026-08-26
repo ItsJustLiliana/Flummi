@@ -72,6 +72,7 @@ const panelI18nEnginePath = path.join(__dirname, 'panel', 'i18n', 'engine.js');
 const panelLocaleDir = path.join(__dirname, 'panel', 'i18n', 'locales');
 const panelStylesPath = path.join(__dirname, 'panel', 'styles.css');
 const faviconPath = path.join(__dirname, 'panel', 'favicon.png');
+const licensePath = path.join(__dirname, 'LICENSE');
 const commandsDir = path.join(__dirname, 'commands');
 const builtInCommandNames = new Set(fs.readdirSync(commandsDir).filter(name => name.endsWith('.js')).map(name => name.replace(/\.js$/, '')));
 const brandingDir = path.join(__dirname, 'assets', 'branding');
@@ -1602,6 +1603,16 @@ function createServer() {
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/public/status') {
                 sendJson(res, 200, buildPublicStatus());
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/public/license') {
+                if (!fs.existsSync(licensePath)) {
+                    sendJson(res, 404, { error: 'Repository license not found.' });
+                    return;
+                }
+                const stats = fs.statSync(licensePath);
+                sendJson(res, 200, { text: fs.readFileSync(licensePath, 'utf8'), updatedAt: stats.mtime.toISOString() });
                 return;
             }
 

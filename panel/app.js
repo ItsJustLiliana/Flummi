@@ -1386,6 +1386,26 @@ async function loadPublicStatus() {
     document.getElementById('publicStatusChecked').textContent = data.checkedAt ? `Last checked ${formatDateTime(data.checkedAt)}` : '';
 }
 
+let publicLicenseLoaded = false;
+
+async function loadPublicLicense() {
+    if (publicLicenseLoaded) return;
+    const licenseText = document.getElementById('repositoryLicenseText');
+    const status = document.getElementById('repositoryLicenseStatus');
+    try {
+        const data = await api('/api/public/license');
+        licenseText.textContent = data.text || 'The deployed LICENSE file is empty.';
+        document.getElementById('licenseUpdatedAt').textContent = data.updatedAt
+            ? `Repository license · Deployed file updated ${formatDateTime(data.updatedAt)}`
+            : 'Repository license · Loaded from the deployed LICENSE file';
+        publicLicenseLoaded = true;
+        setStatus(status, '', '');
+    } catch (error) {
+        licenseText.textContent = 'License unavailable.';
+        setStatus(status, error.message, 'error');
+    }
+}
+
 function showHomeView(name = 'servers', developerTool = null) {
     document.getElementById('homeShell').hidden = false;
     document.getElementById('dashboardLayout').hidden = true;
@@ -1395,6 +1415,7 @@ function showHomeView(name = 'servers', developerTool = null) {
     for (const view of [...homeViewNames, 'developer']) document.getElementById(`homeView${view[0].toUpperCase()}${view.slice(1)}`).hidden = view !== name;
     if (name === 'commands') loadPublicCommands().catch(handleUiError);
     if (name === 'status') loadPublicStatus().catch(handleUiError);
+    if (name === 'licenses') loadPublicLicense().catch(handleUiError);
     if (name === 'developer') activateDeveloperWorkspace(developerTool).catch(handleUiError);
 }
 

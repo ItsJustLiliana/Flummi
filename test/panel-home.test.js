@@ -106,7 +106,10 @@ test('public policy pages use stable routes, dates, archives, licenses, and a st
     assert.match(panelMarkup, /Effective August 26, 2026/);
     assert.match(panelMarkup, /Last updated August 26, 2026/);
     assert.match(panelMarkup, /id="homeViewArchive"/);
-    assert.match(panelMarkup, /id="homeViewLicenses"[\s\S]*?ISC License/);
+    assert.match(panelMarkup, /id="homeViewLicenses"[\s\S]*?id="repositoryLicenseText"/);
+    assert.doesNotMatch(panelMarkup, /Permission to use, copy, modify, and\/or distribute/);
+    assert.match(panelScript, /api\('\/api\/public\/license'\)/);
+    assert.match(panelServer, /pathname === '\/api\/public\/license'[\s\S]*?fs\.readFileSync\(licensePath, 'utf8'\)/);
     assert.match(panelMarkup, /Resources[\s\S]*?Policies[\s\S]*?Credits/);
     assert.match(panelMarkup, /AI conversation memory<\/td><td>90 days/);
     assert.match(panelMarkup, /Anonymous message\/voice daily totals[\s\S]*?Kept for all-time analytics/);

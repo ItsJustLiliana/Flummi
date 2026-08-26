@@ -2636,12 +2636,6 @@ code {
     transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
 }
 
-.home-nav-invite span {
-    font-size: 18px;
-    font-weight: 600;
-    line-height: 0;
-}
-
 .home-nav-invite:hover {
     color: #071426;
     filter: brightness(1.08);

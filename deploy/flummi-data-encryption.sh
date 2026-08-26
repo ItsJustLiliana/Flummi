@@ -5,7 +5,7 @@ project_root="${FLUMMI_ROOT:-/projects/Flummi}"
 plain_dir="${project_root}/data"
 cipher_dir="${project_root}/.flummi-data.encrypted"
 backup_dir="${project_root}/.flummi-data.plaintext-backup"
-verified_marker="${cipher_dir}/.flummi-migration-verified"
+verified_marker="${plain_dir}/.flummi-migration-verified"
 service_name="${FLUMMI_SERVICE:-}"
 instance_name="${FLUMMI_INSTANCE:-}"
 mount_service_name=""
@@ -74,7 +74,7 @@ validate_paths() {
   plain_dir="${project_root}/data"
   cipher_dir="${project_root}/.flummi-data.encrypted"
   backup_dir="${project_root}/.flummi-data.plaintext-backup"
-  verified_marker="${cipher_dir}/.flummi-migration-verified"
+  verified_marker="${plain_dir}/.flummi-migration-verified"
   if [[ -z "$instance_name" ]]; then
     [[ "$(basename -- "$project_root")" == "Flummi-staging" ]] && instance_name="flummi-staging" || instance_name="flummi"
   fi

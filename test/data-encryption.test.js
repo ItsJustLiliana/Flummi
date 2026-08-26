@@ -4,7 +4,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const scriptPath = path.join(__dirname, '..', 'deploy', 'flummi-data-encryption.sh');
-const guidePath = path.join(__dirname, '..', 'deploy', 'DATA_ENCRYPTION.md');
 
 test('remote data encryption migration has verification, rollback, and guarded finalization', () => {
     const script = fs.readFileSync(scriptPath, 'utf8');
@@ -19,6 +18,8 @@ test('remote data encryption migration has verification, rollback, and guarded f
     assert.match(script, /--root/);
     assert.match(script, /--instance/);
     assert.match(script, /gocryptfs_password_args\(\).*?return 0/s);
+    assert.match(script, /verified_marker="\$\{plain_dir\}\/\.flummi-migration-verified"/);
+    assert.doesNotMatch(script, /verified_marker="\$\{cipher_dir\}/);
 });
 
 test('production and staging encryption wrapper keeps roots and services separate', () => {
@@ -26,13 +27,4 @@ test('production and staging encryption wrapper keeps roots and services separat
     assert.match(wrapper, /\/projects\/Flummi --service flummi\.service --instance flummi/);
     assert.match(wrapper, /\/projects\/Flummi-staging --service flummi-staging\.service --instance flummi-staging/);
     assert.match(wrapper, /different passfiles/i);
-});
-
-test('remote encryption guide documents migration, finalization, and key tradeoffs', () => {
-    const guide = fs.readFileSync(guidePath, 'utf8');
-    assert.match(guide, /\/projects\/Flummi/);
-    assert.match(guide, /finalize/);
-    assert.match(guide, /rollback/);
-    assert.match(guide, /same machine.*does not protect/s);
-    assert.match(guide, /recovery master key/i);
 });

@@ -3,7 +3,7 @@ const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
-const { exec, execFile, spawn } = require('child_process');
+const { exec, execFile, execFileSync, spawn } = require('child_process');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, Client, EmbedBuilder, GatewayIntentBits, ChannelType, PermissionsBitField, GuildVerificationLevel } = require('discord.js');
 const { installTimestampedConsole, readRecentLogs } = require('./utils/logger');
 const { readActivity, recordActivity } = require('./stores/activity-store');
@@ -81,6 +81,15 @@ const repositoryFileManager = new RepositoryFileManager({
     rootDir: __dirname,
     stateDir: path.join(dataDir, 'runtime', 'file-manager')
 });
+
+function readTrackedGitChanges(repository) {
+    return execFileSync('git', ['-C', repository, 'status', '--porcelain', '--untracked-files=no'], {
+        encoding: 'utf8',
+        timeout: 5000,
+        maxBuffer: 256 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe']
+    }).trim();
+}
 const panelSessionsFilePath = path.join(__dirname, 'data', 'runtime', 'panel-sessions.json');
 const panelSessions = new Map();
 const oauthStates = new Map();
@@ -3022,9 +3031,27 @@ function createServer() {
                     sendJson(res, 500, { error: 'The live promotion helper is not installed.' });
                     return;
                 }
+                const productionDir = process.env.FLUMMI_PRODUCTION_DIR || '/projects/Flummi';
+                let trackedChanges;
+                try {
+                    trackedChanges = readTrackedGitChanges(productionDir);
+                } catch (error) {
+                    sendJson(res, 500, { error: `Could not inspect the live checkout: ${String(error.stderr || error.message || error).trim()}` });
+                    return;
+                }
+                if (trackedChanges) {
+                    const changedPaths = trackedChanges.split(/\r?\n/).map(line => line.slice(3).trim()).filter(Boolean);
+                    sendJson(res, 409, {
+                        code: 'LIVE_CHECKOUT_DIRTY',
+                        error: `Live promotion blocked because production contains tracked changes: ${changedPaths.join(', ')}. Commit, stash, or restore them first.`
+                    });
+                    return;
+                }
                 auditPanelAction(panelSession, 'release-promote', 'Requested promotion of the tested Tailscale release to live');
                 sendJson(res, 202, { ok: true, message: 'Live promotion started. The public service will restart when the copy is complete.' });
-                spawn('bash', [helper], { cwd: __dirname, detached: true, stdio: 'ignore' }).unref();
+                const promotion = spawn('bash', [helper], { cwd: __dirname, detached: true, stdio: 'ignore' });
+                promotion.on('error', error => console.error(`Could not start live promotion: ${error.message}`));
+                promotion.unref();
                 return;
             }
 

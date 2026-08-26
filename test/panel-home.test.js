@@ -148,6 +148,9 @@ test('feedback, admin audit, autosave, and staged promotion are enforced', () =>
     assert.doesNotMatch(panelHtml, /id="saveSettings"/);
     assert.match(panelHtml, /instantSettingIds/);
     assert.match(panelServer, /pathname === '\/api\/release\/promote'/);
+    assert.match(panelServer, /LIVE_CHECKOUT_DIRTY/);
+    assert.match(panelServer, /readTrackedGitChanges\(productionDir\)/);
+    assert.match(panelServer, /promotion\.on\('error'/);
 });
 
 test('developer tools live in the top-level workspace instead of the server dashboard', () => {
@@ -293,6 +296,7 @@ test('GitHub update status compares staged and live commits and records promotio
     assert.match(panelHtml, /release\.stagedCommits/);
     assert.match(panelServer, /release: buildReleaseStatus\(\)/);
     assert.match(promoteScript, /record-update-status\.js" promoted/);
+    assert.ok(promoteScript.indexOf('record-update-status.js" promoted') < promoteScript.indexOf('systemctl --user restart flummi.service'));
     assert.match(updateRecorder, /status\.lastPromotedAt = now/);
     assert.match(updateRecorder, /status\.lastPromotedCommit = execFileSync/);
 });

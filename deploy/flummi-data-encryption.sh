@@ -6,12 +6,20 @@ plain_dir="${project_root}/data"
 cipher_dir="${project_root}/.flummi-data.encrypted"
 backup_dir="${project_root}/.flummi-data.plaintext-backup"
 verified_marker="${cipher_dir}/.flummi-migration-verified"
-service_name="${FLUMMI_SERVICE:-flummi.service}"
+service_name="${FLUMMI_SERVICE:-}"
+instance_name="${FLUMMI_INSTANCE:-}"
+mount_service_name=""
 passfile=""
 
 usage() {
   cat <<'USAGE'
-Usage: flummi-data-encryption.sh <command> [--passfile /secure/path]
+Usage: flummi-data-encryption.sh <command> [options]
+
+Options:
+  --root /projects/Flummi         Project checkout to encrypt.
+  --service flummi.service        Matching bot service.
+  --instance flummi               Unique systemd mount-unit prefix.
+  --passfile /secure/path         Optional unattended unlock secret.
 
 Commands:
   preflight          Check required programs and paths without changing data.
@@ -39,6 +47,21 @@ parse_options() {
         passfile="$2"
         shift 2
         ;;
+      --root)
+        [[ $# -ge 2 ]] || die "--root needs an absolute directory path."
+        project_root="$2"
+        shift 2
+        ;;
+      --service)
+        [[ $# -ge 2 ]] || die "--service needs a systemd service name."
+        service_name="$2"
+        shift 2
+        ;;
+      --instance)
+        [[ $# -ge 2 ]] || die "--instance needs a unique name."
+        instance_name="$2"
+        shift 2
+        ;;
       *) die "Unknown option: $1" ;;
     esac
   done
@@ -52,6 +75,13 @@ validate_paths() {
   cipher_dir="${project_root}/.flummi-data.encrypted"
   backup_dir="${project_root}/.flummi-data.plaintext-backup"
   verified_marker="${cipher_dir}/.flummi-migration-verified"
+  if [[ -z "$instance_name" ]]; then
+    [[ "$(basename -- "$project_root")" == "Flummi-staging" ]] && instance_name="flummi-staging" || instance_name="flummi"
+  fi
+  if [[ -z "$service_name" ]]; then service_name="${instance_name}.service"; fi
+  [[ "$instance_name" =~ ^[A-Za-z0-9_-]+$ ]] || die "Invalid instance name: $instance_name"
+  [[ "$service_name" =~ ^[A-Za-z0-9_.@-]+\.service$ ]] || die "Invalid service name: $service_name"
+  mount_service_name="${instance_name}-data-mount.service"
   [[ "$project_root" != "/" && "$project_root" != "$HOME" ]] || die "Refusing unsafe project root: $project_root"
   [[ -d "$project_root" ]] || die "Project root does not exist: $project_root"
   [[ "$plain_dir" == "$project_root/data" ]] || die "Unsafe plaintext path."
@@ -86,9 +116,9 @@ restart_if_needed() {
 }
 
 stop_encrypted_mount() {
-  if systemctl --user is-active --quiet flummi-data-mount.service 2>/dev/null; then
+  if systemctl --user is-active --quiet "$mount_service_name" 2>/dev/null; then
     mount_service_was_active=true
-    systemctl --user stop flummi-data-mount.service
+    systemctl --user stop "$mount_service_name"
   else
     unmount_plain
   fi
@@ -96,7 +126,7 @@ stop_encrypted_mount() {
 
 restore_encrypted_mount() {
   if [[ "$mount_service_was_active" == true ]]; then
-    systemctl --user start flummi-data-mount.service
+    systemctl --user start "$mount_service_name"
     mountpoint -q "$plain_dir" || die "Automatic encrypted mount did not restart."
   else
     mount_data
@@ -214,8 +244,8 @@ rollback() {
 
 unmount_data() {
   stop_flummi
-  if systemctl --user is-active --quiet flummi-data-mount.service 2>/dev/null; then
-    systemctl --user stop flummi-data-mount.service
+  if systemctl --user is-active --quiet "$mount_service_name" 2>/dev/null; then
+    systemctl --user stop "$mount_service_name"
   else
     unmount_plain
   fi
@@ -231,7 +261,7 @@ install_auto_mount() {
   local unit_dir="$HOME/.config/systemd/user"
   local override_dir="$unit_dir/${service_name}.d"
   mkdir -p "$unit_dir" "$override_dir"
-  cat >"$unit_dir/flummi-data-mount.service" <<EOF
+  cat >"$unit_dir/$mount_service_name" <<EOF
 [Unit]
 Description=Unlock Flummi encrypted data
 Before=${service_name}
@@ -248,14 +278,14 @@ WantedBy=default.target
 EOF
   cat >"$override_dir/encrypted-data.conf" <<EOF
 [Unit]
-Requires=flummi-data-mount.service
-After=flummi-data-mount.service
+Requires=${mount_service_name}
+After=${mount_service_name}
 
 [Service]
 ExecStartPre=/usr/bin/mountpoint -q ${plain_dir}
 EOF
   systemctl --user daemon-reload
-  systemctl --user enable --now flummi-data-mount.service
+  systemctl --user enable --now "$mount_service_name"
   systemctl --user restart "$service_name"
   note "Automatic mount installed and $service_name restarted."
   echo "WARNING: a passfile on the same disk does not protect against full-machine compromise or disk theft."
@@ -265,6 +295,8 @@ status() {
   if mountpoint -q "$plain_dir"; then echo "Encrypted mount: active"; else echo "Encrypted mount: inactive"; fi
   [[ -f "$cipher_dir/gocryptfs.conf" ]] && echo "Encrypted store: initialized" || echo "Encrypted store: absent"
   [[ -f "$verified_marker" ]] && echo "Migration checksum: passed" || echo "Migration checksum: absent"
+  echo "Bot service: $service_name"
+  echo "Mount service: $mount_service_name"
   [[ -d "$backup_dir" ]] && echo "Plaintext rollback copy: PRESENT" || echo "Plaintext rollback copy: absent"
   systemctl --user is-active "$service_name" 2>/dev/null || true
 }

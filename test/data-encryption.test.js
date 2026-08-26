@@ -15,7 +15,16 @@ test('remote data encryption migration has verification, rollback, and guarded f
     assert.match(script, /migration_failure/);
     assert.match(script, /Type ERASE PLAINTEXT/);
     assert.match(script, /resolved_backup.*\.flummi-data\.plaintext-backup/s);
-    assert.match(script, /flummi-data-mount\.service/);
+    assert.match(script, /mount_service_name="\$\{instance_name\}-data-mount\.service"/);
+    assert.match(script, /--root/);
+    assert.match(script, /--instance/);
+});
+
+test('production and staging encryption wrapper keeps roots and services separate', () => {
+    const wrapper = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'flummi-encrypt-both.sh'), 'utf8');
+    assert.match(wrapper, /\/projects\/Flummi --service flummi\.service --instance flummi/);
+    assert.match(wrapper, /\/projects\/Flummi-staging --service flummi-staging\.service --instance flummi-staging/);
+    assert.match(wrapper, /different passfiles/i);
 });
 
 test('remote encryption guide documents migration, finalization, and key tradeoffs', () => {

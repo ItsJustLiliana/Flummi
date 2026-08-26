@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { readAnonymousAnalytics } = require('./anonymous-analytics-store');
 
 // NDJSON is intentionally used here: an event is appended without rewriting a
 // growing array.  Files rotate before 1 MiB, so a single busy server can never
@@ -228,6 +229,10 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
     const from = rangeDays === null ? 0 : now - rangeDays * 86400000;
     const normalizedChannelId = channelId ? String(channelId) : null;
     const normalizedUserId = userId ? String(userId) : null;
+    const anonymousHistory = readAnonymousAnalytics(guildId);
+    const archivedDays = normalizedUserId ? [] : Object.entries(anonymousHistory.messages.byDay || {});
+    const archivedCountForDay = day => normalizedChannelId ? Number(day.channels?.[normalizedChannelId]?.count) || 0 : Number(day.count) || 0;
+    const archivedTotal = archivedDays.reduce((total, [, day]) => total + archivedCountForDay(day), 0);
     const matchesFilters = row => (!normalizedChannelId || row.channelId === normalizedChannelId) && (!normalizedUserId || row.userId === normalizedUserId);
     const allMessages = readEvents(guildId, 'messages', 0).filter(matchesFilters);
     const messages = allMessages.filter(row => new Date(row.at).getTime() >= from);
@@ -240,6 +245,31 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
     });
     const byDay = new Map(), channels = new Map(), users = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
     const engagement = { attachments: 0, embeds: 0, gifs: 0, reactions: 0, replies: 0, threads: 0 };
+    if (rangeDays === null) for (const [date, archived] of archivedDays) {
+        const count = archivedCountForDay(archived);
+        if (!count) continue;
+        byDay.set(date, count);
+        if (!normalizedChannelId) {
+            for (const key of Object.keys(engagement)) engagement[key] += Number(archived.engagement?.[key]) || 0;
+            const parsed = new Date(`${date}T00:00:00.000Z`);
+            const dayIndex = parsed.getUTCDay();
+            for (let hour = 0; hour < 24; hour++) heatmap[dayIndex][hour] += Number(archived.heatmap?.[hour]) || 0;
+            for (const [channelId, item] of Object.entries(archived.channels || {})) {
+                const channel = channels.get(channelId) || { id: channelId, name: item.name || channelId, count: 0 };
+                channel.count += Number(item.count) || 0;
+                channels.set(channelId, channel);
+            }
+        } else {
+            const item = archived.channels?.[normalizedChannelId];
+            if (item) {
+                const channel = channels.get(normalizedChannelId) || { id: normalizedChannelId, name: item.name || normalizedChannelId, count: 0 };
+                channel.count += Number(item.count) || 0;
+                channels.set(normalizedChannelId, channel);
+                const parsed = new Date(`${date}T00:00:00.000Z`);
+                for (let hour = 0; hour < 24; hour++) heatmap[parsed.getUTCDay()][hour] += Number(item.heatmap?.[hour]) || 0;
+            }
+        }
+    }
     for (const row of messages) {
         const day = row.at.slice(0, 10); byDay.set(day, (byDay.get(day) || 0) + 1);
         const channel = channels.get(row.channelId) || { id: row.channelId, name: row.channelName, count: 0 };
@@ -252,7 +282,8 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
         engagement.replies += row.hasReply ? 1 : 0; engagement.threads += row.isThread ? 1 : 0;
     }
     const dailyMessages = [];
-    const earliestMessageAt = messages.length ? Math.min(...messages.map(row => new Date(row.at).getTime()).filter(Number.isFinite)) : now;
+    const archivedDates = rangeDays === null ? archivedDays.filter(([, day]) => archivedCountForDay(day) > 0).map(([date]) => Date.parse(`${date}T00:00:00.000Z`)) : [];
+    const earliestMessageAt = messages.length || archivedDates.length ? Math.min(...messages.map(row => new Date(row.at).getTime()).filter(Number.isFinite), ...archivedDates) : now;
     const graphDays = rangeDays === null ? Math.max(1, Math.ceil((now - earliestMessageAt) / 86400000) + 1) : rangeDays;
     for (let offset = graphDays - 1; offset >= 0; offset--) {
         const date = new Date(now - offset * 86400000).toISOString().slice(0, 10);
@@ -271,7 +302,7 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
     const busiestHour = hourlyTotals.indexOf(Math.max(...hourlyTotals));
     const changePercent = rangeDays === null ? null : previousMessages.length ? Math.round((messages.length - previousMessages.length) / previousMessages.length * 100) : (messages.length ? null : 0);
     return {
-        periodDays: rangeDays, totalMessageCount: allMessages.length, messageCount: messages.length,
+        periodDays: rangeDays, totalMessageCount: archivedTotal + allMessages.length, messageCount: messages.length + (rangeDays === null ? archivedTotal : 0),
         voiceEvents: voice.length, uniqueAuthors: users.size,
         dailyMessages, engagement, heatmap, moderation,
         comparison: { previousMessageCount: previousMessages.length, changePercent, busiestDay, busiestHour },
@@ -286,6 +317,12 @@ function getMessageActivityHeatmap(guildId, from = null, to = null, channelId = 
     const normalizedChannelId = channelId ? String(channelId) : null;
     const normalizedUserId = userId ? String(userId) : null;
     const heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
+
+    if (!from && !to && !normalizedUserId) for (const [date, archived] of Object.entries(readAnonymousAnalytics(guildId).messages.byDay || {})) {
+        const source = normalizedChannelId ? archived.channels?.[normalizedChannelId]?.heatmap : archived.heatmap;
+        const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+        for (let hour = 0; hour < 24; hour++) heatmap[day][hour] += Number(source?.[hour]) || 0;
+    }
 
     for (const row of readEvents(guildId, 'messages', start, end)) {
         if (normalizedChannelId && String(row.channelId) !== normalizedChannelId) continue;

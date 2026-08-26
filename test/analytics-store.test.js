@@ -3,6 +3,7 @@ const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { appendEvent, extractMessageMediaUsage, getAnalyticsSummary, getMediaUsageSummary, getMessageActivityHeatmap, getSoundboardSummary, summarizeMediaField, trendDetails } = require('../stores/analytics-store');
+const { historyPathForGuildRoot, writeAnonymousAnalyticsAt } = require('../stores/anonymous-analytics-store');
 
 function cleanupGuild(guildId) {
     fs.rmSync(path.join(__dirname, '..', 'data', 'guilds', guildId), { recursive: true, force: true });
@@ -25,6 +26,27 @@ test('message activity heatmap supports exact ranges and channel and member filt
         assert.equal(getAnalyticsSummary(guildId, 30).totalMessageCount, 3);
         assert.equal(getAnalyticsSummary(guildId, 30).engagement.gifs, 2);
         assert.equal(getAnalyticsSummary(guildId, 'all').messageCount, 3);
+    } finally {
+        cleanupGuild(guildId);
+    }
+});
+
+test('all-time message analytics include permanent anonymous history without attributing it to users', () => {
+    const guildId = `test-message-history-${process.pid}`;
+    const guildRoot = path.join(__dirname, '..', 'data', 'guilds', guildId);
+    cleanupGuild(guildId);
+    try {
+        writeAnonymousAnalyticsAt(historyPathForGuildRoot(guildRoot), {
+            messages: { byDay: { '2020-01-01': { count: 5, engagement: {}, heatmap: Array.from({ length: 24 }, (_, hour) => hour === 8 ? 5 : 0), channels: { one: { name: 'General', count: 5, heatmap: Array.from({ length: 24 }, (_, hour) => hour === 8 ? 5 : 0) } } } } },
+            voice: { byDay: {} }
+        });
+        appendEvent(guildId, 'messages', { channelId: 'one', channelName: 'General', userId: 'alice' });
+        const allTime = getAnalyticsSummary(guildId, 'all');
+        assert.equal(allTime.totalMessageCount, 6);
+        assert.equal(allTime.messageCount, 6);
+        assert.equal(allTime.dailyMessages.find(row => row.date === '2020-01-01').count, 5);
+        assert.equal(getMessageActivityHeatmap(guildId)[3][8], 5);
+        assert.equal(getAnalyticsSummary(guildId, 'all', null, 'alice').messageCount, 1);
     } finally {
         cleanupGuild(guildId);
     }

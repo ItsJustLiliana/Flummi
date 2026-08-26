@@ -88,11 +88,34 @@ test('commands and status are public home pages backed by unauthenticated APIs',
     assert.match(panelServer, /buildPublicCommandCatalog\(\)/);
     assert.match(panelServer, /accessStore\.getRequiredCommandRole/);
     assert.match(panelServer, /function buildPublicStatus\(\)/);
-    assert.match(panelScript, /const publicViews = new Set\(\['servers', 'commands', 'status', 'feedback'\]\)/);
+    assert.match(panelScript, /const publicViews = new Set\(homeViewNames\)/);
 
     const publicCommandsRoute = panelServer.indexOf("requestUrl.pathname === '/api/public/commands'");
     const authenticatedApiGate = panelServer.indexOf("if (requestUrl.pathname.startsWith('/api/'))", publicCommandsRoute);
     assert.ok(publicCommandsRoute >= 0 && authenticatedApiGate > publicCommandsRoute);
+});
+
+test('public policy pages use stable routes, dates, archives, licenses, and a structured footer', () => {
+    for (const [view, route] of Object.entries({ terms: '/terms', privacy: '/privacy', licenses: '/licenses', archive: '/policy-archive', credits: '/credits' })) {
+        assert.match(panelMarkup, new RegExp(`data-home-view="${view}"`));
+        assert.match(panelScript, new RegExp(`${view}: '${route.replaceAll('/', '\\/')}'`));
+        assert.match(panelServer, new RegExp(`'${route.replaceAll('/', '\\/')}'`));
+    }
+    assert.match(panelMarkup, /Effective August 26, 2026/);
+    assert.match(panelMarkup, /Last updated August 26, 2026/);
+    assert.match(panelMarkup, /id="homeViewArchive"/);
+    assert.match(panelMarkup, /id="homeViewLicenses"[\s\S]*?ISC License/);
+    assert.match(panelMarkup, /Resources[\s\S]*?Policies[\s\S]*?Credits/);
+    assert.match(panelMarkup, /AI conversation memory<\/td><td>90 days/);
+    assert.match(panelMarkup, /Anonymous message\/voice daily totals[\s\S]*?Kept for all-time analytics/);
+});
+
+test('developer compliance panel records procedures and provider review state', () => {
+    assert.match(panelMarkup, /id="developerComplianceOperations"/);
+    assert.match(panelMarkup, /Security incidents and data breaches/);
+    assert.match(panelHtml, /CONFIRM PROVIDER REVIEW/);
+    assert.match(panelServer, /\/api\/developer\/compliance/);
+    assert.match(panelServer, /updateOpenRouter\(parsed, panelSession\.user\.id\)/);
 });
 
 test('dashboard access follows Discord membership and Administrator permission', () => {

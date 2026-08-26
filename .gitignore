@@ -17,6 +17,9 @@ data/guilds/
 data/users/
 .flummi-data.encrypted/
 .flummi-data.plaintext-backup/
+.flummi-secrets/
+.flummi-secrets.encrypted/
+.flummi-secrets.plaintext-backup/
 
 # Logs
 *.log

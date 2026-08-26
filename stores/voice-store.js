@@ -3,6 +3,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 const { recordActivity } = require('./activity-store');
 const { recordVoiceEvent, readEvents } = require('./analytics-store');
+const { readAnonymousAnalytics } = require('./anonymous-analytics-store');
 
 const dataDir = path.join(__dirname, '..', 'data');
 
@@ -379,7 +380,35 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     });
     const history = [...completedHistory, ...liveHistory];
     const channels = new Map(), users = new Map(), daily = new Map(), dailyMinutes = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
+    const archivedDays = from ? [] : Object.entries(readAnonymousAnalytics(guildId).voice.byDay || {});
+    let archivedOccupiedMs = 0, archivedSessions = 0;
     let participantTotalMs = 0;
+    for (const [date, archived] of archivedDays) {
+        const selected = normalizedChannelId ? archived.channels?.[normalizedChannelId] : archived;
+        if (!selected) continue;
+        archivedOccupiedMs += Number(selected.occupiedMs) || 0;
+        participantTotalMs += Number(selected.participantMs) || 0;
+        archivedSessions += Number(selected.sessions) || 0;
+        daily.set(date, Number(selected.sessions) || 0);
+        dailyMinutes.set(date, Math.round((Number(selected.participantMs) || 0) / 60000));
+        if (!normalizedChannelId) {
+            const parsed = new Date(`${date}T00:00:00.000Z`);
+            for (let hour = 0; hour < 24; hour++) heatmap[parsed.getUTCDay()][hour] += Number(archived.heatmap?.[hour]) || 0;
+            for (const [archivedChannelId, item] of Object.entries(archived.channels || {})) {
+                const channel = channels.get(archivedChannelId) || { channelId: archivedChannelId, channelName: item.name || archivedChannelId, totalMs: 0, sessions: 0 };
+                channel.totalMs += Number(item.participantMs) || 0;
+                channel.sessions += Number(item.sessions) || 0;
+                channels.set(archivedChannelId, channel);
+            }
+        } else {
+            const channel = channels.get(normalizedChannelId) || { channelId: normalizedChannelId, channelName: selected.name || normalizedChannelId, totalMs: 0, sessions: 0 };
+            channel.totalMs += Number(selected.participantMs) || 0;
+            channel.sessions += Number(selected.sessions) || 0;
+            channels.set(normalizedChannelId, channel);
+            const parsed = new Date(`${date}T00:00:00.000Z`);
+            for (let hour = 0; hour < 24; hour++) heatmap[parsed.getUTCDay()][hour] += Number(selected.heatmap?.[hour]) || 0;
+        }
+    }
     const occupiedIntervals = [];
     for (const row of history) {
         const rowStart = Math.max(start, new Date(row.startedAt).getTime());
@@ -419,9 +448,9 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     sessions.push(...activeByChannel.values());
     const activeOverTime = [];
     const minutesOverTime = [];
-    const firstHistoryAt = history.length
-        ? Math.min(...history.map(row => new Date(row.startedAt).getTime()).filter(Number.isFinite))
-        : Date.now();
+    const archivedDates = archivedDays.map(([date]) => Date.parse(`${date}T00:00:00.000Z`)).filter(Number.isFinite);
+    const historyDates = history.map(row => new Date(row.startedAt).getTime()).filter(Number.isFinite);
+    const firstHistoryAt = historyDates.length || archivedDates.length ? Math.min(...historyDates, ...archivedDates) : Date.now();
     const firstDay = new Date(start || firstHistoryAt);
     firstDay.setUTCHours(0, 0, 0, 0);
     const lastDay = new Date(end);
@@ -432,7 +461,7 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
         minutesOverTime.push({ date, count: dailyMinutes.get(date) || 0 });
     }
     occupiedIntervals.sort((left, right) => left[0] - right[0]);
-    let totalMs = 0;
+    let totalMs = archivedOccupiedMs;
     let occupiedStart = null, occupiedEnd = null;
     for (const [intervalStart, intervalEnd] of occupiedIntervals) {
         if (occupiedStart === null) { occupiedStart = intervalStart; occupiedEnd = intervalEnd; continue; }
@@ -441,8 +470,9 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     }
     if (occupiedStart !== null) totalMs += occupiedEnd - occupiedStart;
     const hourlyTotals = heatmap.reduce((totals, day) => day.map((count, hour) => totals[hour] + count), Array(24).fill(0));
-    const busiestHour = history.length ? hourlyTotals.indexOf(Math.max(...hourlyTotals)) : null;
-    return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime, minutesOverTime, heatmap, busiestHour, totalMs, participantTotalMs, averageSessionMs: history.length ? Math.round(participantTotalMs / history.length) : 0, groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100) };
+    const busiestHour = history.length || archivedSessions ? hourlyTotals.indexOf(Math.max(...hourlyTotals)) : null;
+    const sessionCount = history.length + archivedSessions;
+    return { topChannels: [...channels.values()].sort((a,b) => b.totalMs-a.totalMs), userTotals: [...users.values()].sort((a,b) => b.totalMs-a.totalMs), activeOverTime, minutesOverTime, heatmap, busiestHour, totalMs, participantTotalMs, averageSessionMs: sessionCount ? Math.round(participantTotalMs / sessionCount) : 0, groupSessions: sessions.sort((a,b) => new Date(b.startedAt)-new Date(a.startedAt)).slice(0, 100), anonymousHistoryIncluded: archivedDays.length > 0 };
 }
 
 function getVoiceActivityHeatmap(guildId, from = null, to = null, channelId = null) {
@@ -450,6 +480,12 @@ function getVoiceActivityHeatmap(guildId, from = null, to = null, channelId = nu
     const end = to ? new Date(to).getTime() : Date.now();
     const normalizedChannelId = channelId ? String(channelId) : null;
     const heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
+
+    if (!from && !to) for (const [date, archived] of Object.entries(readAnonymousAnalytics(guildId).voice.byDay || {})) {
+        const source = normalizedChannelId ? archived.channels?.[normalizedChannelId]?.heatmap : archived.heatmap;
+        const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+        for (let hour = 0; hour < 24; hour++) heatmap[day][hour] += Number(source?.[hour]) || 0;
+    }
 
     for (const row of readEvents(guildId, 'voice')) {
         if (row.action !== 'session-ended') continue;

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { historyPathForGuildRoot, readAnonymousAnalyticsAt, writeAnonymousAnalyticsAt } = require('../stores/anonymous-analytics-store');
 
 const DAY_MS = 86400000;
 const defaultRoot = path.join(__dirname, '..', 'data');
@@ -105,6 +106,98 @@ function pruneNdjson(folder, days, now) {
     return removed;
 }
 
+function sumIntervals(intervals) {
+    const sorted = intervals.filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end > start).sort((left, right) => left[0] - right[0]);
+    let total = 0, currentStart = null, currentEnd = null;
+    for (const [start, end] of sorted) {
+        if (currentStart === null) { currentStart = start; currentEnd = end; continue; }
+        if (start <= currentEnd) currentEnd = Math.max(currentEnd, end);
+        else { total += currentEnd - currentStart; currentStart = start; currentEnd = end; }
+    }
+    return currentStart === null ? 0 : total + currentEnd - currentStart;
+}
+
+function readExpiredRows(folder, cutoffDate) {
+    return readNdjson(folder).filter(row => String(row.at || row.endedAt || '').slice(0, 10) < cutoffDate);
+}
+
+function archiveExpiredAnalytics(guildRoot, cutoffDate) {
+    const filePath = historyPathForGuildRoot(guildRoot);
+    const history = readAnonymousAnalyticsAt(filePath);
+    const messages = readExpiredRows(path.join(guildRoot, 'analytics', 'messages'), cutoffDate).filter(row => row.type === 'message');
+    const messageDays = new Map();
+    for (const row of messages) {
+        const date = String(row.at).slice(0, 10);
+        const day = messageDays.get(date) || { count: 0, engagement: { attachments: 0, embeds: 0, gifs: 0, reactions: 0, replies: 0, threads: 0 }, heatmap: Array(24).fill(0), channels: {} };
+        day.count++;
+        day.engagement.attachments += Number(row.attachments) || 0;
+        day.engagement.embeds += Number(row.embeds) || 0;
+        day.engagement.gifs += Number(row.gifs) || 0;
+        day.engagement.reactions += Number(row.reactions) || 0;
+        day.engagement.replies += row.hasReply ? 1 : 0;
+        day.engagement.threads += row.isThread ? 1 : 0;
+        const hour = new Date(row.at).getUTCHours();
+        if (Number.isFinite(hour)) day.heatmap[hour]++;
+        if (row.channelId) {
+            const channel = day.channels[row.channelId] || { name: row.channelName || row.channelId, count: 0, heatmap: Array(24).fill(0) };
+            channel.count++;
+            if (Number.isFinite(hour)) channel.heatmap[hour]++;
+            day.channels[row.channelId] = channel;
+        }
+        messageDays.set(date, day);
+    }
+    for (const [date, day] of messageDays) history.messages.byDay[date] = day;
+
+    const voiceRows = readExpiredRows(path.join(guildRoot, 'analytics', 'voice'), cutoffDate).filter(row => row.action === 'session-ended');
+    const voiceDays = new Map();
+    for (const row of voiceRows) {
+        const start = new Date(row.startedAt || row.at).getTime();
+        const end = new Date(row.endedAt || row.at).getTime();
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+        for (let cursor = Date.UTC(new Date(start).getUTCFullYear(), new Date(start).getUTCMonth(), new Date(start).getUTCDate()); cursor < end; cursor += DAY_MS) {
+            const segmentStart = Math.max(start, cursor), segmentEnd = Math.min(end, cursor + DAY_MS);
+            const date = new Date(cursor).toISOString().slice(0, 10);
+            if (date >= cutoffDate || segmentEnd <= segmentStart) continue;
+            const day = voiceDays.get(date) || { intervals: [], participantMs: 0, sessions: 0, heatmap: Array(24).fill(0), channels: {} };
+            day.intervals.push([segmentStart, segmentEnd]);
+            day.participantMs += segmentEnd - segmentStart;
+            if (segmentStart === start) { day.sessions++; day.heatmap[new Date(start).getUTCHours()]++; }
+            if (row.channelId) {
+                const channel = day.channels[row.channelId] || { name: row.channelName || row.channelId, intervals: [], participantMs: 0, sessions: 0, heatmap: Array(24).fill(0) };
+                channel.intervals.push([segmentStart, segmentEnd]);
+                channel.participantMs += segmentEnd - segmentStart;
+                if (segmentStart === start) { channel.sessions++; channel.heatmap[new Date(start).getUTCHours()]++; }
+                day.channels[row.channelId] = channel;
+            }
+            voiceDays.set(date, day);
+        }
+    }
+    for (const [date, day] of voiceDays) {
+        history.voice.byDay[date] = {
+            occupiedMs: sumIntervals(day.intervals), participantMs: day.participantMs, sessions: day.sessions, heatmap: day.heatmap,
+            channels: Object.fromEntries(Object.entries(day.channels).map(([id, channel]) => [id, { name: channel.name, occupiedMs: sumIntervals(channel.intervals), participantMs: channel.participantMs, sessions: channel.sessions, heatmap: channel.heatmap }]))
+        };
+    }
+    if (messageDays.size || voiceDays.size) writeAnonymousAnalyticsAt(filePath, history);
+}
+
+function pruneNdjsonBeforeDate(folder, cutoffDate) {
+    let removed = 0;
+    for (const file of listFiles(folder).filter(target => target.endsWith('.ndjson'))) {
+        const kept = fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean).filter(line => {
+            try {
+                const row = JSON.parse(line);
+                if (String(row.at || row.endedAt || '').slice(0, 10) >= cutoffDate) return true;
+                removed++;
+                return false;
+            } catch { removed++; return false; }
+        });
+        if (kept.length) fs.writeFileSync(file, `${kept.join('\n')}\n`);
+        else fs.rmSync(file, { force: true });
+    }
+    return removed;
+}
+
 function pruneJsonLinesFile(filePath, days, now) {
     if (!fs.existsSync(filePath)) return 0;
     const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/).filter(Boolean);
@@ -136,7 +229,15 @@ function increment(bucket, id, name) {
 
 function rebuildMessageRollup(guildRoot) {
     const events = readNdjson(path.join(guildRoot, 'analytics', 'messages')).filter(row => row.type === 'message');
-    const stats = { recentMessageIds: [], messages: { total: events.length, byChannel: {}, byUser: {} } };
+    const history = readAnonymousAnalyticsAt(historyPathForGuildRoot(guildRoot));
+    const archivedDays = Object.values(history.messages.byDay || {});
+    const archivedTotal = archivedDays.reduce((total, day) => total + (Number(day.count) || 0), 0);
+    const stats = { recentMessageIds: [], messages: { total: archivedTotal + events.length, byChannel: {}, byUser: {} } };
+    for (const day of archivedDays) for (const [channelId, archived] of Object.entries(day.channels || {})) {
+        const current = stats.messages.byChannel[channelId] || { id: channelId, name: archived.name || channelId, count: 0 };
+        current.count += Number(archived.count) || 0;
+        stats.messages.byChannel[channelId] = current;
+    }
     for (const row of events) {
         increment(stats.messages.byChannel, row.channelId, row.channelName);
         increment(stats.messages.byUser, row.userId, row.userTag);
@@ -177,6 +278,11 @@ function rebuildVoiceRollup(guildRoot) {
         users[userId].currentState = session.state || session.startState || null;
     }
     writeJson(target, { activeSessions, history: [], users });
+}
+
+function rebuildAnalyticsRollups(guildRoot) {
+    rebuildMessageRollup(guildRoot);
+    rebuildVoiceRollup(guildRoot);
 }
 
 function pruneOperations(filePath, policies, now) {
@@ -279,7 +385,10 @@ function pruneDataRetention({ root = defaultRoot, now = Date.now(), retentionDay
         if (!guild.isDirectory()) continue;
         const guildRoot = path.join(guildsRoot, guild.name);
         result.processedGuilds++;
-        for (const category of ['messages', 'voice', 'moderation', 'soundboard']) {
+        const analyticsCutoffDate = new Date(now - policies.analytics * DAY_MS).toISOString().slice(0, 10);
+        archiveExpiredAnalytics(guildRoot, analyticsCutoffDate);
+        for (const category of ['messages', 'voice']) result.removedRecords += pruneNdjsonBeforeDate(path.join(guildRoot, 'analytics', category), analyticsCutoffDate);
+        for (const category of ['moderation', 'soundboard']) {
             result.removedRecords += pruneNdjson(path.join(guildRoot, 'analytics', category), policies.analytics, now);
         }
         result.removedRecords += pruneOperations(path.join(guildRoot, 'operations.json'), policies, now);
@@ -298,10 +407,9 @@ function pruneDataRetention({ root = defaultRoot, now = Date.now(), retentionDay
             for (const userId of Object.keys(roles)) if (isExpired(roles[userId], policies.profiles, now, ['savedAt'])) { delete roles[userId]; result.removedRecords++; }
             writeJson(rolesPath, roles);
         }
-        rebuildMessageRollup(guildRoot);
-        rebuildVoiceRollup(guildRoot);
+        rebuildAnalyticsRollups(guildRoot);
     }
     return result;
 }
 
-module.exports = { DAY_MS, DEFAULT_RETENTION_DAYS, normalizedPolicies, pruneDataRetention };
+module.exports = { DAY_MS, DEFAULT_RETENTION_DAYS, normalizedPolicies, pruneDataRetention, rebuildAnalyticsRollups };

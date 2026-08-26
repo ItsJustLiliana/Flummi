@@ -13,6 +13,9 @@ const { applyConfiguredPresence } = require('./utils/presence');
 const { buildFieldChanges } = require('./utils/audit-details');
 const { RepositoryFileError, RepositoryFileManager, isSensitivePath } = require('./services/repository-file-manager');
 const { buildReleaseStatus } = require('./services/release-status');
+const { correctAnalytics } = require('./services/analytics-correction-service');
+const { readCompliance, updateOpenRouter } = require('./stores/compliance-store');
+const { PROCEDURES: complianceProcedures } = require('./services/compliance-operations-service');
 const config = readConfig();
 config.commandPermissions = { ...(config.commandPermissions || {}), dashboard: 'member' };
 const settingsStore = require('./stores/settings-store');
@@ -489,10 +492,18 @@ function escapeHtmlAttribute(value) {
 
 function buildSiteMetadata(req) {
     const siteUrl = panelPublicUrl(req).replace(/\/$/, '');
-    const canonicalUrl = `${siteUrl}/`;
+    const pathname = new URL(req.url, `${siteUrl}/`).pathname;
+    const pageMetadata = {
+        '/terms': ['Terms of Service - Flummi', 'Terms governing use of the Flummi Discord bot and dashboard.'],
+        '/privacy': ['Privacy Policy - Flummi', 'How Flummi collects, uses, retains, protects, and shares Discord data.'],
+        '/licenses': ['Open-source Licenses - Flummi', 'Open-source license notices for Flummi and its principal dependencies.'],
+        '/policy-archive': ['Terms and Policy Archive - Flummi', 'Current and previous versions of Flummi policies.'],
+        '/credits': ['Credits - Flummi', 'Projects, platforms, and documentation used to build Flummi.']
+    };
+    const canonicalPath = pageMetadata[pathname] ? pathname : '/';
+    const canonicalUrl = `${siteUrl}${canonicalPath}`;
     const imageUrl = `${siteUrl}/assets/branding/flummi-banner-color.jpg`;
-    const title = 'Flummi - Discord server management made friendly';
-    const description = 'Manage, protect, automate, and understand your Discord server with Flummi. Configure moderation, safety, tickets, roles, analytics, workflows, backups, and community tools from one friendly dashboard.';
+    const [title, description] = pageMetadata[pathname] || ['Flummi - Discord server management made friendly', 'Manage, protect, automate, and understand your Discord server with Flummi. Configure moderation, safety, tickets, roles, analytics, workflows, backups, and community tools from one friendly dashboard.'];
     const structuredData = serializeForInlineScript({
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
@@ -1509,7 +1520,8 @@ function createServer() {
                 return;
             }
 
-            if (req.method === 'GET' && requestUrl.pathname === '/') {
+            const publicPagePaths = new Set(['/', '/commands', '/status', '/support', '/terms', '/privacy', '/licenses', '/policy-archive', '/credits']);
+            if (req.method === 'GET' && publicPagePaths.has(requestUrl.pathname)) {
                 const html = fs.readFileSync(indexPath, 'utf8');
                 const tabOrder = Array.isArray(config.panel?.tabOrder) ? config.panel.tabOrder : [];
                 const tabNames = config.panel?.tabNames && typeof config.panel.tabNames === 'object' ? config.panel.tabNames : {};
@@ -1531,9 +1543,10 @@ function createServer() {
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/sitemap.xml') {
-                const siteUrl = escapeHtmlAttribute(`${panelPublicUrl(req).replace(/\/$/, '')}/`);
+                const siteUrl = panelPublicUrl(req).replace(/\/$/, '');
+                const pages = ['/', '/commands', '/status', '/support', '/terms', '/privacy', '/licenses', '/policy-archive', '/credits'];
                 res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
-                res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${siteUrl}</loc><changefreq>weekly</changefreq></url></urlset>`);
+                res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map(page => `<url><loc>${escapeHtmlAttribute(`${siteUrl}${page}`)}</loc><changefreq>weekly</changefreq></url>`).join('')}</urlset>`);
                 return;
             }
 
@@ -1615,7 +1628,8 @@ function createServer() {
                     '/api/bot-profile', '/api/bot-profile/application', '/api/bot-profile/guild', '/api/config',
                     '/api/data-tools', '/api/backup', '/api/data-tools/reset', '/api/reliability',
                     '/api/ai-health', '/api/reliability/backup', '/api/reliability/reconcile-voice',
-                    '/api/health', '/api/runtime', '/api/update-status', '/api/send', '/api/release/promote', '/api/developer/stats'
+                    '/api/health', '/api/runtime', '/api/update-status', '/api/send', '/api/release/promote', '/api/developer/stats',
+                    '/api/developer/analytics-correction', '/api/developer/compliance'
                 ]);
                 if (developerPaths.has(requestUrl.pathname) && !requireDeveloperAccess(panelSession, res)) return;
                 if (requestUrl.pathname.startsWith('/api/developer/files') && !requireDeveloperAccess(panelSession, res)) return;
@@ -3032,6 +3046,49 @@ function createServer() {
                     allowEveryoneMentions
                 );
                 sendJson(res, 200, { ok: true, message: result });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/developer/analytics-correction') {
+                const guildId = requestUrl.searchParams.get('guildId');
+                if (!guildId) { sendJson(res, 400, { error: 'guildId is required.' }); return; }
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                const apply = parsed.action === 'delete';
+                if (apply) {
+                    if (!requireDeveloperFileWriteAccess(req, panelSession, res)) return;
+                    if (parsed.confirmation !== 'DELETE FALSE ANALYTICS') {
+                        sendJson(res, 400, { error: 'Type DELETE FALSE ANALYTICS exactly to confirm.' });
+                        return;
+                    }
+                } else if (!requireDeveloperSensitiveFileAccess(req, res)) return;
+                const result = correctAnalytics(guildId, parsed, { apply });
+                if (apply) auditPanelAction(panelSession, 'analytics-correction', `Removed false ${result.filters.category} analytics`, {
+                    guildId, reason: String(parsed.reason || '').slice(0, 500), rawRecords: result.raw.matched,
+                    anonymousDays: result.anonymous.matchedDays, from: parsed.from, to: parsed.to
+                });
+                sendJson(res, 200, result);
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/developer/compliance') {
+                sendJson(res, 200, { ...readCompliance(), procedures: complianceProcedures });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/developer/compliance') {
+                if (!requireDeveloperFileWriteAccess(req, res)) return;
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                if (parsed.confirmation !== 'CONFIRM PROVIDER REVIEW') {
+                    sendJson(res, 400, { error: 'Exact confirmation is required.' });
+                    return;
+                }
+                const state = updateOpenRouter(parsed, panelSession.user.id);
+                auditPanelAction(panelSession, 'provider-agreement-status', 'Updated OpenRouter agreement review status', {
+                    status: state.openRouter.status,
+                    effectiveAt: state.openRouter.effectiveAt,
+                    reference: state.openRouter.reference
+                });
+                sendJson(res, 200, { ...state, procedures: complianceProcedures });
                 return;
             }
 

@@ -13,11 +13,36 @@ const {
     startVoiceSession,
     updateVoiceSession
 } = require('../stores/voice-store');
+const { historyPathForGuildRoot, writeAnonymousAnalyticsAt } = require('../stores/anonymous-analytics-store');
 
 function cleanupGuild(guildId) {
     const guildPath = path.join(__dirname, '..', 'data', 'guilds', guildId);
     fs.rmSync(guildPath, { recursive: true, force: true });
 }
+
+test('all-time voice analytics include permanent anonymous daily totals', () => {
+    const guildId = `test-voice-history-${process.pid}`;
+    const guildRoot = path.join(__dirname, '..', 'data', 'guilds', guildId);
+    cleanupGuild(guildId);
+    try {
+        writeAnonymousAnalyticsAt(historyPathForGuildRoot(guildRoot), {
+            messages: { byDay: {} },
+            voice: { byDay: { '2020-01-01': {
+                occupiedMs: 60000, participantMs: 120000, sessions: 2, heatmap: [2, ...Array(23).fill(0)],
+                channels: { ten: { name: 'General voice', occupiedMs: 60000, participantMs: 120000, sessions: 2 } }
+            } } }
+        });
+        const allTime = getVoiceAnalytics(guildId);
+        assert.equal(allTime.totalMs, 60000);
+        assert.equal(allTime.participantTotalMs, 120000);
+        assert.equal(allTime.minutesOverTime.find(row => row.date === '2020-01-01').count, 2);
+        assert.equal(allTime.topChannels[0].totalMs, 120000);
+        assert.deepEqual(allTime.userTotals, []);
+        assert.equal(getVoiceActivityHeatmap(guildId)[3][0], 2);
+    } finally {
+        cleanupGuild(guildId);
+    }
+});
 
 test('voice store tracks join/leave durations and leaderboard', () => {
     const guildId = `test-voice-stats-${process.pid}`;

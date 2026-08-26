@@ -1318,8 +1318,15 @@ const homePageTitles = {
     commands: 'Commands - Flummi',
     status: 'Status - Flummi',
     feedback: 'Feedback - Flummi',
-    developer: 'Developer Tools - Flummi'
+    developer: 'Developer Tools - Flummi',
+    terms: 'Terms of Service - Flummi',
+    privacy: 'Privacy Policy - Flummi',
+    licenses: 'Licenses - Flummi',
+    archive: 'Policy Archive - Flummi',
+    credits: 'Credits - Flummi'
 };
+const homeViewPaths = { servers: '/', commands: '/commands', status: '/status', feedback: '/support', terms: '/terms', privacy: '/privacy', licenses: '/licenses', archive: '/policy-archive', credits: '/credits' };
+const homeViewNames = Object.keys(homeViewPaths);
 
 function setHomePageTitle(view) {
     const title = homePageTitles[view] || homePageTitles.servers;
@@ -1383,9 +1390,9 @@ function showHomeView(name = 'servers', developerTool = null) {
     document.getElementById('homeShell').hidden = false;
     document.getElementById('dashboardLayout').hidden = true;
     setHomePageTitle(name);
-    history.replaceState(null, '', name === 'servers' ? '/' : `/?view=${encodeURIComponent(name)}`);
+    history.replaceState(null, '', name === 'developer' ? `/?view=developer${developerTool ? `&tool=${encodeURIComponent(developerTool)}` : ''}` : (homeViewPaths[name] || '/'));
     for (const button of document.querySelectorAll('[data-home-view]')) button.classList.toggle('active', button.dataset.homeView === name);
-    for (const view of ['servers', 'commands', 'status', 'feedback', 'developer']) document.getElementById(`homeView${view[0].toUpperCase()}${view.slice(1)}`).hidden = view !== name;
+    for (const view of [...homeViewNames, 'developer']) document.getElementById(`homeView${view[0].toUpperCase()}${view.slice(1)}`).hidden = view !== name;
     if (name === 'commands') loadPublicCommands().catch(handleUiError);
     if (name === 'status') loadPublicStatus().catch(handleUiError);
     if (name === 'developer') activateDeveloperWorkspace(developerTool).catch(handleUiError);
@@ -3890,11 +3897,32 @@ async function loadSettings() {
 }
 
 async function loadGlobalSettings() {
-    const configData = await api('/api/config');
+    const [configData, complianceData] = await Promise.all([api('/api/config'), api('/api/developer/compliance')]);
     document.getElementById('publicPanelEnabled').checked = configData.panel?.publicAccessEnabled !== false;
     applyDeveloperSettings(configData);
     renderCommandPermissions(configData);
     syncGlobalFeatureState();
+    renderComplianceOperations(complianceData);
+}
+
+function renderComplianceTable(rows) {
+    return `<table><thead><tr><th>Stage</th><th>Target</th><th>Required action</th></tr></thead><tbody>${(rows || []).map(row => `<tr><td>${escapeHtml(row.stage)}</td><td>${escapeHtml(row.target)}</td><td>${escapeHtml(row.action)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderComplianceOperations(data) {
+    const procedures = data.procedures || {};
+    const agreement = data.openRouter || {};
+    document.getElementById('complianceOwner').textContent = procedures.owner || 'Configured Flummi developers';
+    document.getElementById('complianceAbuseTable').innerHTML = renderComplianceTable(procedures.abuse);
+    document.getElementById('complianceCorrectionTable').innerHTML = renderComplianceTable(procedures.correction);
+    document.getElementById('complianceIncidentTable').innerHTML = renderComplianceTable(procedures.incident);
+    document.getElementById('openRouterAgreementStatus').value = agreement.status || 'pending';
+    document.getElementById('openRouterAgreementEffective').value = agreement.effectiveAt ? agreement.effectiveAt.slice(0, 10) : '';
+    document.getElementById('openRouterAgreementReference').value = agreement.reference || '';
+    const details = agreement.updatedAt
+        ? `Last recorded ${formatDateTime(agreement.updatedAt)}${agreement.reviewedBy ? ` by developer ${agreement.reviewedBy}` : ''}.`
+        : 'No provider review has been recorded yet.';
+    setStatus(document.getElementById('openRouterAgreementStatusText'), details, agreement.status === 'dpa-executed' ? 'ok' : '');
 }
 
 function applyDeveloperSettings(configData) {
@@ -5277,6 +5305,106 @@ async function logoutToHome() {
 }
 document.getElementById('homeLogout').addEventListener('click', logoutToHome);
 
+document.getElementById('saveOpenRouterAgreement').addEventListener('click', async () => {
+    const statusElement = document.getElementById('openRouterAgreementStatusText');
+    const status = document.getElementById('openRouterAgreementStatus').value;
+    const effectiveAt = document.getElementById('openRouterAgreementEffective').value;
+    const reference = document.getElementById('openRouterAgreementReference').value.trim();
+    if (status !== 'pending' && !effectiveAt) {
+        setStatus(statusElement, 'An effective date is required after the terms or DPA have been reviewed.', 'error');
+        return;
+    }
+    const confirmation = await requestTextInput({
+        title: 'Record provider review?',
+        message: 'Only confirm after you completed the selected OpenRouter agreement step outside Flummi and verified the downstream provider privacy settings.',
+        label: 'Type CONFIRM PROVIDER REVIEW',
+        placeholder: 'CONFIRM PROVIDER REVIEW',
+        confirmLabel: 'Record review',
+        validate: value => value === 'CONFIRM PROVIDER REVIEW' ? null : 'The confirmation text does not match.'
+    });
+    if (!confirmation) return;
+    try {
+        const data = await api('/api/developer/compliance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, effectiveAt, reference, confirmation })
+        });
+        renderComplianceOperations(data);
+        setStatus(statusElement, 'Provider review record saved.', 'ok');
+    } catch (error) { setStatus(statusElement, error.message, 'error'); }
+});
+
+// ---------- Analytics corrections ----------
+let analyticsCorrectionPreview = null;
+
+function analyticsCorrectionPayload() {
+    const fromValue = document.getElementById('analyticsCorrectionFrom').value;
+    const toValue = document.getElementById('analyticsCorrectionTo').value;
+    const reason = document.getElementById('analyticsCorrectionReason').value.trim();
+    if (!fromValue || !toValue) throw new Error('Choose both a start and end time.');
+    if (!reason) throw new Error('An audit reason is required.');
+    const payload = {
+        category: document.getElementById('analyticsCorrectionCategory').value,
+        from: new Date(fromValue).toISOString(),
+        to: new Date(toValue).toISOString(),
+        userId: document.getElementById('analyticsCorrectionUser').value.trim(),
+        channelId: document.getElementById('analyticsCorrectionChannel').value.trim(),
+        includeAnonymous: document.getElementById('analyticsCorrectionAnonymous').checked,
+        reason
+    };
+    if (payload.includeAnonymous && (payload.userId || payload.channelId)) throw new Error('Anonymous history can only be removed for complete server-wide UTC days; clear the member and channel filters.');
+    return payload;
+}
+
+function renderAnalyticsCorrectionPreview(result) {
+    const files = result.raw?.files || [];
+    const days = result.anonymous?.dates || [];
+    document.getElementById('analyticsCorrectionPreview').innerHTML = `<table><thead><tr><th>Source</th><th>Matches</th></tr></thead><tbody>
+        ${files.map(row => `<tr><td>${escapeHtml(row.file)}</td><td>${Number(row.records) || 0} raw records</td></tr>`).join('')}
+        ${days.map(date => `<tr><td>Anonymous UTC day ${escapeHtml(date)}</td><td>Complete daily bucket</td></tr>`).join('')}
+        ${!files.length && !days.length ? '<tr><td colspan="2">No matching analytics data.</td></tr>' : ''}
+    </tbody></table>`;
+}
+
+document.getElementById('developerAnalyticsCorrection').addEventListener('input', () => {
+    analyticsCorrectionPreview = null;
+    document.getElementById('deleteAnalyticsCorrection').disabled = true;
+});
+
+document.getElementById('previewAnalyticsCorrection').addEventListener('click', async () => {
+    const status = document.getElementById('analyticsCorrectionStatus');
+    try {
+        const payload = analyticsCorrectionPayload();
+        const result = await api(withGuild('/api/developer/analytics-correction'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, action: 'preview' }) });
+        analyticsCorrectionPreview = { payload, result };
+        renderAnalyticsCorrectionPreview(result);
+        const total = Number(result.raw?.matched) + Number(result.anonymous?.matchedDays);
+        document.getElementById('deleteAnalyticsCorrection').disabled = total === 0;
+        setStatus(status, total ? `Preview ready: ${result.raw.matched} raw record(s), ${result.anonymous.matchedDays} anonymous day(s).` : 'No matching data found.', total ? 'ok' : '');
+    } catch (error) { setStatus(status, error.message, 'error'); }
+});
+
+document.getElementById('deleteAnalyticsCorrection').addEventListener('click', async () => {
+    if (!analyticsCorrectionPreview) return;
+    const confirmation = await requestTextInput({
+        title: 'Delete false analytics?',
+        message: 'This permanently changes the selected server visualizations and totals.',
+        label: 'Type DELETE FALSE ANALYTICS',
+        placeholder: 'DELETE FALSE ANALYTICS',
+        confirmLabel: 'Delete analytics',
+        validate: value => value === 'DELETE FALSE ANALYTICS' ? null : 'The confirmation text does not match.'
+    });
+    if (!confirmation) return;
+    const status = document.getElementById('analyticsCorrectionStatus');
+    try {
+        const result = await api(withGuild('/api/developer/analytics-correction'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...analyticsCorrectionPreview.payload, action: 'delete', confirmation }) });
+        renderAnalyticsCorrectionPreview(result);
+        analyticsCorrectionPreview = null;
+        document.getElementById('deleteAnalyticsCorrection').disabled = true;
+        setStatus(status, `Removed ${result.raw.matched} raw record(s) and ${result.anonymous.matchedDays} anonymous day(s).`, 'ok');
+    } catch (error) { setStatus(status, error.message, 'error'); }
+});
+
 // ---------- Init ----------
 const rememberedTab = localStorage.getItem('flummi.activeTab');
 const rememberedButton = tabButtons.find(button => button.dataset.tab === rememberedTab);
@@ -5292,8 +5420,9 @@ async function initializePanel() {
         history.replaceState(null, '', reauthReturn);
     }
     const requestedParams = new URLSearchParams(window.location.search);
-    const requestedView = requestedParams.get('view');
-    const publicViews = new Set(['servers', 'commands', 'status', 'feedback']);
+    const pathViews = Object.fromEntries(Object.entries(homeViewPaths).map(([view, route]) => [route, view]));
+    const requestedView = pathViews[window.location.pathname] || requestedParams.get('view');
+    const publicViews = new Set(homeViewNames);
     const initialView = publicViews.has(requestedView) ? requestedView : 'servers';
     loadInviteLink().catch(error => console.error(error));
     const authenticated = await loadPanelAccount();

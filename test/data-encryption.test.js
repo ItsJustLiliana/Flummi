@@ -34,3 +34,22 @@ test('production and staging encryption wrapper keeps roots and services separat
     assert.match(wrapper, /\/projects\/Flummi-staging --service flummi-staging\.service --instance flummi-staging/);
     assert.match(wrapper, /different passfiles/i);
 });
+
+test('secret migration encrypts env and local config with rollback and guarded finalization', () => {
+    const script = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'flummi-secrets-encryption.sh'), 'utf8');
+    assert.match(script, /secret_names=\(\.env config\.local\.json config\.json\)/);
+    assert.match(script, /\.flummi-secrets\.encrypted/);
+    assert.match(script, /rsync -a --checksum --delete --dry-run/);
+    assert.match(script, /gocryptfs -fsck/);
+    assert.match(script, /migration_failed/);
+    assert.match(script, /Type ERASE PLAINTEXT SECRETS/);
+    assert.match(script, /Requires=\$\{mount_service_name\}/);
+    assert.match(script, /ExecStartPre=.*mountpoint -q/);
+});
+
+test('production and staging secrets wrapper keeps roots and services separate', () => {
+    const wrapper = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'flummi-encrypt-secrets-both.sh'), 'utf8');
+    assert.match(wrapper, /--root \/projects\/Flummi --service flummi\.service --instance flummi/);
+    assert.match(wrapper, /--root \/projects\/Flummi-staging --service flummi-staging\.service --instance flummi-staging/);
+    assert.match(wrapper, /different passfiles/i);
+});

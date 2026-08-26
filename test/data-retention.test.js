@@ -34,8 +34,8 @@ test('central retention removes expired personal data and rebuilds retained roll
             { type: 'message', at: recent, messageId: 'new-message', userId: 'new-user', userTag: 'New', channelId: 'two', channelName: 'Two' }
         ], { ndjson: true });
         write(path.join(guildRoot, 'analytics', 'voice', '2026-08', 'part-0001.ndjson'), [
-            { type: 'voice', action: 'session-ended', at: old, endedAt: old, userId: 'old-user', channelId: 'one', durationMs: 5000 },
-            { type: 'voice', action: 'session-ended', at: recent, endedAt: recent, userId: 'new-user', channelId: 'two', durationMs: 7000 }
+            { type: 'voice', action: 'session-ended', at: old, startedAt: new Date(new Date(old).getTime() - 5000).toISOString(), endedAt: old, userId: 'old-user', channelId: 'one', durationMs: 5000 },
+            { type: 'voice', action: 'session-ended', at: recent, startedAt: new Date(new Date(recent).getTime() - 7000).toISOString(), endedAt: recent, userId: 'new-user', channelId: 'two', durationMs: 7000 }
         ], { ndjson: true });
         write(path.join(guildRoot, 'operations.json'), {
             reports: [{ id: 'old-resolved', status: 'resolved', updatedAt: old }, { id: 'old-open', status: 'open', createdAt: old }],
@@ -70,11 +70,18 @@ test('central retention removes expired personal data and rebuilds retained roll
         assert.deepEqual(community.suggestions.map(row => row.id), ['active-suggestion']);
         assert.deepEqual(community.submissions.map(row => row.id), ['active-submission']);
         const messages = JSON.parse(fs.readFileSync(path.join(guildRoot, 'analytics', 'rollups', 'message-stats.json')));
-        assert.equal(messages.messages.total, 1);
+        assert.equal(messages.messages.total, 2);
         assert.deepEqual(Object.keys(messages.messages.byUser), ['new-user']);
         const voice = JSON.parse(fs.readFileSync(path.join(guildRoot, 'analytics', 'rollups', 'voice-state.json')));
         assert.deepEqual(Object.keys(voice.users), ['new-user']);
         assert.equal(voice.users['new-user'].totalMs, 7000);
+        const anonymous = JSON.parse(fs.readFileSync(path.join(guildRoot, 'analytics', 'rollups', 'anonymous-history.json')));
+        const archivedDate = old.slice(0, 10);
+        assert.equal(anonymous.messages.byDay[archivedDate].count, 1);
+        assert.equal(anonymous.voice.byDay[archivedDate].occupiedMs, 5000);
+        assert.equal(JSON.stringify(anonymous).includes('old-user'), false);
+        pruneDataRetention({ root, now });
+        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(guildRoot, 'analytics', 'rollups', 'anonymous-history.json'))), anonymous);
         assert.equal(fs.existsSync(recovery), false);
     } finally {
         fs.rmSync(root, { recursive: true, force: true });

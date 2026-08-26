@@ -14,7 +14,16 @@ function unquoteValue(value) {
     return trimmed;
 }
 
-function loadEnv(filePath = path.join(__dirname, '..', '.env')) {
+function defaultEnvPath() {
+    const root = path.join(__dirname, '..');
+    const secretsDir = process.env.FLUMMI_SECRETS_DIR || path.join(root, '.flummi-secrets');
+    const securePath = path.join(secretsDir, '.env');
+    return fs.existsSync(path.join(secretsDir, '.flummi-secrets-verified')) && fs.existsSync(securePath)
+        ? securePath
+        : path.join(root, '.env');
+}
+
+function loadEnv(filePath = defaultEnvPath()) {
     if (!fs.existsSync(filePath)) {
         return;
     }
@@ -46,5 +55,6 @@ function loadEnv(filePath = path.join(__dirname, '..', '.env')) {
 }
 
 module.exports = {
+    defaultEnvPath,
     loadEnv
 };

@@ -12,6 +12,9 @@ function consentButtons(userId) {
 async function promptForAiConsent(message) {
     return message.reply({ content: disclosure, components: [consentButtons(message.author.id)], allowedMentions: { repliedUser: false } });
 }
+function canSendAiContent(userId, consentCheck = hasAiConsent) {
+    return Boolean(consentCheck(userId));
+}
 async function handleAiConsentInteraction(interaction) {
     if (!interaction.isButton?.() || !interaction.customId.startsWith('ai-consent:')) return false;
     const [, action, userId] = interaction.customId.split(':');
@@ -22,4 +25,4 @@ async function handleAiConsentInteraction(interaction) {
     return true;
 }
 
-module.exports = { consentButtons, disclosure, handleAiConsentInteraction, hasAiConsent, promptForAiConsent, setAiConsent };
+module.exports = { canSendAiContent, consentButtons, disclosure, handleAiConsentInteraction, hasAiConsent, promptForAiConsent, setAiConsent };

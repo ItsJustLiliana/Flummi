@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { Client, Collection, GatewayIntentBits, Options, Partials } = require('discord.js');
+const { Client, Collection, Options, Partials } = require('discord.js');
+const { BOT_GATEWAY_INTENTS } = require('./services/discord-intents');
 const { installTimestampedConsole } = require('./utils/logger');
 const { loadEnv } = require('./utils/env-loader');
 const { localPath, readConfig } = require('./utils/config');
@@ -14,16 +15,7 @@ loadEnv();
 const botToken = process.env.DISCORD_BOT_TOKEN || config.token;
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildModeration,
-        GatewayIntentBits.GuildMessageReactions,
-        GatewayIntentBits.DirectMessages
-    ],
+    intents: BOT_GATEWAY_INTENTS,
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
     makeCache: Options.cacheWithLimits({
         ...Options.DefaultMakeCacheSettings,

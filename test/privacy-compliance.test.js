@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { GatewayIntentBits } = require('discord.js');
+const { BOT_GATEWAY_INTENTS } = require('../services/discord-intents');
 const { collectDiscordUserArtifacts, deleteGuildData, deleteUserData, previewUserDeletion } = require('../services/privacy-service');
 
 function write(file, content) { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, content); }
@@ -67,7 +69,7 @@ test('privacy commands, consent gate, and abuse reporting are wired into Discord
     assert.match(modmail, /Nothing is sent until you confirm/);
     assert.match(modmail, /handleModmailConsentInteraction/);
     assert.match(guildDelete, /deleteGuildData\(guild\.id\)/);
-    assert.match(index, /GatewayIntentBits\.DirectMessages/);
+    assert.equal(BOT_GATEWAY_INTENTS.includes(GatewayIntentBits.DirectMessages), true);
     const ai = fs.readFileSync(path.join(__dirname, '..', 'services', 'ai-chat.js'), 'utf8');
     const benchmark = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'benchmark-ai-models.js'), 'utf8');
     assert.match(ai, /data_collection: 'deny'/);

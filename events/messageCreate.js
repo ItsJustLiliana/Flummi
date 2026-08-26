@@ -760,8 +760,8 @@ module.exports = {
                     return;
                 }
             } else {
-                const { hasAiConsent, promptForAiConsent } = require('../services/ai-consent-service');
-                if (!hasAiConsent(message.author.id)) {
+                const { canSendAiContent, promptForAiConsent } = require('../services/ai-consent-service');
+                if (!canSendAiContent(message.author.id)) {
                     await promptForAiConsent(message);
                     return;
                 }

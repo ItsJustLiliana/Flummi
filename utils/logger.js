@@ -8,6 +8,10 @@ const fs = require('fs');
 const path = require('path');
 const logFile = path.join(__dirname, '..', 'data', 'runtime', 'bot.log');
 const maxEntries = 1000;
+const sensitiveLogKeys = new Set([
+    'body', 'content', 'history', 'input', 'message', 'messages', 'prompt',
+    'referencedmessage', 'requestbody', 'text', 'transcript'
+]);
 
 let installed = false;
 
@@ -35,6 +39,25 @@ function withTimestamp(level, args) {
     return [`[${formatLogTimestamp()}]`, `[${level}]`, ...args];
 }
 
+function sanitizeLogValue(value, seen = new WeakSet()) {
+    if (value === null || value === undefined || typeof value !== 'object') return value;
+    if (seen.has(value)) return '[circular]';
+    seen.add(value);
+    if (Array.isArray(value)) return value.map(item => sanitizeLogValue(item, seen));
+    const output = {};
+    for (const [key, child] of Object.entries(value)) {
+        output[key] = sensitiveLogKeys.has(key.toLowerCase()) ? '[redacted]' : sanitizeLogValue(child, seen);
+    }
+    return output;
+}
+
+function formatLogArgument(value) {
+    if (value instanceof Error) return value.stack || value.message;
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(sanitizeLogValue(value)); }
+    catch { return '[unserializable-object]'; }
+}
+
 function installTimestampedConsole() {
     if (installed) {
         return;
@@ -43,7 +66,7 @@ function installTimestampedConsole() {
     installed = true;
 
     const write = (level, args) => {
-        const entry = { at: new Date().toISOString(), level: level.toLowerCase(), message: args.map(value => value instanceof Error ? value.stack || value.message : typeof value === 'string' ? value : JSON.stringify(value)).join(' ') };
+        const entry = { at: new Date().toISOString(), level: level.toLowerCase(), message: args.map(formatLogArgument).join(' ') };
         try {
             fs.mkdirSync(path.dirname(logFile), { recursive: true });
             fs.appendFileSync(logFile, JSON.stringify(entry) + '\n');
@@ -65,7 +88,9 @@ function readRecentLogs(level = null, limit = 200) {
 }
 
 module.exports = {
+    formatLogArgument,
     formatLogTimestamp,
     installTimestampedConsole,
-    readRecentLogs
+    readRecentLogs,
+    sanitizeLogValue
 };

@@ -107,21 +107,40 @@ function removeTarget(target, dryRun, root = dataRoot) {
     return { target, files: files.length, bytes };
 }
 
+function isTicketTranscript(filePath) {
+    return filePath.split(path.sep).join('/').includes('/tickets/transcripts/');
+}
+
+function removeMatchingTranscriptFiles(userId, dryRun, root) {
+    return walkFiles(root).filter(isTicketTranscript).flatMap(filePath => {
+        let matches = false;
+        try { matches = fs.readFileSync(filePath, 'utf8').includes(userId); } catch { /* Ignore unreadable artifacts. */ }
+        if (!matches) return [];
+        const bytes = fs.statSync(filePath).size;
+        if (!dryRun) fs.rmSync(filePath, { force: true });
+        return [{ target: filePath, files: 1, bytes }];
+    });
+}
+
 function processUserData(userId, { dryRun = false, root = dataRoot } = {}) {
     const id = safeIdentifier(userId, 'user ID');
     const resolvedRoot = path.resolve(root);
     const removedTargets = directUserTargets(id, resolvedRoot).map(target => removeTarget(target, dryRun, resolvedRoot)).filter(Boolean);
+    const removedTranscripts = removeMatchingTranscriptFiles(id, dryRun, resolvedRoot);
     const directFiles = new Set(removedTargets.flatMap(entry => fs.existsSync(entry.target) && fs.statSync(entry.target).isDirectory() ? walkFiles(entry.target) : [entry.target]));
+    for (const entry of removedTranscripts) directFiles.add(entry.target);
     const rewritten = walkFiles(resolvedRoot)
         .filter(file => removableExtensions.has(path.extname(file).toLowerCase()) && !directFiles.has(file))
         .map(file => rewriteFile(file, id, dryRun))
         .filter(Boolean);
     return {
         dryRun,
-        removedFiles: removedTargets.reduce((total, entry) => total + entry.files, 0),
-        removedBytes: removedTargets.reduce((total, entry) => total + entry.bytes, 0),
+        removedFiles: [...removedTargets, ...removedTranscripts].reduce((total, entry) => total + entry.files, 0),
+        removedBytes: [...removedTargets, ...removedTranscripts].reduce((total, entry) => total + entry.bytes, 0),
+        removedTranscriptFiles: removedTranscripts.length,
         rewrittenFiles: rewritten.length,
-        backupsIncluded: rewritten.some(entry => entry.filePath.includes(`${path.sep}global${path.sep}backups${path.sep}`))
+        backupsIncluded: [...rewritten.map(entry => entry.filePath), ...removedTranscripts.map(entry => entry.target)]
+            .some(filePath => filePath.includes(`${path.sep}global${path.sep}backups${path.sep}`))
     };
 }
 
@@ -177,7 +196,17 @@ function deleteGuildData(guildId, { root = dataRoot } = {}) {
     const resolvedRoot = path.resolve(root);
     const targets = [path.join(resolvedRoot, 'guilds', id), path.join(resolvedRoot, 'global', 'backups', id)];
     const removed = targets.map(target => removeTarget(target, false, resolvedRoot)).filter(Boolean);
-    return { guildId: id, removedFiles: removed.reduce((total, entry) => total + entry.files, 0), removedBytes: removed.reduce((total, entry) => total + entry.bytes, 0) };
+    const activityPath = path.join(resolvedRoot, 'runtime', 'activity.json');
+    let removedActivityEntries = 0;
+    try {
+        const activity = JSON.parse(fs.readFileSync(activityPath, 'utf8'));
+        if (Array.isArray(activity)) {
+            const retained = activity.filter(entry => String(entry?.guildId || '') !== id);
+            removedActivityEntries = activity.length - retained.length;
+            if (removedActivityEntries) atomicWrite(activityPath, `${JSON.stringify(retained, null, 2)}\n`);
+        }
+    } catch { /* A missing or unreadable activity feed needs no guild cleanup. */ }
+    return { guildId: id, removedFiles: removed.reduce((total, entry) => total + entry.files, 0), removedBytes: removed.reduce((total, entry) => total + entry.bytes, 0), removedActivityEntries };
 }
 
 module.exports = { collectDiscordUserArtifacts, dataRoot, deleteDiscordUserArtifacts, deleteGuildData, deleteUserData, previewUserDeletion, scrubValue };

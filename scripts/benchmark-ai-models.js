@@ -40,7 +40,7 @@ async function testModel({ model, apiKey, baseUrl, timeoutMs, providerSort }) {
                 messages: [{ role: 'user', content: TEST_PROMPT }],
                 max_tokens: 12,
                 temperature: 0,
-                provider: { sort: providerSort || 'throughput' }
+                provider: { sort: providerSort || 'throughput', data_collection: 'deny', zdr: true }
             }),
             signal: controller.signal
         });

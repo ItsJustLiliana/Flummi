@@ -49,28 +49,16 @@ test('buildMessages includes compact memory summary before recent history', () =
     assert.equal(messages[4].content, 'nieuwe vraag');
 });
 
-test('buildMessages includes learned user profile before older summary', () => {
+test('buildMessages includes only the user-supplied profile before older summary', () => {
     const messages = buildMessages('kort antwoorden', [
         { role: 'user', content: 'recente vraag' }
-    ], 'nieuwe vraag', '- User: oude vraag', '- Favoriete game: Brawl Stars');
+    ], 'nieuwe vraag', '- User: oude vraag', 'Naam/nickname: Marij\nBio: Bot enjoyer');
 
     assert.equal(messages.length, 5);
-    assert.equal(messages[1].role, 'system');
-    assert.match(messages[1].content, /Intern geleerd gebruikersprofiel/);
-    assert.match(messages[1].content, /Brawl Stars/);
-    assert.match(messages[2].content, /Oudere gesprekscontext/);
-});
-
-test('buildMessages includes external profile before learned profile', () => {
-    const messages = buildMessages('kort antwoorden', [
-        { role: 'user', content: 'recente vraag' }
-    ], 'nieuwe vraag', '- User: oude vraag', '- Terugkerend onderwerp: FNAF', 'Naam/nickname: Marij\nBio: Bot enjoyer');
-
-    assert.equal(messages.length, 6);
     assert.match(messages[1].content, /Door de user zelf ingevuld profiel/);
     assert.match(messages[1].content, /Bot enjoyer/);
-    assert.match(messages[2].content, /Intern geleerd gebruikersprofiel/);
-    assert.match(messages[3].content, /Oudere gesprekscontext/);
+    assert.doesNotMatch(JSON.stringify(messages), /Intern geleerd gebruikersprofiel|Terugkerend onderwerp/);
+    assert.match(messages[2].content, /Oudere gesprekscontext/);
 });
 
 test('extractImageSearchRequest removes marker and returns the image query', () => {

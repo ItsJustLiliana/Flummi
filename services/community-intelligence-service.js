@@ -2,7 +2,6 @@ const analyticsStore = require('../stores/analytics-store');
 const communityStore = require('../stores/community-management-store');
 const moderationStore = require('../stores/moderation-store');
 const operationsStore = require('../stores/operations-store');
-const voiceStore = require('../stores/voice-store');
 
 const DAY_MS = 86400000;
 
@@ -36,10 +35,6 @@ function buildThreatAssessment(guildId, { now = Date.now(), settings = {} } = {}
         const created = validTime(row.metadata?.accountCreatedAt);
         return created && validTime(row.createdAt) - created < minimumAge;
     });
-    const suspiciousNames = joins.filter(row => {
-        const name = String(row.summary || '').replace(/ joined$/i, '');
-        return /(discord\.gg|nitro|free\W*gift)|([a-z0-9])\1{4,}|[^a-z0-9]{4,}/i.test(name);
-    });
     const inviteCounts = new Map();
     for (const row of analytics.filter(entry => entry.action === 'invite-use')) {
         const invite = String(row.code || row.inviteCode || row.inviterId || 'unknown');
@@ -58,7 +53,6 @@ function buildThreatAssessment(guildId, { now = Date.now(), settings = {} } = {}
     else score += Math.min(30, Math.round(burstJoins.length / threshold * 30));
     if (freshAccounts.length) score += Math.min(25, freshAccounts.length * 6);
     if (repeatedInvite >= 3) score += Math.min(20, repeatedInvite * 3);
-    if (suspiciousNames.length) score += Math.min(15, suspiciousNames.length * 5);
     if (fastMessages >= 10) score += Math.min(20, Math.round(fastMessages / 2));
     score = Math.min(100, score);
     const level = score >= 65 ? 'Raid' : score >= 30 ? 'Elevated' : 'Low';
@@ -66,7 +60,6 @@ function buildThreatAssessment(guildId, { now = Date.now(), settings = {} } = {}
         { label: 'Join burst', value: burstJoins.length, detail: `${burstJoins.length}/${threshold} in ${Math.round(windowMs / 1000)}s` },
         { label: 'Fresh accounts', value: freshAccounts.length, detail: `${freshAccounts.length} in the last 10m` },
         { label: 'Repeated invite', value: repeatedInvite, detail: repeatedInvite ? `${repeatedInvite} joins through one invite` : 'No repeated invite spike' },
-        { label: 'Suspicious names', value: suspiciousNames.length, detail: `${suspiciousNames.length} detected` },
         { label: 'Fast messages', value: fastMessages, detail: `${fastMessages} shortly after joining` }
     ];
     return { level, score, assessedAt: new Date(now).toISOString(), signals };
@@ -177,25 +170,6 @@ function buildCommunityHealth(guildId, { now = Date.now() } = {}) {
     };
 }
 
-function activityProfile(guildId, userId) {
-    const messages = analyticsStore.readEvents(guildId, 'messages', 0).filter(row => String(row.userId) === String(userId));
-    const allMessages = analyticsStore.readEvents(guildId, 'messages', 0);
-    const counts = new Map();
-    for (const row of allMessages) counts.set(String(row.userId), (counts.get(String(row.userId)) || 0) + 1);
-    const memberCount = counts.get(String(userId)) || 0;
-    const percentile = counts.size ? Math.round([...counts.values()].filter(count => count <= memberCount).length / counts.size * 100) : null;
-    const voice = voiceStore.getUserVoiceStats(guildId, userId);
-    return {
-        messages: messages.length,
-        activeDays: new Set(messages.map(row => String(row.at).slice(0, 10))).size,
-        voiceMinutes: Math.round((voice.totalMs || 0) / 60000),
-        lastMessageAt: messages.at(-1)?.at || null,
-        lastVoiceAt: voice.lastSeenAt || null,
-        activityPercentile: percentile,
-        reputation: memberCount >= 1000 ? 'Veteran' : memberCount >= 250 ? 'Active' : memberCount >= 50 ? 'Regular' : 'Newcomer'
-    };
-}
-
 function buildMemberDossier(guildId, userId) {
     const id = String(userId);
     const cases = moderationStore.getMemberCases(guildId, id, { limit: 500 });
@@ -208,7 +182,7 @@ function buildMemberDossier(guildId, userId) {
         ...community.suggestions.filter(row => String(row.authorId) === id).map(row => ({ id: row.id, at: row.createdAt, type: 'suggestion', label: `Suggestion submitted`, channelId: row.channelId, source: 'suggestion', status: row.status })),
         ...community.submissions.filter(row => String(row.userId || row.authorId) === id).map(row => ({ id: row.id, at: row.createdAt, type: row.kind || 'form', label: row.kind === 'appeal' ? 'Moderation appeal submitted' : 'Form submitted', source: 'form', status: row.status }))
     ].filter(row => row.at).sort((a, b) => validTime(b.at) - validTime(a.at)).slice(0, 250);
-    return { userId: id, profile: activityProfile(guildId, id), cases, timeline };
+    return { userId: id, cases, timeline };
 }
 
 function queryAuditLog(guildId, filters = {}, panelActivity = []) {
@@ -246,7 +220,6 @@ function activePunishments(guildId, { now = Date.now() } = {}) {
 
 module.exports = {
     activePunishments,
-    activityProfile,
     buildCommunityHealth,
     buildMemberDossier,
     buildOnboardingRetention,

@@ -1,7 +1,7 @@
 const { ensureGlobalStorage, ensureGuildStorage } = require('../utils/guild-storage');
 const { applyConfiguredPresence } = require('../utils/presence');
+const { pruneDataRetention } = require('../services/data-retention-service');
 const { endVoiceSession, getUserVoiceStats, readVoiceStats, startVoiceSession, updateVoiceSession } = require('../stores/voice-store');
-const { pruneAnalytics } = require('../stores/analytics-store');
 const { readConfig } = require('../utils/config');
 const { snapshotGuildInvites } = require('../services/invite-tracker');
 const { setGuildOwner } = require('../stores/access-store');
@@ -82,6 +82,20 @@ function reconcileVoiceSessions(guild) {
     }
 }
 
+function runRetentionCleanup() {
+    const config = readConfig();
+    const configured = config.privacy?.retentionDays || {};
+    const retentionDays = {
+        ...configured,
+        analytics: configured.analytics ?? config.analytics?.retentionDays
+    };
+    const result = pruneDataRetention({ retentionDays });
+    if (result.removedRecords || result.removedRecoveryEntries) {
+        console.log(`Retention cleanup removed ${result.removedRecords} expired record(s) and ${result.removedRecoveryEntries} recovery item(s).`);
+    }
+    return result;
+}
+
 module.exports = {
     name: 'clientReady',
     once: true,
@@ -94,12 +108,13 @@ module.exports = {
             ensureGuildStorage(guild.id);
             setGuildOwner(guild.id, guild.ownerId);
             reconcileVoiceSessions(guild);
-            pruneAnalytics(guild.id, readConfig().analytics?.retentionDays || 365);
             snapshotGuildInvites(guild);
             for (const command of customCommandStore.readCommands(guild.id).filter(item => item.enabled !== false)) {
                 syncCommand(guild, command).catch(error => console.warn(`Custom command /${command.name} sync failed: ${error.message}`));
             }
         }
+
+        runRetentionCleanup();
 
         setInterval(() => {
             for (const guild of client.guilds.cache.values()) reconcileVoiceSessions(guild);
@@ -113,9 +128,8 @@ module.exports = {
         processTicketMaintenance(client).catch(error => console.warn(`Initial ticket maintenance failed: ${error.message}`));
 
         setInterval(() => {
-            const retentionDays = readConfig().analytics?.retentionDays || 365;
+            runRetentionCleanup();
             for (const guild of client.guilds.cache.values()) {
-                pruneAnalytics(guild.id, retentionDays);
                 pruneModerationData(guild.id, readSettings(guild.id).management.cases.retentionDays);
             }
         }, 24 * 60 * 60 * 1000).unref();

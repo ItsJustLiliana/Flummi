@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { loadEnv } = require('../utils/env-loader');
 const { readConfig } = require('../utils/config');
+const { sanitizeAiMessages } = require('./ai-data-sanitizer');
 
 loadEnv();
 
@@ -261,7 +262,7 @@ async function requestCompletion(cfg, models, messages) {
                 'X-OpenRouter-Title': 'Flummi',
                 'X-OpenRouter-Metadata': 'enabled'
             },
-            body: JSON.stringify(body),
+            body: JSON.stringify({ ...body, messages: sanitizeAiMessages(body.messages) }),
             signal: controller.signal
         });
     } finally {
@@ -269,7 +270,7 @@ async function requestCompletion(cfg, models, messages) {
     }
 }
 
-function buildMessages(personality, history, userInput, memorySummary = '', userProfile = '', externalUserProfile = '') {
+function buildMessages(personality, history, userInput, memorySummary = '', externalUserProfile = '') {
     const sanitizedHistory = Array.isArray(history)
         ? history
             .filter(item => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
@@ -286,24 +287,13 @@ function buildMessages(personality, history, userInput, memorySummary = '', user
             ].join('\n')
         }]
         : [];
-    const profileText = String(userProfile || '').trim();
-    const profileMessage = profileText
-        ? [{
-            role: 'system',
-            content: [
-                'Intern geleerd gebruikersprofiel voor deze user. Gebruik dit subtiel voor toon, voorkeuren en terugkerende context;',
-                'maak er geen expliciet onderwerp van tenzij het relevant is:',
-                profileText
-            ].join('\n')
-        }]
-        : [];
     const externalProfileText = String(externalUserProfile || '').trim();
     const externalProfileMessage = externalProfileText
         ? [{
             role: 'system',
             content: [
-                'Door de user zelf ingevuld profiel. Dit is explicieter/betrouwbaarder dan het interne geleerde profiel;',
-                'gebruik het subtiel als context:',
+                'Door de user zelf ingevuld profiel:',
+                'gebruik alleen deze expliciet verstrekte gegevens subtiel als context:',
                 externalProfileText
             ].join('\n')
         }]
@@ -312,7 +302,6 @@ function buildMessages(personality, history, userInput, memorySummary = '', user
     return [
         { role: 'system', content: personality },
         ...externalProfileMessage,
-        ...profileMessage,
         ...summaryMessage,
         ...sanitizedHistory,
         { role: 'user', content: userInput }
@@ -623,7 +612,7 @@ async function tryModels({ cfg, models, messages, stopAfterRoutedTimeout = false
     throw new AiChatError(lastError || 'No configured model returned a valid response.', 'REQUEST_FAILED');
 }
 
-async function generateAiReply({ userInput, history, memorySummary, userProfile, externalUserProfile }) {
+async function generateAiReply({ userInput, history, memorySummary, externalUserProfile }) {
     const cfg = getAiConfig();
 
     if (!cfg.apiKey) {
@@ -641,7 +630,6 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
         history,
         userInput,
         memorySummary,
-        userProfile,
         externalUserProfile
     );
 
@@ -689,7 +677,6 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
                 history,
                 textOnlyInput,
                 memorySummary,
-                userProfile,
                 externalUserProfile
             );
 

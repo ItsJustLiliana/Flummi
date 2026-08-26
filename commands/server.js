@@ -23,7 +23,8 @@ module.exports = {
             .addStringOption(option => option.setName('case').setDescription('Pending approval case ID').setRequired(true)))
         .addSubcommand(command => command.setName('copilot').setDescription('Summarize, translate, or review a report or incident')
             .addStringOption(option => option.setName('mode').setDescription('Type of assistance').setRequired(true).addChoices({ name: 'Summarize', value: 'summarize' }, { name: 'Suggest next steps', value: 'suggest' }, { name: 'Translate to English', value: 'translate' }))
-            .addStringOption(option => option.setName('record').setDescription('Report or incident ID; defaults to newest').setRequired(false)))
+            .addStringOption(option => option.setName('record').setDescription('Report or incident ID; defaults to newest').setRequired(false))
+            .addStringOption(option => option.setName('confirmation').setDescription('Type SEND TO AI after reading the disclosure').setRequired(false)))
         .addSubcommand(command => command.setName('poll').setDescription('Create a native Discord poll')
             .addStringOption(option => option.setName('question').setDescription('Poll question').setRequired(true).setMaxLength(300))
             .addStringOption(option => option.setName('choices').setDescription('Choices separated by |').setRequired(true).setMaxLength(1000))
@@ -90,6 +91,7 @@ module.exports = {
             if (!config) return interaction.reply({ content: 'Flummi Copilot is not enabled.', flags: MessageFlags.Ephemeral });
             const { hasAiConsent, disclosure } = require('../services/ai-consent-service');
             if (!hasAiConsent(interaction.user.id)) return interaction.reply({ content: `${disclosure}\n\nEnable it first with \`/data ai-consent action:allow\`.`, flags: MessageFlags.Ephemeral });
+            if (interaction.options.getString('confirmation') !== 'SEND TO AI') return interaction.reply({ content: `${disclosure}\n\nThis Copilot action sends the selected report or incident text to OpenRouter and a downstream model for this one response. Discord snowflake IDs are redacted, provider data collection is denied, and zero-data-retention routing is required. Re-run the command with \`confirmation:SEND TO AI\` to confirm.`, flags: MessageFlags.Ephemeral });
             const mode = interaction.options.getString('mode', true);
             if ((mode === 'summarize' && !config.summariesEnabled) || (mode === 'suggest' && !config.suggestionsEnabled) || (mode === 'translate' && !config.translationEnabled)) return interaction.reply({ content: 'That Copilot capability is turned off.', flags: MessageFlags.Ephemeral });
             const state = operationsStore.readState(interaction.guildId);
@@ -99,7 +101,7 @@ module.exports = {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const safeRecord = { id: record.id, type: record.id.startsWith('report-') ? 'report' : 'incident', reason: record.reason, summary: record.summary, status: record.status, actions: record.actions, messageContext: record.messageContext };
             try {
-                const result = await generateAiReply({ userInput: `You are a staff copilot. ${mode === 'summarize' ? 'Summarize' : mode === 'suggest' ? 'Suggest careful, reversible next steps for' : 'Translate all non-English content to English in'} this Discord moderation record. Do not invent facts and do not claim an action was taken. Record: ${JSON.stringify(safeRecord)}`, history: [], memorySummary: '', userProfile: null, externalUserProfile: null });
+                const result = await generateAiReply({ userInput: `You are a staff copilot. ${mode === 'summarize' ? 'Summarize' : mode === 'suggest' ? 'Suggest careful, reversible next steps for' : 'Translate all non-English content to English in'} this Discord moderation record. Do not invent facts and do not claim an action was taken. Record: ${JSON.stringify(safeRecord)}`, history: [], memorySummary: '', externalUserProfile: null });
                 return interaction.editReply(`**Copilot review for ${record.id}**\n${result.text.slice(0, 1800)}\n\n*No action was applied.*`);
             } catch (error) { return interaction.editReply(`Copilot could not complete this review: ${error.message}`); }
         }

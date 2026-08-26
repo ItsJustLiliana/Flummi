@@ -2853,12 +2853,10 @@ function renderProfileEditor(data) {
             </div>
         </div>
         <div class="section">
-            <h2>AI Memory &amp; Personality</h2>
-            <p class="sub">Read-only context inferred from this user's conversations. Last updated: ${escapeHtml(data.aiMemory.updatedAt ? formatDateTime(data.aiMemory.updatedAt) : 'Never')}</p>
+            <h2>AI conversation memory</h2>
+            <p class="sub">Read-only compact summary of earlier conversation turns. Last updated: ${escapeHtml(data.aiMemory.updatedAt ? formatDateTime(data.aiMemory.updatedAt) : 'Never')}</p>
             <label>Conversation summary</label>
             <textarea readonly>${escapeHtml(data.aiMemory.summary || 'No saved AI summary yet.')}</textarea>
-            <label style="margin-top:12px; display:block;">Inferred personality and interests</label>
-            <textarea readonly>Automatic interest, style, and preference profiling is disabled.</textarea>
         </div>
     `;
 }
@@ -3820,13 +3818,11 @@ async function loadManagementTimeline() {
     ], 'No audit records match these filters.');
     const dossier = data.dossier;
     document.getElementById('managementMemberDossier').innerHTML = dossier ? `<div class="card-grid">
-        <article class="card"><span>Reputation</span><strong>${escapeHtml(dossier.profile.reputation)}</strong><small>${dossier.profile.activityPercentile == null ? 'No percentile yet' : `Activity percentile: ${escapeHtml(dossier.profile.activityPercentile)}%`}</small></article>
-        <article class="card"><span>Messages</span><strong>${Number(dossier.profile.messages) || 0}</strong><small>${Number(dossier.profile.activeDays) || 0} active days</small></article>
-        <article class="card"><span>Voice</span><strong>${Number(dossier.profile.voiceMinutes) || 0} min</strong><small>Last seen ${escapeHtml(dossier.profile.lastVoiceAt ? formatDateTime(dossier.profile.lastVoiceAt) : '—')}</small></article>
-        <article class="card"><span>Cases</span><strong>${dossier.cases.length}</strong><small>Privacy-safe metadata only</small></article>
+        <article class="card"><span>Moderation cases</span><strong>${dossier.cases.length}</strong><small>Factual records only; no derived member scoring</small></article>
+        <article class="card"><span>Timeline records</span><strong>${dossier.timeline.length}</strong><small>Necessary moderation and support metadata</small></article>
     </div>${operationTable(dossier.timeline || [], [
         { label: 'Time', render: row => escapeHtml(formatDateTime(row.at)) }, { label: 'Type', key: 'type' }, { label: 'Event', key: 'label' }, { label: 'Channel', key: 'channelId' }, { label: 'Status', key: 'status' }
-    ], 'No timeline entries for this member.')}` : '<div class="empty">Enter a member ID to load their privacy-safe activity profile and timeline.</div>';
+    ], 'No timeline entries for this member.')}` : '<div class="empty">Enter a member ID to load factual moderation and support records.</div>';
 }
 
 document.getElementById('managementRefreshCases').addEventListener('click', () => loadManagementTimeline().catch(error => setStatus(document.getElementById('managementCasesStatus'), error.message, 'error')));

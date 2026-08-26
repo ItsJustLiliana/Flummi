@@ -802,7 +802,6 @@ module.exports = {
                         userInput: aiInput,
                         history,
                         memorySummary: memory.summary,
-                        userProfile: null,
                         externalUserProfile
                     });
                     recordAiResult({ ok: true, latencyMs: Date.now() - aiStartedAt, model: readConfig().ai?.model || null });

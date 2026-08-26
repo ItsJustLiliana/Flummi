@@ -36,6 +36,24 @@
         "maxOutputTokens": 220,
         "requestTimeoutMs": 8000
     },
+    "privacy": {
+        "retentionDays": {
+            "analytics": 365,
+            "aiMemory": 90,
+            "profiles": 365,
+            "notifications": 90,
+            "privacyRequests": 365,
+            "abuseReports": 365,
+            "feedback": 365,
+            "operations": 365,
+            "completedReminders": 30,
+            "pulseResponses": 90,
+            "pingRequests": 30,
+            "fileManagerRecovery": 30,
+            "guildBackups": 90,
+            "activityLog": 90
+        }
+    },
     "commandPermissions": {
         "help": "member",
         "ping": "member",

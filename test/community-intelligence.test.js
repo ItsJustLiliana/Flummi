@@ -41,9 +41,11 @@ test('member dossiers avoid message content and audit filters combine server and
         communityStore.addTicket(guildId, { ownerId: '123', topic: 'Help', channelId: '789' });
         const dossier = buildMemberDossier(guildId, '123');
         assert.equal(dossier.cases.length, 1);
+        assert.equal(Object.hasOwn(dossier, 'profile'), false);
         assert.ok(dossier.timeline.some(row => row.type === 'ticket'));
         assert.equal(dossier.timeline.find(row => row.type === 'message-delete').label, 'Message metadata changed');
         assert.ok(!JSON.stringify(dossier).includes('secret deleted content'));
+        assert.doesNotMatch(JSON.stringify(dossier), /reputation|percentile|Veteran|Newcomer/i);
 
         const audit = queryAuditLog(guildId, { memberId: '123', moderatorId: '456', channelId: '789' }, []);
         assert.ok(audit.some(row => row.action === 'warn'));

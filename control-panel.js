@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
 const { exec, execFile, execFileSync, spawn } = require('child_process');
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, Client, EmbedBuilder, GatewayIntentBits, ChannelType, PermissionsBitField, GuildVerificationLevel } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, Client, EmbedBuilder, GatewayIntentBits, Options, ChannelType, PermissionsBitField, GuildVerificationLevel } = require('discord.js');
 const { installTimestampedConsole, readRecentLogs } = require('./utils/logger');
 const { readActivity, recordActivity } = require('./stores/activity-store');
 const { loadEnv } = require('./utils/env-loader');
@@ -698,7 +698,14 @@ function createClient(includeMembersIntent) {
         intents.push(GatewayIntentBits.GuildMembers);
     }
 
-    return new Client({ intents });
+    return new Client({
+        intents,
+        makeCache: Options.cacheWithLimits({
+            ...Options.DefaultMakeCacheSettings,
+            MessageManager: 0,
+            GuildMemberManager: { maxSize: 200, keepOverLimit: member => member.id === member.client.user?.id }
+        })
+    });
 }
 
 let membersIntentEnabled = true;
@@ -879,8 +886,12 @@ async function listGuilds(session) {
     return rows.sort((a, b) => (relationshipRank[a.displayRole] ?? 9) - (relationshipRank[b.displayRole] ?? 9) || a.name.localeCompare(b.name));
 }
 
-const memberCacheTtlMs = 5 * 60 * 1000;
+const memberCacheTtlMs = 60 * 1000;
 const memberCache = new Map();
+setInterval(() => {
+    const cutoff = Date.now() - memberCacheTtlMs;
+    for (const [guildId, cached] of memberCache) if (cached.fetchedAt < cutoff) memberCache.delete(guildId);
+}, memberCacheTtlMs).unref();
 
 // guild.members.fetch() uses the rate-limited REQUEST_GUILD_MEMBERS gateway opcode, so cache results per guild.
 async function listGuildMembers(guildId) {

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { Client, Collection, GatewayIntentBits, Partials } = require('discord.js');
+const { Client, Collection, GatewayIntentBits, Options, Partials } = require('discord.js');
 const { installTimestampedConsole } = require('./utils/logger');
 const { loadEnv } = require('./utils/env-loader');
 const { localPath, readConfig } = require('./utils/config');
@@ -24,7 +24,13 @@ const client = new Client({
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.DirectMessages
     ],
-    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+    makeCache: Options.cacheWithLimits({
+        ...Options.DefaultMakeCacheSettings,
+        MessageManager: 0,
+        GuildMemberManager: { maxSize: 200, keepOverLimit: member => member.id === member.client.user?.id }
+    }),
+    sweepers: { ...Options.DefaultSweeperSettings, messages: { interval: 60, lifetime: 60 } }
 });
 
 client.commands = new Collection();

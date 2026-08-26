@@ -2858,7 +2858,7 @@ function renderProfileEditor(data) {
             <label>Conversation summary</label>
             <textarea readonly>${escapeHtml(data.aiMemory.summary || 'No saved AI summary yet.')}</textarea>
             <label style="margin-top:12px; display:block;">Inferred personality and interests</label>
-            <textarea readonly>${escapeHtml(data.aiMemory.profile || 'No inferred personality details yet.')}</textarea>
+            <textarea readonly>Automatic interest, style, and preference profiling is disabled.</textarea>
         </div>
     `;
 }

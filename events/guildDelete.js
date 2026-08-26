@@ -1,8 +1,9 @@
-const { recordActivity } = require('../stores/activity-store');
+const { deleteGuildData } = require('../services/privacy-service');
 
 module.exports = {
     name: 'guildDelete',
     execute(guild) {
-        recordActivity('guild-remove', `Removed from ${guild.name}`, { source: 'discord', guildId: guild.id, memberCount: guild.memberCount });
+        const result = deleteGuildData(guild.id);
+        console.log(`Removed from a Discord server; deleted ${result.removedFiles} local guild data file(s), including stored backups.`);
     }
 };

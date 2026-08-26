@@ -15,6 +15,8 @@ data/.runtime/
 data/runtime/
 data/guilds/
 data/users/
+.flummi-data.encrypted/
+.flummi-data.plaintext-backup/
 
 # Logs
 *.log

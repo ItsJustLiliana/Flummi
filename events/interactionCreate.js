@@ -50,10 +50,33 @@ async function handleRemoveTriggerButton(interaction) {
     return true;
 }
 
+async function handlePrivacyDeleteButton(interaction) {
+    if (!interaction.customId.startsWith('privacy-delete:')) return false;
+    const [, action, requestedUserId] = interaction.customId.split(':');
+    if (requestedUserId !== interaction.user.id) {
+        await interaction.reply({ content: 'This deletion confirmation belongs to another user.', flags: MessageFlags.Ephemeral });
+        return true;
+    }
+    if (action === 'cancel') {
+        await interaction.update({ content: 'Data deletion cancelled. Nothing was changed.', components: [] });
+        return true;
+    }
+    const { deleteDiscordUserArtifacts, deleteUserData } = require('../services/privacy-service');
+    await interaction.deferUpdate();
+    const discordResult = await deleteDiscordUserArtifacts(interaction.client, interaction.user.id);
+    const result = deleteUserData(interaction.user.id);
+    await interaction.editReply({ content: `Your stored Flummi data was deleted. ${result.removedFiles} dedicated file(s) were removed, ${result.rewrittenFiles} shared store or backup file(s) were rewritten, and ${discordResult.deletedChannels} linked Discord ticket/modmail channel(s) were deleted.${discordResult.failures.length ? ` ${discordResult.failures.length} Discord channel deletion(s) failed and require maintainer follow-up.` : ''} Future use of Flummi may create new data.`, components: [] });
+    return true;
+}
+
 module.exports = {
     name: 'interactionCreate',
 
     async execute(interaction) {
+        const { handleAiConsentInteraction } = require('../services/ai-consent-service');
+        if (interaction.isButton?.() && await handleAiConsentInteraction(interaction)) return;
+        const { handleModmailConsentInteraction } = require('../services/modmail-service');
+        if ((interaction.isButton?.() || interaction.isStringSelectMenu?.()) && await handleModmailConsentInteraction(interaction)) return;
         if (interaction.isModalSubmit() && interaction.customId.startsWith('community-form:')) {
             const { EmbedBuilder } = require('discord.js');
             const store = require('../stores/community-management-store');
@@ -75,6 +98,7 @@ module.exports = {
             if (await handleRoleSelect(interaction)) return;
         }
         if (interaction.isButton()) {
+            if (await handlePrivacyDeleteButton(interaction)) return;
             if (interaction.customId.startsWith('voicetime-channel-history:')) {
                 if (!interaction.guildId || !isAdmin(interaction.user.id, interaction.guildId, interaction.memberPermissions)) {
                     await interaction.reply({

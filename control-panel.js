@@ -2735,7 +2735,7 @@ function createServer() {
                     statistics: { messages: messageStats, voiceMs: voice?.totalMs || 0, shots: guildId ? shotStore.getShots(userId, guildId).total : 0, role: guildId ? await getCurrentMemberRole(userId, guildId) : 'member' },
                     aiMemory: {
                         summary: memory.summary || '',
-                        profile: memory.profile || '',
+                        profile: '',
                         updatedAt: memory.updatedAt || null
                     }
                 });

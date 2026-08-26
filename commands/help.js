@@ -88,6 +88,8 @@ const COMMAND_CATALOG = [
     { path: 'shots', label: '/shots', description: 'Check, gamble, or manage shot totals.' },
     { path: 'trigger', label: '/trigger', description: 'Use and manage trigger responses available in this server.' },
     { path: 'resetmemory', label: '/resetmemory', description: 'Delete your own saved AI conversation memory.' },
+    { path: 'data', label: '/data view|export|delete|correct|ai-consent', description: 'Access, export, delete, correct, or control external AI processing of your stored data.' },
+    { path: 'report', label: '/report submit|status', description: 'Privately report abuse, safety, privacy, or policy issues and follow their status.' },
     { path: 'tree', label: '/tree', description: 'Open this community’s family tree.' },
     { path: 'community', label: '/community report|remind|afk|rank|pulse', description: 'Use private reports and enabled community utilities.' },
     { path: 'serverstats', label: '/serverstats [limit]', description: 'View server message, channel, member, and trigger activity.', minimumRole: 'admin' },

@@ -225,7 +225,7 @@ function clearAiModelCooldowns() {
     rateLimitedModels.clear();
 }
 
-async function requestCompletion(cfg, models, messages, options = {}) {
+async function requestCompletion(cfg, models, messages) {
     const modelList = Array.isArray(models) ? models : [models];
     const body = {
         messages,
@@ -242,19 +242,11 @@ async function requestCompletion(cfg, models, messages, options = {}) {
         body.models = activeModels;
     }
 
-    if (cfg.providerSort) {
-        body.provider = {
-            sort: cfg.providerSort
-        };
-    }
-
-    if (options.sessionId) {
-        body.session_id = String(options.sessionId).slice(0, 256);
-    }
-
-    if (options.userId) {
-        body.user = String(options.userId).slice(0, 256);
-    }
+    body.provider = {
+        ...(cfg.providerSort ? { sort: cfg.providerSort } : {}),
+        data_collection: 'deny',
+        zdr: true
+    };
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), cfg.requestTimeoutMs);
@@ -475,11 +467,11 @@ function shouldUseRoutedModelRequest(cfg, models) {
     return cfg.useOpenRouterModelRouting && Array.isArray(models) && models.length > 1;
 }
 
-async function tryModelRequest({ cfg, models, messages, sessionId, userId }) {
+async function tryModelRequest({ cfg, models, messages }) {
     const modelLabel = getModelLabel(models);
 
     try {
-        const response = await requestCompletion(cfg, models, messages, { sessionId, userId });
+        const response = await requestCompletion(cfg, models, messages);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -521,7 +513,7 @@ async function tryModelRequest({ cfg, models, messages, sessionId, userId }) {
     }
 }
 
-async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRoutedTimeout = false }) {
+async function tryModels({ cfg, models, messages, stopAfterRoutedTimeout = false }) {
     let lastError = null;
     let attemptedModels = 0;
     let rateLimitedCount = 0;
@@ -541,7 +533,7 @@ async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRo
         attemptedModels = routedModels.length;
 
         try {
-            return await tryModelRequest({ cfg, models: routedModels, messages, sessionId, userId });
+            return await tryModelRequest({ cfg, models: routedModels, messages });
         } catch (error) {
             lastError = error.message;
 
@@ -571,7 +563,7 @@ async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRo
         let response;
 
         try {
-            response = await requestCompletion(cfg, model, messages, { sessionId, userId });
+            response = await requestCompletion(cfg, model, messages);
         } catch (error) {
             if (error?.name === 'AbortError') {
                 lastError = `AI API request timed out for model ${model}.`;
@@ -631,25 +623,7 @@ async function tryModels({ cfg, models, messages, sessionId, userId, stopAfterRo
     throw new AiChatError(lastError || 'No configured model returned a valid response.', 'REQUEST_FAILED');
 }
 
-function buildSessionId({ userId, guildId, channelId }) {
-    const parts = ['ai'];
-
-    if (guildId) {
-        parts.push(`g:${guildId}`);
-    }
-
-    if (channelId) {
-        parts.push(`c:${channelId}`);
-    }
-
-    if (userId) {
-        parts.push(`u:${userId}`);
-    }
-
-    return parts.join(':').slice(0, 256);
-}
-
-async function generateAiReply({ userInput, history, memorySummary, userProfile, externalUserProfile, userId, guildId, channelId }) {
+async function generateAiReply({ userInput, history, memorySummary, userProfile, externalUserProfile }) {
     const cfg = getAiConfig();
 
     if (!cfg.apiKey) {
@@ -661,7 +635,6 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
     const requestConfig = hasImages
         ? { ...cfg, useOpenRouterModelRouting: false }
         : cfg;
-    const sessionId = buildSessionId({ userId, guildId, channelId });
     const hasHistory = Array.isArray(history) && history.length > 0;
     const messagesWithHistory = buildMessages(
         cfg.botPersonality,
@@ -677,8 +650,6 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
             cfg: requestConfig,
             models,
             messages: messagesWithHistory,
-            sessionId,
-            userId,
             // OpenRouter already receives several text-model candidates in one routed request.
             // Do not run another slow, sequential fallback chain after that request times out.
             // Vision providers remain independent because a vision fallback can genuinely help.
@@ -727,8 +698,6 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
                     cfg,
                     models: buildTextModelCandidates(cfg, textOnlyInput, history),
                     messages: textOnlyMessages,
-                    sessionId,
-                    userId
                 });
                 const parsed = extractImageSearchRequest(reply);
                 const text = isImageEchoReply(parsed.text)
@@ -772,7 +741,7 @@ async function generateAiReply({ userInput, history, memorySummary, userProfile,
         }
 
         const messagesWithoutHistory = buildMessages(cfg.botPersonality, [], userInput);
-        const reply = await tryModels({ cfg, models, messages: messagesWithoutHistory, sessionId, userId });
+        const reply = await tryModels({ cfg, models, messages: messagesWithoutHistory });
         const parsed = extractImageSearchRequest(reply);
         const text = isImageEchoReply(parsed.text)
             ? buildImageEchoFallbackReply()
@@ -793,7 +762,6 @@ module.exports = {
     AiChatError,
     getAiConfig,
     buildMessages,
-    buildSessionId,
     buildTextModelCandidates,
     buildNormalFallbackReply,
     buildImageEchoFallbackReply,

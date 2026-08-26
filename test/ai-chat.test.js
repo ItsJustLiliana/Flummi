@@ -4,7 +4,6 @@ const {
     buildImageUnavailableFallbackReply,
     buildImageEchoFallbackReply,
     buildMessages,
-    buildSessionId,
     buildTextModelCandidates,
     buildVisionModelCandidates,
     clearAiModelCooldowns,
@@ -134,13 +133,6 @@ test('model candidates only include free OpenRouter models', () => {
     }, 'hoi', []);
 
     assert.deepEqual(candidates, ['fast/free:free', 'fallback/free:free']);
-});
-
-test('buildSessionId uses stable conversation identifiers', () => {
-    assert.equal(
-        buildSessionId({ guildId: 'guild-1', channelId: 'channel-1', userId: 'user-1' }),
-        'ai:g:guild-1:c:channel-1:u:user-1'
-    );
 });
 
 test('generateAiReply caps OpenRouter routed models at three', async () => {

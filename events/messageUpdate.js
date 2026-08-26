@@ -6,8 +6,8 @@ module.exports = {
         if (!newMessage.guildId || newMessage.author?.bot || oldMessage.content === newMessage.content) return;
         logConfiguredEvent(newMessage.guildId, 'message', {
             type: 'message-update', channelId: newMessage.channelId, userId: newMessage.author?.id,
-            summary: `${String(oldMessage.content || '[unavailable]').slice(0, 240)} → ${String(newMessage.content || '[unavailable]').slice(0, 240)}`,
-            metadata: { messageId: newMessage.id }
+            summary: 'Message edited; old and new content were not retained.',
+            metadata: { messageId: newMessage.id, contentStored: false }
         });
     }
 };

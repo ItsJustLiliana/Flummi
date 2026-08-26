@@ -154,7 +154,7 @@ test('clearUserHistory also clears compact summary', () => {
     }
 });
 
-test('user conversation store keeps a small per-user profile', () => {
+test('user conversation store does not infer interests or preferences', () => {
     const userId = `906${process.pid}`;
     cleanupUser(userId);
 
@@ -165,16 +165,16 @@ test('user conversation store keeps a small per-user profile', () => {
 
         const memory = getUserMemory(userId);
 
-        assert.match(memory.profile, /Favoriete game: Brawl Stars/);
-        assert.match(memory.profile, /Voorkeur: korte antwoorden/);
-        assert.match(memory.profile, /Heeft eerder image search gebruikt/);
-        assert.ok(memory.profile.length <= 900);
+        assert.equal(memory.profile, '');
+        const stored = JSON.parse(fs.readFileSync(getUserFilePath(userId), 'utf8'));
+        assert.equal('profile' in stored, false);
+        assert.equal('profileSignals' in stored, false);
     } finally {
         cleanupUser(userId);
     }
 });
 
-test('user conversation store infers repeated topics and chat style', () => {
+test('user conversation store does not infer repeated topics or chat style', () => {
     const userId = `907${process.pid}`;
     cleanupUser(userId);
 
@@ -186,9 +186,10 @@ test('user conversation store infers repeated topics and chat style', () => {
 
         const memory = getUserMemory(userId);
 
-        assert.match(memory.profile, /Terugkerend onderwerp: Five Nights at Freddy's/);
-        assert.match(memory.profile, /Chatstijl: kort en direct/);
-        assert.match(memory.profile, /Toon: informeel en droog mag/);
+        assert.equal(memory.profile, '');
+        const stored = JSON.parse(fs.readFileSync(getUserFilePath(userId), 'utf8'));
+        assert.equal('profile' in stored, false);
+        assert.equal('profileSignals' in stored, false);
     } finally {
         cleanupUser(userId);
     }

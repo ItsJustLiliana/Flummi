@@ -760,6 +760,11 @@ module.exports = {
                     return;
                 }
             } else {
+                const { hasAiConsent, promptForAiConsent } = require('../services/ai-consent-service');
+                if (!hasAiConsent(message.author.id)) {
+                    await promptForAiConsent(message);
+                    return;
+                }
                 try {
                     await message.channel.sendTyping();
                     const aiStartedAt = Date.now();
@@ -797,11 +802,8 @@ module.exports = {
                         userInput: aiInput,
                         history,
                         memorySummary: memory.summary,
-                        userProfile: memory.profile,
-                        externalUserProfile,
-                        userId: message.author.id,
-                        guildId,
-                        channelId: message.channelId
+                        userProfile: null,
+                        externalUserProfile
                     });
                     recordAiResult({ ok: true, latencyMs: Date.now() - aiStartedAt, model: readConfig().ai?.model || null });
                     const replyPayload = await buildAiReplyPayload(ai);

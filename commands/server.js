@@ -88,6 +88,8 @@ module.exports = {
         if (subcommand === 'copilot') {
             const config = moduleConfig(interaction.guildId, 'copilot');
             if (!config) return interaction.reply({ content: 'Flummi Copilot is not enabled.', flags: MessageFlags.Ephemeral });
+            const { hasAiConsent, disclosure } = require('../services/ai-consent-service');
+            if (!hasAiConsent(interaction.user.id)) return interaction.reply({ content: `${disclosure}\n\nEnable it first with \`/data ai-consent action:allow\`.`, flags: MessageFlags.Ephemeral });
             const mode = interaction.options.getString('mode', true);
             if ((mode === 'summarize' && !config.summariesEnabled) || (mode === 'suggest' && !config.suggestionsEnabled) || (mode === 'translate' && !config.translationEnabled)) return interaction.reply({ content: 'That Copilot capability is turned off.', flags: MessageFlags.Ephemeral });
             const state = operationsStore.readState(interaction.guildId);
@@ -97,7 +99,7 @@ module.exports = {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const safeRecord = { id: record.id, type: record.id.startsWith('report-') ? 'report' : 'incident', reason: record.reason, summary: record.summary, status: record.status, actions: record.actions, messageContext: record.messageContext };
             try {
-                const result = await generateAiReply({ userInput: `You are a staff copilot. ${mode === 'summarize' ? 'Summarize' : mode === 'suggest' ? 'Suggest careful, reversible next steps for' : 'Translate all non-English content to English in'} this Discord moderation record. Do not invent facts and do not claim an action was taken. Record: ${JSON.stringify(safeRecord)}`, history: [], memorySummary: '', userProfile: null, externalUserProfile: null, userId: interaction.user.id, guildId: interaction.guildId, channelId: interaction.channelId });
+                const result = await generateAiReply({ userInput: `You are a staff copilot. ${mode === 'summarize' ? 'Summarize' : mode === 'suggest' ? 'Suggest careful, reversible next steps for' : 'Translate all non-English content to English in'} this Discord moderation record. Do not invent facts and do not claim an action was taken. Record: ${JSON.stringify(safeRecord)}`, history: [], memorySummary: '', userProfile: null, externalUserProfile: null });
                 return interaction.editReply(`**Copilot review for ${record.id}**\n${result.text.slice(0, 1800)}\n\n*No action was applied.*`);
             } catch (error) { return interaction.editReply(`Copilot could not complete this review: ${error.message}`); }
         }

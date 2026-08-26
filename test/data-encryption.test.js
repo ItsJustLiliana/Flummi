@@ -20,6 +20,9 @@ test('remote data encryption migration has verification, rollback, and guarded f
     assert.match(script, /gocryptfs_password_args\(\).*?return 0/s);
     assert.match(script, /verified_marker="\$\{plain_dir\}\/\.flummi-migration-verified"/);
     assert.doesNotMatch(script, /verified_marker="\$\{cipher_dir\}/);
+    assert.match(script, /systemctl --user enable "\$mount_service_name"/);
+    assert.match(script, /if mountpoint -q "\$plain_dir"; then.*?systemctl --user stop "\$service_name".*?unmount_plain.*?systemctl --user start "\$mount_service_name"/s);
+    assert.doesNotMatch(script, /enable --now "\$mount_service_name"/);
 });
 
 test('production and staging encryption wrapper keeps roots and services separate', () => {

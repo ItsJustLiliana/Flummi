@@ -286,7 +286,14 @@ After=${mount_service_name}
 ExecStartPre=/usr/bin/mountpoint -q ${plain_dir}
 EOF
   systemctl --user daemon-reload
-  systemctl --user enable --now "$mount_service_name"
+  systemctl --user enable "$mount_service_name"
+  if mountpoint -q "$plain_dir"; then
+    note "Restarting the existing encrypted mount under systemd management."
+    systemctl --user stop "$service_name"
+    unmount_plain
+  fi
+  systemctl --user start "$mount_service_name"
+  mountpoint -q "$plain_dir" || die "Automatic encrypted mount did not become active."
   systemctl --user restart "$service_name"
   note "Automatic mount installed and $service_name restarted."
   echo "WARNING: a passfile on the same disk does not protect against full-machine compromise or disk theft."

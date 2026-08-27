@@ -14,7 +14,7 @@ module.exports = {
         }
         const rows = store.readNotifications(interaction.user.id).slice(0, 10);
         const embed = new EmbedBuilder().setTitle('Your notifications').setColor(0x7785ff)
-            .setDescription(rows.length ? rows.map(row => `${row.readAt ? 'â—‹' : 'â—'} **${row.title}**\n${row.message}\n\`${row.id}\` â€¢ <t:${Math.floor(new Date(row.createdAt).getTime() / 1000)}:R>`).join('\n\n') : 'Your inbox is empty.');
+            .setDescription(rows.length ? rows.map(row => `${row.readAt ? '○' : '●'} **${row.title}**\n${row.message}\n\`${row.id}\` • <t:${Math.floor(new Date(row.createdAt).getTime() / 1000)}:R>`).join('\n\n') : 'Your inbox is empty.');
         return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 };

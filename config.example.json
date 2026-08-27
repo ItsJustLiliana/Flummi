@@ -8,7 +8,7 @@
         "enabledOnStart": true,
         "openBrowserOnStart": false,
         "publicAccessEnabled": true,
-        "publicUrl": "https://panel.example.com",
+        "publicUrl": "https://flummi.liliananuzohra.com",
         "tabOrder": ["overview", "analytics", "---", "users", "management", "settings", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "ai", "logs", "reliability", "adoption"]
     },
     "features": {

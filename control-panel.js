@@ -223,19 +223,10 @@ function buildPublicCommandCatalog() {
 }
 
 function buildPublicStatus() {
-    const globalFeatures = config.features || {};
-    const featureStatus = key => globalFeatures[key] === false ? 'maintenance' : 'operational';
-    return {
-        checkedAt: new Date().toISOString(),
-        services: [
-            { name: 'Discord connection', status: client.isReady() ? 'operational' : 'degraded', detail: client.isReady() ? 'Connected' : 'Connecting' },
-            { name: 'Dashboard', status: 'operational', detail: 'Online' },
-            { name: 'Triggers', status: featureStatus('triggersEnabled'), detail: globalFeatures.triggersEnabled === false ? 'Temporarily turned off' : 'Available' },
-            { name: 'AI conversations', status: featureStatus('aiConversationsEnabled'), detail: globalFeatures.aiConversationsEnabled === false ? 'Temporarily turned off' : 'Available' },
-            { name: 'Image search', status: featureStatus('aiImageSearchEnabled'), detail: globalFeatures.aiImageSearchEnabled === false ? 'Temporarily turned off' : 'Available' },
-            { name: 'Shots', status: featureStatus('shotsEnabled'), detail: globalFeatures.shotsEnabled === false ? 'Temporarily turned off' : 'Available' }
-        ]
-    };
+    let updateStatus = {};
+    try { updateStatus = JSON.parse(fs.readFileSync(updateStatusFilePath, 'utf8')); } catch { /* no live promotion recorded yet */ }
+    const release = buildReleaseStatus();
+    return { lastLiveUpdateAt: updateStatus.lastPromotedAt || release.live?.promotedAt || release.live?.committedAt || null };
 }
 for (const [key, label] of Object.entries({ badWords: 'Bad words', serverInvites: 'Discord invites', externalLinks: 'External links', messageSpam: 'Fast message spam', duplicateSpam: 'Repeated messages', mentionSpam: 'Mention spam', capsSpam: 'Excessive capitals', emojiSpam: 'Emoji spam', zalgoSpam: 'Zalgo text' })) {
     settingAuditLabels[`management.automod.rules.${key}.enabled`] = `${label} enabled`;
@@ -497,6 +488,8 @@ function buildSiteMetadata(req) {
     const pageMetadata = {
         '/terms': ['Terms of Service - Flummi', 'Terms governing use of the Flummi Discord bot and dashboard.'],
         '/privacy': ['Privacy Policy - Flummi', 'How Flummi collects, uses, retains, protects, and shares Discord data.'],
+        '/support': ['Support - Flummi', 'Contact the Flummi team and receive a reply through Discord.'],
+        '/feedback': ['Feedback - Flummi', 'Share product feedback with the Flummi team.'],
         '/licenses': ['Open-source Licenses - Flummi', 'Open-source license notices for Flummi and its principal dependencies.'],
         '/policy-archive': ['Terms and Policy Archive - Flummi', 'Current and previous versions of Flummi policies.'],
         '/credits': ['Credits - Flummi', 'Projects, platforms, and documentation used to build Flummi.']
@@ -1521,8 +1514,8 @@ function createServer() {
                 return;
             }
 
-            const publicPagePaths = new Set(['/', '/commands', '/status', '/support', '/terms', '/privacy', '/licenses', '/policy-archive', '/credits']);
-            if (req.method === 'GET' && publicPagePaths.has(requestUrl.pathname)) {
+            const publicPagePaths = new Set(['/', '/commands', '/status', '/support', '/feedback', '/terms', '/privacy', '/licenses', '/policy-archive', '/credits']);
+            if (['GET', 'HEAD'].includes(req.method) && publicPagePaths.has(requestUrl.pathname)) {
                 const html = fs.readFileSync(indexPath, 'utf8');
                 const tabOrder = Array.isArray(config.panel?.tabOrder) ? config.panel.tabOrder : [];
                 const tabNames = config.panel?.tabNames && typeof config.panel.tabNames === 'object' ? config.panel.tabNames : {};
@@ -1532,7 +1525,12 @@ function createServer() {
                         '<!--PANEL_CONFIG-->',
                         `<script>window.__PANEL_TAB_ORDER__ = ${serializeForInlineScript(tabOrder)}; window.__PANEL_TAB_NAMES__ = ${serializeForInlineScript(tabNames)};</script>`
                     );
-                sendHtml(res, injected);
+                if (req.method === 'HEAD') {
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end();
+                } else {
+                    sendHtml(res, injected);
+                }
                 return;
             }
 
@@ -1545,7 +1543,7 @@ function createServer() {
 
             if (req.method === 'GET' && requestUrl.pathname === '/sitemap.xml') {
                 const siteUrl = panelPublicUrl(req).replace(/\/$/, '');
-                const pages = ['/', '/commands', '/status', '/support', '/terms', '/privacy', '/licenses', '/policy-archive', '/credits'];
+                const pages = ['/', '/commands', '/status', '/support', '/feedback', '/terms', '/privacy', '/licenses', '/policy-archive', '/credits'];
                 res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
                 res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map(page => `<url><loc>${escapeHtmlAttribute(`${siteUrl}${page}`)}</loc><changefreq>weekly</changefreq></url>`).join('')}</urlset>`);
                 return;
@@ -2131,14 +2129,15 @@ function createServer() {
                 return;
             }
 
-            if (req.method === 'POST' && requestUrl.pathname === '/api/feedback') {
+            if (req.method === 'POST' && ['/api/feedback', '/api/support'].includes(requestUrl.pathname)) {
                 const parsed = JSON.parse(await readBody(req) || '{}');
+                const submissionType = requestUrl.pathname === '/api/support' ? 'support' : 'feedback';
                 if (!String(parsed.message || '').trim()) {
-                    sendJson(res, 400, { error: 'Feedback cannot be empty.' });
+                    sendJson(res, 400, { error: `${submissionType === 'support' ? 'Support message' : 'Feedback'} cannot be empty.` });
                     return;
                 }
                 try {
-                    const feedback = feedbackStore.addFeedback({ userId: panelSession.userId, username: panelSession.username, message: parsed.message });
+                    const feedback = feedbackStore.addFeedback({ userId: panelSession.userId, username: panelSession.username, message: parsed.message, type: submissionType });
                     const rateLimit = feedbackStore.getRateLimit(panelSession.userId);
                     auditPanelAction(panelSession, 'feedback-submit', 'Submitted product feedback', { feedbackId: feedback.id });
                     sendJson(res, 201, {
@@ -2156,6 +2155,27 @@ function createServer() {
                         hourlyLimit: 5
                     });
                 }
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/mail/reply') {
+                if (!requireDeveloperAccess(panelSession, res)) return;
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                const thread = feedbackStore.readFeedback().find(row => String(row.id) === String(parsed.id));
+                const reply = String(parsed.message || '').trim().slice(0, 2000);
+                if (!thread) { sendJson(res, 404, { error: 'Mail thread not found.' }); return; }
+                if (!reply) { sendJson(res, 400, { error: 'Reply cannot be empty.' }); return; }
+                const user = await client.users.fetch(thread.userId).catch(() => null);
+                if (!user) { sendJson(res, 404, { error: 'The Discord user could not be found.' }); return; }
+                try {
+                    await user.send({ content: `**Flummi ${thread.type === 'support' ? 'Support' : 'Feedback'}:** ${reply}`, allowedMentions: { parse: [] } });
+                } catch {
+                    sendJson(res, 409, { error: 'Discord could not deliver the DM. The user may have DMs disabled.' });
+                    return;
+                }
+                feedbackStore.appendMessage(thread.id, { direction: 'out', content: reply, authorId: panelSession.userId, source: 'developer-panel' });
+                auditPanelAction(panelSession, 'mail-reply', `Replied to ${thread.type || 'feedback'} by DM`, { feedbackId: thread.id, userId: thread.userId });
+                sendJson(res, 200, { ok: true });
                 return;
             }
 

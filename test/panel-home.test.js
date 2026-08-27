@@ -16,7 +16,7 @@ const updateRecorder = fs.readFileSync(path.join(__dirname, '..', 'scripts', 're
 test('public root is a landing page with role-aware navigation and server groups', () => {
     assert.match(panelServer, /authenticated: false/);
     assert.doesNotMatch(panelServer, /pathname === '\/'\) \{\s*if \(!sessionFor\(req\)\)/);
-    for (const id of ['homeShell', 'homeFeedbackNav', 'homeDeveloperNav', 'homeGuilds', 'dashboardHome']) {
+    for (const id of ['homeShell', 'homeMobileMenuToggle', 'homeDeveloperNav', 'homeGuilds', 'dashboardHome']) {
         assert.match(panelHtml, new RegExp(`id="${id}"`));
     }
     assert.match(panelHtml, /row\.displayRole === 'admin'/);
@@ -47,6 +47,7 @@ test('home pages and selected servers use descriptive browser titles', () => {
         servers: 'Home - Flummi',
         commands: 'Commands - Flummi',
         status: 'Status - Flummi',
+        support: 'Support - Flummi',
         feedback: 'Feedback - Flummi',
         developer: 'Developer Tools - Flummi'
     })) {
@@ -90,6 +91,9 @@ test('commands and status are public home pages backed by unauthenticated APIs',
     assert.match(panelServer, /buildPublicCommandCatalog\(\)/);
     assert.match(panelServer, /accessStore\.getRequiredCommandRole/);
     assert.match(panelServer, /function buildPublicStatus\(\)/);
+    assert.match(panelServer, /lastLiveUpdateAt: updateStatus\.lastPromotedAt/);
+    assert.match(panelMarkup, /id="publicStatusUpdated"/);
+    assert.doesNotMatch(panelMarkup, /id="publicStatusList"|id="refreshPublicStatus"/);
     assert.match(panelScript, /const publicViews = new Set\(homeViewNames\)/);
 
     const publicCommandsRoute = panelServer.indexOf("requestUrl.pathname === '/api/public/commands'");
@@ -107,6 +111,7 @@ test('public policy pages use stable routes, dates, archives, licenses, and a st
     assert.match(panelMarkup, /Last updated August 26, 2026/);
     assert.match(panelMarkup, /id="homeViewArchive"/);
     assert.match(panelMarkup, /id="homeViewLicenses"[\s\S]*?id="repositoryLicenseText"/);
+    assert.doesNotMatch(panelMarkup, /The text below is loaded directly from the deployed repository/);
     assert.doesNotMatch(panelMarkup, /Permission to use, copy, modify, and\/or distribute/);
     assert.match(panelScript, /api\('\/api\/public\/license'\)/);
     assert.match(panelServer, /pathname === '\/api\/public\/license'[\s\S]*?fs\.readFileSync\(licensePath, 'utf8'\)/);
@@ -149,13 +154,34 @@ test('developer home cards show the real per-server Discord relationship', () =>
     }
 });
 
-test('feedback stays public while its form requires Discord authentication', () => {
-    assert.match(panelHtml, /id="homeFeedbackNav" data-home-view="feedback"/);
-    assert.doesNotMatch(panelHtml, /id="homeFeedbackNav"[^>]*\shidden/);
+test('feedback and support have public pages while their forms require Discord authentication', () => {
+    assert.match(panelHtml, /data-home-view="feedback" type="button">Feedback/);
+    assert.match(panelHtml, /data-home-view="support" type="button">Support/);
+    assert.match(panelScript, /support: '\/support'/);
+    assert.match(panelScript, /feedback: '\/feedback'/);
     assert.match(panelHtml, /id="feedbackSignedOut"[\s\S]*?href="\/auth\/login"[\s\S]*?Log in with Discord/);
     assert.match(panelHtml, /id="feedbackSignedIn" class="home-panel" hidden/);
+    assert.match(panelHtml, /id="supportSignedOut"[\s\S]*?href="\/auth\/login"/);
+    assert.match(panelHtml, /id="supportSignedIn" class="home-panel" hidden/);
     assert.match(panelHtml, /document\.getElementById\('feedbackSignedOut'\)\.hidden = true/);
     assert.match(panelHtml, /document\.getElementById\('feedbackSignedIn'\)\.hidden = false/);
+    assert.match(panelHtml, /document\.getElementById\('supportSignedOut'\)\.hidden = true/);
+    assert.match(panelHtml, /document\.getElementById\('supportSignedIn'\)\.hidden = false/);
+});
+
+test('developer mail combines support and feedback and replies over Discord DM', () => {
+    assert.match(panelMarkup, /data-tab="mail" data-developer-only/);
+    assert.match(panelMarkup, /id="tab-mail"[\s\S]*?id="mailCollection"/);
+    assert.match(panelScript, /api\('\/api\/mail\/reply'/);
+    assert.match(panelServer, /client\.users\.fetch\(thread\.userId\)/);
+    assert.match(panelServer, /user\.send\(\{ content:/);
+    assert.match(panelServer, /feedbackStore\.appendMessage\(thread\.id/);
+});
+
+test('acknowledgements credit the people who built Flummi', () => {
+    assert.match(panelMarkup, /Acknowledgements[\s\S]*?Liliana Nuzohra/);
+    assert.match(panelMarkup, /https:\/\/github\.com\/ItsJustLiliana/);
+    assert.match(panelMarkup, /https:\/\/liliananuzohra\.com/);
 });
 
 test('feedback exposes its rate limit and developer-only delete flow', () => {

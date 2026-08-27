@@ -44,7 +44,7 @@ test('custom commands, notifications, and message stats persist safely and dedup
 });
 
 test('ticket transcripts include metadata, attachments, embeds, and reactions', () => {
-    const transcript = { ticket: { id: 'ticket-1', topic: 'Help', openerId: '1', claimerId: '2', priority: 'high', tags: ['billing'], openedAt: '2026-01-01', closedAt: '2026-01-02', closeReason: 'Solved' }, messages: [{ createdAt: '2026-01-01', author: { id: '1', tag: 'Member', avatarUrl: null }, content: '<hello>', attachments: [{ name: 'proof.png', url: 'https://example.com/proof.png' }], embeds: [{ title: 'Evidence' }], reactions: [{ emoji: 'âœ…', count: 2 }] }] };
+    const transcript = { ticket: { id: 'ticket-1', topic: 'Help', openerId: '1', claimerId: '2', priority: 'high', tags: ['billing'], openedAt: '2026-01-01', closedAt: '2026-01-02', closeReason: 'Solved' }, messages: [{ createdAt: '2026-01-01', author: { id: '1', tag: 'Member', avatarUrl: null }, content: '<hello>', attachments: [{ name: 'proof.png', url: 'https://example.com/proof.png' }], embeds: [{ title: 'Evidence' }], reactions: [{ emoji: '✅', count: 2 }] }] };
     assert.match(renderHtml(transcript), /&lt;hello&gt;/);
     assert.match(renderHtml(transcript), /proof\.png/);
     assert.match(renderText(transcript), /embeds:/);

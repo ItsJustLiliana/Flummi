@@ -72,9 +72,11 @@ function createFeedbackStore({
         };
     }
 
-    function addFeedback({ userId, username, message }) {
+    function addFeedback({ userId, username, message, type = 'feedback' }) {
         const cleanMessage = String(message || '').trim().slice(0, 2000);
         if (!cleanMessage) throw new Error('Feedback cannot be empty.');
+
+        const cleanType = type === 'support' ? 'support' : 'feedback';
 
         const currentTime = now();
         const rateLimit = getRateLimit(userId, currentTime);
@@ -85,7 +87,9 @@ function createFeedbackStore({
             id: `${currentTime}-${Math.random().toString(36).slice(2, 8)}`,
             userId: String(userId),
             username: String(username || userId),
+            type: cleanType,
             message: cleanMessage,
+            messages: [{ direction: 'in', content: cleanMessage, at: new Date(currentTime).toISOString(), source: 'website' }],
             status: 'new',
             createdAt: new Date(currentTime).toISOString()
         };
@@ -98,6 +102,32 @@ function createFeedbackStore({
         return row;
     }
 
+    function updateFeedback(feedbackId, updater) {
+        const rows = readFeedback();
+        const row = rows.find(entry => String(entry.id) === String(feedbackId));
+        if (!row) return null;
+        const changes = typeof updater === 'function' ? updater(row) : updater;
+        Object.assign(row, changes || {}, { updatedAt: new Date(now()).toISOString() });
+        writeJson(feedbackFilePath, rows);
+        return row;
+    }
+
+    function appendMessage(feedbackId, { direction, content, authorId = null, source = 'discord' }) {
+        const cleanContent = String(content || '').trim().slice(0, 2000);
+        if (!cleanContent) throw new Error('Message cannot be empty.');
+        return updateFeedback(feedbackId, row => ({
+            messages: [
+                ...(Array.isArray(row.messages) ? row.messages : [{ direction: 'in', content: row.message, at: row.createdAt, source: 'website' }]),
+                { direction: direction === 'out' ? 'out' : 'in', content: cleanContent, authorId, source, at: new Date(now()).toISOString() }
+            ].slice(-250),
+            status: direction === 'out' ? 'answered' : 'new'
+        }));
+    }
+
+    function findOpenThreadForUser(userId) {
+        return readFeedback().find(row => String(row.userId) === String(userId) && row.status !== 'closed') || null;
+    }
+
     function deleteFeedback(feedbackId) {
         const rows = readFeedback();
         const index = rows.findIndex(row => String(row.id) === String(feedbackId));
@@ -107,7 +137,7 @@ function createFeedbackStore({
         return deleted;
     }
 
-    return { addFeedback, deleteFeedback, getRateLimit, readFeedback };
+    return { addFeedback, appendMessage, deleteFeedback, findOpenThreadForUser, getRateLimit, readFeedback, updateFeedback };
 }
 
 const feedbackStore = createFeedbackStore();

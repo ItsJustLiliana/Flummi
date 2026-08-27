@@ -779,6 +779,7 @@ const nestedChildTabIds = new Set(nestedTabGroups.flatMap(group => [...group.chi
 const tabLoaders = {
     overview: loadOverview,
     analytics: loadAnalytics,
+    mail: loadMailCollection,
     messenger: loadMessengerChannels,
     triggers: loadTriggers,
     shots: loadShots,
@@ -872,7 +873,7 @@ async function refreshActiveTab() {
 }
 
 // Server tabs stay in the dashboard sidebar. Developer tools have their own top-level workspace.
-const defaultDeveloperTabOrder = ['global', 'messenger', 'profiles', 'ai', 'adoption', 'reliability', 'logs', 'files', 'experiments'];
+const defaultDeveloperTabOrder = ['global', 'mail', 'messenger', 'profiles', 'ai', 'adoption', 'reliability', 'logs', 'files', 'experiments'];
 const fixedDeveloperTabIds = new Set(defaultDeveloperTabOrder);
 let activeDeveloperTabOrder = [...defaultDeveloperTabOrder];
 
@@ -1185,9 +1186,10 @@ async function loadPanelAccount() {
     document.getElementById('homeSignedIn').hidden = false;
     document.getElementById('homeAvatar').src = data.user.avatarUrl;
     document.getElementById('homeUsername').textContent = data.user.username;
-    document.getElementById('homeFeedbackNav').hidden = false;
     document.getElementById('feedbackSignedOut').hidden = true;
     document.getElementById('feedbackSignedIn').hidden = false;
+    document.getElementById('supportSignedOut').hidden = true;
+    document.getElementById('supportSignedIn').hidden = false;
     document.getElementById('homeDeveloperNav').hidden = state.actualRole !== 'developer';
     document.getElementById('homeLoginCta').hidden = true;
     applyTailscaleAvailability();
@@ -1234,7 +1236,7 @@ function applyAccessVisibility() {
     if (state.accountUsername) {
         document.getElementById('panelAccountName').innerHTML = `<span class="account-username">${escapeHtml(state.accountUsername)}</span><span class="account-role">${escapeHtml(roleLabel)}</span>`;
     }
-    const developerTabs = ['messenger', 'profiles', 'ai', 'global', 'reliability', 'adoption', 'files', 'logs'];
+    const developerTabs = ['mail', 'messenger', 'profiles', 'ai', 'global', 'reliability', 'adoption', 'files', 'logs'];
     document.querySelectorAll('[data-developer-only]').forEach(element => { element.hidden = !isDeveloper; });
     developerTabs.forEach(tabId => {
         const panel = document.getElementById(`tab-${tabId}`);
@@ -1317,6 +1319,7 @@ const homePageTitles = {
     servers: 'Home - Flummi',
     commands: 'Commands - Flummi',
     status: 'Status - Flummi',
+    support: 'Support - Flummi',
     feedback: 'Feedback - Flummi',
     developer: 'Developer Tools - Flummi',
     terms: 'Terms of Service - Flummi',
@@ -1325,7 +1328,7 @@ const homePageTitles = {
     archive: 'Policy Archive - Flummi',
     credits: 'Credits - Flummi'
 };
-const homeViewPaths = { servers: '/', commands: '/commands', status: '/status', feedback: '/support', terms: '/terms', privacy: '/privacy', licenses: '/licenses', archive: '/policy-archive', credits: '/credits' };
+const homeViewPaths = { servers: '/', commands: '/commands', status: '/status', support: '/support', feedback: '/feedback', terms: '/terms', privacy: '/privacy', licenses: '/licenses', archive: '/policy-archive', credits: '/credits' };
 const homeViewNames = Object.keys(homeViewPaths);
 
 function setHomePageTitle(view) {
@@ -1372,18 +1375,9 @@ async function loadPublicCommands() {
 
 async function loadPublicStatus() {
     const data = await api('/api/public/status');
-    const services = data.services || [];
-    const hasDegraded = services.some(service => service.status === 'degraded');
-    const hasMaintenance = services.some(service => service.status === 'maintenance');
-    document.getElementById('publicStatusSummary').textContent = hasDegraded
-        ? 'Some systems are experiencing issues'
-        : hasMaintenance
-            ? 'Some features are temporarily turned off'
-            : 'All systems operational';
-    document.getElementById('publicStatusList').innerHTML = services.map(service => `
-        <article class="public-status-row ${escapeHtml(service.status)}"><span class="public-status-dot" aria-hidden="true"></span><strong>${escapeHtml(service.name)}</strong><span class="public-status-detail">${escapeHtml(service.detail)}</span></article>
-    `).join('') || '<div class="home-panel empty">Status is currently unavailable.</div>';
-    document.getElementById('publicStatusChecked').textContent = data.checkedAt ? `Last checked ${formatDateTime(data.checkedAt)}` : '';
+    document.getElementById('publicStatusUpdated').textContent = data.lastLiveUpdateAt
+        ? formatDateTime(data.lastLiveUpdateAt)
+        : 'No live update has been recorded yet.';
 }
 
 let publicLicenseLoaded = false;
@@ -1407,6 +1401,7 @@ async function loadPublicLicense() {
 }
 
 function showHomeView(name = 'servers', developerTool = null) {
+    setHomeMobileMenu(false);
     document.getElementById('homeShell').hidden = false;
     document.getElementById('dashboardLayout').hidden = true;
     setHomePageTitle(name);
@@ -1530,7 +1525,15 @@ document.querySelector('#dashboardLayout .brand')?.addEventListener('click', eve
 
 document.querySelectorAll('[data-home-view]').forEach(button => button.addEventListener('click', () => showHomeView(button.dataset.homeView)));
 document.getElementById('homeCommandSearch').addEventListener('input', event => renderPublicCommands(event.target.value));
-document.getElementById('refreshPublicStatus').addEventListener('click', () => loadPublicStatus().catch(handleUiError));
+const homeMobileMenuToggle = document.getElementById('homeMobileMenuToggle');
+const homeNavigation = document.getElementById('homeNavigation');
+function setHomeMobileMenu(open) {
+    const expanded = Boolean(open) && window.matchMedia('(max-width: 820px)').matches;
+    homeMobileMenuToggle.setAttribute('aria-expanded', String(expanded));
+    homeNavigation.classList.toggle('open', expanded);
+}
+homeMobileMenuToggle.addEventListener('click', () => setHomeMobileMenu(homeMobileMenuToggle.getAttribute('aria-expanded') !== 'true'));
+window.addEventListener('resize', () => { if (window.innerWidth > 820) setHomeMobileMenu(false); });
 document.getElementById('homeGuilds').addEventListener('click', event => {
     const card = event.target.closest('[data-open-guild]');
     if (card) openDashboard(card.dataset.openGuild).catch(handleUiError);
@@ -3335,7 +3338,7 @@ function managementChannelOptions(selected = '') {
 function renderAutomationRules() {
     const schedules = state.management?.automation?.schedules || [];
     const purges = state.management?.automation?.purgeRules || [];
-    document.getElementById('managementSchedules').innerHTML = schedules.length ? schedules.map((rule, index) => `<div class="automation-rule" data-schedule-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Schedule type</label><select data-rule-type><option value="interval" ${rule.scheduleType === 'interval' ? 'selected' : ''}>Interval</option><option value="once" ${rule.scheduleType === 'once' ? 'selected' : ''}>One-time</option><option value="weekly" ${rule.scheduleType === 'weekly' ? 'selected' : ''}>Weekdays</option><option value="cron" ${rule.scheduleType === 'cron' ? 'selected' : ''}>Cron</option></select></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="5" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="field"><label>Date/time (one-time)</label><input data-rule-run-at type="datetime-local" value="${escapeHtml(rule.runAt || '')}"></div><div class="field"><label>Time (weekly)</label><input data-rule-time type="time" value="${escapeHtml(rule.time || '09:00')}"></div><div class="field"><label>Weekdays (0=Sun â€¦ 6=Sat)</label><input data-rule-weekdays value="${escapeHtml((rule.weekdays || []).join(','))}" placeholder="1,3,5"></div><div class="field"><label>Cron (min hour day month weekday)</label><input data-rule-cron value="${escapeHtml(rule.cron || '')}" placeholder="0 20 * * 5"></div><div class="field"><label>Timezone</label><input data-rule-timezone value="${escapeHtml(rule.timezone || 'UTC')}" placeholder="Europe/Amsterdam"></div><div class="field"><label>Start date (optional)</label><input data-rule-start type="datetime-local" value="${escapeHtml(rule.startAt || '')}"></div><div class="field"><label>End date (optional)</label><input data-rule-end type="datetime-local" value="${escapeHtml(rule.endAt || '')}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="field"><label>Message</label><textarea data-rule-message rows="3" maxlength="1800">${escapeHtml(rule.message)}</textarea></div><div class="actions"><button class="danger" type="button" data-remove-schedule="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No scheduled messages yet.</div>';
+    document.getElementById('managementSchedules').innerHTML = schedules.length ? schedules.map((rule, index) => `<div class="automation-rule" data-schedule-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Schedule type</label><select data-rule-type><option value="interval" ${rule.scheduleType === 'interval' ? 'selected' : ''}>Interval</option><option value="once" ${rule.scheduleType === 'once' ? 'selected' : ''}>One-time</option><option value="weekly" ${rule.scheduleType === 'weekly' ? 'selected' : ''}>Weekdays</option><option value="cron" ${rule.scheduleType === 'cron' ? 'selected' : ''}>Cron</option></select></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="5" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="field"><label>Date/time (one-time)</label><input data-rule-run-at type="datetime-local" value="${escapeHtml(rule.runAt || '')}"></div><div class="field"><label>Time (weekly)</label><input data-rule-time type="time" value="${escapeHtml(rule.time || '09:00')}"></div><div class="field"><label>Weekdays (0=Sun … 6=Sat)</label><input data-rule-weekdays value="${escapeHtml((rule.weekdays || []).join(','))}" placeholder="1,3,5"></div><div class="field"><label>Cron (min hour day month weekday)</label><input data-rule-cron value="${escapeHtml(rule.cron || '')}" placeholder="0 20 * * 5"></div><div class="field"><label>Timezone</label><input data-rule-timezone value="${escapeHtml(rule.timezone || 'UTC')}" placeholder="Europe/Amsterdam"></div><div class="field"><label>Start date (optional)</label><input data-rule-start type="datetime-local" value="${escapeHtml(rule.startAt || '')}"></div><div class="field"><label>End date (optional)</label><input data-rule-end type="datetime-local" value="${escapeHtml(rule.endAt || '')}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="field"><label>Message</label><textarea data-rule-message rows="3" maxlength="1800">${escapeHtml(rule.message)}</textarea></div><div class="actions"><button class="danger" type="button" data-remove-schedule="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No scheduled messages yet.</div>';
     document.getElementById('managementPurgeRules').innerHTML = purges.length ? purges.map((rule, index) => `<div class="automation-rule" data-purge-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Keep newest messages</label><input data-rule-keep type="number" min="0" max="100" value="${Number(rule.keepMessages) || 0}"></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="10" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="actions"><button class="danger" type="button" data-remove-purge="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No auto-purge rules yet.</div>';
 }
 
@@ -5131,7 +5134,7 @@ function renderOverwatchHistory(data) {
         : 'The first successful lookup creates a baseline; existing career totals will not become fake matches.';
     setStatus(document.getElementById('overwatchHistoryError'), data.error || '', data.error ? 'error' : '');
     const candidates = Array.isArray(data.candidates) ? data.candidates : [];
-    document.getElementById('overwatchCandidates').innerHTML = candidates.map((candidate, index) => `<article class="overwatch-match-card"><div class="overwatch-match-result"><strong>Candidate ${index + 1}: ${escapeHtml(candidate.name)}</strong><span>${escapeHtml(candidate.platform || 'unknown')}</span></div>${candidate.namecard ? `<img src="${escapeHtml(candidate.namecard)}" alt="" style="width:100%;max-height:110px;object-fit:cover;border-radius:8px">` : ''}<div class="row">${candidate.avatar ? `<img src="${escapeHtml(candidate.avatar)}" alt="" style="width:48px;height:48px;border-radius:50%">` : ''}<div><div>${escapeHtml(candidate.title || 'No player title')}</div><small>Endorsement ${escapeHtml(candidate.endorsementLevel ?? '?')} â€¢ ${escapeHtml(formatDateTime(candidate.lastUpdatedAt))}</small></div></div><code>${escapeHtml(candidate.playerId)}</code></article>`).join('');
+    document.getElementById('overwatchCandidates').innerHTML = candidates.map((candidate, index) => `<article class="overwatch-match-card"><div class="overwatch-match-result"><strong>Candidate ${index + 1}: ${escapeHtml(candidate.name)}</strong><span>${escapeHtml(candidate.platform || 'unknown')}</span></div>${candidate.namecard ? `<img src="${escapeHtml(candidate.namecard)}" alt="" style="width:100%;max-height:110px;object-fit:cover;border-radius:8px">` : ''}<div class="row">${candidate.avatar ? `<img src="${escapeHtml(candidate.avatar)}" alt="" style="width:48px;height:48px;border-radius:50%">` : ''}<div><div>${escapeHtml(candidate.title || 'No player title')}</div><small>Endorsement ${escapeHtml(candidate.endorsementLevel ?? '?')} • ${escapeHtml(formatDateTime(candidate.lastUpdatedAt))}</small></div></div><code>${escapeHtml(candidate.playerId)}</code></article>`).join('');
     const matches = Array.isArray(data.matches) ? data.matches.slice(0, 3) : [];
     document.getElementById('overwatchMatches').innerHTML = matches.length
         ? matches.map(renderOverwatchMatch).join('')
@@ -5274,21 +5277,69 @@ document.getElementById('submitHomeFeedback').addEventListener('click', async ()
     }
 });
 
-async function loadFeedbackCollection() {
-    const container = document.getElementById('feedbackCollection');
+let supportCooldownTimer = null;
+document.getElementById('submitHomeSupport').addEventListener('click', async () => {
+    const field = document.getElementById('homeSupportMessage');
+    const status = document.getElementById('homeSupportStatus');
+    const button = document.getElementById('submitHomeSupport');
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+        const result = await api('/api/support', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: field.value }) });
+        field.value = '';
+        const seconds = result.rateLimit?.cooldownSeconds || 60;
+        const endsAt = Date.now() + seconds * 1000;
+        clearInterval(supportCooldownTimer);
+        const update = () => {
+            const remaining = Math.ceil((endsAt - Date.now()) / 1000);
+            if (remaining <= 0) {
+                clearInterval(supportCooldownTimer);
+                supportCooldownTimer = null;
+                button.disabled = false;
+                setStatus(status, 'You can send another support message.', 'ok');
+                return;
+            }
+            button.disabled = true;
+            setStatus(status, `Your support message was sent. You can send another in ${formatFeedbackWait(remaining)}.`, 'ok');
+        };
+        update();
+        supportCooldownTimer = window.setInterval(update, 1000);
+    } catch (error) {
+        button.disabled = false;
+        setStatus(status, error.message, 'error');
+    }
+});
+
+async function loadMailCollection() {
+    const container = document.getElementById('mailCollection');
     try {
         const data = await api('/api/feedback');
-        renderTable(container, [
-            { label: 'From', key: 'username' },
-            { label: 'Feedback', key: 'message' },
-            { label: 'Received', key: 'createdAt', render: row => formatDateTime(row.createdAt) },
-            { label: 'Manage', sortable: false, render: row => `<button class="danger feedback-delete" type="button" data-feedback-delete="${escapeHtml(row.id)}">Delete</button>` }
-        ], data.feedback || [], 'No feedback collected yet.');
+        const rows = data.feedback || [];
+        container.innerHTML = rows.map(row => {
+            const messages = Array.isArray(row.messages) ? row.messages : [{ direction: 'in', content: row.message, at: row.createdAt }];
+            return `<article class="mail-thread"><header><span class="badge accent">${escapeHtml(row.type || 'feedback')}</span><strong>${escapeHtml(row.username)}</strong><span class="sub">${formatDateTime(row.updatedAt || row.createdAt)}</span></header><div class="mail-messages">${messages.map(entry => `<p class="mail-message ${entry.direction === 'out' ? 'out' : 'in'}"><span>${entry.direction === 'out' ? 'Flummi' : escapeHtml(row.username)}</span>${escapeHtml(entry.content)}</p>`).join('')}</div><label for="mail-reply-${escapeHtml(row.id)}">Reply by Discord DM</label><textarea id="mail-reply-${escapeHtml(row.id)}" data-mail-reply-field="${escapeHtml(row.id)}" maxlength="2000" placeholder="Write a reply..."></textarea><div class="actions"><button class="primary" type="button" data-mail-reply="${escapeHtml(row.id)}">Send DM</button><button class="danger" type="button" data-feedback-delete="${escapeHtml(row.id)}">Delete</button></div></article>`;
+        }).join('') || '<div class="empty">No support or feedback mail yet.</div>';
     } catch (error) { container.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`; }
 }
 
-document.getElementById('loadFeedbackCollection').addEventListener('click', () => loadFeedbackCollection());
-document.getElementById('feedbackCollection').addEventListener('click', async event => {
+document.getElementById('loadMailCollection').addEventListener('click', () => loadMailCollection());
+document.getElementById('mailCollection').addEventListener('click', async event => {
+    const replyButton = event.target.closest('[data-mail-reply]');
+    if (replyButton) {
+        const id = replyButton.dataset.mailReply;
+        const field = document.querySelector(`[data-mail-reply-field="${CSS.escape(id)}"]`);
+        const status = document.getElementById('mailCollectionStatus');
+        replyButton.disabled = true;
+        try {
+            await api('/api/mail/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, message: field.value }) });
+            setStatus(status, 'Reply delivered by Discord DM.', 'ok');
+            await loadMailCollection();
+        } catch (error) {
+            replyButton.disabled = false;
+            setStatus(status, error.message, 'error');
+        }
+        return;
+    }
     const button = event.target.closest('[data-feedback-delete]');
     if (!button) return;
     const feedbackId = button.dataset.feedbackDelete;
@@ -5299,12 +5350,12 @@ document.getElementById('feedbackCollection').addEventListener('click', async ev
     });
     if (!confirmed) return;
 
-    const status = document.getElementById('feedbackCollectionStatus');
+    const status = document.getElementById('mailCollectionStatus');
     button.disabled = true;
     try {
         await api(`/api/feedback?id=${encodeURIComponent(feedbackId)}`, { method: 'DELETE' });
         setStatus(status, 'Feedback deleted.', 'ok');
-        await loadFeedbackCollection();
+        await loadMailCollection();
     } catch (error) {
         button.disabled = false;
         setStatus(status, error.message, 'error');

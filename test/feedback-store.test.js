@@ -59,3 +59,21 @@ test('deleting feedback removes its message without resetting submission limits'
     assert.equal(clock.store.getRateLimit('one').remainingThisHour, 4);
     assert.equal(clock.store.getRateLimit('one').allowed, false);
 });
+
+test('support and feedback share limits and keep a DM conversation thread', t => {
+    const clock = temporaryStore(t);
+    const support = clock.store.addFeedback({ userId: 'one', username: 'User', message: 'Please help', type: 'support' });
+    assert.equal(support.type, 'support');
+    assert.equal(support.messages[0].source, 'website');
+    assert.throws(
+        () => clock.store.addFeedback({ userId: 'one', username: 'User', message: 'Feedback too soon', type: 'feedback' }),
+        error => error.code === 'FEEDBACK_RATE_LIMITED'
+    );
+
+    clock.store.appendMessage(support.id, { direction: 'out', content: 'We can help.', authorId: 'developer' });
+    clock.store.appendMessage(support.id, { direction: 'in', content: 'Thank you.', authorId: 'one', source: 'discord-dm' });
+    const thread = clock.store.findOpenThreadForUser('one');
+    assert.deepEqual(thread.messages.map(message => message.direction), ['in', 'out', 'in']);
+    assert.equal(thread.messages.at(-1).source, 'discord-dm');
+    assert.equal(thread.status, 'new');
+});

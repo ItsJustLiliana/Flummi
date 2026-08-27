@@ -639,6 +639,8 @@ module.exports = {
     async execute(message, client) {
         const { handleDirectMessage, handleStaffMessage } = require('../services/modmail-service');
         if (!message.guildId) {
+            const { handleWebsiteMailDirectMessage } = require('../services/website-mail-service');
+            if (await handleWebsiteMailDirectMessage(message).catch(error => { console.warn(`Website mail DM failed: ${error.message}`); return false; })) return;
             await handleDirectMessage(message, client).catch(error => console.warn(`Modmail DM failed: ${error.message}`));
             return;
         }

@@ -27,9 +27,18 @@ The exact bot list is exported by `services/discord-intents.js` and used by `ind
 - `GUILD_VOICE_STATES`: voice statistics, temporary voice rooms, and voice-linked roles.
 - `GUILD_MODERATION`: ban/unban events and moderation state.
 - `GUILD_MESSAGE_REACTIONS`: starboard and ticket-rating workflows.
-- `DIRECT_MESSAGES`: consented modmail intake; DM channels use the configured channel partial.
+- `DIRECT_MESSAGES`: consented guild modmail plus replies to website support and feedback threads; DM channels use the configured channel partial.
 
 Flummi does not request presence or other unused gateway intents.
+
+## Developer Portal policy URLs
+
+Use these exact public HTTPS URLs in the Discord Developer Portal:
+
+- Terms of Service: `https://flummi.liliananuzohra.com/terms`
+- Privacy Policy: `https://flummi.liliananuzohra.com/privacy`
+
+Both routes are public without Discord authentication and accept both `GET` and `HEAD`, which allows Discord's URL validator to verify them. Production must set `PANEL_PUBLIC_URL=https://flummi.liliananuzohra.com`, keep the Cloudflare tunnel online, and serve a valid public TLS certificate. Do not enter the private Tailscale address, `localhost`, a URL with a port, or a URL copied from an authenticated dashboard session.
 
 ## Persistent content inventory
 

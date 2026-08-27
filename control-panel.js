@@ -2045,13 +2045,17 @@ function createServer() {
                 const channelId = requestUrl.searchParams.get('channelId');
                 const now = Date.now();
                 const rangeDays = requestedDays === null ? undefined : requestedDays.toLowerCase() === 'all' ? null : Math.min(365, Math.max(1, Number(requestedDays) || 30));
-                const span = Number.isFinite(rangeDays) ? rangeDays * 86400000 : null;
-                const from = requestedDays === null ? requestUrl.searchParams.get('from') : span === null ? null : new Date(now - span).toISOString();
-                const to = requestedDays === null ? requestUrl.searchParams.get('to') : new Date(now).toISOString();
+                const requestedFrom = requestUrl.searchParams.get('from');
+                const requestedTo = requestUrl.searchParams.get('to');
+                const defaultSpan = Number.isFinite(rangeDays) ? rangeDays * 86400000 : null;
+                const from = requestedDays === null ? requestedFrom : defaultSpan === null ? null : requestedFrom || new Date(now - defaultSpan).toISOString();
+                const to = requestedDays === null ? requestedTo : defaultSpan === null ? null : requestedTo || new Date(now).toISOString();
+                const span = from && to ? Math.max(1, new Date(to).getTime() - new Date(from).getTime() + 1) : defaultSpan;
                 const analytics = voiceStore.getVoiceAnalytics(guildId, from, to, channelId);
                 if (requestedDays !== null) {
                     const allTime = rangeDays === null ? analytics : voiceStore.getVoiceAnalytics(guildId, null, null, channelId);
-                    const previous = span === null ? null : voiceStore.getVoiceAnalytics(guildId, new Date(now - span * 2).toISOString(), new Date(now - span - 1).toISOString(), channelId);
+                    const rangeStart = from ? new Date(from).getTime() : null;
+                    const previous = span === null || !Number.isFinite(rangeStart) ? null : voiceStore.getVoiceAnalytics(guildId, new Date(rangeStart - span).toISOString(), new Date(rangeStart - 1).toISOString(), channelId);
                     analytics.totalAllTimeMs = allTime.totalMs;
                     analytics.previousTotalMs = previous?.totalMs ?? null;
                 }
@@ -2223,17 +2227,21 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
 
-                const periodDays = Math.min(365, Math.max(1, Number(requestUrl.searchParams.get('days')) || 30));
+                const requestedDays = requestUrl.searchParams.get('days') || '30';
+                const periodDays = requestedDays.toLowerCase() === 'all' ? null : Math.min(365, Math.max(1, Number(requestedDays) || 30));
                 const canViewModeration = ['developer', 'admin'].includes(getPanelGuildRole(panelSession, guildId));
                 const now = Date.now();
-                const messages = analyticsStore.getAnalyticsSummary(guildId, periodDays);
+                const rangeOptions = { from: requestUrl.searchParams.get('from'), to: requestUrl.searchParams.get('to') };
+                const from = periodDays === null ? null : rangeOptions.from || new Date(now - periodDays * 86400000).toISOString();
+                const to = periodDays === null ? null : rangeOptions.to || new Date(now).toISOString();
+                const messages = analyticsStore.getAnalyticsSummary(guildId, requestedDays, null, null, rangeOptions);
                 const voice = voiceStore.getVoiceAnalytics(
                     guildId,
-                    new Date(now - periodDays * 86400000).toISOString(),
-                    new Date(now).toISOString()
+                    from,
+                    to
                 );
-                const sounds = analyticsStore.getSoundboardSummary(guildId, periodDays);
-                const media = analyticsStore.getMediaUsageSummary(guildId, periodDays);
+                const sounds = analyticsStore.getSoundboardSummary(guildId, requestedDays, rangeOptions);
+                const media = analyticsStore.getMediaUsageSummary(guildId, requestedDays, rangeOptions);
 
                 sendJson(res, 200, {
                     periodDays,
@@ -2270,8 +2278,9 @@ function createServer() {
                     guild.emojis.fetch(),
                     guild.stickers.fetch()
                 ]);
-                const summary = analyticsStore.getSoundboardSummary(guildId, requestUrl.searchParams.get('days'));
-                const mediaUsage = analyticsStore.getMediaUsageSummary(guildId, requestUrl.searchParams.get('days'));
+                const mediaRange = { from: requestUrl.searchParams.get('from'), to: requestUrl.searchParams.get('to') };
+                const summary = analyticsStore.getSoundboardSummary(guildId, requestUrl.searchParams.get('days'), mediaRange);
+                const mediaUsage = analyticsStore.getMediaUsageSummary(guildId, requestUrl.searchParams.get('days'), mediaRange);
                 const soundUsage = new Map(summary.itemDetails.map(row => [String(row.id), row]));
                 const emojiUsage = new Map(mediaUsage.emojis.map(row => [String(row.id), row]));
                 const stickerUsage = new Map(mediaUsage.stickers.map(row => [String(row.id), row]));
@@ -2335,7 +2344,10 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
                 const days = requestUrl.searchParams.get('days') || '30';
-                const analytics = analyticsStore.getAnalyticsSummary(guildId, days, requestUrl.searchParams.get('channelId'), requestUrl.searchParams.get('userId'));
+                const analytics = analyticsStore.getAnalyticsSummary(guildId, days, requestUrl.searchParams.get('channelId'), requestUrl.searchParams.get('userId'), {
+                    from: requestUrl.searchParams.get('from'),
+                    to: requestUrl.searchParams.get('to')
+                });
                 if (!['developer', 'admin'].includes(getPanelGuildRole(panelSession, guildId))) analytics.moderation = null;
                 sendJson(res, 200, analytics);
                 return;

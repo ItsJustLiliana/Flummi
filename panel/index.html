@@ -194,7 +194,7 @@
                 <h2 style="font-size:20px;">Stats &amp; Analytics</h2>
                 <p class="sub tab-intro">A quick 30-day snapshot across the server. Open each feature tab for its full
                     analytics.</p>
-                <div class="row tab-controls"><label for="analyticsSummaryRange">Period</label><select id="analyticsSummaryRange"><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select><label for="analyticsSummaryGraphType">Graph</label><select id="analyticsSummaryGraphType"><option value="bar">Bars</option><option value="line">Line</option></select></div>
+                <div class="row tab-controls"><label for="analyticsSummaryRange">Period</label><select id="analyticsSummaryRange"><option value="1">1 day</option><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option><option value="all">All time</option></select><div class="analytics-date-range" data-range-dates="analyticsSummaryRange"><label for="analyticsSummaryFrom">From (UTC)</label><input id="analyticsSummaryFrom" type="date"><label for="analyticsSummaryTo">Through (UTC)</label><input id="analyticsSummaryTo" type="date"></div><label for="analyticsSummaryGraphType">Graph</label><select id="analyticsSummaryGraphType"><option value="bar">Bars</option><option value="line">Line</option></select></div>
                 <div class="two-col"><div class="section"><h2>Message activity</h2><div id="analyticsSummaryMessageChart" class="analytics-chart compact"></div></div><div class="section"><h2>Voice sessions</h2><div id="analyticsSummaryVoiceChart" class="analytics-chart compact"></div></div></div>
                 <div class="two-col">
                     <div class="section">
@@ -323,12 +323,12 @@
                 <div class="row tab-controls"><label for="voiceGraphRange" style="margin:0">Period <span
                             class="help-tip" tabindex="0"
                             data-tooltip="Controls the date range for voice totals, comparisons, charts, and rankings. Total voice time remains all-time; the heatmap has its own range control.">?</span></label><select id="voiceGraphRange">
-                        <option value="1">Last 1 day</option>
-                        <option value="7">Last 7 days</option>
-                        <option value="30" selected>Last 30 days</option>
-                        <option value="90">Last 90 days</option>
+                        <option value="1">1 day</option>
+                        <option value="7">7 days</option>
+                        <option value="30" selected>30 days</option>
+                        <option value="90">90 days</option>
                         <option value="all">All time</option>
-                    </select><select id="voiceGraphChannel" aria-label="Voice channel">
+                    </select><div class="analytics-date-range" data-range-dates="voiceGraphRange"><label for="voiceGraphFrom">From (UTC)</label><input id="voiceGraphFrom" type="date"><label for="voiceGraphTo">Through (UTC)</label><input id="voiceGraphTo" type="date"></div><select id="voiceGraphChannel" aria-label="Voice channel">
                         <option value="">All channels</option>
                     </select><select id="voiceGraphType" aria-label="Voice graph type">
                         <option value="bar">Bars</option>
@@ -337,14 +337,14 @@
                 <div class="card-grid" id="voiceCards"></div>
                 <div class="section">
                     <div class="row">
-                        <h2 style="margin:0">Voice sessions over time — <span id="voiceRangeLabel">last 30 days</span>
+                        <h2 style="margin:0">Voice sessions over time — <span id="voiceRangeLabel">30 days</span>
                         </h2>
                     </div>
                     <p class="sub">Completed voice sessions per day.</p>
                     <div id="voiceActivityChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">
-                    <h2>Voice minutes over time — <span id="voiceMinutesRangeLabel">last 30 days</span></h2>
+                    <h2>Voice minutes over time — <span id="voiceMinutesRangeLabel">30 days</span></h2>
                     <div id="voiceMinutesChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">
@@ -440,12 +440,12 @@
                 <div class="row tab-controls"><label for="analyticsDays" style="margin:0">Period <span class="help-tip"
                             tabindex="0"
                             data-tooltip="Controls message totals, the previous-period comparison, charts, and rankings. Total messages remains all-time; the heatmap has its own range control.">?</span></label><select id="analyticsDays">
-                        <option value="1">Last 1 day</option>
-                        <option value="7">Last 7 days</option>
-                        <option value="30" selected>Last 30 days</option>
-                        <option value="90">Last 90 days</option>
+                        <option value="1">1 day</option>
+                        <option value="7">7 days</option>
+                        <option value="30" selected>30 days</option>
+                        <option value="90">90 days</option>
                         <option value="all">All time</option>
-                    </select><select id="analyticsChannel" aria-label="Message channel">
+                    </select><div class="analytics-date-range" data-range-dates="analyticsDays"><label for="analyticsFrom">From (UTC)</label><input id="analyticsFrom" type="date"><label for="analyticsTo">Through (UTC)</label><input id="analyticsTo" type="date"></div><select id="analyticsChannel" aria-label="Message channel">
                         <option value="">All channels</option>
                     </select><select id="analyticsMember" aria-label="Message member">
                         <option value="">All members</option>
@@ -455,7 +455,7 @@
                     </select></div>
                 <div class="card-grid" id="analyticsCards"></div>
                 <div class="section">
-                    <h2>Messages over time — <span id="messageRangeLabel">last 30 days</span></h2>
+                    <h2>Messages over time — <span id="messageRangeLabel">30 days</span></h2>
                     <div id="analyticsChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">
@@ -1344,12 +1344,13 @@
                     <label for="mediaRange" style="margin:0">Period <span class="help-tip" tabindex="0"
                             data-tooltip="Controls tracked sound, emoji, and sticker usage plus the previous-period comparison. Total media uses remains all-time.">?</span></label>
                     <select id="mediaRange" aria-label="Media analytics range">
-                        <option value="1">Last 1 day</option>
-                        <option value="7">Last 7 days</option>
-                        <option value="30" selected>Last 30 days</option>
-                        <option value="90">Last 90 days</option>
+                        <option value="1">1 day</option>
+                        <option value="7">7 days</option>
+                        <option value="30" selected>30 days</option>
+                        <option value="90">90 days</option>
                         <option value="all">All time</option>
                     </select>
+                    <div class="analytics-date-range" data-range-dates="mediaRange"><label for="mediaFrom">From (UTC)</label><input id="mediaFrom" type="date"><label for="mediaTo">Through (UTC)</label><input id="mediaTo" type="date"></div>
                     <select id="mediaGraphType" aria-label="Media graph type">
                         <option value="bar">Bars</option>
                         <option value="line">Line</option>
@@ -1357,7 +1358,7 @@
                 </div>
                 <div id="soundboardCards" class="card-grid"></div>
                 <div class="section">
-                    <h2>Soundboard activity — <span id="soundboardRangeLabel">last 30 days</span></h2>
+                    <h2>Soundboard activity — <span id="soundboardRangeLabel">30 days</span></h2>
                     <div id="soundboardActivityChart" class="analytics-chart"></div>
                 </div>
                 <div class="section">

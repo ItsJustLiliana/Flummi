@@ -32,7 +32,7 @@ Support and feedback submissions require Discord sign-in so the requester can be
 ### Server workspace
 
 - **Overview:** guild details, member and bot counts, roles, channels, bot state, feature availability, and compact activity summaries.
-- **Stats & Analytics:** selectable periods, message and voice charts, heatmaps, member/channel filtering, comparison periods, media usage, and administrator-only moderation totals.
+- **Stats & Analytics:** selectable 1/7/30/90-day UTC date ranges or all-time views, hourly charts for a selected day, message and voice charts, heatmaps, member/channel filtering, comparison periods, media usage, and administrator-only moderation totals.
 - **Triggers:** create and audit text or image responses, limits, cooldowns, imports, and exports.
 - **Members & Permissions:** inspect members and configure per-user command and feature overrides. Discord server administrators automatically receive dashboard admin access.
 - **Profiles and AI memory:** inspect user-supplied profiles and permitted AI conversation memory.

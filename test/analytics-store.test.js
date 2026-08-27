@@ -127,3 +127,26 @@ test('trend details compare equal periods and disable comparison for all time', 
     assert.deepEqual(trendDetails(12, 0), { status: 'new', percent: null, previous: 0 });
     assert.deepEqual(trendDetails(12, 5, false), { status: 'unavailable', percent: null, previous: null });
 });
+
+test('exact one-day analytics use 24 hourly buckets and exclude other dates', () => {
+    const guildId = `test-exact-message-day-${process.pid}`;
+    cleanupGuild(guildId);
+    try {
+        appendEvent(guildId, 'messages', { at: '2026-08-20T03:15:00.000Z', channelId: 'one', userId: 'alice' });
+        appendEvent(guildId, 'messages', { at: '2026-08-20T18:45:00.000Z', channelId: 'one', userId: 'bob' });
+        appendEvent(guildId, 'messages', { at: '2026-08-21T03:15:00.000Z', channelId: 'one', userId: 'alice' });
+        appendEvent(guildId, 'soundboard', { at: '2026-08-20T18:00:00.000Z', soundId: 'sound' });
+
+        const options = { from: '2026-08-20T00:00:00.000Z', to: '2026-08-20T23:59:59.999Z' };
+        const messages = getAnalyticsSummary(guildId, 1, null, null, options);
+        const sounds = getSoundboardSummary(guildId, 1, options);
+        assert.equal(messages.messageCount, 2);
+        assert.equal(messages.dailyMessages.length, 24);
+        assert.deepEqual(messages.dailyMessages.filter(row => row.count).map(row => [row.date, row.count]), [['2026-08-20T03', 1], ['2026-08-20T18', 1]]);
+        assert.ok(messages.dailyMessages.every(row => row.granularity === 'hour'));
+        assert.equal(sounds.byDay.length, 24);
+        assert.equal(sounds.byDay.find(row => row.date === '2026-08-20T18').count, 1);
+    } finally {
+        cleanupGuild(guildId);
+    }
+});

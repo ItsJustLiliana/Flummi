@@ -1835,7 +1835,8 @@ function renderOverviewDetails(containerId, guildInfo) {
 
 function showChartTooltip(event, row, metricLabel) {
     const tooltip = document.getElementById('chartTooltip');
-    tooltip.innerHTML = `<strong>${escapeHtml(formatDateTime(row.date))}</strong><br>${escapeHtml(metricLabel)}: ${escapeHtml(String(Number(row.count) || 0))}`;
+    const timestamp = row.granularity === 'hour' ? `${row.date}:00` : row.date;
+    tooltip.innerHTML = `<strong>${escapeHtml(formatDateTime(timestamp))}</strong><br>${escapeHtml(metricLabel)}: ${escapeHtml(String(Number(row.count) || 0))}`;
     tooltip.classList.add('visible');
     positionFloatingElement(tooltip, {
         left: event.clientX,
@@ -1887,13 +1888,15 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
     const horizontalPadding = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
     const width = Math.max(compact ? 220 : 320, Math.floor((container.clientWidth || 640) - horizontalPadding));
     const height = compact ? 76 : 160;
-    const maxPoints = Math.max(compact ? 6 : 7, Math.floor(width / (compact ? 34 : 68)));
+    const hourly = sourceValues.some(row => row.granularity === 'hour');
+    const maxPoints = hourly ? sourceValues.length : Math.max(compact ? 6 : 7, Math.floor(width / (compact ? 34 : 68)));
     const values = [];
     for (let index = 0; index < sourceValues.length; index += Math.ceil(sourceValues.length / maxPoints)) {
         const group = sourceValues.slice(index, index + Math.ceil(sourceValues.length / maxPoints));
         values.push({
             date: group.length === 1 ? group[0].date : `${group[0].date} – ${group[group.length - 1].date}`,
-            count: group.reduce((total, row) => total + (Number(row.count) || 0), 0)
+            count: group.reduce((total, row) => total + (Number(row.count) || 0), 0),
+            granularity: group.length === 1 ? group[0].granularity : null
         });
     }
     const maximum = Math.max(1, ...values.map(row => Number(row.count) || 0));
@@ -1936,7 +1939,13 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
             context.setLineDash([]); context.fillStyle = '#a5b1d8'; context.textAlign = 'right'; context.fillText(String(value), left - 7, y);
         }
         context.textAlign = 'center'; context.textBaseline = 'alphabetic'; context.fillStyle = '#a5b1d8';
-        points.forEach((point, index) => context.fillText(String(values[index].date).slice(5, 10), point.x, height - 7));
+        const labelEvery = hourly ? Math.max(1, Math.ceil(values.length / Math.max(4, Math.floor(width / 58)))) : 1;
+        points.forEach((point, index) => {
+            if (index % labelEvery && index !== values.length - 1) return;
+            const row = values[index];
+            const label = row.granularity === 'hour' ? `${String(row.date).slice(11, 13)}:00` : String(row.date).slice(5, 10);
+            context.fillText(label, point.x, height - 7);
+        });
     }
     if (chartType === 'line') {
         context.strokeStyle = '#75cfff'; context.lineWidth = 3; context.lineJoin = 'round'; context.lineCap = 'round'; context.beginPath();
@@ -2312,10 +2321,72 @@ document.getElementById('importTriggers').addEventListener('change', async event
 });
 
 // ---------- Voice ----------
-function analyticsRangeLabel(value) {
+const analyticsDateControls = {
+    analyticsSummaryRange: ['analyticsSummaryFrom', 'analyticsSummaryTo'],
+    voiceGraphRange: ['voiceGraphFrom', 'voiceGraphTo'],
+    analyticsDays: ['analyticsFrom', 'analyticsTo'],
+    mediaRange: ['mediaFrom', 'mediaTo']
+};
+
+function utcDateInputValue(date = new Date()) {
+    return date.toISOString().slice(0, 10);
+}
+
+function shiftUtcDate(value, days) {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return utcDateInputValue(date);
+}
+
+function syncAnalyticsDateRange(rangeId, changed = 'range') {
+    const select = document.getElementById(rangeId);
+    const [fromId, toId] = analyticsDateControls[rangeId];
+    const from = document.getElementById(fromId);
+    const to = document.getElementById(toId);
+    const wrapper = document.querySelector(`[data-range-dates="${rangeId}"]`);
+    const allTime = select.value === 'all';
+    wrapper.classList.toggle('is-disabled', allTime);
+    wrapper.setAttribute('aria-disabled', String(allTime));
+    from.disabled = allTime;
+    to.disabled = allTime;
+    if (allTime) return;
+    const days = Math.max(1, Number(select.value) || 30);
+    const today = utcDateInputValue();
+    from.max = shiftUtcDate(today, 1 - days);
+    to.max = today;
+    if (!to.value) to.value = today;
+    if (!from.value) from.value = shiftUtcDate(to.value, 1 - days);
+    if (changed === 'from') {
+        to.value = shiftUtcDate(from.value, days - 1);
+        if (to.value > today) {
+            to.value = today;
+            from.value = shiftUtcDate(today, 1 - days);
+        }
+    }
+    else from.value = shiftUtcDate(to.value, 1 - days);
+}
+
+function analyticsDateSelection(rangeId) {
+    const value = document.getElementById(rangeId).value;
+    if (value === 'all') return { value, query: 'days=all', label: 'all time' };
+    const [fromId, toId] = analyticsDateControls[rangeId];
+    const from = document.getElementById(fromId).value;
+    const to = document.getElementById(toId).value;
+    const format = raw => new Date(`${raw}T00:00:00.000Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    return {
+        value,
+        from,
+        to,
+        query: `days=${encodeURIComponent(value)}&from=${encodeURIComponent(`${from}T00:00:00.000Z`)}&to=${encodeURIComponent(`${to}T23:59:59.999Z`)}`,
+        label: from === to ? format(from) : `${format(from)} – ${format(to)}`
+    };
+}
+
+function analyticsRangeLabel(value, rangeId = null) {
+    if (rangeId) return analyticsDateSelection(rangeId).label;
     if (String(value).toLowerCase() === 'all') return 'all time';
     const days = Math.max(1, Number(value) || 30);
-    return `last ${days} ${days === 1 ? 'day' : 'days'}`;
+    return `${days} ${days === 1 ? 'day' : 'days'}`;
 }
 
 function periodComparison(current, previous, comparable = true) {
@@ -2340,14 +2411,9 @@ async function loadVoice() {
     }));
     const voiceRange = document.getElementById('voiceGraphRange').value;
     const voiceChannelId = document.getElementById('voiceGraphChannel').value;
-    const rangeLabel = analyticsRangeLabel(voiceRange);
-    const filters = [`days=${encodeURIComponent(voiceRange)}`];
-    const rangeDays = voiceRange === 'all' ? null : Math.max(1, Number(voiceRange) || 30);
-    const rangeNow = Date.now();
-    if (rangeDays !== null) {
-        filters.push(`from=${encodeURIComponent(new Date(rangeNow - rangeDays * 86400000).toISOString())}`);
-        filters.push(`to=${encodeURIComponent(new Date(rangeNow).toISOString())}`);
-    }
+    const selection = analyticsDateSelection('voiceGraphRange');
+    const rangeLabel = selection.label;
+    const filters = [selection.query];
     if (voiceChannelId) filters.push(`channelId=${encodeURIComponent(voiceChannelId)}`);
     const analyticsResponse = await api(withGuild(`/api/voice-analytics?${filters.join('&')}`));
     const analytics = {
@@ -2358,16 +2424,6 @@ async function loadVoice() {
         userTotals: Array.isArray(analyticsResponse?.userTotals) ? analyticsResponse.userTotals : [],
         groupSessions: (Array.isArray(analyticsResponse?.groupSessions) ? analyticsResponse.groupSessions : []).map(row => ({ ...row, labels: Array.isArray(row?.labels) ? row.labels : [] }))
     };
-    if (rangeDays !== null && analytics.previousTotalMs === undefined) {
-        const span = rangeDays * 86400000;
-        const previousFilters = [
-            `from=${encodeURIComponent(new Date(rangeNow - span * 2).toISOString())}`,
-            `to=${encodeURIComponent(new Date(rangeNow - span - 1).toISOString())}`
-        ];
-        if (voiceChannelId) previousFilters.push(`channelId=${encodeURIComponent(voiceChannelId)}`);
-        const previous = await api(withGuild(`/api/voice-analytics?${previousFilters.join('&')}`));
-        analytics.previousTotalMs = Number(previous?.totalMs) || 0;
-    }
     const fallbackTotalVoiceMs = leaderboard.reduce((total, row) => total + (Number(row?.totalMs) || 0), 0);
 
     document.getElementById('voiceRangeLabel').textContent = rangeLabel;
@@ -2502,11 +2558,12 @@ async function loadStats() {
     if (!state.guildId) return;
     await ensureAnalyticsChannelFilter('analyticsChannel', '/api/channels');
     const days = document.getElementById('analyticsDays').value;
-    const rangeLabel = analyticsRangeLabel(days);
+    const selection = analyticsDateSelection('analyticsDays');
+    const rangeLabel = selection.label;
     const channelId = document.getElementById('analyticsChannel').value;
     const memberId = document.getElementById('analyticsMember').value;
     const filters = `${channelId ? `&channelId=${encodeURIComponent(channelId)}` : ''}${memberId ? `&userId=${encodeURIComponent(memberId)}` : ''}`;
-    const analyticsResponse = await api(withGuild(`/api/analytics?days=${encodeURIComponent(days)}${filters}`));
+    const analyticsResponse = await api(withGuild(`/api/analytics?${selection.query}${filters}`));
     const data = {
         ...(analyticsResponse || {}),
         topUsers: Array.isArray(analyticsResponse?.topUsers) ? analyticsResponse.topUsers : [],
@@ -2543,8 +2600,8 @@ async function loadStats() {
 // ---------- Analytics ----------
 async function loadAnalytics() {
     if (!state.guildId) return;
-    const days = document.getElementById('analyticsSummaryRange').value;
-    const data = await api(withGuild(`/api/analytics-summary?days=${encodeURIComponent(days)}`));
+    const selection = analyticsDateSelection('analyticsSummaryRange');
+    const data = await api(withGuild(`/api/analytics-summary?${selection.query}`));
     document.getElementById('analyticsSummaryMessages').innerHTML = [
         statCard('Messages', data.messages.count), statCard('Active Authors', data.messages.uniqueAuthors),
         statCard('Change', data.messages.changePercent === null ? 'New' : `${data.messages.changePercent > 0 ? '+' : ''}${data.messages.changePercent}%`),
@@ -2570,14 +2627,32 @@ async function loadAnalytics() {
     renderActivityChart('analyticsSummaryVoiceChart', data.voice.activity || [], 'No voice sessions in this period.', graphType, 'Voice sessions');
 }
 
-document.getElementById('analyticsSummaryRange').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
+for (const rangeId of Object.keys(analyticsDateControls)) syncAnalyticsDateRange(rangeId);
+
+function bindAnalyticsDateControls(rangeId, load) {
+    const [fromId, toId] = analyticsDateControls[rangeId];
+    document.getElementById(rangeId).addEventListener('change', () => {
+        syncAnalyticsDateRange(rangeId);
+        load().catch(error => console.error(error));
+    });
+    document.getElementById(fromId).addEventListener('change', () => {
+        syncAnalyticsDateRange(rangeId, 'from');
+        load().catch(error => console.error(error));
+    });
+    document.getElementById(toId).addEventListener('change', () => {
+        syncAnalyticsDateRange(rangeId, 'to');
+        load().catch(error => console.error(error));
+    });
+}
+
+bindAnalyticsDateControls('analyticsSummaryRange', loadAnalytics);
 document.getElementById('analyticsSummaryGraphType').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
 
-document.getElementById('analyticsDays').addEventListener('change', () => loadStats().catch(error => console.error(error)));
+bindAnalyticsDateControls('analyticsDays', loadStats);
 document.getElementById('analyticsChannel').addEventListener('change', () => loadStats().catch(error => console.error(error)));
 document.getElementById('analyticsMember').addEventListener('change', () => loadStats().catch(error => console.error(error)));
 document.getElementById('analyticsGraphType').addEventListener('change', () => loadStats().catch(error => console.error(error)));
-document.getElementById('voiceGraphRange').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
+bindAnalyticsDateControls('voiceGraphRange', loadVoice);
 document.getElementById('voiceGraphChannel').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
 document.getElementById('voiceGraphType').addEventListener('change', () => loadVoice().catch(error => console.error(error)));
 
@@ -4433,8 +4508,9 @@ function renderMediaUsageChart(containerId, rows, emptyMessage) {
 async function loadSoundboard() {
     if (!state.guildId) return;
     const range = document.getElementById('mediaRange').value || '30';
-    const rangeLabel = analyticsRangeLabel(range);
-    const data = await api(withGuild(`/api/media?days=${encodeURIComponent(range)}`));
+    const selection = analyticsDateSelection('mediaRange');
+    const rangeLabel = selection.label;
+    const data = await api(withGuild(`/api/media?${selection.query}`));
     const soundsById = new Map((data.sounds || []).map(sound => [sound.id, sound.name]));
     const mediaPreview = (url, name, lottieUrl = '') => `<button class="media-preview-button" type="button" data-media-preview="${escapeHtml(url)}" data-media-name="${escapeHtml(name)}"${lottieUrl ? ` data-lottie-url="${escapeHtml(lottieUrl)}"` : ''} aria-label="Enlarge ${escapeHtml(name)}"><img class="media-thumb" src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy"></button>`;
     const soundPlayer = url => `<div class="sound-player"><button class="sound-play-toggle" type="button" aria-label="Play sound">▶</button><input class="sound-progress" type="range" min="0" max="100" step="0.1" value="0" aria-label="Sound position"><span class="sound-player-time">0:00 / 0:00</span><audio preload="metadata" src="${escapeHtml(url)}"></audio></div>`;
@@ -4505,9 +4581,7 @@ async function loadSoundboard() {
     applyMediaView('sticker', mediaViewModes.sticker);
 }
 
-document.getElementById('mediaRange').addEventListener('change', () => {
-    loadSoundboard().catch(error => handleUiError(error, () => loadSoundboard().catch(handleUiError)));
-});
+bindAnalyticsDateControls('mediaRange', loadSoundboard);
 document.getElementById('mediaGraphType').addEventListener('change', () => {
     loadSoundboard().catch(error => handleUiError(error, () => loadSoundboard().catch(handleUiError)));
 });

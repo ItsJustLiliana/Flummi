@@ -167,3 +167,20 @@ test('voice range totals merge overlapping members so one day cannot exceed 24 h
         cleanupGuild(guildId);
     }
 });
+
+test('one selected voice day returns hourly session and minute buckets', () => {
+    const guildId = `test-hourly-voice-range-${process.pid}`;
+    cleanupGuild(guildId);
+    try {
+        startVoiceSession({ guildId, userId: 'one', channelId: '10', channelName: 'general-vc', at: new Date('2026-08-20T03:45:00.000Z') });
+        endVoiceSession({ guildId, userId: 'one', at: new Date('2026-08-20T04:15:00.000Z') });
+        const analytics = getVoiceAnalytics(guildId, '2026-08-20T00:00:00.000Z', '2026-08-20T23:59:59.999Z');
+        assert.equal(analytics.activeOverTime.length, 24);
+        assert.equal(analytics.activeOverTime.find(row => row.date === '2026-08-20T03').count, 1);
+        assert.equal(analytics.minutesOverTime.find(row => row.date === '2026-08-20T03').count, 15);
+        assert.equal(analytics.minutesOverTime.find(row => row.date === '2026-08-20T04').count, 15);
+        assert.ok(analytics.activeOverTime.every(row => row.granularity === 'hour'));
+    } finally {
+        cleanupGuild(guildId);
+    }
+});

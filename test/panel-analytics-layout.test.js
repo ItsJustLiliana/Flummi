@@ -139,11 +139,23 @@ test('Voice and Server Media use matching top-level period controls', () => {
 test('Messages, Voice, and Server Media share total, range, and previous-period cards', () => {
     for (const id of ['analyticsDays', 'voiceGraphRange', 'mediaRange']) {
         const selected = panelHtml.match(new RegExp(`<select id="${id}"[\\s\\S]*?<\\/select>`))?.[0] || '';
-        assert.match(selected, /<option value="30" selected>Last 30 days<\/option>/);
+        assert.match(selected, /<option value="30" selected>30 days<\/option>/);
+        assert.doesNotMatch(selected, />Last /);
     }
     for (const label of ['Total messages', 'Total voice time', 'Total media uses']) assert.match(panelHtml, new RegExp(label));
     assert.match(panelHtml, /statCard\('Vs previous period'/);
     for (const id of ['messageRangeLabel', 'voiceRangeLabel', 'voiceMinutesRangeLabel', 'soundboardRangeLabel']) assert.match(panelHtml, new RegExp(`id="${id}"`));
+});
+
+test('finite analytics periods expose linked date controls and one-day charts keep hourly points', () => {
+    for (const rangeId of ['analyticsSummaryRange', 'analyticsDays', 'voiceGraphRange', 'mediaRange']) {
+        assert.match(panelHtml, new RegExp(`data-range-dates="${rangeId}"`));
+    }
+    assert.match(panelHtml, /row\.granularity === 'hour'/);
+    assert.match(panelHtml, /const maxPoints = hourly \? sourceValues\.length/);
+    assert.match(panelHtml, /query: `days=\$\{encodeURIComponent\(value\)\}&from=/);
+    assert.match(panelHtml, /wrapper\.classList\.toggle\('is-disabled', allTime\)/);
+    assert.doesNotMatch(panelHtml, /wrapper\.hidden = allTime/);
 });
 
 test('tooltips activate only from help controls and unavailable Tailscale features', () => {

@@ -379,6 +379,7 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
         return [{ action: 'session-ended', userId, channelId: String(session.channelId), channelName: session.channelName, startedAt: session.startedAt, endedAt: new Date(Math.min(Date.now(), end)).toISOString() }];
     });
     const history = [...completedHistory, ...liveHistory];
+    const hourly = Boolean(from && to && end - start <= 86400000);
     const channels = new Map(), users = new Map(), daily = new Map(), dailyMinutes = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
     const archivedDays = from ? [] : Object.entries(readAnonymousAnalytics(guildId).voice.byDay || {});
     let archivedOccupiedMs = 0, archivedSessions = 0;
@@ -423,9 +424,16 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
         if (Date.now() - rowEnd <= 7 * 86400000) user.weeklyMs += ms;
         if (Date.now() - rowEnd <= 31 * 86400000) user.monthlyMs += ms;
         users.set(row.userId, user);
-        const day = new Date(rowStart).toISOString().slice(0, 10);
+        const day = new Date(rowStart).toISOString().slice(0, hourly ? 13 : 10);
         daily.set(day, (daily.get(day) || 0) + 1);
-        dailyMinutes.set(day, (dailyMinutes.get(day) || 0) + Math.round(ms / 60000));
+        if (hourly) {
+            for (let cursor = rowStart; cursor < rowEnd;) {
+                const hourEnd = Math.min(rowEnd, Math.floor(cursor / 3600000) * 3600000 + 3600000);
+                const hour = new Date(cursor).toISOString().slice(0, 13);
+                dailyMinutes.set(hour, (dailyMinutes.get(hour) || 0) + (hourEnd - cursor) / 60000);
+                cursor = hourEnd;
+            }
+        } else dailyMinutes.set(day, (dailyMinutes.get(day) || 0) + Math.round(ms / 60000));
         const started = new Date(rowStart); heatmap[started.getUTCDay()][started.getUTCHours()]++;
     }
     // A group session runs from the first join until the last leave while at least one tracked user remains in a channel.
@@ -451,14 +459,23 @@ function getVoiceAnalytics(guildId, from = null, to = null, channelId = null) {
     const archivedDates = archivedDays.map(([date]) => Date.parse(`${date}T00:00:00.000Z`)).filter(Number.isFinite);
     const historyDates = history.map(row => new Date(row.startedAt).getTime()).filter(Number.isFinite);
     const firstHistoryAt = historyDates.length || archivedDates.length ? Math.min(...historyDates, ...archivedDates) : Date.now();
-    const firstDay = new Date(start || firstHistoryAt);
-    firstDay.setUTCHours(0, 0, 0, 0);
-    const lastDay = new Date(end);
-    lastDay.setUTCHours(0, 0, 0, 0);
-    for (let day = firstDay.getTime(); day <= lastDay.getTime(); day += 86400000) {
-        const date = new Date(day).toISOString().slice(0, 10);
-        activeOverTime.push({ date, count: daily.get(date) || 0 });
-        minutesOverTime.push({ date, count: dailyMinutes.get(date) || 0 });
+    if (hourly) {
+        const firstHour = new Date(start); firstHour.setUTCMinutes(0, 0, 0);
+        for (let hour = 0; hour < 24; hour++) {
+            const date = new Date(firstHour.getTime() + hour * 3600000).toISOString().slice(0, 13);
+            activeOverTime.push({ date, count: daily.get(date) || 0, granularity: 'hour' });
+            minutesOverTime.push({ date, count: Math.round((dailyMinutes.get(date) || 0) * 10) / 10, granularity: 'hour' });
+        }
+    } else {
+        const firstDay = new Date(start || firstHistoryAt);
+        firstDay.setUTCHours(0, 0, 0, 0);
+        const lastDay = new Date(end);
+        lastDay.setUTCHours(0, 0, 0, 0);
+        for (let day = firstDay.getTime(); day <= lastDay.getTime(); day += 86400000) {
+            const date = new Date(day).toISOString().slice(0, 10);
+            activeOverTime.push({ date, count: daily.get(date) || 0 });
+            minutesOverTime.push({ date, count: dailyMinutes.get(date) || 0 });
+        }
     }
     occupiedIntervals.sort((left, right) => left[0] - right[0]);
     let totalMs = archivedOccupiedMs;

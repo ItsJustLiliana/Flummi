@@ -84,6 +84,16 @@ function parseAnalyticsRange(value) {
     return Math.min(365, Math.max(1, Number(value) || 30));
 }
 
+function resolveAnalyticsWindow(days, options = {}) {
+    const rangeDays = parseAnalyticsRange(days);
+    if (rangeDays === null) return { rangeDays, from: 0, to: Date.now(), previousFrom: null };
+    const parsedTo = options.to ? new Date(options.to).getTime() : NaN;
+    const to = Number.isFinite(parsedTo) ? parsedTo : Date.now();
+    const parsedFrom = options.from ? new Date(options.from).getTime() : NaN;
+    const from = Number.isFinite(parsedFrom) ? parsedFrom : to - rangeDays * 86400000;
+    return { rangeDays, from, to, previousFrom: from - (to - from + 1) };
+}
+
 function trendDetails(current, previous, comparable = true) {
     if (!comparable) return { status: 'unavailable', percent: null, previous: null };
     if (!previous) return { status: current ? 'new' : 'flat', percent: current ? null : 0, previous: 0 };
@@ -91,10 +101,9 @@ function trendDetails(current, previous, comparable = true) {
     return { status: percent > 0 ? 'up' : percent < 0 ? 'down' : 'flat', percent, previous };
 }
 
-function summarizeMediaField(allRows, field, rangeDays, now = Date.now()) {
-    const span = rangeDays === null ? null : rangeDays * 86400000;
-    const from = span === null ? 0 : now - span;
-    const previousFrom = span === null ? null : from - span;
+function summarizeMediaField(allRows, field, rangeDays, now = Date.now(), options = {}) {
+    const window = resolveAnalyticsWindow(rangeDays === null ? 'all' : rangeDays, { from: options.from, to: options.to || now });
+    const { from, to, previousFrom } = window;
     const items = new Map();
     for (const row of allRows) {
         const atMs = new Date(row.at).getTime();
@@ -104,14 +113,14 @@ function summarizeMediaField(allRows, field, rangeDays, now = Date.now()) {
             const item = items.get(id) || { id, count: 0, previousCount: 0, firstUsed: row.at, lastUsed: row.at, users: new Map() };
             if (atMs < new Date(item.firstUsed).getTime()) item.firstUsed = row.at;
             if (atMs > new Date(item.lastUsed).getTime()) item.lastUsed = row.at;
-            if (atMs >= from) {
+            if (atMs >= from && atMs <= to) {
                 item.count++;
                 if (row.userId) {
                     const user = item.users.get(row.userId) || { userId: row.userId, label: row.userTag || row.userId, count: 0 };
                     user.count++;
                     item.users.set(row.userId, user);
                 }
-            } else if (previousFrom !== null && atMs >= previousFrom) item.previousCount++;
+            } else if (previousFrom !== null && atMs >= previousFrom && atMs < from) item.previousCount++;
             items.set(id, item);
         }
     }
@@ -132,36 +141,40 @@ function summarizeMediaField(allRows, field, rangeDays, now = Date.now()) {
     }).sort((a, b) => b.count - a.count);
 }
 
-function getSoundboardSummary(guildId, days = 30) {
-    const rangeDays = parseAnalyticsRange(days);
-    const now = Date.now();
-    const span = rangeDays === null ? null : rangeDays * 86400000;
-    const from = span === null ? 0 : now - span;
-    const previousFrom = span === null ? null : from - span;
+function getSoundboardSummary(guildId, days = 30, options = {}) {
+    const { rangeDays, from, to, previousFrom } = resolveAnalyticsWindow(days, options);
+    const now = to;
     const allRows = readEvents(guildId, 'soundboard', 0);
-    const rows = allRows.filter(row => new Date(row.at).getTime() >= from);
+    const rows = allRows.filter(row => { const at = new Date(row.at).getTime(); return at >= from && at <= to; });
     const previousRows = previousFrom === null ? [] : allRows.filter(row => {
         const at = new Date(row.at).getTime();
         return at >= previousFrom && at < from;
     });
-    const sounds = new Map(), channels = new Map(), users = new Map(), daysByDate = new Map();
+    const hourly = rangeDays === 1;
+    const sounds = new Map(), channels = new Map(), users = new Map(), buckets = new Map();
     for (const row of rows) {
         const sound = sounds.get(row.soundId) || { soundId: row.soundId, count: 0 }; sound.count++; sounds.set(row.soundId, sound);
         if (row.channelId) { const channel = channels.get(row.channelId) || { channelId: row.channelId, count: 0 }; channel.count++; channels.set(row.channelId, channel); }
         if (row.userId) { const user = users.get(row.userId) || { userId: row.userId, count: 0 }; user.count++; users.set(row.userId, user); }
-        const date = String(row.at || '').slice(0, 10);
-        if (date) daysByDate.set(date, (daysByDate.get(date) || 0) + 1);
+        const date = String(row.at || '').slice(0, hourly ? 13 : 10);
+        if (date) buckets.set(date, (buckets.get(date) || 0) + 1);
     }
     const byDay = [];
     const earliestRowAt = rows.length ? Math.min(...rows.map(row => new Date(row.at).getTime()).filter(Number.isFinite)) : null;
     const graphDays = rangeDays === null
         ? (Number.isFinite(earliestRowAt) ? Math.max(1, Math.ceil((now - earliestRowAt) / 86400000)) : 0)
         : rangeDays;
-    for (let offset = graphDays - 1; offset >= 0; offset--) {
+    if (hourly) {
+        const firstHour = new Date(from); firstHour.setUTCMinutes(0, 0, 0);
+        for (let hour = 0; hour < 24; hour++) {
+            const date = new Date(firstHour.getTime() + hour * 3600000).toISOString().slice(0, 13);
+            byDay.push({ date, count: buckets.get(date) || 0, granularity: 'hour' });
+        }
+    } else for (let offset = graphDays - 1; offset >= 0; offset--) {
         const date = new Date(now - offset * 86400000).toISOString().slice(0, 10);
-        byDay.push({ date, count: daysByDate.get(date) || 0 });
+        byDay.push({ date, count: buckets.get(date) || 0 });
     }
-    const itemDetails = summarizeMediaField(allRows.map(row => ({ ...row, soundIds: row.soundId ? [row.soundId] : [] })), 'soundIds', rangeDays, now);
+    const itemDetails = summarizeMediaField(allRows.map(row => ({ ...row, soundIds: row.soundId ? [row.soundId] : [] })), 'soundIds', rangeDays, now, { from, to });
     return {
         rangeDays, totalPlays: allRows.length, plays: rows.length, previousPlays: previousRows.length,
         trend: trendDetails(rows.length, previousRows.length, rangeDays !== null),
@@ -173,11 +186,11 @@ function getSoundboardSummary(guildId, days = 30) {
     };
 }
 
-function getMediaUsageSummary(guildId, days = 30) {
+function getMediaUsageSummary(guildId, days = 30, options = {}) {
     const rangeDays = parseAnalyticsRange(days);
     const allRows = readEvents(guildId, 'messages', 0);
-    const emojis = summarizeMediaField(allRows, 'customEmojiIds', rangeDays);
-    const stickers = summarizeMediaField(allRows, 'stickerIds', rangeDays);
+    const emojis = summarizeMediaField(allRows, 'customEmojiIds', rangeDays, options.to ? new Date(options.to).getTime() : Date.now(), options);
+    const stickers = summarizeMediaField(allRows, 'stickerIds', rangeDays, options.to ? new Date(options.to).getTime() : Date.now(), options);
     const summarize = items => {
         const current = items.reduce((total, item) => total + item.count, 0);
         const previous = items.reduce((total, item) => total + item.previousCount, 0);
@@ -223,10 +236,9 @@ function readEvents(guildId, category, from = 0, to = Date.now()) {
     return rows;
 }
 
-function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null) {
-    const rangeDays = parseAnalyticsRange(days);
-    const now = Date.now();
-    const from = rangeDays === null ? 0 : now - rangeDays * 86400000;
+function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null, options = {}) {
+    const { rangeDays, from, to, previousFrom } = resolveAnalyticsWindow(days, options);
+    const now = to;
     const normalizedChannelId = channelId ? String(channelId) : null;
     const normalizedUserId = userId ? String(userId) : null;
     const anonymousHistory = readAnonymousAnalytics(guildId);
@@ -235,14 +247,14 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
     const archivedTotal = archivedDays.reduce((total, [, day]) => total + archivedCountForDay(day), 0);
     const matchesFilters = row => (!normalizedChannelId || row.channelId === normalizedChannelId) && (!normalizedUserId || row.userId === normalizedUserId);
     const allMessages = readEvents(guildId, 'messages', 0).filter(matchesFilters);
-    const messages = allMessages.filter(row => new Date(row.at).getTime() >= from);
-    const voice = readEvents(guildId, 'voice', from);
-    const moderationRows = readEvents(guildId, 'moderation', from);
-    const previousFrom = rangeDays === null ? null : from - rangeDays * 86400000;
+    const messages = allMessages.filter(row => { const at = new Date(row.at).getTime(); return at >= from && at <= to; });
+    const voice = readEvents(guildId, 'voice', from, to);
+    const moderationRows = readEvents(guildId, 'moderation', from, to);
     const previousMessages = previousFrom === null ? [] : allMessages.filter(row => {
         const at = new Date(row.at).getTime();
         return at >= previousFrom && at < from;
     });
+    const hourly = rangeDays === 1;
     const byDay = new Map(), channels = new Map(), users = new Map(), heatmap = Array.from({ length: 7 }, () => Array(24).fill(0));
     const engagement = { attachments: 0, embeds: 0, gifs: 0, reactions: 0, replies: 0, threads: 0 };
     if (rangeDays === null) for (const [date, archived] of archivedDays) {
@@ -271,7 +283,7 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
         }
     }
     for (const row of messages) {
-        const day = row.at.slice(0, 10); byDay.set(day, (byDay.get(day) || 0) + 1);
+        const day = row.at.slice(0, hourly ? 13 : 10); byDay.set(day, (byDay.get(day) || 0) + 1);
         const channel = channels.get(row.channelId) || { id: row.channelId, name: row.channelName, count: 0 };
         channel.count++; channels.set(row.channelId, channel);
         const user = users.get(row.userId) || { id: row.userId, name: row.userTag, count: 0 };
@@ -285,7 +297,13 @@ function getAnalyticsSummary(guildId, days = 30, channelId = null, userId = null
     const archivedDates = rangeDays === null ? archivedDays.filter(([, day]) => archivedCountForDay(day) > 0).map(([date]) => Date.parse(`${date}T00:00:00.000Z`)) : [];
     const earliestMessageAt = messages.length || archivedDates.length ? Math.min(...messages.map(row => new Date(row.at).getTime()).filter(Number.isFinite), ...archivedDates) : now;
     const graphDays = rangeDays === null ? Math.max(1, Math.ceil((now - earliestMessageAt) / 86400000) + 1) : rangeDays;
-    for (let offset = graphDays - 1; offset >= 0; offset--) {
+    if (hourly) {
+        const firstHour = new Date(from); firstHour.setUTCMinutes(0, 0, 0);
+        for (let hour = 0; hour < 24; hour++) {
+            const date = new Date(firstHour.getTime() + hour * 3600000).toISOString().slice(0, 13);
+            dailyMessages.push({ date, count: byDay.get(date) || 0, granularity: 'hour' });
+        }
+    } else for (let offset = graphDays - 1; offset >= 0; offset--) {
         const date = new Date(now - offset * 86400000).toISOString().slice(0, 10);
         dailyMessages.push({ date, count: byDay.get(date) || 0 });
     }

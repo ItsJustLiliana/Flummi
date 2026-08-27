@@ -17,15 +17,39 @@
     <div id="homeShell" class="home-shell">
         <header class="home-nav">
             <div class="home-nav-inner">
-                <div class="home-brand"><img src="/assets/branding/flummi.png" alt=""><span>Flummi</span></div>
+                <button class="home-brand" data-home-view="servers" type="button" aria-label="Go to Flummi home"><img src="/assets/branding/flummi.png" alt=""><span>Flummi</span></button>
                 <button id="homeMobileMenuToggle" class="home-mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="homeNavigation"><span class="visually-hidden">Menu</span><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
                 <nav id="homeNavigation" class="home-nav-links" aria-label="Main navigation">
+                    <button class="home-nav-direct active" data-home-view="servers" type="button">Home</button>
+                    <details class="home-nav-group">
+                        <summary>Product <span class="home-nav-chevron" aria-hidden="true"></span></summary>
+                        <div class="home-nav-popover">
+                            <span class="home-nav-popover-label">Explore Flummi</span>
+                            <button class="home-nav-card" data-home-view="commands" type="button"><span class="home-nav-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 9 5 12l3 3M16 9l3 3-3 3M14 6l-4 12"/></svg></span><span><strong>Commands</strong><small>Browse every available slash command.</small></span></button>
+                            <button class="home-nav-card" data-home-view="status" type="button"><span class="home-nav-card-icon status-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 15h3l2-7 4 10 2-6h5"/></svg></span><span><strong>Status</strong><small>See when Flummi was last live.</small></span></button>
+                        </div>
+                    </details>
+                    <details class="home-nav-group">
+                        <summary>Help <span class="home-nav-chevron" aria-hidden="true"></span></summary>
+                        <div class="home-nav-popover">
+                            <span class="home-nav-popover-label">We're here to help</span>
+                            <button class="home-nav-card" data-home-view="support" type="button"><span class="home-nav-card-icon help-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.7 9a2.4 2.4 0 1 1 3.5 2.1c-.8.4-1.2.9-1.2 1.9M12 17h.01"/></svg></span><span><strong>Support</strong><small>Ask for help and receive the reply in Discord.</small></span></button>
+                            <button class="home-nav-card" data-home-view="feedback" type="button"><span class="home-nav-card-icon feedback-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 15a3 3 0 0 1-3 3H9l-5 3V7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v8Z"/></svg></span><span><strong>Feedback</strong><small>Share an idea or tell us what feels off.</small></span></button>
+                        </div>
+                    </details>
+                    <details class="home-nav-group home-nav-group-wide">
+                        <summary>Legal <span class="home-nav-chevron" aria-hidden="true"></span></summary>
+                        <div class="home-nav-popover home-nav-popover-grid">
+                            <span class="home-nav-popover-label">Policies &amp; transparency</span>
+                            <button class="home-nav-card" data-home-view="terms" type="button"><span class="home-nav-card-icon legal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7V3Zm7 0v5h5M10 12h5M10 16h5"/></svg></span><span><strong>Terms of Service</strong><small>The rules for using Flummi.</small></span></button>
+                            <button class="home-nav-card" data-home-view="privacy" type="button"><span class="home-nav-card-icon privacy-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.7 2.9 8.1 7 10 4.1-1.9 7-5.3 7-10V6l-7-3Zm-3 9 2 2 4-4"/></svg></span><span><strong>Privacy Policy</strong><small>How data is handled and protected.</small></span></button>
+                            <button class="home-nav-card" data-home-view="licenses" type="button"><span class="home-nav-card-icon license-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg></span><span><strong>Licenses</strong><small>Open-source licenses used by Flummi.</small></span></button>
+                            <button class="home-nav-card" data-home-view="archive" type="button"><span class="home-nav-card-icon archive-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4zM3 4h18v3H3M9 11h6"/></svg></span><span><strong>Policy Archive</strong><small>Current and previous policy versions.</small></span></button>
+                            <button class="home-nav-card" data-home-view="credits" type="button"><span class="home-nav-card-icon credits-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 14.8 8.7 21 9.6l-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg></span><span><strong>Acknowledgements</strong><small>The people and tools behind Flummi.</small></span></button>
+                        </div>
+                    </details>
+                    <button id="homeDeveloperNav" class="home-nav-direct" data-home-view="developer" type="button" hidden>Developer tools</button>
                     <a class="home-nav-invite" data-invite-link href="#" target="_blank" rel="noopener">Add Flummi</a>
-                    <button class="active" data-home-view="servers" type="button">Home</button>
-                    <button data-home-view="commands" type="button">Commands</button>
-                    <button data-home-view="status" type="button">Status</button>
-                    <button data-home-view="support" type="button">Support</button>
-                    <button id="homeDeveloperNav" data-home-view="developer" type="button" hidden>Developer tools</button>
                 </nav>
                 <div class="home-account">
                     <label class="language-picker language-picker-compact"><span class="visually-hidden">Language</span><select data-language-select aria-label="Language"><option value="en">English</option><option value="nl">Nederlands</option><option value="de">Deutsch</option></select></label>
@@ -37,11 +61,12 @@
         <div class="home-main" role="main" aria-label="Flummi home">
             <section id="homeViewServers" class="home-view">
                 <div class="home-hero">
-                    <span class="home-eyebrow">Your Flummi workspace</span>
-                    <h1>Your servers.<br>One happy bot.</h1>
-                    <p class="sub">Choose a shared server and jump straight into its controls, activity, and settings.</p>
+                    <span class="home-eyebrow">Your Discord control room</span>
+                    <h1>Less server chaos.<br><span>More community.</span></h1>
+                    <p class="sub">Moderation, automation, analytics, and community tools in one friendly place. Pick a server and make Flummi yours.</p>
                     <span id="homeServerSummary" class="home-server-summary" hidden></span>
-                    <a id="homeLoginCta" class="home-login" href="/auth/login">Continue with Discord</a>
+                    <div class="home-hero-actions"><a id="homeLoginCta" class="home-login" href="/auth/login">Continue with Discord</a><button class="home-hero-secondary" data-home-view="commands" type="button">Explore commands <span aria-hidden="true">&rarr;</span></button></div>
+                    <div class="home-capability-strip" aria-label="Flummi highlights"><span><i aria-hidden="true"></i>Clear controls</span><span><i aria-hidden="true"></i>Live insights</span><span><i aria-hidden="true"></i>Human support</span></div>
                 </div>
                 <div id="homeGuilds" hidden></div>
             </section>

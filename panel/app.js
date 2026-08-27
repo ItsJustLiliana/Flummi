@@ -1800,10 +1800,6 @@ async function openDashboard(guildId, tab = null) {
     await refreshActiveTab();
 }
 
-document.querySelector('.home-brand')?.addEventListener('click', () => {
-    showHomeView('servers');
-});
-
 document.querySelector('#dashboardLayout .brand')?.addEventListener('click', event => {
     // Do not hijack the existing Home/Menu buttons inside the brand area.
     if (event.target.closest('button')) return;
@@ -1815,11 +1811,39 @@ document.querySelectorAll('[data-home-view]').forEach(button => button.addEventL
 document.getElementById('homeCommandSearch').addEventListener('input', event => renderPublicCommands(event.target.value));
 const homeMobileMenuToggle = document.getElementById('homeMobileMenuToggle');
 const homeNavigation = document.getElementById('homeNavigation');
+const homeNavGroups = [...document.querySelectorAll('.home-nav-group')];
+
+function closeHomeNavGroups(except = null) {
+    for (const group of homeNavGroups) {
+        if (group !== except) group.removeAttribute('open');
+    }
+}
+
 function setHomeMobileMenu(open) {
     const expanded = Boolean(open) && window.matchMedia('(max-width: 820px)').matches;
     homeMobileMenuToggle.setAttribute('aria-expanded', String(expanded));
     homeNavigation.classList.toggle('open', expanded);
+    if (!expanded) closeHomeNavGroups();
 }
+
+for (const group of homeNavGroups) {
+    group.addEventListener('toggle', () => {
+        if (group.open) closeHomeNavGroups(group);
+    });
+}
+
+document.addEventListener('click', event => {
+    if (!event.target.closest('.home-nav-group')) closeHomeNavGroups();
+});
+
+document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    const openGroup = homeNavGroups.find(group => group.open);
+    if (!openGroup) return;
+    openGroup.removeAttribute('open');
+    openGroup.querySelector('summary')?.focus();
+});
+
 homeMobileMenuToggle.addEventListener('click', () => setHomeMobileMenu(homeMobileMenuToggle.getAttribute('aria-expanded') !== 'true'));
 window.addEventListener('resize', () => { if (window.innerWidth > 820) setHomeMobileMenu(false); });
 document.getElementById('homeGuilds').addEventListener('click', event => {

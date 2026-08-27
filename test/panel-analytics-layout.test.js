@@ -163,6 +163,12 @@ test('analytics tabs tolerate partial API responses and expose GIF counts', () =
     assert.match(panelHtml, /A link and its Discord preview count once/);
 });
 
+test('bar charts reserve space between Y-axis labels and the first bar', () => {
+    assert.match(panelHtml, /const horizontalInset = chartType === 'bar' \? barWidth \/ 2 : 0/);
+    assert.match(panelHtml, /left \+ horizontalInset \+ index \* \(pointWidth \/ \(values\.length - 1\)\)/);
+    assert.match(panelHtml, /relativeX - left - horizontalInset/);
+});
+
 test('audit log renders structured setting changes in their own column', () => {
     assert.match(panelHtml, /\{ label: 'Changes', key: 'changes'/);
     assert.match(panelHtml, /function renderAuditChanges\(changes\)/);

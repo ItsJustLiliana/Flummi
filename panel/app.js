@@ -1905,8 +1905,13 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
     const bottom = compact ? 8 : 29;
     const plotWidth = width - left - right;
     const plotHeight = height - top - bottom;
+    const barWidth = chartType === 'bar' ? Math.min(34, Math.max(5, plotWidth / values.length * .62)) : 0;
+    // Keep the first and last bars inside the plot area. Without this inset the
+    // first bar extends left of the Y axis and covers its scale labels.
+    const horizontalInset = chartType === 'bar' ? barWidth / 2 : 0;
+    const pointWidth = Math.max(0, plotWidth - horizontalInset * 2);
     const points = values.map((row, index) => {
-        const x = values.length === 1 ? left + plotWidth / 2 : left + index * (plotWidth / (values.length - 1));
+        const x = values.length === 1 ? left + plotWidth / 2 : left + horizontalInset + index * (pointWidth / (values.length - 1));
         const y = top + (1 - ((Number(row.count) || 0) / maximum)) * plotHeight;
         return { x, y };
     });
@@ -1939,7 +1944,6 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
         context.fillStyle = '#8be0ff';
         points.forEach(point => { context.beginPath(); context.arc(point.x, point.y, 4, 0, Math.PI * 2); context.fill(); });
     } else {
-        const barWidth = Math.min(34, Math.max(5, plotWidth / values.length * .62));
         points.forEach(point => {
             const gradient = context.createLinearGradient(0, point.y, 0, top + plotHeight);
             gradient.addColorStop(0, '#83d9ff'); gradient.addColorStop(1, '#4e6bff'); context.fillStyle = gradient;
@@ -1949,7 +1953,7 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
     canvas.addEventListener('pointermove', event => {
         const bounds = canvas.getBoundingClientRect();
         const relativeX = event.clientX - bounds.left;
-        const index = values.length === 1 ? 0 : Math.max(0, Math.min(values.length - 1, Math.round((relativeX - left) / plotWidth * (values.length - 1))));
+        const index = values.length === 1 ? 0 : Math.max(0, Math.min(values.length - 1, Math.round((relativeX - left - horizontalInset) / Math.max(1, pointWidth) * (values.length - 1))));
         showChartTooltip(event, values[index], metricLabel);
     });
     canvas.addEventListener('pointerleave', hideChartTooltip);

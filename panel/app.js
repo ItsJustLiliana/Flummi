@@ -921,14 +921,14 @@ document.addEventListener('click', event => {
         values.splice(Number(remove.dataset.builderRemove), 1);
         document.getElementById(builder.dataset.structuredBuilder).value = JSON.stringify(values);
         renderStructuredBuilder(builder.dataset.structuredBuilder);
-        markManagementDirty(builder.closest('.tab-panel'));
+        markManagementDirty(builder.closest('.tab-panel'), builder);
     }
     if (add) {
         const values = readJsonArray(document.getElementById(builder.dataset.structuredBuilder));
         values.push({});
         document.getElementById(builder.dataset.structuredBuilder).value = JSON.stringify(values);
         renderStructuredBuilder(builder.dataset.structuredBuilder);
-        markManagementDirty(builder.closest('.tab-panel'));
+        markManagementDirty(builder.closest('.tab-panel'), builder);
     }
 });
 
@@ -1000,21 +1000,37 @@ managementSaveBar.hidden = true;
 managementSaveBar.innerHTML = '<span><strong>Unsaved changes</strong><small>Save or discard before leaving this module.</small></span><button type="button" class="secondary" data-discard-management>Discard</button><button type="button" class="primary" data-save-management-bar>Save changes</button>';
 document.getElementById('dashboardLayout').append(managementSaveBar);
 let dirtyManagementPanel = null;
+let dirtyManagementSaveButton = null;
 
-function markManagementDirty(panel) {
+function managementSaveTarget(panel, source) {
+    if (!panel || !source) return null;
+    const advancedField = source.matches?.('[data-advanced-field]') ? source : source.querySelector?.('[data-advanced-field]');
+    if (advancedField) {
+        const section = advancedField.dataset.advancedField?.split('.')[0];
+        return panel.querySelector(`[data-save-advanced="${section}"]`);
+    }
+    if (source.closest?.('#workflowVisualBuilder')) return panel.querySelector('[data-save-advanced="workflows"]');
+    return source.closest?.('.section')?.querySelector('[data-save-management], [data-save-advanced]') || null;
+}
+
+function markManagementDirty(panel, source) {
     if (!panel?.id.startsWith('tab-management-') || panel.id === 'tab-management') return;
+    const target = managementSaveTarget(panel, source);
+    if (!target) return;
     dirtyManagementPanel = panel;
+    dirtyManagementSaveButton = target;
     managementSaveBar.hidden = false;
 }
 
 function clearManagementDirty() {
     dirtyManagementPanel = null;
+    dirtyManagementSaveButton = null;
     managementSaveBar.hidden = true;
 }
 
-document.addEventListener('input', event => markManagementDirty(event.target.closest('.tab-panel')));
-document.addEventListener('change', event => markManagementDirty(event.target.closest('.tab-panel')));
-managementSaveBar.querySelector('[data-save-management-bar]').addEventListener('click', () => dirtyManagementPanel?.querySelector('[data-save-management], [data-save-advanced]')?.click());
+document.addEventListener('input', event => markManagementDirty(event.target.closest('.tab-panel'), event.target));
+document.addEventListener('change', event => markManagementDirty(event.target.closest('.tab-panel'), event.target));
+managementSaveBar.querySelector('[data-save-management-bar]').addEventListener('click', () => dirtyManagementSaveButton?.click());
 managementSaveBar.querySelector('[data-discard-management]').addEventListener('click', () => { clearManagementDirty(); refreshActiveTab().catch(handleUiError); });
 const automodRuleDefinitions = {
     badWords: { title: 'Bad words', description: 'Block configured words and phrases.', limit: 'Matches allowed', fixedLimit: true },
@@ -2424,7 +2440,7 @@ async function sendMessage() {
     const pingUserId = pingUserIdField.value.trim();
 
     if (pingUserId && !/^\d{15,21}$/.test(pingUserId)) {
-        setStatus(sendStatusField, 'Ping member ID must be a valid Discord snowflake.', 'error');
+        setStatus(sendStatusField, 'Choose an available server member to mention.', 'error');
         return;
     }
 
@@ -3146,8 +3162,8 @@ const permissionsStatusField = document.getElementById('permissionsStatus');
 
 function memberIdentityCard(userId) {
     const member = state.guildMembers.get(String(userId));
-    const displayName = member?.nickname || member?.displayName || member?.globalName || member?.username || `Member ${userId}`;
-    const username = member?.username ? `@${member.username}` : (member?.tag || `ID ${userId}`);
+    const displayName = member?.nickname || member?.displayName || member?.globalName || member?.username || 'Unknown member';
+    const username = member?.username ? `@${member.username}` : (member?.tag || 'No Discord profile available');
     const bannerUrl = member?.serverBannerUrl || member?.globalBannerUrl || member?.bannerUrl;
     const bannerStyle = bannerUrl ? ` style="background-image:url('${escapeHtml(bannerUrl)}')"` : ` style="background:${escapeHtml(member?.bannerColor || '#5865f2')}"`;
     const avatarUrl = member?.serverAvatarUrl || member?.globalAvatarUrl || member?.avatarUrl;
@@ -3176,7 +3192,6 @@ function renderPermissionsEditor(userId, data) {
     permissionsEditor.innerHTML = `
         ${memberIdentityCard(userId)}
         <p class="sub">
-            Member ID: ${escapeHtml(userId)}
             <span class="badge ${data.role === 'developer' ? 'dev' : data.role === 'owner' ? 'owner' : data.role === 'admin' ? 'admin' : 'member'}">${escapeHtml(data.role)}</span>
             ${readOnly ? '<span class="sub">You can view these permissions, but your role cannot edit this member.</span>' : ''}
         </p>
@@ -3186,7 +3201,7 @@ function renderPermissionsEditor(userId, data) {
 
 async function loadPermissionsEditor(userId) {
     if (!state.guildId || !userId) {
-        setStatus(permissionsStatusField, 'Select a guild and enter a member ID.', 'error');
+        setStatus(permissionsStatusField, 'Select a server member first.', 'error');
         return;
     }
 
@@ -3206,7 +3221,7 @@ permissionsEditor.addEventListener('change', async event => {
 
     const userId = permissionsEditor.dataset.userId;
     const key = toggle.dataset.featureKey;
-    const confirmed = await confirmAction({ title: 'Change feature permission?', message: `${toggle.checked ? 'Allow' : 'Block'} ${key} for ${userId}?`, confirmLabel: 'Change permission' });
+    const confirmed = await confirmAction({ title: 'Change feature permission?', message: `${toggle.checked ? 'Allow' : 'Block'} ${key} for ${resourceDisplay(userId)}?`, confirmLabel: 'Change permission' });
     if (!confirmed) { await loadPermissionsEditor(userId); return; }
 
     api(withGuild('/api/permissions'), {
@@ -3214,7 +3229,7 @@ permissionsEditor.addEventListener('change', async event => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, [key]: toggle.checked })
     }).then(data => {
-        setStatus(permissionsStatusField, `Updated ${key} for ${userId}.`, 'ok');
+        setStatus(permissionsStatusField, `Updated ${key} for ${resourceDisplay(userId)}.`, 'ok');
         renderPermissionsEditor(userId, data);
     }).catch(error => {
         setStatus(permissionsStatusField, error.message, 'error');
@@ -3270,7 +3285,7 @@ function renderProfileEditor(data) {
     profileEditor.innerHTML = `
         <div class="section">
             <h2>${escapeHtml(userLabel)}</h2>
-            <p class="sub">${escapeHtml(data.user.id)}</p>
+            <p class="sub">Selected Discord member</p>
                 <div class="card-grid">${statCard('Messages', data.statistics?.messages || 0)}${statCard('Voice', formatDuration(data.statistics?.voiceMs || 0))}${statCard('Role', data.statistics?.role || 'member')}</div>
             <div class="two-col">
                 ${profileField('Profile nickname', 'profileNickname', profile.nickname)}
@@ -3334,7 +3349,7 @@ function syncProfileSocials() {
 
 async function loadProfiles(userId = document.getElementById('profileUserId').value.trim()) {
     if (!userId) {
-        setStatus(profileStatusField, 'Enter a member ID first.', 'error');
+        setStatus(profileStatusField, 'Select a server member first.', 'error');
         return;
     }
 
@@ -3972,6 +3987,28 @@ function workflowResourceOptions(type, selected) {
     return `<option value="">No ${type} selected</option>${items.map(item => `<option value="${escapeHtml(item.id)}" ${String(item.id) === String(selected || '') ? 'selected' : ''}>${type === 'role' ? '@' : '#'}${escapeHtml(item.name)}</option>`).join('')}`;
 }
 
+const workflowEventOptions = [
+    ['member.join', 'A member joins'], ['warning.created', 'A warning is created'], ['ticket.closed', 'A ticket closes'],
+    ['ticket.rating', 'A ticket receives a rating'], ['message.created', 'A message is sent']
+];
+const workflowConditionFields = {
+    'member.join': [['accountAgeDays', 'Account age (days)'], ['member.roleCount', 'Number of roles']],
+    'warning.created': [['warningCount', 'Warning count'], ['reason', 'Warning reason']],
+    'ticket.closed': [['ticket.priority', 'Ticket priority'], ['ticket.status', 'Ticket status']],
+    'ticket.rating': [['rating', 'Rating'], ['ticket.priority', 'Ticket priority']],
+    'message.created': [['message.content', 'Message text'], ['message.mentionCount', 'Mention count'], ['channelId', 'Channel']]
+};
+const workflowActionOptions = [
+    ['add-role', 'Add a role'], ['timeout', 'Timeout member'], ['staff-alert', 'Alert staff'],
+    ['send-message', 'Send a message'], ['notification', 'Create notification'], ['create-case', 'Create moderation case']
+];
+
+function workflowConditionOptions(event, selected) {
+    const options = workflowConditionFields[event] || [];
+    const known = options.some(([value]) => value === selected);
+    return `<option value="">Choose available data</option>${!known && selected ? `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} (existing custom field)</option>` : ''}${options.map(([value, label]) => `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}`;
+}
+
 function renderWorkflowBuilder() {
     const source = document.getElementById('workflowRulesJson');
     if (!source) return;
@@ -3981,6 +4018,8 @@ function renderWorkflowBuilder() {
     if (label) label.textContent = 'Workflow rules';
     const sectionDescription = field?.closest('.section')?.querySelector(':scope > .sub');
     if (sectionDescription) sectionDescription.textContent = 'Build each automation as a clear WHEN event, optional IF conditions, and ordered THEN actions.';
+    const sectionGuideDescription = document.querySelector(`[data-module-section-target="${field?.closest('.section')?.id}"] span`);
+    if (sectionGuideDescription) sectionGuideDescription.textContent = sectionDescription.textContent;
     document.getElementById('workflowResourcePicker')?.toggleAttribute('hidden', true);
     let builder = document.getElementById('workflowVisualBuilder');
     if (!builder) {
@@ -3990,10 +4029,8 @@ function renderWorkflowBuilder() {
         source.after(builder);
     }
     const rules = readJsonArray(source);
-    const events = ['member.join', 'warning.created', 'ticket.closed', 'ticket.rating', 'message.created'];
     const operators = ['equals', 'not-equals', 'greater-than', 'less-than', 'contains'];
-    const actionTypes = ['add-role', 'timeout', 'staff-alert', 'send-message', 'notification', 'create-case'];
-    builder.innerHTML = `<div class="workflow-rule-list">${rules.map((rule, ruleIndex) => `<article class="workflow-rule-card" data-workflow-rule="${ruleIndex}"><div class="section-title-row"><div><h3>Rule ${ruleIndex + 1}</h3><p class="sub">WHEN an event occurs, IF every condition matches, THEN actions run in order.</p></div><button class="danger compact" type="button" data-workflow-remove-rule="${ruleIndex}">Remove rule</button></div><div class="two-col"><div class="field"><label>Name</label><input data-workflow-name value="${escapeHtml(rule.name || '')}"></div><div class="field"><label>When</label><select data-workflow-event>${events.map(value => `<option value="${value}" ${rule.event === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div></div><h4>IF conditions</h4><div data-workflow-conditions>${(rule.conditions || []).map((condition, index) => `<div class="workflow-builder-row" data-workflow-condition="${index}"><input data-condition-field value="${escapeHtml(condition.field || '')}" placeholder="Field, e.g. accountAgeDays"><select data-condition-operator>${operators.map(value => `<option value="${value}" ${condition.operator === value ? 'selected' : ''}>${value}</option>`).join('')}</select><input data-condition-value value="${escapeHtml(condition.value ?? '')}" placeholder="Value"><button class="danger compact" type="button" data-remove-condition>×</button></div>`).join('')}</div><button class="secondary compact" type="button" data-add-condition>Add condition</button><h4>THEN actions</h4><div data-workflow-actions>${(rule.actions || []).map((action, index) => `<div class="workflow-action-row" data-workflow-action="${index}"><select data-action-type>${actionTypes.map(value => `<option value="${value}" ${action.type === value ? 'selected' : ''}>${value}</option>`).join('')}</select><select data-action-role>${workflowResourceOptions('role', action.roleId)}</select><select data-action-channel>${workflowResourceOptions('channel', action.channelId)}</select><input data-action-value value="${escapeHtml(action.message || action.duration || '')}" placeholder="Message or duration"><button class="danger compact" type="button" data-remove-action>×</button></div>`).join('')}</div><button class="secondary compact" type="button" data-add-action>Add action</button></article>`).join('')}</div><button class="secondary" type="button" data-workflow-add-rule>Add workflow rule</button>`;
+    builder.innerHTML = `<div class="workflow-rule-list">${rules.map((rule, ruleIndex) => `<article class="workflow-rule-card" data-workflow-rule="${ruleIndex}"><div class="section-title-row"><div><h3>Rule ${ruleIndex + 1}</h3><p class="sub">WHEN an event occurs, IF every condition matches, THEN actions run in order.</p></div><button class="danger compact" type="button" data-workflow-remove-rule="${ruleIndex}">Remove rule</button></div><div class="two-col"><div class="field"><label>Name</label><input data-workflow-name value="${escapeHtml(rule.name || '')}"></div><div class="field"><label>When</label><select data-workflow-event>${workflowEventOptions.map(([value, label]) => `<option value="${value}" ${rule.event === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></div></div><h4>IF conditions</h4><div data-workflow-conditions>${(rule.conditions || []).map((condition, index) => `<div class="workflow-builder-row" data-workflow-condition="${index}"><select data-condition-field>${workflowConditionOptions(rule.event, condition.field)}</select><select data-condition-operator>${operators.map(value => `<option value="${value}" ${condition.operator === value ? 'selected' : ''}>${value.replaceAll('-', ' ')}</option>`).join('')}</select><input data-condition-value value="${escapeHtml(condition.value ?? '')}" placeholder="Comparison value"><button class="danger compact" type="button" data-remove-condition>×</button></div>`).join('')}</div><button class="secondary compact" type="button" data-add-condition>Add condition</button><h4>THEN actions</h4><div data-workflow-actions>${(rule.actions || []).map((action, index) => `<div class="workflow-action-row" data-workflow-action="${index}"><select data-action-type>${workflowActionOptions.map(([value, label]) => `<option value="${value}" ${action.type === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select><select data-action-role>${workflowResourceOptions('role', action.roleId)}</select><select data-action-channel>${workflowResourceOptions('channel', action.channelId)}</select><input data-action-value value="${escapeHtml(action.message || action.duration || '')}" placeholder="Message or duration"><button class="danger compact" type="button" data-remove-action>×</button></div>`).join('')}</div><button class="secondary compact" type="button" data-add-action>Add action</button></article>`).join('')}</div><button class="secondary" type="button" data-workflow-add-rule>Add workflow rule</button>`;
     for (const row of builder.querySelectorAll('[data-workflow-action]')) updateWorkflowActionFields(row);
 }
 
@@ -4227,7 +4264,7 @@ function renderOperationalExperience(data) {
     if (submissions) {
         submissions.innerHTML = operationTable(data.submissions || [], [
             { label: 'Submission', key: 'id' }, { label: 'Type', key: 'type' }, { label: 'Member', render: row => escapeHtml(resourceDisplay(row.authorId)) },
-            { label: 'Status', key: 'status' }, { label: 'Received', render: row => escapeHtml(formatDateTime(row.createdAt)) }
+            { label: 'Status', render: row => `<select data-submission-status="${escapeHtml(row.id)}"><option value="open" ${row.status === 'open' ? 'selected' : ''}>Open</option><option value="reviewing" ${row.status === 'reviewing' ? 'selected' : ''}>Reviewing</option><option value="accepted" ${row.status === 'accepted' ? 'selected' : ''}>Accepted</option><option value="rejected" ${row.status === 'rejected' ? 'selected' : ''}>Rejected</option></select>` }, { label: 'Received', render: row => escapeHtml(formatDateTime(row.createdAt)) }
         ], 'No form submissions yet.');
         installOperationFilter('managementFormsSubmissions', 'Search submissions');
     }
@@ -4374,9 +4411,13 @@ function renderAdvancedOperations(data) {
 
 async function loadAdvancedManagement() {
     await loadManagement();
+    await refreshAdvancedOperations();
+    if (document.getElementById('tab-management-workflows').classList.contains('active')) await loadCustomCommands();
+}
+
+async function refreshAdvancedOperations() {
     const data = await api(withGuild('/api/management/operations'));
     renderAdvancedOperations(data);
-    if (document.getElementById('tab-management-workflows').classList.contains('active')) await loadCustomCommands();
 }
 
 async function loadCustomCommands() {
@@ -4390,6 +4431,31 @@ async function loadCustomCommands() {
         { label: '', render: row => `<button class="danger" type="button" data-remove-custom-command="${escapeHtml(row.name)}">Remove</button>` }
     ], 'No custom commands configured.');
 }
+
+function renderCustomCommandPreview() {
+    const anchor = document.getElementById('customCommandContent');
+    const section = anchor?.closest('.section');
+    if (!section) return;
+    let preview = document.getElementById('customCommandPreview');
+    if (!preview) {
+        preview = document.createElement('div');
+        preview.id = 'customCommandPreview';
+        preview.className = 'module-live-preview discord-output-preview';
+        section.querySelector('.actions')?.before(preview);
+    }
+    const name = document.getElementById('customCommandName').value.trim() || 'command';
+    const content = document.getElementById('customCommandContent').value.trim() || 'Your command response will appear here.';
+    const image = document.getElementById('customCommandImage').value.trim();
+    const type = document.getElementById('customCommandType').value;
+    const buttons = readJsonArray(document.getElementById('customCommandButtons'));
+    preview.innerHTML = `<span>Discord preview · /${escapeHtml(name)}</span><div class="${type === 'embed' ? 'discord-preview-embed' : ''}"><p>${escapeHtml(content).replace(/\n/g, '<br>')}</p>${image ? `<img src="${escapeHtml(image)}" alt="" loading="lazy">` : ''}</div>${buttons.length ? `<div class="command-chip-list">${buttons.map(button => `<button class="secondary compact" type="button" disabled>${escapeHtml(button.label || 'Link')}</button>`).join('')}</div>` : ''}`;
+}
+
+for (const id of ['customCommandName', 'customCommandType', 'customCommandContent', 'customCommandImage', 'customCommandButtons']) {
+    document.getElementById(id)?.addEventListener('input', renderCustomCommandPreview);
+    document.getElementById(id)?.addEventListener('change', renderCustomCommandPreview);
+}
+renderCustomCommandPreview();
 
 document.getElementById('saveCustomCommand').addEventListener('click', async () => {
     const status = document.getElementById('customCommandStatus');
@@ -4411,9 +4477,11 @@ function renderWebhookPreview() {
     const description = document.getElementById('webhookDescription').value.trim();
     const image = document.getElementById('webhookImage').value.trim();
     const thumbnail = document.getElementById('webhookThumbnail').value.trim();
-    document.getElementById('webhookPreview').innerHTML = `<h3>${escapeHtml(title || 'Announcement title')}</h3><p>${escapeHtml(description || 'Announcement description').replace(/\n/g, '<br>')}</p>${thumbnail ? `<img src="${escapeHtml(thumbnail)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px">` : ''}${image ? `<img src="${escapeHtml(image)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;margin-top:12px">` : ''}`;
+    const fields = readJsonArray(document.getElementById('webhookFields'));
+    const buttons = readJsonArray(document.getElementById('webhookButtons'));
+    document.getElementById('webhookPreview').innerHTML = `<h3>${escapeHtml(title || 'Announcement title')}</h3><p>${escapeHtml(description || 'Announcement description').replace(/\n/g, '<br>')}</p>${thumbnail ? `<img src="${escapeHtml(thumbnail)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px">` : ''}${fields.length ? `<div class="webhook-preview-fields">${fields.map(field => `<div><strong>${escapeHtml(field.name || 'Field')}</strong><span>${escapeHtml(field.value || 'Value')}</span></div>`).join('')}</div>` : ''}${image ? `<img src="${escapeHtml(image)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;margin-top:12px">` : ''}${buttons.length ? `<div class="command-chip-list">${buttons.map(button => `<button class="secondary compact" type="button" disabled>${escapeHtml(button.label || 'Link')}</button>`).join('')}</div>` : ''}`;
 }
-for (const id of ['webhookTitle', 'webhookDescription', 'webhookImage', 'webhookThumbnail']) document.getElementById(id).addEventListener('input', renderWebhookPreview);
+for (const id of ['webhookTitle', 'webhookDescription', 'webhookImage', 'webhookThumbnail', 'webhookFields', 'webhookButtons']) document.getElementById(id).addEventListener('input', renderWebhookPreview);
 document.getElementById('publishWebhook').addEventListener('click', async () => {
     const status = document.getElementById('webhookStatus');
     let fields, buttons;
@@ -4504,7 +4572,7 @@ function collectManagementSection(section) {
     } else if (section === 'roles') {
         const roleId = document.getElementById('managementAutoroleId').value.trim();
         const delay = document.getElementById('managementAutoroleDelay');
-        if (roleId && !/^\d{16,22}$/.test(roleId)) throw new Error('Autorole ID must be a valid Discord role ID.');
+        if (roleId && !/^\d{16,22}$/.test(roleId)) throw new Error('Choose an available autorole.');
         if (!delay.checkValidity()) throw new Error('Autorole delay must be between 0 and 10080 minutes.');
         state.management.roles = { autoroleId: roleId, autoroleDelayMinutes: Number(delay.value), persistRoles: document.getElementById('managementPersistRoles').checked, interactiveRoles: document.getElementById('managementInteractiveRoles').checked, selfAssignableRoleIds: selectedValues('managementSelfRoles'), onboardingChannelId: document.getElementById('managementOnboardingChannel').value, onboardingTitle: document.getElementById('managementOnboardingTitle').value, onboardingMessage: document.getElementById('managementOnboardingMessage').value };
     } else if (section === 'automation') {
@@ -4602,7 +4670,7 @@ document.getElementById('managementSchedules').addEventListener('click', event =
     if (day && row) {
         day.setAttribute('aria-pressed', String(day.getAttribute('aria-pressed') !== 'true'));
         row.querySelector('[data-rule-weekdays]').value = [...row.querySelectorAll('[data-weekday][aria-pressed="true"]')].map(button => button.dataset.weekday).join(',');
-        markManagementDirty(row.closest('.tab-panel'));
+        markManagementDirty(row.closest('.tab-panel'), row);
     }
     if (preview && row) row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
 });
@@ -4627,12 +4695,17 @@ document.addEventListener('click', event => {
     if (remove) questions.splice(Number(remove.dataset.questionRemove), 1);
     if (up) { const index = Number(up.dataset.questionUp); [questions[index - 1], questions[index]] = [questions[index], questions[index - 1]]; }
     if (down) { const index = Number(down.dataset.questionDown); [questions[index + 1], questions[index]] = [questions[index], questions[index + 1]]; }
-    if (add || remove || up || down) { source.value = questions.join('\n'); renderFormQuestionBuilder(); renderModulePreviews(); markManagementDirty(source.closest('.tab-panel')); }
+    if (add || remove || up || down) { source.value = questions.join('\n'); renderFormQuestionBuilder(); renderModulePreviews(); markManagementDirty(source.closest('.tab-panel'), source); }
 });
 
 document.addEventListener('input', event => { if (event.target.closest('#workflowVisualBuilder')) syncWorkflowBuilder(); });
 document.addEventListener('change', event => {
     if (!event.target.closest('#workflowVisualBuilder')) return;
+    if (event.target.matches('[data-workflow-event]')) {
+        syncWorkflowBuilder();
+        renderWorkflowBuilder();
+        return;
+    }
     if (event.target.matches('[data-action-type]')) updateWorkflowActionFields(event.target.closest('[data-workflow-action]'));
     syncWorkflowBuilder();
 });
@@ -4651,7 +4724,7 @@ document.addEventListener('click', event => {
     else return;
     source.value = JSON.stringify(rules, null, 2);
     renderWorkflowBuilder();
-    markManagementDirty(source.closest('.tab-panel'));
+    markManagementDirty(source.closest('.tab-panel'), source);
 });
 
 window.addEventListener('beforeunload', event => {
@@ -4693,7 +4766,7 @@ document.querySelectorAll('[data-save-advanced]').forEach(button => button.addEv
 
 async function updateOperationStatus(action, id, status) {
     await api(withGuild('/api/management/operations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, id, status }) });
-    await loadAdvancedManagement();
+    await refreshAdvancedOperations();
 }
 
 document.getElementById('reportsOperationsTable').addEventListener('change', event => {
@@ -4705,6 +4778,9 @@ document.getElementById('incidentCenterTable').addEventListener('change', event 
 document.getElementById('managementSuggestionsRoadmap').addEventListener('change', event => {
     if (event.target.matches('[data-suggestion-status]')) updateOperationStatus('suggestion-status', event.target.dataset.suggestionStatus, event.target.value).catch(handleUiError);
 });
+document.addEventListener('change', event => {
+    if (event.target.matches('[data-submission-status]')) updateOperationStatus('submission-status', event.target.dataset.submissionStatus, event.target.value).catch(handleUiError);
+});
 document.getElementById('managementActivePunishments').addEventListener('click', async event => {
     const button = event.target.closest('[data-cancel-punishment]');
     if (!button) return;
@@ -4713,7 +4789,7 @@ document.getElementById('managementActivePunishments').addEventListener('click',
     button.disabled = true;
     try {
         await api(withGuild('/api/management/operations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel-punishment', id: button.dataset.cancelPunishment }) });
-        await loadAdvancedManagement();
+        await refreshAdvancedOperations();
     } catch (error) { handleUiError(error); }
     finally { button.disabled = false; }
 });
@@ -4729,7 +4805,7 @@ document.getElementById('createServerSnapshot').addEventListener('click', async 
     try {
         await api(withGuild('/api/management/operations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'snapshot' }) });
         setStatus(status, 'Snapshot created.', 'ok');
-        await loadAdvancedManagement();
+        await refreshAdvancedOperations();
     } catch (error) { setStatus(status, error.message, 'error'); }
     finally { event.currentTarget.disabled = false; }
 });
@@ -4750,7 +4826,7 @@ document.getElementById('serverSnapshotsTable').addEventListener('click', async 
     try {
         const result = await api(withGuild('/api/management/operations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'snapshot-restore', id, confirmation: 'RESTORE' }) });
         setStatus(status, `Restored ${result.restoredRoles} roles and ${result.restoredChannels} channels.`, 'ok');
-        await loadAdvancedManagement();
+        await refreshAdvancedOperations();
     } catch (error) { setStatus(status, error.message, 'error'); }
     finally { restoreButton.disabled = false; }
 });
@@ -4765,7 +4841,7 @@ async function loadManagementTimeline() {
     }
     const suffix = parameters.size ? `&${parameters}` : '';
     const data = await api(`${withGuild('/api/management/cases')}${suffix}`);
-    document.getElementById('managementCasesTable').innerHTML = data.cases.length ? `<table><thead><tr><th>Case</th><th>Action</th><th>Target</th><th>Reason</th><th>Status</th><th>Created</th></tr></thead><tbody>${data.cases.map(entry => `<tr><td><code>${escapeHtml(entry.id)}</code></td><td>${escapeHtml(entry.action)}</td><td>${escapeHtml(entry.targetLabel || entry.targetId || '—')}</td><td>${escapeHtml(entry.reason)}</td><td>${escapeHtml(entry.status)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No cases found.</div>';
+    document.getElementById('managementCasesTable').innerHTML = data.cases.length ? `<table><thead><tr><th>Case</th><th>Action</th><th>Target</th><th>Reason</th><th>Status</th><th>Created</th></tr></thead><tbody>${data.cases.map(entry => `<tr><td><code>${escapeHtml(entry.id)}</code></td><td>${escapeHtml(entry.action)}</td><td>${escapeHtml(entry.targetLabel || (entry.targetId ? resourceDisplay(entry.targetId) : '—'))}</td><td>${escapeHtml(entry.reason)}</td><td>${escapeHtml(entry.status)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No cases found.</div>';
     document.getElementById('managementEventsTable').innerHTML = data.events.length ? `<table><thead><tr><th>Event</th><th>Member</th><th>Summary</th><th>Created</th></tr></thead><tbody>${data.events.map(entry => `<tr><td>${escapeHtml(entry.type)}</td><td>${escapeHtml(entry.userId ? resourceDisplay(entry.userId) : '—')}</td><td>${escapeHtml(entry.summary)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No events found.</div>';
     document.getElementById('managementAuditTable').innerHTML = operationTable(data.audit || [], [
         { label: 'Time', render: row => escapeHtml(formatDateTime(row.at)) }, { label: 'Source', key: 'source' },
@@ -4797,7 +4873,7 @@ document.getElementById('managementRunAction').addEventListener('click', async (
     const action = document.getElementById('managementAction').value;
     const targetId = document.getElementById('managementActionTarget').value.trim();
     const memberActions = action !== 'purge';
-    if (memberActions && !/^\d{16,22}$/.test(targetId)) return setStatus(status, 'Enter a valid Discord member ID.', 'error');
+    if (memberActions && !/^\d{16,22}$/.test(targetId)) return setStatus(status, 'Choose an available server member.', 'error');
     try {
         const number = Number(document.getElementById('managementActionNumber').value);
         const result = await api(withGuild('/api/management/action'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, targetId: memberActions ? targetId : null, channelId: document.getElementById('managementActionChannel').value, duration: document.getElementById('managementActionDuration').value.trim(), reason: document.getElementById('managementActionReason').value.trim(), count: number, seconds: number }) });
@@ -5119,7 +5195,7 @@ async function lookupAiMemory() {
     const resultBox = document.getElementById('aiMemoryResult');
 
     if (!userId) {
-        resultBox.innerHTML = '<p class="status error">Enter a member ID.</p>';
+        resultBox.innerHTML = '<p class="status error">Select a server member.</p>';
         return;
     }
 

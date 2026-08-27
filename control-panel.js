@@ -2535,6 +2535,13 @@ function createServer() {
                     if (!report) { sendJson(res, 404, { error: 'Report not found.' }); return; }
                     sendJson(res, 200, { ok: true, report }); return;
                 }
+                if (parsed.action === 'submission-status') {
+                    if (!['open', 'reviewing', 'accepted', 'rejected'].includes(String(parsed.status))) { sendJson(res, 400, { error: 'Invalid submission status.' }); return; }
+                    const record = communityStore.updateSubmission(guildId, String(parsed.id), { status: parsed.status, reviewedBy: panelSession.userId });
+                    if (!record) { sendJson(res, 404, { error: 'Submission not found.' }); return; }
+                    auditPanelAction(panelSession, 'submission-status', `Changed submission ${record.id} to ${record.status}`, { guildId });
+                    sendJson(res, 200, { ok: true, record }); return;
+                }
                 if (parsed.action === 'incident-status') {
                     const incident = operationsStore.updateIncident(guildId, parsed.id, { status: ['open', 'investigating', 'resolved'].includes(parsed.status) ? parsed.status : 'open', assignedTo: panelSession.userId });
                     if (!incident) { sendJson(res, 404, { error: 'Incident not found.' }); return; }

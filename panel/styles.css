@@ -4772,6 +4772,45 @@ code {
     color: var(--muted);
 }
 
+.discord-output-preview > div,
+.discord-preview-embed {
+    min-width: 0;
+}
+
+.discord-output-preview img {
+    display: block;
+    max-width: min(100%, 420px);
+    max-height: 240px;
+    margin-top: 10px;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+.discord-preview-embed {
+    padding: 12px;
+    border-left: 4px solid var(--accent);
+    border-radius: 4px 10px 10px 4px;
+    background: color-mix(in srgb, var(--background) 55%, transparent);
+}
+
+.webhook-preview-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.webhook-preview-fields > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.webhook-preview-fields span {
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+
 .operation-toolbar {
     display: flex;
     align-items: center;
@@ -4860,6 +4899,7 @@ code {
     }
 
     .weekday-picker { grid-template-columns: repeat(4, minmax(42px, 1fr)); }
+    .webhook-preview-fields { grid-template-columns: 1fr; }
     .engagement-feature-groups { grid-template-columns: 1fr; }
 
     .module-readiness,

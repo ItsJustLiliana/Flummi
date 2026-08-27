@@ -156,6 +156,14 @@ test('finite analytics periods expose linked date controls and one-day charts ke
     assert.match(panelHtml, /query: `days=\$\{encodeURIComponent\(value\)\}&from=/);
     assert.match(panelHtml, /wrapper\.classList\.toggle\('is-disabled', allTime\)/);
     assert.doesNotMatch(panelHtml, /wrapper\.hidden = allTime/);
+    assert.match(panelHtml, /data-range-previous/);
+    assert.match(panelHtml, /data-range-display/);
+    assert.match(panelHtml, /data-range-next/);
+    assert.match(panelHtml, /display\.textContent = analyticsDateSelection\(rangeId\)\.label/);
+    assert.match(panelHtml, /movePeriod = direction/);
+    assert.match(panelHtml, /function renderAnalyticsCalendar\(rangeId\)/);
+    assert.match(panelHtml, /class="analytics-calendar-grid"/);
+    assert.match(panelHtml, /data-calendar-date/);
 });
 
 test('tooltips activate only from help controls and unavailable Tailscale features', () => {

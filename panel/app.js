@@ -2338,18 +2338,60 @@ function shiftUtcDate(value, days) {
     return utcDateInputValue(date);
 }
 
+function renderAnalyticsCalendar(rangeId) {
+    const [fromId, toId] = analyticsDateControls[rangeId];
+    const fromValue = document.getElementById(fromId).value;
+    const toValue = document.getElementById(toId).value;
+    const wrapper = document.querySelector(`[data-range-dates="${rangeId}"]`);
+    const editor = wrapper.querySelector('[data-range-editor]');
+    if (!fromValue || !toValue || document.getElementById(rangeId).value === 'all') return;
+    const monthValue = wrapper.dataset.calendarMonth || toValue.slice(0, 7);
+    const month = new Date(`${monthValue}-01T00:00:00.000Z`);
+    const firstGridDay = new Date(month);
+    firstGridDay.setUTCDate(1 - ((month.getUTCDay() + 6) % 7));
+    const today = utcDateInputValue();
+    const title = month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const nextMonthDisabled = monthValue >= today.slice(0, 7);
+    const days = Array.from({ length: 42 }, (_, index) => {
+        const date = new Date(firstGridDay.getTime() + index * 86400000);
+        const value = utcDateInputValue(date);
+        const outside = date.getUTCMonth() !== month.getUTCMonth();
+        const inRange = value >= fromValue && value <= toValue;
+        const classes = ['analytics-calendar-day'];
+        if (outside) classes.push('outside');
+        if (inRange) classes.push('in-range');
+        if (value === fromValue) classes.push('range-start');
+        if (value === toValue) classes.push('range-end');
+        if (value === today) classes.push('today');
+        return `<button type="button" class="${classes.join(' ')}" data-calendar-date="${value}"${value > today ? ' disabled' : ''} aria-label="${escapeHtml(date.toLocaleDateString('en-GB', { dateStyle: 'full', timeZone: 'UTC' }))}">${date.getUTCDate()}</button>`;
+    }).join('');
+    editor.innerHTML = `<div class="analytics-calendar"><div class="analytics-calendar-header"><button type="button" data-calendar-month="-1" aria-label="Previous month">&#8592;</button><strong>${escapeHtml(title)}</strong><button type="button" data-calendar-month="1" aria-label="Next month"${nextMonthDisabled ? ' disabled' : ''}>&#8594;</button></div><div class="analytics-calendar-weekdays">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => `<span>${day}</span>`).join('')}</div><div class="analytics-calendar-grid">${days}</div><p>${escapeHtml(analyticsDateSelection(rangeId).label)}</p></div>`;
+}
+
 function syncAnalyticsDateRange(rangeId, changed = 'range') {
     const select = document.getElementById(rangeId);
     const [fromId, toId] = analyticsDateControls[rangeId];
     const from = document.getElementById(fromId);
     const to = document.getElementById(toId);
     const wrapper = document.querySelector(`[data-range-dates="${rangeId}"]`);
+    const display = wrapper.querySelector('[data-range-display]');
+    const previous = wrapper.querySelector('[data-range-previous]');
+    const next = wrapper.querySelector('[data-range-next]');
+    const editor = wrapper.querySelector('[data-range-editor]');
     const allTime = select.value === 'all';
     wrapper.classList.toggle('is-disabled', allTime);
     wrapper.setAttribute('aria-disabled', String(allTime));
     from.disabled = allTime;
     to.disabled = allTime;
-    if (allTime) return;
+    display.disabled = allTime;
+    previous.disabled = allTime;
+    next.disabled = allTime;
+    if (allTime) {
+        display.textContent = 'All dates';
+        display.setAttribute('aria-expanded', 'false');
+        editor.hidden = true;
+        return;
+    }
     const days = Math.max(1, Number(select.value) || 30);
     const today = utcDateInputValue();
     from.max = shiftUtcDate(today, 1 - days);
@@ -2364,6 +2406,9 @@ function syncAnalyticsDateRange(rangeId, changed = 'range') {
         }
     }
     else from.value = shiftUtcDate(to.value, 1 - days);
+    display.textContent = analyticsDateSelection(rangeId).label;
+    next.disabled = to.value >= today;
+    if (!editor.hidden) renderAnalyticsCalendar(rangeId);
 }
 
 function analyticsDateSelection(rangeId) {
@@ -2631,8 +2676,46 @@ for (const rangeId of Object.keys(analyticsDateControls)) syncAnalyticsDateRange
 
 function bindAnalyticsDateControls(rangeId, load) {
     const [fromId, toId] = analyticsDateControls[rangeId];
+    const wrapper = document.querySelector(`[data-range-dates="${rangeId}"]`);
+    const display = wrapper.querySelector('[data-range-display]');
+    const editor = wrapper.querySelector('[data-range-editor]');
+    const movePeriod = direction => {
+        const days = Math.max(1, Number(document.getElementById(rangeId).value) || 30);
+        const from = document.getElementById(fromId);
+        const to = document.getElementById(toId);
+        from.value = shiftUtcDate(from.value, direction * days);
+        to.value = shiftUtcDate(to.value, direction * days);
+        syncAnalyticsDateRange(rangeId, 'navigation');
+        load().catch(error => console.error(error));
+    };
     document.getElementById(rangeId).addEventListener('change', () => {
         syncAnalyticsDateRange(rangeId);
+        load().catch(error => console.error(error));
+    });
+    wrapper.querySelector('[data-range-previous]').addEventListener('click', () => movePeriod(-1));
+    wrapper.querySelector('[data-range-next]').addEventListener('click', () => movePeriod(1));
+    display.addEventListener('click', () => {
+        editor.hidden = !editor.hidden;
+        display.setAttribute('aria-expanded', String(!editor.hidden));
+        if (!editor.hidden) {
+            wrapper.dataset.calendarMonth = document.getElementById(toId).value.slice(0, 7);
+            renderAnalyticsCalendar(rangeId);
+        }
+    });
+    editor.addEventListener('click', event => {
+        const monthButton = event.target.closest('[data-calendar-month]');
+        if (monthButton) {
+            const month = new Date(`${wrapper.dataset.calendarMonth}-01T00:00:00.000Z`);
+            month.setUTCMonth(month.getUTCMonth() + Number(monthButton.dataset.calendarMonth));
+            wrapper.dataset.calendarMonth = month.toISOString().slice(0, 7);
+            renderAnalyticsCalendar(rangeId);
+            return;
+        }
+        const dayButton = event.target.closest('[data-calendar-date]');
+        if (!dayButton || dayButton.disabled) return;
+        wrapper.dataset.calendarMonth = dayButton.dataset.calendarDate.slice(0, 7);
+        document.getElementById(toId).value = dayButton.dataset.calendarDate;
+        syncAnalyticsDateRange(rangeId, 'to');
         load().catch(error => console.error(error));
     });
     document.getElementById(fromId).addEventListener('change', () => {
@@ -2644,6 +2727,14 @@ function bindAnalyticsDateControls(rangeId, load) {
         load().catch(error => console.error(error));
     });
 }
+
+document.addEventListener('click', event => {
+    document.querySelectorAll('[data-range-editor]:not([hidden])').forEach(editor => {
+        if (editor.closest('.analytics-date-range').contains(event.target)) return;
+        editor.hidden = true;
+        editor.closest('.analytics-date-range').querySelector('[data-range-display]').setAttribute('aria-expanded', 'false');
+    });
+});
 
 bindAnalyticsDateControls('analyticsSummaryRange', loadAnalytics);
 document.getElementById('analyticsSummaryGraphType').addEventListener('change', () => loadAnalytics().catch(error => console.error(error)));
@@ -4400,7 +4491,10 @@ function updateSoundPlayer(audio) {
     const player = audio.closest('.sound-player');
     if (!player) return;
     const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-    player.querySelector('.sound-progress').value = duration ? String(audio.currentTime / duration * 100) : '0';
+    const progress = player.querySelector('.sound-progress');
+    const percentage = duration ? Math.max(0, Math.min(100, audio.currentTime / duration * 100)) : 0;
+    progress.value = String(percentage);
+    progress.style.setProperty('--sound-progress', `${percentage}%`);
     player.querySelector('.sound-player-time').textContent = `${formatAudioTime(audio.currentTime)} / ${formatAudioTime(duration)}`;
     const button = player.querySelector('.sound-play-toggle');
     button.textContent = audio.paused ? '▶' : '❚❚';
@@ -4455,7 +4549,10 @@ document.addEventListener('click', event => {
 document.addEventListener('input', event => {
     if (!event.target.matches('.sound-progress')) return;
     const audio = event.target.closest('.sound-player')?.querySelector('audio');
-    if (audio && Number.isFinite(audio.duration)) audio.currentTime = Number(event.target.value) / 100 * audio.duration;
+    if (audio && Number.isFinite(audio.duration)) {
+        audio.currentTime = Number(event.target.value) / 100 * audio.duration;
+        updateSoundPlayer(audio);
+    }
 });
 
 for (const audioEvent of ['loadedmetadata', 'timeupdate', 'play', 'pause', 'ended']) {

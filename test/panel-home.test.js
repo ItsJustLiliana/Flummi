@@ -396,6 +396,13 @@ test('landing, developer tools, and dashboard adapt to touch screens and tablets
     assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?\.developer-tool-nav \{[\s\S]*?flex-direction: column;/);
 });
 
+test('sound previews use an edge-to-edge custom progress track', () => {
+    assert.match(panelHtml, /--sound-progress/);
+    assert.match(panelHtml, /audio\.currentTime \/ duration \* 100/);
+    assert.match(panelStyles, /::-webkit-slider-runnable-track/);
+    assert.match(panelStyles, /padding: 0;[\s\S]*?background: linear-gradient\(90deg, #75cfff/);
+});
+
 test('public site exposes search, social preview, and install metadata', () => {
     assert.match(panelMarkup, /<!--SITE_METADATA-->/);
     assert.match(panelMarkup, /rel="apple-touch-icon"/);

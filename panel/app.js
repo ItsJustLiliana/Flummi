@@ -1730,9 +1730,6 @@ function renderHomeGuilds(rows) {
         { title: 'Member access', rows: rows.filter(row => row.displayRole === 'member') },
         { title: 'Developer-only access', rows: rows.filter(row => row.displayRole === 'not a member') }
     ].filter(group => group.rows.length);
-    const summary = document.getElementById('homeServerSummary');
-    summary.hidden = false;
-    summary.textContent = `${rows.length} ${rows.length === 1 ? 'server' : 'servers'} available`;
     container.innerHTML = groups.map(group => `<section class="guild-group"><div class="guild-group-heading"><h2>${escapeHtml(group.title)}</h2><span class="guild-count">${group.rows.length} ${group.rows.length === 1 ? 'server' : 'servers'}</span></div><div class="home-guild-grid">${group.rows.map(guildCard).join('')}</div></section>`).join('') || '<div class="home-panel empty">No servers shared with Flummi were found.</div>';
 
     container

@@ -5,7 +5,7 @@
         'Main navigation': 'Hauptnavigation',
         'Go to Flummi home': 'Zur Flummi-Startseite',
         'Product': 'Produkt',
-        'Help': 'Hilfe',
+        'Contact': 'Kontakt',
         'Legal': 'Rechtliches',
         'Explore Flummi': 'Flummi entdecken',
         'We\'re here to help': 'Wir helfen dir gerne',

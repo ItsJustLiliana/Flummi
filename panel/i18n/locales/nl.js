@@ -6,7 +6,7 @@
             'Main navigation': 'Hoofdnavigatie',
             'Go to Flummi home': 'Ga naar de Flummi-homepagina',
             'Product': 'Product',
-            'Help': 'Hulp',
+            'Contact': 'Contact',
             'Legal': 'Juridisch',
             'Explore Flummi': 'Ontdek Flummi',
             'We\'re here to help': 'We staan voor je klaar',

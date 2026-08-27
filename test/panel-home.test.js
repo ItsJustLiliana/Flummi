@@ -33,8 +33,8 @@ test('public root is a landing page with role-aware navigation and server groups
     assert.match(panelMarkup, /class="home-footer"[\s\S]*?id="homeInviteLink"[\s\S]*?data-invite-link/);
     assert.equal((panelMarkup.match(/data-invite-link/g) || []).length, 3);
     assert.match(panelMarkup, /class="home-nav-links"[\s\S]*?>Home<\/button>[\s\S]*?class="home-nav-invite"/);
-    for (const group of ['Product', 'Help', 'Legal']) assert.match(panelMarkup, new RegExp(`<summary>${group}`));
-    assert.match(panelMarkup, /<summary>Help[\s\S]*?data-home-view="support"[\s\S]*?data-home-view="feedback"/);
+    for (const group of ['Product', 'Contact', 'Legal']) assert.match(panelMarkup, new RegExp(`<summary>${group}`));
+    assert.match(panelMarkup, /<summary>Contact[\s\S]*?data-home-view="support"[\s\S]*?data-home-view="feedback"/);
     assert.match(panelMarkup, /<summary>Legal[\s\S]*?data-home-view="terms"[\s\S]*?data-home-view="privacy"[\s\S]*?data-home-view="credits"/);
     assert.match(panelStyles, /\.home-nav-invite \{[\s\S]*?background: linear-gradient\(135deg, #9be2ff, #65bff2\)/);
     assert.match(panelScript, /document\.querySelectorAll\('\[data-invite-link\]'\)/);

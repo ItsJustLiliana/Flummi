@@ -3333,29 +3333,6 @@ code {
     line-height: 1.65;
 }
 
-.home-server-summary {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 22px;
-    padding: 7px 11px;
-    border: 1px solid rgba(102, 130, 190, .16);
-    border-radius: 999px;
-    background: rgba(17, 26, 51, .55);
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.home-server-summary::before {
-    content: "";
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #55d69e;
-    box-shadow: 0 0 0 4px rgba(85, 214, 158, .1);
-}
-
 .home-login {
     width: max-content;
     max-width: 100%;

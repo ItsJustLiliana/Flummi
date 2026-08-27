@@ -1,7 +1,6 @@
 const { MessageFlags } = require('discord.js');
 const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const { getUserRole, isDeveloper, isAdmin, getUserPermissions } = require('../stores/access-store');
-const { getShots } = require('../stores/shot-store');
 const { getUserMessageStats } = require('../stores/server-stats-store');
 const { getUserConversationSummary } = require('../stores/user-conversation-store');
 const { formatColor, getProfile } = require('../stores/profile-store');
@@ -64,7 +63,6 @@ module.exports = {
         const admin = isAdmin(targetUser.id, guildId, member?.permissions);
         const roleKey = getUserRole(targetUser.id, guildId, member?.permissions);
         const perms = getUserPermissions(targetUser.id, guildId);
-        const shots = getShots(targetUser.id, guildId);
         const messageStats = getUserMessageStats(guildId, targetUser.id);
         const memory = getUserConversationSummary(targetUser.id);
         const profile = getProfile(targetUser.id, guildId);
@@ -101,8 +99,7 @@ module.exports = {
                 ].join('\n'), inline: true },
                 { name: 'Activity', value: [
                     `Messages tracked: ${messageStats.count}`,
-                    `Server share: ${formatPercent(messageStats.percentage)}`,
-                    `Shots: ${shots}`
+                    `Server share: ${formatPercent(messageStats.percentage)}`
                 ].join('\n'), inline: true },
                 { name: 'AI Memory', value: [
                     `Turns saved: ${memory.turns}`,

@@ -84,8 +84,7 @@ const COMMAND_CATALOG = [
     { path: 'profile.view', label: '/profile view [user]', description: 'View your own or another member’s profile and stats.' },
     { path: 'profile.set', label: '/profile set', description: 'Edit your profile, bio, socials, colour, and other fields.' },
     { path: 'profile.clear', label: '/profile clear', description: 'Clear selected fields from your profile.' },
-    { path: 'leaderboard', label: '/leaderboard messages|voice|shots|media', description: 'View this server’s rankings.' },
-    { path: 'shots', label: '/shots', description: 'Check, gamble, or manage shot totals.' },
+    { path: 'leaderboard', label: '/leaderboard messages|voice|media', description: 'View this server’s rankings.' },
     { path: 'trigger', label: '/trigger', description: 'Use and manage trigger responses available in this server.' },
     { path: 'resetmemory', label: '/resetmemory', description: 'Delete your own saved AI conversation memory.' },
     { path: 'data', label: '/data view|export|delete|correct|ai-consent', description: 'Access, export, delete, correct, or control external AI processing of your stored data.' },
@@ -99,7 +98,6 @@ const COMMAND_CATALOG = [
     { path: 'manage.features', label: '/manage features', description: 'Set feature access for a member.', minimumRole: 'admin' },
     { path: 'manage.command', label: '/manage command', description: 'Set a command override for a member.', minimumRole: 'admin' },
     { path: 'server', label: '/server safety and community tools', description: 'Use server safety, recovery, staff, and engagement tools.', minimumRole: 'admin' },
-    { path: 'shots.audit', label: '/shots audit [limit]', description: 'View the developer audit log for shot changes.', minimumRole: 'developer' },
     { path: 'dashboard', label: '/dashboard', description: 'Open the public Flummi dashboard.' }
 ];
 

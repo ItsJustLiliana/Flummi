@@ -636,14 +636,12 @@ const featureTooltipDefinitions = {
     guildFeatureAiImageSearch: 'Allows AI replies to request and return relevant images from configured search providers.',
     guildFeaturePingResponses: 'Allows Flummi to respond when members mention or ping the bot.',
     guildFeaturePingSave: 'Allows configured ping requests to be saved for later viewing in the panel.',
-    guildFeatureShots: 'Enables the server shot counter, leaderboard and related commands.',
     featureTriggers: 'Global master switch for text triggers across every server.',
     featureAiConversations: 'Global master switch for AI conversations across every server.',
     featureAiAttachments: 'Global master switch for AI attachment analysis across every server.',
     featureAiImageSearch: 'Global master switch for AI image search across every server.',
     featurePingResponses: 'Global master switch for bot mention and ping responses across every server.',
-    featurePingSave: 'Global master switch for saving ping requests across every server.',
-    featureShots: 'Global master switch for the shot system across every server.'
+    featurePingSave: 'Global master switch for saving ping requests across every server.'
 };
 
 function installFeatureTooltips() {
@@ -782,7 +780,6 @@ const tabLoaders = {
     mail: loadMailCollection,
     messenger: loadMessengerChannels,
     triggers: loadTriggers,
-    shots: loadShots,
     voice: loadVoice,
     stats: loadStats,
     users: loadUsers,
@@ -951,7 +948,6 @@ const panelSearchAliases = {
     overview: 'home summary server details members channels features bot status',
     analytics: 'analytics graphs charts activity trends summary statistics',
     triggers: 'trigger response reply cooldown exact phrase automation',
-    shots: 'shots drinks counter leaderboard gamble',
     voice: 'voice call channel sessions time leaderboard activity',
     stats: 'messages chat activity heatmap channels members analytics',
     users: 'members permissions roles admin access commands block allow',
@@ -1198,7 +1194,6 @@ async function loadPanelAccount() {
 
 const globalFeatureTabs = {
     triggers: 'triggersEnabled',
-    shots: 'shotsEnabled',
     pings: 'pingRequestSaveEnabled'
 };
 
@@ -1494,9 +1489,14 @@ async function activateDeveloperWorkspace(preferredTab = null) {
 
 async function openDashboard(guildId, tab = null) {
     fillGuildSelect(state.guilds);
+    const previousGuildId = state.guildId;
     guildSelect.value = String(guildId || state.guilds[0]?.id || '');
     state.guildId = guildSelect.value || null;
     if (!state.guildId) return;
+    if (String(previousGuildId || '') !== String(state.guildId)) {
+        state.management = null;
+        managementChannelsGuildId = null;
+    }
     setServerPageTitle(state.guildId);
     state.role = state.guildRoles.get(String(state.guildId)) || state.role;
     localStorage.setItem('flummi.guildId', state.guildId);
@@ -1539,15 +1539,18 @@ document.getElementById('homeGuilds').addEventListener('click', event => {
     if (card) openDashboard(card.dataset.openGuild).catch(handleUiError);
 });
 document.getElementById('dashboardHome').addEventListener('click', () => showHomeView('servers'));
-document.getElementById('homeDeveloperGuild').addEventListener('change', event => {
+document.getElementById('homeDeveloperGuild').addEventListener('change', async event => {
     const guildId = event.target.value;
     guildSelect.value = guildId;
     state.guildId = guildId || null;
+    state.management = null;
+    managementChannelsGuildId = null;
     if (state.guildId) {
         state.role = state.guildRoles.get(String(state.guildId)) || state.role;
         localStorage.setItem('flummi.guildId', state.guildId);
     }
     applyAccessVisibility();
+    if (state.guildId && state.role !== 'member') await ensureManagementResources();
     refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
 });
 document.getElementById('refreshDeveloperTool').addEventListener('click', () => {
@@ -1600,6 +1603,7 @@ async function loadGuilds() {
     if (state.guildId) state.role = state.guildRoles.get(String(state.guildId)) || state.role;
     applyAccessVisibility();
     if (state.guildId) localStorage.setItem('flummi.guildId', state.guildId);
+    if (state.guildId && state.role !== 'member') await ensureManagementResources();
     await refreshActiveTab();
 }
 
@@ -1611,7 +1615,7 @@ guildSelect.addEventListener('change', async () => {
     managementChannelsGuildId = null;
     applyAccessVisibility();
     if (state.guildId) localStorage.setItem('flummi.guildId', state.guildId);
-    if (state.guildId && state.role !== 'member') await loadManagement();
+    if (state.guildId && state.role !== 'member') await ensureManagementResources();
     refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
 });
 
@@ -2036,7 +2040,7 @@ async function loadOverview() {
         ['Bot', data.settings?.botEnabled, null], ['Triggers', data.settings?.triggersEnabled, 'triggersEnabled'],
         ['AI conversations', localFeatures.aiConversationsEnabled, 'aiConversationsEnabled'], ['AI attachments', localFeatures.aiAttachmentsEnabled, 'aiAttachmentsEnabled'],
         ['Image search', localFeatures.aiImageSearchEnabled, 'aiImageSearchEnabled'], ['Ping responses', localFeatures.pingResponsesEnabled, 'pingResponsesEnabled'],
-        ['Save pings', localFeatures.pingRequestSaveEnabled, 'pingRequestSaveEnabled'], ['Shots', localFeatures.shotsEnabled, 'shotsEnabled']
+        ['Save pings', localFeatures.pingRequestSaveEnabled, 'pingRequestSaveEnabled']
     ];
     document.getElementById('overviewFeatures').innerHTML = featureRows.map(([label, enabled, globalKey]) => {
         const globallyDisabled = globalKey && state.globalFeatures?.[globalKey] === false;
@@ -2303,40 +2307,6 @@ document.getElementById('importTriggers').addEventListener('change', async event
     event.target.value = '';
 });
 
-// ---------- Shots ----------
-const shotScopeSelect = document.getElementById('shotScope');
-shotScopeSelect.addEventListener('change', () => loadShots().catch(error => console.error(error)));
-
-async function loadShots() {
-    if (!state.guildId) return;
-    const data = await api(withGuild(`/api/shots?scope=${shotScopeSelect.value}`));
-    const leaderboard = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
-    const audit = Array.isArray(data?.audit) ? data.audit : [];
-
-    document.getElementById('shotCards').innerHTML = [
-        statCard('Tracked Users', leaderboard.length),
-        statCard('Highest Total', leaderboard[0] ? `${leaderboard[0].total} (${leaderboard[0].label})` : 'N/A')
-    ].join('');
-
-    renderTable(document.getElementById('shotLeaderboard'),
-        [
-            { label: '#', sortable: false, render: (r, i) => i + 1 },
-            { label: 'Member', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) },
-            { label: 'Total', key: 'total' }
-        ],
-        leaderboard, 'No shot totals recorded yet.');
-
-    renderTable(document.getElementById('shotAudit'),
-        [
-            { label: 'When', key: 'at', render: r => escapeHtml(formatDateTime(r.at)) },
-            { label: 'Action', key: 'action', render: r => escapeHtml(r.action) },
-            { label: 'By', key: 'byLabel', render: r => withNicknameTitle(r.byLabel, r.byNickname) },
-            { label: 'Target', key: 'targetLabel', render: r => withNicknameTitle(r.targetLabel, r.targetNickname) },
-            { label: 'Change', key: 'newTotal', render: r => `${escapeHtml(r.previousTotal)} \u2192 ${escapeHtml(r.newTotal)}` }
-        ],
-        audit, 'No shot audit entries yet.');
-}
-
 // ---------- Voice ----------
 function analyticsRangeLabel(value) {
     if (String(value).toLowerCase() === 'all') return 'all time';
@@ -2584,10 +2554,6 @@ async function loadAnalytics() {
     document.getElementById('analyticsSummaryMedia').innerHTML = [
         statCard('Sound Plays', data.media.soundPlays), statCard('Emoji Uses', data.media.emojiUses),
         statCard('Sticker Uses', data.media.stickerUses)
-    ].join('');
-    document.getElementById('analyticsSummaryShots').innerHTML = [
-        statCard('Total Shots', data.shots.total), statCard('Tracked Members', data.shots.members),
-        statCard('Highest Total', data.shots.highest)
     ].join('');
     const moderation = data.events || {};
     document.getElementById('moderationCards').innerHTML = [
@@ -2861,7 +2827,7 @@ function renderProfileEditor(data) {
         <div class="section">
             <h2>${escapeHtml(userLabel)}</h2>
             <p class="sub">${escapeHtml(data.user.id)}</p>
-                <div class="card-grid">${statCard('Messages', data.statistics?.messages || 0)}${statCard('Voice', formatDuration(data.statistics?.voiceMs || 0))}${statCard('Shots', data.statistics?.shots || 0)}${statCard('Role', data.statistics?.role || 'member')}</div>
+                <div class="card-grid">${statCard('Messages', data.statistics?.messages || 0)}${statCard('Voice', formatDuration(data.statistics?.voiceMs || 0))}${statCard('Role', data.statistics?.role || 'member')}</div>
             <div class="two-col">
                 ${profileField('Profile nickname', 'profileNickname', profile.nickname)}
                 ${profileField('Pronouns', 'profilePronouns', profile.pronouns)}
@@ -3123,6 +3089,8 @@ function renderDeveloperTabOrderEditor() {
 
 let managementChannelsGuildId = null;
 let managementChannels = [];
+let managementRoles = [];
+let managementMembers = [];
 
 function setAnalyticsExpanded(expanded) {
     const toggle = document.getElementById('analyticsNavToggle');
@@ -3318,21 +3286,59 @@ document.getElementById('managementModuleSearch').addEventListener('keydown', ev
     filterManagementModules();
 });
 
-function setManagementChannelOptions(channels) {
+function setSelectedValues(select, values) {
+    const selected = new Set((Array.isArray(values) ? values : [values]).filter(Boolean).map(String));
+    for (const option of select.options) option.selected = selected.has(option.value);
+}
+
+function selectedValues(id) {
+    return [...document.getElementById(id).selectedOptions].map(option => option.value).filter(Boolean);
+}
+
+function setManagementResourceOptions({ channels = [], roles = [], members = [], bans = [] }) {
     managementChannels = channels || [];
+    managementRoles = roles || [];
+    managementMembers = members || [];
+    const fill = (select, available, emptyLabel, renderLabel) => {
+        const previous = [...select.selectedOptions].map(option => option.value);
+        select.innerHTML = `${select.multiple ? '' : `<option value="">${emptyLabel}</option>`}${available.map(item => `<option value="${escapeHtml(item.id)}">${renderLabel(item)}</option>`).join('')}`;
+        setSelectedValues(select, previous);
+    };
     for (const select of document.querySelectorAll('[data-management-channel]')) {
-        const selected = select.value;
-        const available = select.id === 'managementTicketCategory'
-            ? (channels || []).filter(channel => channel.kind === 'category')
-            : (channels || []).filter(channel => channel.kind !== 'category');
-        const prefix = select.id === 'managementTicketCategory' ? '' : '#';
-        select.innerHTML = `<option value="">No ${select.id === 'managementTicketCategory' ? 'category' : 'channel'} selected</option>` + available.map(channel => `<option value="${escapeHtml(channel.id)}">${prefix}${escapeHtml(channel.name)}</option>`).join('');
-        select.value = Array.from(select.options).some(option => option.value === selected) ? selected : '';
+        fill(select, channels.filter(channel => channel.kind !== 'category'), 'No channel selected', channel => `#${escapeHtml(channel.name)}`);
     }
+    for (const select of document.querySelectorAll('[data-management-category]')) {
+        fill(select, channels.filter(channel => channel.kind === 'category'), 'No category selected', channel => escapeHtml(channel.name));
+    }
+    for (const select of document.querySelectorAll('[data-management-role]')) {
+        fill(select, roles, 'No role selected', role => `@${escapeHtml(role.name)}${role.managed ? ' (managed)' : ''}`);
+    }
+    for (const select of document.querySelectorAll('[data-management-member]')) {
+        fill(select, members, 'All members', member => escapeHtml(member.nickname ? `${member.displayName} (${member.tag})` : member.tag));
+    }
+    for (const select of document.querySelectorAll('[data-management-target]')) {
+        fill(select, [...members, ...bans], 'Choose a member', member => escapeHtml(`${member.banned ? '[Banned] ' : ''}${member.nickname ? `${member.displayName} (${member.tag})` : member.tag}`));
+    }
+    for (const select of document.querySelectorAll('[data-management-guild]')) {
+        fill(select, state.guilds, 'No server selected', guild => escapeHtml(guild.name));
+    }
+}
+
+async function ensureManagementResources() {
+    if (!state.guildId || state.role === 'member' || managementChannelsGuildId === state.guildId) return;
+    const resources = await api(withGuild('/api/management/channels'));
+    setManagementResourceOptions(resources);
+    state.guildMembers = new Map((resources.members || []).map(member => [String(member.id), member]));
+    managementChannelsGuildId = state.guildId;
 }
 
 function managementChannelOptions(selected = '') {
     return '<option value="">Choose a channel</option>' + managementChannels.filter(channel => channel.kind !== 'category').map(channel => `<option value="${escapeHtml(channel.id)}" ${channel.id === selected ? 'selected' : ''}>#${escapeHtml(channel.name)}</option>`).join('');
+}
+
+function managementMultiOptions(items, selectedValues, label) {
+    const selected = new Set((selectedValues || []).map(String));
+    return items.map(item => `<option value="${escapeHtml(item.id)}" ${selected.has(String(item.id)) ? 'selected' : ''}>${label(item)}</option>`).join('');
 }
 
 function renderAutomationRules() {
@@ -3351,9 +3357,39 @@ function renderAutomodRules() {
             <p class="sub">${escapeHtml(definition.description)}</p>
             <div class="field"><label>Action</label><select data-automod-action><option value="inherit" ${rule.action === 'inherit' ? 'selected' : ''}>Use default action</option><option value="delete" ${rule.action === 'delete' ? 'selected' : ''}>Delete message</option><option value="warn" ${rule.action === 'warn' ? 'selected' : ''}>Delete + warn</option><option value="timeout" ${rule.action === 'timeout' ? 'selected' : ''}>Delete + timeout</option></select></div>
             ${definition.fixedLimit ? '' : `<div class="two-col"><div class="field"><label>${escapeHtml(definition.limit)}</label><input data-automod-limit type="number" min="${definition.min || 1}" max="100" value="${Number(rule.limit) || 1}"></div>${definition.window ? `<div class="field"><label>Window (seconds)</label><input data-automod-window type="number" min="2" max="300" value="${Number(rule.windowSeconds) || 8}"></div>` : ''}</div>`}
-            <details><summary>Filter exceptions</summary><div class="field"><label>Ignored channel IDs</label><textarea data-automod-channels rows="3">${escapeHtml((rule.ignoredChannelIds || []).join('\n'))}</textarea></div><div class="field"><label>Ignored role IDs</label><textarea data-automod-roles rows="3">${escapeHtml((rule.ignoredRoleIds || []).join('\n'))}</textarea></div></details>
+            <details><summary>Filter exceptions</summary><div class="field"><label>Ignored channels</label><select data-automod-channels multiple>${managementMultiOptions(managementChannels.filter(channel => channel.kind !== 'category'), rule.ignoredChannelIds, channel => `#${escapeHtml(channel.name)}`)}</select></div><div class="field"><label>Ignored roles</label><select data-automod-roles multiple>${managementMultiOptions(managementRoles, rule.ignoredRoleIds, role => `@${escapeHtml(role.name)}`)}</select></div></details>
         </article>`;
     }).join('');
+}
+
+function renderSupportTeams() {
+    const source = document.getElementById('managementTicketTeams');
+    if (!source) return;
+    source.hidden = true;
+    const field = source.closest('.field');
+    const label = field?.querySelector('label');
+    if (label) label.textContent = 'Support teams';
+    let editor = document.getElementById('managementTicketTeamsEditor');
+    if (!editor) {
+        editor = document.createElement('div');
+        editor.id = 'managementTicketTeamsEditor';
+        source.insertAdjacentElement('afterend', editor);
+    }
+    const teams = state.management?.tickets?.supportTeams || [];
+    editor.innerHTML = `${teams.map((team, index) => `<div class="automation-rule" data-support-team="${index}"><div class="two-col"><div class="field"><label>Key</label><input data-team-id value="${escapeHtml(team.id || '')}" placeholder="billing"></div><div class="field"><label>Name</label><input data-team-name value="${escapeHtml(team.name || '')}" placeholder="Billing"></div><div class="field"><label>Role</label><select data-team-role><option value="">Use default support role</option>${managementMultiOptions(managementRoles, [team.roleId], role => `@${escapeHtml(role.name)}`)}</select></div><div class="field"><label>Category</label><select data-team-category><option value="">Use default ticket category</option>${managementMultiOptions(managementChannels.filter(channel => channel.kind === 'category'), [team.categoryId], channel => escapeHtml(channel.name))}</select></div></div><button class="danger" type="button" data-remove-support-team="${index}">Remove team</button></div>`).join('')}<button class="secondary" type="button" id="managementAddSupportTeam">Add support team</button>`;
+}
+
+function renderWorkflowResourcePicker() {
+    const source = document.getElementById('workflowRulesJson');
+    if (!source) return;
+    let picker = document.getElementById('workflowResourcePicker');
+    if (!picker) {
+        picker = document.createElement('div');
+        picker.id = 'workflowResourcePicker';
+        picker.className = 'row';
+        source.insertAdjacentElement('beforebegin', picker);
+    }
+    picker.innerHTML = `<select id="workflowRolePicker"><option value="">Choose an available role</option>${managementRoles.map(role => `<option value="${escapeHtml(role.id)}">@${escapeHtml(role.name)}</option>`).join('')}</select><button class="secondary" type="button" data-insert-workflow-resource="roleId">Insert role</button><select id="workflowChannelPicker"><option value="">Choose an available channel</option>${managementChannels.filter(channel => channel.kind !== 'category').map(channel => `<option value="${escapeHtml(channel.id)}">#${escapeHtml(channel.name)}</option>`).join('')}</select><button class="secondary" type="button" data-insert-workflow-resource="channelId">Insert channel</button>`;
 }
 
 function hydrateManagementEditors() {
@@ -3371,8 +3407,8 @@ function hydrateManagementEditors() {
     document.getElementById('managementBlockedTerms').value = (management.automod.blockedTerms || []).join('\n');
     document.getElementById('managementAllowedDomains').value = (management.automod.allowedDomains || []).join('\n');
     document.getElementById('managementAllowedInvites').value = (management.automod.allowedInviteCodes || []).join('\n');
-    document.getElementById('managementIgnoredChannels').value = (management.automod.ignoredChannelIds || []).join('\n');
-    document.getElementById('managementIgnoredRoles').value = (management.automod.ignoredRoleIds || []).join('\n');
+    setSelectedValues(document.getElementById('managementIgnoredChannels'), management.automod.ignoredChannelIds || []);
+    setSelectedValues(document.getElementById('managementIgnoredRoles'), management.automod.ignoredRoleIds || []);
     renderAutomodRules();
     document.getElementById('managementCaseLogChannel').value = management.cases.logChannelId || '';
     document.getElementById('managementCaseRetention').value = management.cases.retentionDays;
@@ -3382,7 +3418,7 @@ function hydrateManagementEditors() {
     document.getElementById('managementAutoroleDelay').value = management.roles.autoroleDelayMinutes;
     document.getElementById('managementPersistRoles').checked = management.roles.persistRoles;
     document.getElementById('managementInteractiveRoles').checked = management.roles.interactiveRoles;
-    document.getElementById('managementSelfRoles').value = (management.roles.selfAssignableRoleIds || []).join('\n');
+    setSelectedValues(document.getElementById('managementSelfRoles'), management.roles.selfAssignableRoleIds || []);
     document.getElementById('managementOnboardingChannel').value = management.roles.onboardingChannelId || '';
     document.getElementById('managementOnboardingTitle').value = management.roles.onboardingTitle || '';
     document.getElementById('managementOnboardingMessage').value = management.roles.onboardingMessage || '';
@@ -3406,7 +3442,7 @@ function hydrateManagementEditors() {
     document.getElementById('managementTicketDmTranscript').checked = management.tickets.dmTranscript;
     document.getElementById('managementTicketDelete').checked = management.tickets.deleteClosedChannels;
     for (const option of document.getElementById('managementTicketFormats').options) option.selected = (management.tickets.transcriptFormats || []).includes(option.value);
-    document.getElementById('managementTicketTeams').value = JSON.stringify(management.tickets.supportTeams || [], null, 2);
+    renderSupportTeams();
     document.getElementById('managementSuggestionChannel').value = management.suggestions.channelId || '';
     document.getElementById('managementSuggestionReview').value = management.suggestions.reviewChannelId || '';
     document.getElementById('managementSuggestionAnonymous').checked = management.suggestions.anonymous;
@@ -3441,6 +3477,7 @@ function hydrateManagementEditors() {
         else if (field.type === 'checkbox') field.checked = value === true;
         else field.value = value ?? '';
     }
+    renderWorkflowResourcePicker();
 }
 
 function collectAdvancedManagement(section) {
@@ -3570,7 +3607,7 @@ document.getElementById('saveCustomCommand').addEventListener('click', async () 
     const status = document.getElementById('customCommandStatus');
     let buttons;
     try { buttons = JSON.parse(document.getElementById('customCommandButtons').value || '[]'); } catch { return setStatus(status, 'Buttons must be valid JSON.', 'error'); }
-    const command = { name: document.getElementById('customCommandName').value, description: document.getElementById('customCommandDescription').value, responseType: document.getElementById('customCommandType').value, content: document.getElementById('customCommandContent').value, imageUrl: document.getElementById('customCommandImage').value, buttons, requiredRoleId: document.getElementById('customCommandRole').value, allowedChannelIds: document.getElementById('customCommandChannels').value.split(/\s+/).filter(Boolean), cooldownSeconds: Number(document.getElementById('customCommandCooldown').value), ephemeral: document.getElementById('customCommandEphemeral').checked, enabled: document.getElementById('customCommandEnabled').checked };
+    const command = { name: document.getElementById('customCommandName').value, description: document.getElementById('customCommandDescription').value, responseType: document.getElementById('customCommandType').value, content: document.getElementById('customCommandContent').value, imageUrl: document.getElementById('customCommandImage').value, buttons, requiredRoleId: document.getElementById('customCommandRole').value, allowedChannelIds: selectedValues('customCommandChannels'), cooldownSeconds: Number(document.getElementById('customCommandCooldown').value), ephemeral: document.getElementById('customCommandEphemeral').checked, enabled: document.getElementById('customCommandEnabled').checked };
     try { await api(withGuild('/api/management/custom-commands'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command }) }); setStatus(status, `/${command.name} saved.`, 'ok'); await loadCustomCommands(); } catch (error) { setStatus(status, error.message, 'error'); }
 });
 
@@ -3614,11 +3651,7 @@ async function loadManagement() {
     if (!state.guildId || state.role === 'member') return;
     const settingsData = await api(withGuild('/api/settings'));
     state.management = settingsData.settings.management;
-    if (managementChannelsGuildId !== state.guildId) {
-        const channelData = await api(withGuild('/api/management/channels'));
-        setManagementChannelOptions(channelData.channels || []);
-        managementChannelsGuildId = state.guildId;
-    }
+    await ensureManagementResources();
     hydrateManagementEditors();
     renderManagementCards();
     applyManagementNavigation();
@@ -3672,9 +3705,9 @@ function collectManagementSection(section) {
         const rules = Object.fromEntries([...document.querySelectorAll('[data-automod-rule]')].map(card => {
             const key = card.dataset.automodRule;
             const oldRule = state.management.automod.rules[key];
-            return [key, { enabled: card.querySelector('[data-automod-toggle]').getAttribute('aria-pressed') === 'true', action: card.querySelector('[data-automod-action]').value, limit: Number(card.querySelector('[data-automod-limit]')?.value || oldRule.limit), windowSeconds: Number(card.querySelector('[data-automod-window]')?.value || oldRule.windowSeconds), ignoredChannelIds: card.querySelector('[data-automod-channels]').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean), ignoredRoleIds: card.querySelector('[data-automod-roles]').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean) }];
+            return [key, { enabled: card.querySelector('[data-automod-toggle]').getAttribute('aria-pressed') === 'true', action: card.querySelector('[data-automod-action]').value, limit: Number(card.querySelector('[data-automod-limit]')?.value || oldRule.limit), windowSeconds: Number(card.querySelector('[data-automod-window]')?.value || oldRule.windowSeconds), ignoredChannelIds: [...card.querySelector('[data-automod-channels]').selectedOptions].map(option => option.value), ignoredRoleIds: [...card.querySelector('[data-automod-roles]').selectedOptions].map(option => option.value) }];
         }));
-        state.management.automod = { preset: document.getElementById('managementAutomodPreset').value, mode: document.getElementById('managementAutomodMode').value, escalationEnabled: document.getElementById('managementAutomodEscalation').checked, logChannelId: document.getElementById('managementAutomodLogChannel').value, action: document.getElementById('managementAutomodAction').value, timeoutMinutes: Number(document.getElementById('managementAutomodTimeout').value), blockedTerms: textLines('managementBlockedTerms'), allowedDomains: textLines('managementAllowedDomains'), allowedInviteCodes: textLines('managementAllowedInvites'), ignoredChannelIds: textLines('managementIgnoredChannels'), ignoredRoleIds: textLines('managementIgnoredRoles'), rules };
+        state.management.automod = { preset: document.getElementById('managementAutomodPreset').value, mode: document.getElementById('managementAutomodMode').value, escalationEnabled: document.getElementById('managementAutomodEscalation').checked, logChannelId: document.getElementById('managementAutomodLogChannel').value, action: document.getElementById('managementAutomodAction').value, timeoutMinutes: Number(document.getElementById('managementAutomodTimeout').value), blockedTerms: textLines('managementBlockedTerms'), allowedDomains: textLines('managementAllowedDomains'), allowedInviteCodes: textLines('managementAllowedInvites'), ignoredChannelIds: selectedValues('managementIgnoredChannels'), ignoredRoleIds: selectedValues('managementIgnoredRoles'), rules };
     } else if (section === 'cases') {
         const retention = document.getElementById('managementCaseRetention');
         if (!retention.checkValidity()) throw new Error('Retention must be between 1 and 3650 days.');
@@ -3684,14 +3717,18 @@ function collectManagementSection(section) {
         const delay = document.getElementById('managementAutoroleDelay');
         if (roleId && !/^\d{16,22}$/.test(roleId)) throw new Error('Autorole ID must be a valid Discord role ID.');
         if (!delay.checkValidity()) throw new Error('Autorole delay must be between 0 and 10080 minutes.');
-        state.management.roles = { autoroleId: roleId, autoroleDelayMinutes: Number(delay.value), persistRoles: document.getElementById('managementPersistRoles').checked, interactiveRoles: document.getElementById('managementInteractiveRoles').checked, selfAssignableRoleIds: textLines('managementSelfRoles'), onboardingChannelId: document.getElementById('managementOnboardingChannel').value, onboardingTitle: document.getElementById('managementOnboardingTitle').value, onboardingMessage: document.getElementById('managementOnboardingMessage').value };
+        state.management.roles = { autoroleId: roleId, autoroleDelayMinutes: Number(delay.value), persistRoles: document.getElementById('managementPersistRoles').checked, interactiveRoles: document.getElementById('managementInteractiveRoles').checked, selfAssignableRoleIds: selectedValues('managementSelfRoles'), onboardingChannelId: document.getElementById('managementOnboardingChannel').value, onboardingTitle: document.getElementById('managementOnboardingTitle').value, onboardingMessage: document.getElementById('managementOnboardingMessage').value };
     } else if (section === 'automation') {
         const schedules = [...document.querySelectorAll('[data-schedule-row]')].map((row, index) => ({ id: row.querySelector('[data-rule-id]').value.trim() || `schedule-${index + 1}`, enabled: row.querySelector('[data-rule-enabled]').checked, channelId: row.querySelector('[data-rule-channel]').value, message: row.querySelector('[data-rule-message]').value.trim(), intervalMinutes: Number(row.querySelector('[data-rule-interval]').value), scheduleType: row.querySelector('[data-rule-type]').value, runAt: row.querySelector('[data-rule-run-at]').value, time: row.querySelector('[data-rule-time]').value, weekdays: row.querySelector('[data-rule-weekdays]').value.split(',').map(Number).filter(Number.isInteger), cron: row.querySelector('[data-rule-cron]').value, timezone: row.querySelector('[data-rule-timezone]').value, startAt: row.querySelector('[data-rule-start]').value, endAt: row.querySelector('[data-rule-end]').value }));
         const purgeRules = [...document.querySelectorAll('[data-purge-row]')].map((row, index) => ({ id: row.querySelector('[data-rule-id]').value.trim() || `purge-${index + 1}`, enabled: row.querySelector('[data-rule-enabled]').checked, channelId: row.querySelector('[data-rule-channel]').value, keepMessages: Number(row.querySelector('[data-rule-keep]').value), intervalMinutes: Number(row.querySelector('[data-rule-interval]').value) }));
         state.management.automation = { welcomeEnabled: document.getElementById('managementWelcomeEnabled').checked, goodbyeEnabled: document.getElementById('managementGoodbyeEnabled').checked, scheduledMessagesEnabled: document.getElementById('managementScheduledMessages').checked, autoPurgeEnabled: document.getElementById('managementAutoPurge').checked, welcomeChannelId: document.getElementById('managementWelcomeChannel').value, welcomeMessage: document.getElementById('managementWelcomeMessage').value, goodbyeChannelId: document.getElementById('managementGoodbyeChannel').value, goodbyeMessage: document.getElementById('managementGoodbyeMessage').value, schedules, purgeRules };
     } else if (section === 'tickets') {
-        let supportTeams;
-        try { supportTeams = JSON.parse(document.getElementById('managementTicketTeams').value || '[]'); } catch { throw new Error('Support teams must contain valid JSON.'); }
+        const supportTeams = [...document.querySelectorAll('[data-support-team]')].map(row => ({
+            id: row.querySelector('[data-team-id]').value.trim(),
+            name: row.querySelector('[data-team-name]').value.trim(),
+            roleId: row.querySelector('[data-team-role]').value,
+            categoryId: row.querySelector('[data-team-category]').value
+        })).filter(team => team.id || team.name);
         state.management.tickets = { categoryId: document.getElementById('managementTicketCategory').value, supportRoleId: requireOptionalSnowflake('managementTicketSupportRole', 'Support role ID'), logChannelId: document.getElementById('managementTicketLog').value, maxOpenPerMember: Number(document.getElementById('managementTicketLimit').value), welcomeMessage: document.getElementById('managementTicketWelcome').value, transcriptFormats: [...document.getElementById('managementTicketFormats').selectedOptions].map(option => option.value), dmTranscript: document.getElementById('managementTicketDmTranscript').checked, retentionDays: Number(document.getElementById('managementTicketRetention').value), deleteClosedChannels: document.getElementById('managementTicketDelete').checked, deleteDelayMinutes: Number(document.getElementById('managementTicketDeleteDelay').value), autoCloseInactiveDays: Number(document.getElementById('managementTicketAutoClose').value), supportTeams };
     } else if (section === 'suggestions') {
         state.management.suggestions = { channelId: document.getElementById('managementSuggestionChannel').value, reviewChannelId: document.getElementById('managementSuggestionReview').value, anonymous: document.getElementById('managementSuggestionAnonymous').checked, minimumApprovalVotes: Number(document.getElementById('managementSuggestionVotes').value) };
@@ -3707,6 +3744,39 @@ function collectManagementSection(section) {
         state.management.integrations = { nativeAutomodEnabled: document.getElementById('managementIntegrationsAutomod').checked, scheduledEventsEnabled: document.getElementById('managementIntegrationsEvents').checked, announcementChannelId: document.getElementById('managementIntegrationsAnnouncements').value };
     }
 }
+
+document.addEventListener('click', event => {
+    const insertResource = event.target.closest('[data-insert-workflow-resource]');
+    if (insertResource) {
+        const key = insertResource.dataset.insertWorkflowResource;
+        const picker = document.getElementById(key === 'roleId' ? 'workflowRolePicker' : 'workflowChannelPicker');
+        const source = document.getElementById('workflowRulesJson');
+        if (!picker?.value || !source) return;
+        const reference = `"${key}":"${picker.value}"`;
+        const start = Number.isInteger(source.selectionStart) ? source.selectionStart : source.value.length;
+        source.setRangeText(reference, start, source.selectionEnd ?? start, 'end');
+        source.focus();
+        source.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+    }
+    if (event.target.id === 'managementAddSupportTeam') {
+        state.management.tickets.supportTeams = [...document.querySelectorAll('[data-support-team]')].map(row => ({
+            id: row.querySelector('[data-team-id]').value.trim(), name: row.querySelector('[data-team-name]').value.trim(),
+            roleId: row.querySelector('[data-team-role]').value, categoryId: row.querySelector('[data-team-category]').value
+        })).concat({ id: '', name: '', roleId: '', categoryId: '' });
+        renderSupportTeams();
+        return;
+    }
+    const remove = event.target.closest('[data-remove-support-team]');
+    if (!remove || !state.management?.tickets) return;
+    const teams = [...document.querySelectorAll('[data-support-team]')].map(row => ({
+        id: row.querySelector('[data-team-id]').value.trim(), name: row.querySelector('[data-team-name]').value.trim(),
+        roleId: row.querySelector('[data-team-role]').value, categoryId: row.querySelector('[data-team-category]').value
+    }));
+    teams.splice(Number(remove.dataset.removeSupportTeam), 1);
+    state.management.tickets.supportTeams = teams;
+    renderSupportTeams();
+});
 
 function textLines(id) {
     return document.getElementById(id).value.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
@@ -3853,7 +3923,7 @@ async function loadManagementTimeline() {
         <article class="card"><span>Timeline records</span><strong>${dossier.timeline.length}</strong><small>Necessary moderation and support metadata</small></article>
     </div>${operationTable(dossier.timeline || [], [
         { label: 'Time', render: row => escapeHtml(formatDateTime(row.at)) }, { label: 'Type', key: 'type' }, { label: 'Event', key: 'label' }, { label: 'Channel', key: 'channelId' }, { label: 'Status', key: 'status' }
-    ], 'No timeline entries for this member.')}` : '<div class="empty">Enter a member ID to load factual moderation and support records.</div>';
+    ], 'No timeline entries for this member.')}` : '<div class="empty">Choose a member to load factual moderation and support records.</div>';
 }
 
 document.getElementById('managementRefreshCases').addEventListener('click', () => loadManagementTimeline().catch(error => setStatus(document.getElementById('managementCasesStatus'), error.message, 'error')));
@@ -3909,14 +3979,12 @@ async function loadSettings() {
     document.getElementById('featureAiImageSearch').checked = f.aiImageSearchEnabled !== false;
     document.getElementById('featurePingResponses').checked = f.pingResponsesEnabled !== false;
     document.getElementById('featurePingSave').checked = f.pingRequestSaveEnabled !== false;
-    document.getElementById('featureShots').checked = f.shotsEnabled !== false;
     const gf = s.features || {};
     document.getElementById('guildFeatureAiConversations').checked = gf.aiConversationsEnabled !== false;
     document.getElementById('guildFeatureAiAttachments').checked = gf.aiAttachmentsEnabled !== false;
     document.getElementById('guildFeatureAiImageSearch').checked = gf.aiImageSearchEnabled !== false;
     document.getElementById('guildFeaturePingResponses').checked = gf.pingResponsesEnabled !== false;
     document.getElementById('guildFeaturePingSave').checked = gf.pingRequestSaveEnabled !== false;
-    document.getElementById('guildFeatureShots').checked = gf.shotsEnabled !== false;
     syncGlobalFeatureState();
 }
 
@@ -3958,7 +4026,6 @@ function applyDeveloperSettings(configData) {
     document.getElementById('featureAiImageSearch').checked = f.aiImageSearchEnabled !== false;
     document.getElementById('featurePingResponses').checked = f.pingResponsesEnabled !== false;
     document.getElementById('featurePingSave').checked = f.pingRequestSaveEnabled !== false;
-    document.getElementById('featureShots').checked = f.shotsEnabled !== false;
     const disabledModules = new Set(Array.isArray(f.disabledModules) ? f.disabledModules : []);
     document.getElementById('globalModuleSwitches').innerHTML = Object.entries(managementModuleDefinitions).map(([key, definition]) => `<div class="checkbox-row"><input id="global-module-${escapeHtml(key)}" data-global-module="${escapeHtml(key)}" type="checkbox" ${disabledModules.has(key) ? 'checked' : ''}><label for="global-module-${escapeHtml(key)}">Disable ${escapeHtml(definition.title)}</label></div>`).join('');
     const configuredTabOrder = Array.isArray(configData.panel?.tabOrder) && configData.panel.tabOrder.length
@@ -3992,15 +4059,14 @@ function syncGlobalFeatureState() {
         aiAttachmentsEnabled: document.getElementById('featureAiAttachments').checked,
         aiImageSearchEnabled: document.getElementById('featureAiImageSearch').checked,
         pingResponsesEnabled: document.getElementById('featurePingResponses').checked,
-        pingRequestSaveEnabled: document.getElementById('featurePingSave').checked,
-        shotsEnabled: document.getElementById('featureShots').checked
+        pingRequestSaveEnabled: document.getElementById('featurePingSave').checked
     };
     applyGlobalFeatureNavigation();
     const pairs = [
         ['featureTriggers', 'setTriggersEnabled'],
         ['featureAiConversations', 'guildFeatureAiConversations'], ['featureAiAttachments', 'guildFeatureAiAttachments'],
         ['featureAiImageSearch', 'guildFeatureAiImageSearch'], ['featurePingResponses', 'guildFeaturePingResponses'],
-        ['featurePingSave', 'guildFeaturePingSave'], ['featureShots', 'guildFeatureShots']
+        ['featurePingSave', 'guildFeaturePingSave']
     ];
     for (const [globalId, guildId] of pairs) {
         const globalInput = document.getElementById(globalId);
@@ -4021,7 +4087,7 @@ function syncGlobalFeatureState() {
     }
 }
 
-['featureTriggers', 'featureAiConversations', 'featureAiAttachments', 'featureAiImageSearch', 'featurePingResponses', 'featurePingSave', 'featureShots'].forEach(id => document.getElementById(id).addEventListener('change', syncGlobalFeatureState));
+['featureTriggers', 'featureAiConversations', 'featureAiAttachments', 'featureAiImageSearch', 'featurePingResponses', 'featurePingSave'].forEach(id => document.getElementById(id).addEventListener('change', syncGlobalFeatureState));
 
 document.getElementById('addTabDivider').addEventListener('click', () => { editableTabOrder.push('---'); renderTabOrderEditor(); });
 document.getElementById('addTabTitle').addEventListener('click', () => {
@@ -4090,8 +4156,7 @@ async function saveSettings() {
             aiAttachmentsEnabled: document.getElementById('guildFeatureAiAttachments').checked,
             aiImageSearchEnabled: document.getElementById('guildFeatureAiImageSearch').checked,
             pingResponsesEnabled: document.getElementById('guildFeaturePingResponses').checked,
-            pingRequestSaveEnabled: document.getElementById('guildFeaturePingSave').checked,
-            shotsEnabled: document.getElementById('guildFeatureShots').checked
+            pingRequestSaveEnabled: document.getElementById('guildFeaturePingSave').checked
         }
     };
 
@@ -4104,7 +4169,7 @@ async function saveSettings() {
     setStatus(statusField, 'Saved.', 'ok');
 }
 
-const instantSettingIds = ['setBotEnabled', 'setTriggersEnabled', 'setCooldownEnabled', 'setExactMatch', 'guildFeatureAiConversations', 'guildFeatureAiAttachments', 'guildFeatureAiImageSearch', 'guildFeaturePingResponses', 'guildFeaturePingSave', 'guildFeatureShots'];
+const instantSettingIds = ['setBotEnabled', 'setTriggersEnabled', 'setCooldownEnabled', 'setExactMatch', 'guildFeatureAiConversations', 'guildFeatureAiAttachments', 'guildFeatureAiImageSearch', 'guildFeaturePingResponses', 'guildFeaturePingSave'];
 instantSettingIds.forEach(id => document.getElementById(id).addEventListener('change', () => saveSettings().catch(error => setStatus(document.getElementById('settingsStatus'), error.message, 'error'))));
 ['setCooldownSeconds', 'setMaxTriggerLength'].forEach(id => document.getElementById(id).addEventListener('keydown', event => {
     if (event.key !== 'Enter') return;
@@ -4124,8 +4189,7 @@ document.getElementById('saveGlobalFeatures').addEventListener('click', async ()
                     aiAttachmentsEnabled: document.getElementById('featureAiAttachments').checked,
                     aiImageSearchEnabled: document.getElementById('featureAiImageSearch').checked,
                     pingResponsesEnabled: document.getElementById('featurePingResponses').checked,
-                    pingRequestSaveEnabled: document.getElementById('featurePingSave').checked,
-                    shotsEnabled: document.getElementById('featureShots').checked
+                    pingRequestSaveEnabled: document.getElementById('featurePingSave').checked
                 }, analytics: { retentionDays: Math.max(1, Math.min(3650, Number(document.getElementById('analyticsRetentionDays').value) || 365)) }
             })
         });

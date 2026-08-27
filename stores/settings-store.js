@@ -161,7 +161,7 @@ const defaultSettings = {
     }
 };
 
-const featureKeys = ['triggersEnabled', 'aiConversationsEnabled', 'aiAttachmentsEnabled', 'aiImageSearchEnabled', 'pingResponsesEnabled', 'pingRequestSaveEnabled', 'shotsEnabled'];
+const featureKeys = ['triggersEnabled', 'aiConversationsEnabled', 'aiAttachmentsEnabled', 'aiImageSearchEnabled', 'pingResponsesEnabled', 'pingRequestSaveEnabled'];
 
 function boundedInteger(value, minimum, maximum, fallback) {
     if (!Number.isFinite(value)) return fallback;

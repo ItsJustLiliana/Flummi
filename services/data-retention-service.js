@@ -395,12 +395,6 @@ function pruneDataRetention({ root = defaultRoot, now = Date.now(), retentionDay
         result.removedRecords += pruneCommunity(path.join(guildRoot, 'community-management.json'), policies.operations, now);
         result.removedRecords += pruneArrayFile(path.join(guildRoot, 'pingRequests.json'), row => !isExpired(row, policies.pingRequests, now));
         result.removedRecords += pruneArrayFile(path.join(guildRoot, 'shotAudit.json'), row => !isExpired(row, policies.analytics, now));
-        const shotsPath = path.join(guildRoot, 'shots.json');
-        if (fs.existsSync(shotsPath)) {
-            const shots = readJson(shotsPath, {});
-            for (const userId of Object.keys(shots)) if (isExpired(shots[userId], policies.profiles, now, ['lastUpdatedAt'])) { delete shots[userId]; result.removedRecords++; }
-            writeJson(shotsPath, shots);
-        }
         const rolesPath = path.join(guildRoot, 'management', 'persistent-roles.json');
         if (fs.existsSync(rolesPath)) {
             const roles = readJson(rolesPath, {});

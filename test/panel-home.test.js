@@ -239,7 +239,7 @@ test('dashboard and developer searches recommend matching boxes and fade unrelat
 
 test('global feature switches control tabs and explain effective overview statuses', () => {
     assert.match(panelServer, /globalFeatures: config\.features \|\| \{\}/);
-    assert.match(panelHtml, /const globalFeatureTabs = \{[\s\S]*?triggers: 'triggersEnabled'[\s\S]*?shots: 'shotsEnabled'[\s\S]*?pings: 'pingRequestSaveEnabled'/);
+    assert.match(panelHtml, /const globalFeatureTabs = \{[\s\S]*?triggers: 'triggersEnabled'[\s\S]*?pings: 'pingRequestSaveEnabled'/);
     assert.match(panelHtml, /const hide = globallyDisabled && !developerView/);
     assert.match(panelHtml, /button\.dataset\.globalDisabled = String\(globallyDisabled && developerView\)/);
     assert.match(panelHtml, /\.tab-btn\[data-global-disabled="true"\]::after/);
@@ -323,6 +323,15 @@ test('management configuration remains admin-only and saves through guild settin
     assert.match(panelHtml, /body: JSON\.stringify\(\{ management: state\.management \}\)/);
     assert.match(panelServer, /requireSettingsAccess\(panelSession, guildId, res\)/);
     assert.match(panelServer, /'management\.modules\.moderation': 'Moderation module'/);
+});
+
+test('Discord resources are selectable instead of requiring copied IDs', () => {
+    for (const id of ['managementAutoroleId', 'managementTicketSupportRole', 'managementSecurityRole', 'managementChannelsVoiceCategory', 'managementActionTarget']) {
+        assert.match(panelMarkup, new RegExp(`<select\\s+id="${id}"`));
+    }
+    assert.match(panelServer, /sendJson\(res, 200, \{ channels, roles, members, bans \}\)/);
+    assert.match(panelScript, /function setManagementResourceOptions/);
+    assert.doesNotMatch(panelMarkup, /label for="managementAutoroleId">Autorole ID/);
 });
 
 test('management modules include live actions, case timelines, AutoMod rules, role menus, and automation rules', () => {

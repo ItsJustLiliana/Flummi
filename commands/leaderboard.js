@@ -2,7 +2,6 @@ const { SlashCommandBuilder } = require('discord.js');
 const { createCommandEmbed } = require('../utils/command-ui');
 const { getServerStatsSummary } = require('../stores/server-stats-store');
 const { getVoiceStatsSummary } = require('../stores/voice-store');
-const { getGlobalShotLeaderboard, getShotLeaderboard } = require('../stores/shot-store');
 const { getMediaUsageSummary, getSoundboardSummary } = require('../stores/analytics-store');
 
 function formatDuration(ms) {
@@ -12,19 +11,13 @@ function formatDuration(ms) {
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
-function buildLeaderboard({ guildId, category, limit, scope = 'guild', mediaType = 'soundboard', days = 30 }) {
+function buildLeaderboard({ guildId, category, limit, mediaType = 'soundboard', days = 30 }) {
     const safeLimit = Math.max(1, Math.min(25, Number(limit) || 10));
 
     if (category === 'voice') {
         const rows = getVoiceStatsSummary(guildId, safeLimit);
         return { title: 'Voice Time Leaderboard', empty: 'No voice activity tracked yet.', rows: rows.map((row, index) =>
             `**${index + 1}.** <@${row.id}> — ${formatDuration(row.totalMs)}${row.inVoice ? ' · in VC now' : ''}`) };
-    }
-
-    if (category === 'shots') {
-        const rows = scope === 'global' ? getGlobalShotLeaderboard(safeLimit) : getShotLeaderboard(guildId, safeLimit);
-        return { title: scope === 'global' ? 'Global Shot Leaderboard' : 'Shot Leaderboard', empty: 'No shot totals recorded yet.', rows: rows.map((row, index) =>
-            `**${index + 1}.** <@${row.userId}> — ${row.total} shot${row.total === 1 ? '' : 's'}${scope === 'global' ? ` · ${row.guildCount} server${row.guildCount === 1 ? '' : 's'}` : ''}`) };
     }
 
     if (category === 'media') {
@@ -57,10 +50,6 @@ module.exports = {
         .setDescription('Show server leaderboards')
         .addSubcommand(subcommand => subcommand.setName('messages').setDescription('Rank members by messages').addIntegerOption(limitOption))
         .addSubcommand(subcommand => subcommand.setName('voice').setDescription('Rank members by voice time').addIntegerOption(limitOption))
-        .addSubcommand(subcommand => subcommand.setName('shots').setDescription('Rank members by shot totals')
-            .addStringOption(option => option.setName('scope').setDescription('Server or global totals').setRequired(false)
-                .addChoices({ name: 'Server', value: 'guild' }, { name: 'Global', value: 'global' }))
-            .addIntegerOption(limitOption))
         .addSubcommand(subcommand => subcommand.setName('media').setDescription('Rank soundboard, emoji, or sticker usage')
             .addStringOption(option => option.setName('type').setDescription('Media type').setRequired(true)
                 .addChoices({ name: 'Soundboard', value: 'soundboard' }, { name: 'Custom emojis', value: 'emojis' }, { name: 'Stickers', value: 'stickers' }))
@@ -73,7 +62,6 @@ module.exports = {
             guildId: interaction.guildId,
             category: interaction.options.getSubcommand(),
             limit,
-            scope: interaction.options.getString('scope') || 'guild',
             mediaType: interaction.options.getString('type') || 'soundboard',
             days: interaction.options.getInteger('days') || 30
         });

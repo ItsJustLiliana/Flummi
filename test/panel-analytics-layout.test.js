@@ -62,7 +62,7 @@ test('voice and message graph controls are centralized at the top of their tabs'
 
 test('Stats & Analytics is a lightweight cross-feature summary', () => {
     const summary = tabMarkup('analytics');
-    for (const id of ['analyticsSummaryMessages', 'analyticsSummaryVoice', 'analyticsSummaryMedia', 'analyticsSummaryShots', 'moderationCards']) {
+    for (const id of ['analyticsSummaryMessages', 'analyticsSummaryVoice', 'analyticsSummaryMedia', 'moderationCards']) {
         assert.match(summary, new RegExp(`id="${id}"`));
     }
     assert.match(summary, /data-admin-only/);
@@ -92,7 +92,7 @@ test('moderation analytics are withheld from member API responses', () => {
 });
 
 test('every panel tab starts with a consistent description', () => {
-    for (const id of ['overview', 'analytics', 'messenger', 'triggers', 'shots', 'voice', 'stats', 'users', 'settings', 'pings', 'profiles', 'ai', 'global', 'files', 'logs', 'reliability', 'soundboard', 'audit', 'experiments']) {
+    for (const id of ['overview', 'analytics', 'messenger', 'triggers', 'voice', 'stats', 'users', 'settings', 'pings', 'profiles', 'ai', 'global', 'files', 'logs', 'reliability', 'soundboard', 'audit', 'experiments']) {
         assert.match(tabMarkup(id), /<h2 style="font-size:20px;">[\s\S]*?<\/h2>\s*<p class="sub tab-intro">/, `${id} should have a top-level description`);
     }
 });

@@ -1,7 +1,6 @@
 const { MessageFlags, SlashCommandBuilder } = require('discord.js');
 const { createCommandEmbed } = require('../utils/command-ui');
 const { getUserRole } = require('../stores/access-store');
-const { getShots } = require('../stores/shot-store');
 const { getUserMessageStats } = require('../stores/server-stats-store');
 const { getUserVoiceStats } = require('../stores/voice-store');
 const {
@@ -73,7 +72,7 @@ function buildFlatBannerUrl(url) {
     }
 }
 
-function getAutomaticBadges({ targetUser, roleKey, messageStats, shots, profile }) {
+function getAutomaticBadges({ targetUser, roleKey, messageStats, profile }) {
     const badges = [];
 
     if (targetUser.bot) badges.push('Bot Account');
@@ -81,8 +80,6 @@ function getAutomaticBadges({ targetUser, roleKey, messageStats, shots, profile 
     if (roleKey === 'admin') badges.push('Admin');
     if (messageStats.count >= 1000) badges.push('Server Regular');
     if (messageStats.count >= 100) badges.push('Active Chatter');
-    if (shots >= 100) badges.push('Shot Legend');
-    if (shots >= 25) badges.push('Shot Collector');
     if (profile.bio) badges.push('Bio Writer');
     if (Object.keys(profile.socials || {}).length >= 2) badges.push('Social');
 
@@ -95,9 +92,8 @@ async function buildProfileEmbed(interaction, targetUser) {
     const profile = getProfile(targetUser.id, guildId);
     const roleKey = getUserRole(targetUser.id, guildId, member?.permissions);
     const messageStats = getUserMessageStats(guildId, targetUser.id);
-    const shots = getShots(targetUser.id, guildId);
     const voiceStats = getUserVoiceStats(guildId, targetUser.id);
-    const badges = getAutomaticBadges({ targetUser, roleKey, messageStats, shots, profile });
+    const badges = getAutomaticBadges({ targetUser, roleKey, messageStats, profile });
     const displayName = profile.nickname || member?.displayName || targetUser.username;
     const languages = formatLanguages(profile.languages);
     const aboutRows = [
@@ -134,7 +130,6 @@ async function buildProfileEmbed(interaction, targetUser) {
                 `**Messages:** ${messageStats.count}`,
                 `**Voice time:** ${formatDuration(voiceStats.totalMs)}`,
                 `**Server share:** ${formatPercent(messageStats.percentage)}`,
-                `**Shots:** ${shots}`,
                 `**Role:** ${roleKey}`
             ].join('\n'),
             inline: true

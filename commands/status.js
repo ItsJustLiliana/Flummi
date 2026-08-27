@@ -75,8 +75,7 @@ module.exports = {
             formatFeature('Normal triggers', triggerChecks),
             formatFeature('AI conversations', [...base, globalFeatureCheck(config, 'aiConversationsEnabled'), guildFeatureCheck(settings, 'aiConversationsEnabled'), userAccessCheck(permissions.useAiChat)]),
             formatFeature('@bot responses', [...base, globalFeatureCheck(config, 'aiConversationsEnabled'), globalFeatureCheck(config, 'pingResponsesEnabled'), guildFeatureCheck(settings, 'aiConversationsEnabled'), guildFeatureCheck(settings, 'pingResponsesEnabled'), userAccessCheck(permissions.useAiChat), userAccessCheck(permissions.useBotMentions)]),
-            formatFeature('Ping request saving', [...base, globalFeatureCheck(config, 'pingRequestSaveEnabled'), guildFeatureCheck(settings, 'pingRequestSaveEnabled'), userAccessCheck(permissions.savePingRequests)]),
-            formatFeature('Shots', [...base, globalFeatureCheck(config, 'shotsEnabled'), guildFeatureCheck(settings, 'shotsEnabled')])
+            formatFeature('Ping request saving', [...base, globalFeatureCheck(config, 'pingRequestSaveEnabled'), guildFeatureCheck(settings, 'pingRequestSaveEnabled'), userAccessCheck(permissions.savePingRequests)])
         ];
 
         const embed = createCommandEmbed(interaction, {

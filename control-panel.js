@@ -24,7 +24,6 @@ config.commandPermissions = Object.fromEntries(Object.entries(config.commandPerm
 delete config.commandPermissions['manage.role'];
 accessStore.setCommandPermissions(config.commandPermissions);
 const triggerStore = require('./stores/trigger-store');
-const shotStore = require('./stores/shot-store');
 const voiceStore = require('./stores/voice-store');
 const serverStatsStore = require('./stores/server-stats-store');
 const analyticsStore = require('./stores/analytics-store');
@@ -111,7 +110,6 @@ const settingAuditLabels = {
     'features.aiImageSearchEnabled': 'AI image search',
     'features.pingResponsesEnabled': 'Ping responses',
     'features.pingRequestSaveEnabled': 'Save ping requests',
-    'features.shotsEnabled': 'Shots',
     'management.modules.moderation': 'Moderation module',
     'management.modules.automod': 'AutoMod & Safety module',
     'management.modules.cases': 'Cases & Logs module',
@@ -1078,7 +1076,6 @@ async function buildGuildInfo(guildId) {
 async function buildOverview(guildId) {
     const settings = settingsStore.readSettings(guildId);
     const triggers = triggerStore.getTriggers(guildId);
-    const shotLeaderboard = shotStore.getShotLeaderboard(guildId, 3);
     const voiceSummary = voiceStore.getVoiceStatsSummary(guildId, 5);
     const voiceStats = voiceStore.readVoiceStats(guildId);
     const topVoiceChannels = voiceStore.getVoiceAnalytics(guildId).topChannels.slice(0, 5);
@@ -1094,7 +1091,6 @@ async function buildOverview(guildId) {
     const missingPermissions = await getMissingBotPermissions(guildId);
     const guildInfo = await buildGuildInfo(guildId).catch(() => null);
     const labels = await resolveUserLabels([
-        ...shotLeaderboard.map(row => row.userId),
         ...voiceSummary.map(row => row.id),
         ...developerIds
     ], guildId);
@@ -1105,11 +1101,6 @@ async function buildOverview(guildId) {
         guildInfo,
         triggerCount: triggers.length,
         triggerLimit: triggerStore.getTriggerLimit(guildId),
-        shotLeaderboard: shotLeaderboard.map(row => ({
-            ...row,
-            label: labels[row.userId]?.tag || row.userId,
-            nickname: labels[row.userId]?.nickname || null
-        })),
         activeVoiceCount,
         totalVoiceFormatted: formatDuration(totalVoiceMs),
         totalMessages: statsSummary.totalMessages,
@@ -1212,6 +1203,34 @@ async function listManagementChannels(guildId) {
         .filter(channel => channel.type === ChannelType.GuildCategory || (isSendableGuildTextChannel(channel) && channel.permissionsFor(me)?.has('SendMessages')))
         .map(channel => ({ id: channel.id, name: channel.name, kind: channel.type === ChannelType.GuildCategory ? 'category' : 'text' }))
         .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function listManagementRoles(guildId) {
+    const guild = await client.guilds.fetch(guildId);
+    if (!guild) return [];
+    if (guild.roles?.fetch) await guild.roles.fetch();
+    return Array.from(guild.roles?.cache?.values?.() || [])
+        .filter(role => role.id !== guild.id)
+        .map(role => ({
+            id: role.id,
+            name: role.name,
+            color: role.hexColor,
+            managed: role.managed === true,
+            editable: role.editable === true,
+            position: role.position
+        }))
+        .sort((a, b) => b.position - a.position || a.name.localeCompare(b.name));
+}
+
+async function listManagementBans(guildId) {
+    const guild = await client.guilds.fetch(guildId);
+    const bans = guild.bans?.fetch ? await guild.bans.fetch().catch(() => new Map()) : new Map();
+    return Array.from(bans.values()).map(ban => ({
+        id: ban.user.id,
+        tag: ban.user.tag,
+        displayName: ban.user.globalName || ban.user.username,
+        banned: true
+    })).sort((a, b) => a.tag.localeCompare(b.tag));
 }
 
 function readBody(req, maxBytes = 20000) {
@@ -1971,38 +1990,6 @@ function createServer() {
                 return;
             }
 
-            if (req.method === 'GET' && requestUrl.pathname === '/api/shots') {
-                const guildId = requireGuildId(requestUrl, res);
-                if (!guildId) return;
-
-                const scope = requestUrl.searchParams.get('scope') === 'global' ? 'global' : 'guild';
-                const leaderboard = scope === 'global'
-                    ? shotStore.getGlobalShotLeaderboard(25)
-                    : shotStore.getShotLeaderboard(guildId, 25);
-                const audit = shotStore.readShotAuditLog(guildId).slice(0, 25);
-                const labels = await resolveUserLabels([
-                    ...leaderboard.map(row => row.userId),
-                    ...audit.flatMap(entry => [entry.byUserId, entry.targetUserId])
-                ], guildId);
-
-                sendJson(res, 200, {
-                    scope,
-                    leaderboard: leaderboard.map(row => ({
-                        ...row,
-                        label: labels[row.userId]?.tag || row.userId,
-                        nickname: labels[row.userId]?.nickname || null
-                    })),
-                    audit: audit.map(entry => ({
-                        ...entry,
-                        byLabel: labels[entry.byUserId]?.tag || entry.byUserId || 'Unknown',
-                        byNickname: labels[entry.byUserId]?.nickname || null,
-                        targetLabel: labels[entry.targetUserId]?.tag || entry.targetUserId || 'Unknown',
-                        targetNickname: labels[entry.targetUserId]?.nickname || null
-                    }))
-                });
-                return;
-            }
-
             if (req.method === 'GET' && requestUrl.pathname === '/api/voice') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
@@ -2125,7 +2112,13 @@ function createServer() {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
                 if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Management channels are only available to server administrators.')) return;
-                sendJson(res, 200, { channels: await listManagementChannels(guildId) });
+                const [channels, roles, members, bans] = await Promise.all([
+                    listManagementChannels(guildId),
+                    listManagementRoles(guildId),
+                    membersIntentEnabled ? listGuildMembers(guildId).catch(() => []) : Promise.resolve([]),
+                    listManagementBans(guildId)
+                ]);
+                sendJson(res, 200, { channels, roles, members, bans });
                 return;
             }
 
@@ -2241,7 +2234,6 @@ function createServer() {
                 );
                 const sounds = analyticsStore.getSoundboardSummary(guildId, periodDays);
                 const media = analyticsStore.getMediaUsageSummary(guildId, periodDays);
-                const shotLeaderboard = shotStore.getShotLeaderboard(guildId, 10000);
 
                 sendJson(res, 200, {
                     periodDays,
@@ -2264,11 +2256,6 @@ function createServer() {
                         soundPlays: sounds.plays,
                         emojiUses: media.emojiUses,
                         stickerUses: media.stickerUses
-                    },
-                    shots: {
-                        total: shotLeaderboard.reduce((total, row) => total + row.total, 0),
-                        members: shotLeaderboard.length,
-                        highest: shotLeaderboard[0]?.total || 0
                     },
                     events: canViewModeration ? messages.moderation : null
                 });
@@ -2797,7 +2784,7 @@ function createServer() {
                         bannerUrl: discordUser?.bannerURL({ size: 1024, extension: 'png' }) || null
                     },
                     profile: profileStore.getProfile(userId),
-                    statistics: { messages: messageStats, voiceMs: voice?.totalMs || 0, shots: guildId ? shotStore.getShots(userId, guildId).total : 0, role: guildId ? await getCurrentMemberRole(userId, guildId) : 'member' },
+                    statistics: { messages: messageStats, voiceMs: voice?.totalMs || 0, role: guildId ? await getCurrentMemberRole(userId, guildId) : 'member' },
                     aiMemory: {
                         summary: memory.summary || '',
                         profile: '',
@@ -2963,12 +2950,11 @@ function createServer() {
 
             if (req.method === 'POST' && requestUrl.pathname === '/api/data-tools/reset') {
                 const parsed = JSON.parse(await readBody(req) || '{}'); const guildId = requestUrl.searchParams.get('guildId');
-                if (!guildId || !parsed.userId || !['memory', 'profile', 'voice', 'shots', 'permissions'].includes(parsed.store) || parsed.confirmation !== 'RESET') { sendJson(res, 400, { error: 'guildId, userId, valid store, and confirmation RESET are required.' }); return; }
+                if (!guildId || !parsed.userId || !['memory', 'profile', 'voice', 'permissions'].includes(parsed.store) || parsed.confirmation !== 'RESET') { sendJson(res, 400, { error: 'guildId, userId, valid store, and confirmation RESET are required.' }); return; }
                 const userId = String(parsed.userId);
                 if (parsed.store === 'memory') userConversationStore.clearUserHistory(userId);
                 if (parsed.store === 'profile') profileStore.updateProfile(userId, guildId, { nickname: null, bio: null, pronouns: null, birthday: null, timezone: null, languages: [], website: null, bannerUrl: null, socials: {} });
                 if (parsed.store === 'voice') { const stats = voiceStore.readVoiceStats(guildId); delete stats.users[userId]; delete stats.activeSessions[userId]; voiceStore.saveVoiceStats(stats, guildId); }
-                if (parsed.store === 'shots') shotStore.setShots(userId, 0, guildId, 'panel', { action: 'reset' });
                 if (parsed.store === 'permissions') accessStore.resetUserPermissions(userId, guildId);
                 auditPanelAction(panelSession, 'data-reset', `Reset ${parsed.store} for ${userId}`, { guildId, userId }); sendJson(res, 200, { ok: true }); return;
             }

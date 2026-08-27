@@ -91,7 +91,7 @@ module.exports = {
                 .addStringOption(option =>
                     option
                         .setName('path')
-                        .setDescription('Command to override, for example trigger.add, shots.gamble, serverstats')
+                        .setDescription('Command to override, for example trigger.add, ticket.claim, serverstats')
                         .setRequired(true)
                 )
                 .addStringOption(option =>
@@ -157,7 +157,7 @@ module.exports = {
 
             if (subcommand === 'command' && !commandPath) {
                 return interaction.reply({
-                    content: 'Provide a valid command path, for example trigger.add or shots.gamble.',
+                    content: 'Provide a valid command path, for example trigger.add or ticket.claim.',
                     flags: MessageFlags.Ephemeral
                 });
             }

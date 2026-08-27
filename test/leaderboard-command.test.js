@@ -4,7 +4,7 @@ const { buildLeaderboard } = require('../commands/leaderboard');
 
 test('leaderboard command groups every ranking under one command', () => {
     const command = require('../commands/leaderboard').data.toJSON();
-    assert.deepEqual(command.options.map(option => option.name), ['messages', 'voice', 'shots', 'media']);
+    assert.deepEqual(command.options.map(option => option.name), ['messages', 'voice', 'media']);
 });
 
 test('leaderboard builder supplies an empty state for either category', () => {
@@ -17,9 +17,7 @@ test('leaderboard builder supplies an empty state for either category', () => {
     assert.equal(voice.empty, 'No voice activity tracked yet.');
 });
 
-test('shot and media rankings no longer live under feature commands', () => {
-    const shots = require('../commands/shots').data.toJSON();
-    assert.ok(!shots.options.some(option => option.name === 'leaderboard'));
+test('media rankings live under the leaderboard command', () => {
     const media = require('../commands/leaderboard').data.toJSON().options.find(option => option.name === 'media');
     assert.ok(media);
     assert.deepEqual(media.options.find(option => option.name === 'type').choices.map(choice => choice.value), ['soundboard', 'emojis', 'stickers']);

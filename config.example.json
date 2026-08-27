@@ -9,11 +9,10 @@
         "openBrowserOnStart": false,
         "publicAccessEnabled": true,
         "publicUrl": "https://flummi.liliananuzohra.com",
-        "tabOrder": ["overview", "analytics", "---", "users", "management", "settings", "---", "triggers", "pings", "shots", "messenger", "---", "profiles", "ai", "logs", "reliability", "adoption"]
+        "tabOrder": ["overview", "analytics", "---", "users", "management", "settings", "---", "triggers", "pings", "messenger", "---", "profiles", "ai", "logs", "reliability", "adoption"]
     },
     "features": {
         "triggersEnabled": true,
-        "shotsEnabled": true,
         "pingResponsesEnabled": true,
         "pingRequestSaveEnabled": true,
         "aiConversationsEnabled": true,
@@ -78,7 +77,6 @@
         "leaderboard": "member",
         "leaderboard.messages": "member",
         "leaderboard.voice": "member",
-        "leaderboard.shots": "member",
         "leaderboard.media": "member",
         "warn": "admin",
         "timeout": "admin",
@@ -109,8 +107,6 @@
         "form": "member",
         "channel": "admin",
         "integration": "admin",
-        "shots": "member",
-        "shots.audit": "developer",
         "trigger": "member",
         "trigger.add": "admin",
         "trigger.edit": "admin",

@@ -754,6 +754,75 @@ const managementModuleDefinitions = {
     copilot: { tab: 'management-copilot', title: 'Flummi Copilot', description: 'Staff summaries, translations, and recommendations that always remain human-approved.' },
     engagement: { tab: 'management-engagement', title: 'Engagement & Utilities', description: 'Giveaways, levels, feeds, reminders, embeds, polls, AFK, and temporary or voice-linked roles.' }
 };
+const managementModuleCategories = {
+    moderation: 'Safety', automod: 'Safety', cases: 'Safety', joinSecurity: 'Safety', incidentCenter: 'Safety', serverDoctor: 'Safety',
+    roles: 'Members', tickets: 'Members', suggestions: 'Members', forms: 'Members', reports: 'Members', communityHealth: 'Members',
+    automation: 'Automation', workflows: 'Automation', integrations: 'Automation', channels: 'Automation', backups: 'Automation',
+    starboard: 'Community', engagement: 'Community', staffOperations: 'Staff', copilot: 'Staff'
+};
+
+function installManagementModuleExperience() {
+    for (const [key, definition] of Object.entries(managementModuleDefinitions)) {
+        const panel = document.getElementById(`tab-${definition.tab}`);
+        if (!panel || panel.querySelector('[data-module-guide-toggle]')) continue;
+        const intro = panel.querySelector(':scope > .tab-intro');
+        const sections = [...panel.querySelectorAll(':scope > .section:not(.module-page-switch)')];
+        const sectionDetails = sections.map((section, index) => {
+            const heading = section.querySelector(':scope > h2, :scope > .section-title-row h2');
+            if (!heading) return null;
+            const id = `${definition.tab}-section-${index + 1}`;
+            section.id ||= id;
+            section.classList.add('module-content-section');
+            if (section.querySelector('input, select, textarea, button:not([disabled])') && !sections.slice(0, index).some(item => item.querySelector('input, select, textarea, button:not([disabled])'))) {
+                section.classList.add('module-primary-section');
+            }
+            const description = section.querySelector('.sub')?.textContent.trim() || '';
+            return { id: section.id, title: heading.textContent.trim(), description };
+        }).filter(Boolean);
+        const guideId = `${definition.tab}-guide`;
+        const toolbar = document.createElement('div');
+        toolbar.className = 'module-page-toolbar';
+        toolbar.innerHTML = `<span class="module-runtime-state" data-module-runtime-state="${escapeHtml(key)}"></span><button class="secondary module-guide-button" type="button" data-module-guide-toggle="${escapeHtml(key)}" aria-expanded="false" aria-controls="${escapeHtml(guideId)}">ⓘ ${escapeHtml(uiText('How this module works'))}</button>`;
+        intro?.after(toolbar);
+
+        const guide = document.createElement('section');
+        guide.id = guideId;
+        guide.className = 'module-guide';
+        guide.hidden = true;
+        guide.innerHTML = `<div class="module-guide-heading"><div><span class="module-guide-eyebrow">${escapeHtml(uiText('Module guide'))}</span><h2>${escapeHtml(definition.title)}: ${escapeHtml(uiText('Detailed explanation'))}</h2></div><button class="module-guide-close" type="button" data-module-guide-close="${escapeHtml(key)}" aria-label="${escapeHtml(uiText('Close module guide'))}">×</button></div>
+            <p class="module-guide-summary">${escapeHtml(definition.description)}</p>
+            <div class="module-guide-grid">
+                <div><h3>${escapeHtml(uiText('Recommended setup'))}</h3><ol><li>${escapeHtml(uiText('Turn the module on so its saved configuration can run.'))}</li><li>${escapeHtml(uiText('Work through the setup sections from top to bottom.'))}</li><li>${escapeHtml(uiText('Save each section before testing the result in Discord.'))}</li></ol></div>
+                <div><h3>${escapeHtml(uiText('What to expect'))}</h3><ul><li>${escapeHtml(uiText('Settings apply only to the selected server.'))}</li><li>${escapeHtml(uiText('Turning the module off pauses it without deleting its settings.'))}</li><li>${escapeHtml(uiText('Discord permissions and role hierarchy can still limit actions.'))}</li></ul></div>
+            </div>
+            ${sectionDetails.length ? `<div class="module-guide-sections"><h3>${escapeHtml(uiText('On this page'))}</h3><div>${sectionDetails.map(section => `<button type="button" class="module-guide-link" data-module-section-target="${escapeHtml(section.id)}"><strong>${escapeHtml(section.title)}</strong>${section.description ? `<span>${escapeHtml(section.description)}</span>` : ''}</button>`).join('')}</div></div>` : ''}`;
+        toolbar.after(guide);
+    }
+
+    document.addEventListener('click', event => {
+        const toggle = event.target.closest('[data-module-guide-toggle]');
+        const close = event.target.closest('[data-module-guide-close]');
+        const sectionLink = event.target.closest('[data-module-section-target]');
+        if (toggle || close) {
+            const key = (toggle || close).dataset.moduleGuideToggle || (toggle || close).dataset.moduleGuideClose;
+            const definition = managementModuleDefinitions[key];
+            const guide = document.getElementById(`${definition.tab}-guide`);
+            const trigger = document.querySelector(`[data-module-guide-toggle="${key}"]`);
+            const open = toggle ? guide.hidden : false;
+            guide.hidden = !open;
+            trigger.setAttribute('aria-expanded', String(open));
+            if (open) guide.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        if (sectionLink) {
+            const target = document.getElementById(sectionLink.dataset.moduleSectionTarget);
+            target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            target?.classList.add('module-section-highlight');
+            window.setTimeout(() => target?.classList.remove('module-section-highlight'), 1400);
+        }
+    });
+}
+
+installManagementModuleExperience();
 const automodRuleDefinitions = {
     badWords: { title: 'Bad words', description: 'Block configured words and phrases.', limit: 'Matches allowed', fixedLimit: true },
     serverInvites: { title: 'Discord invites', description: 'Stop unauthorized server invitation links.', limit: 'Invites per message' },
@@ -3384,9 +3453,10 @@ function renderManagementCards() {
     const renderCard = ([key, definition]) => {
         const enabled = modules[key] === true;
         return `<article class="management-module-card" data-enabled="${enabled}" data-management-card="${escapeHtml(key)}">
+            <div class="management-module-meta"><span>${escapeHtml(uiText(managementModuleCategories[key] || 'Module'))}</span><span class="module-card-state">${escapeHtml(uiText(enabled ? 'Running' : 'Paused'))}</span></div>
             <div class="management-module-heading"><h3>${escapeHtml(definition.title)}</h3><button class="module-toggle" type="button" data-toggle-management="${escapeHtml(key)}" aria-pressed="${enabled}">${enabled ? 'On' : 'Off'}</button></div>
             <p class="sub">${escapeHtml(definition.description)}</p>
-            <div class="actions"><button class="secondary" type="button" data-open-management="${escapeHtml(key)}">Open settings</button></div>
+            <div class="actions"><button class="secondary module-open-button" type="button" data-open-management="${escapeHtml(key)}">${escapeHtml(uiText('Open settings'))} <span aria-hidden="true">→</span></button></div>
         </article>`;
     };
 
@@ -3419,8 +3489,15 @@ function renderManagementCards() {
         toggle.setAttribute('aria-pressed', String(enabled));
         toggle.textContent = enabled ? 'On' : 'Off';
     }
+    for (const stateLabel of document.querySelectorAll('[data-module-runtime-state]')) {
+        const enabled = modules[stateLabel.dataset.moduleRuntimeState] === true;
+        stateLabel.dataset.enabled = String(enabled);
+        stateLabel.innerHTML = `<span aria-hidden="true"></span>${escapeHtml(uiText(enabled ? 'Enabled and running' : 'Paused — saved settings are kept'))}`;
+    }
     filterManagementModules();
 }
+
+let managementModuleFilter = 'all';
 
 function filterManagementModules() {
     const query = document.getElementById('managementModuleSearch').value.trim().toLocaleLowerCase();
@@ -3432,7 +3509,11 @@ function filterManagementModules() {
     for (const card of cards) {
         const definition = managementModuleDefinitions[card.dataset.managementCard];
         const searchableText = `${definition?.title || ''} ${definition?.description || ''} ${card.dataset.managementCard}`.toLocaleLowerCase();
-        card.hidden = Boolean(query) && !searchableText.includes(query);
+        const matchesSearch = !query || searchableText.includes(query);
+        const matchesState = managementModuleFilter === 'all'
+            || (managementModuleFilter === 'enabled' && card.dataset.enabled === 'true')
+            || (managementModuleFilter === 'disabled' && card.dataset.enabled !== 'true');
+        card.hidden = !(matchesSearch && matchesState);
 
         if (!card.hidden) {
             visible += 1;
@@ -3461,6 +3542,15 @@ document.getElementById('managementModuleSearch').addEventListener('keydown', ev
     event.currentTarget.value = '';
     filterManagementModules();
 });
+document.querySelectorAll('[data-management-filter]').forEach(button => button.addEventListener('click', () => {
+    managementModuleFilter = button.dataset.managementFilter;
+    document.querySelectorAll('[data-management-filter]').forEach(filter => {
+        const active = filter === button;
+        filter.classList.toggle('active', active);
+        filter.setAttribute('aria-pressed', String(active));
+    });
+    filterManagementModules();
+}));
 
 function setSelectedValues(select, values) {
     const selected = new Set((Array.isArray(values) ? values : [values]).filter(Boolean).map(String));

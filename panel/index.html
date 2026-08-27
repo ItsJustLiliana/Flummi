@@ -523,6 +523,11 @@
                             placeholder="Search tickets, roles, security..." aria-controls="managementModuleCards managementModuleEmpty"></div>
                     <p id="managementModuleSearchSummary" class="sub" aria-live="polite"></p>
                 </div>
+                <div class="management-filter-bar" role="group" aria-label="Filter management modules">
+                    <button class="management-filter active" type="button" data-management-filter="all" aria-pressed="true">All modules</button>
+                    <button class="management-filter" type="button" data-management-filter="enabled" aria-pressed="false">Enabled</button>
+                    <button class="management-filter" type="button" data-management-filter="disabled" aria-pressed="false">Paused</button>
+                </div>
                 <div id="managementModuleCards" class="management-module-grid"></div>
                 <div id="managementModuleEmpty" class="empty" hidden>No management modules match that search.</div>
                 <p id="managementModuleStatus" class="status" aria-live="polite"></p>

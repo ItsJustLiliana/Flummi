@@ -304,6 +304,20 @@ test('management pages stay in the nested sidebar while their modules can be tog
     assert.match(panelHtml, /id="managementModuleEmpty" class="empty" hidden/);
 });
 
+test('every management module gets a consistent guide, status, and section navigation', () => {
+    assert.match(panelMarkup, /data-management-filter="all"[\s\S]*?data-management-filter="enabled"[\s\S]*?data-management-filter="disabled"/);
+    assert.match(panelScript, /function installManagementModuleExperience\(\)/);
+    assert.match(panelScript, /for \(const \[key, definition\] of Object\.entries\(managementModuleDefinitions\)\)/);
+    assert.match(panelScript, /data-module-guide-toggle/);
+    assert.match(panelScript, /data-module-runtime-state/);
+    assert.match(panelScript, /data-module-section-target/);
+    assert.match(panelScript, /Recommended setup/);
+    assert.match(panelScript, /Turning the module off pauses it without deleting its settings/);
+    assert.match(panelStyles, /\.module-guide-grid \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+    assert.match(panelStyles, /@media \(max-width: 600px\)[\s\S]*?\.module-guide-grid \{ grid-template-columns: 1fr; \}/);
+    assert.match(panelStyles, /\.module-section-highlight/);
+});
+
 test('nested tabs are alphabetical and folded by default', () => {
     assert.match(panelHtml, /id="analyticsNavPage"[^>]*data-tab="analytics"/);
     assert.match(panelHtml, /id="analyticsNavToggle"[\s\S]*?aria-controls="analyticsSubnav"/);

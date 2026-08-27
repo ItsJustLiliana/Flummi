@@ -4,6 +4,7 @@ const { getUserRole, isDeveloper, isAdmin, getUserPermissions } = require('../st
 const { getUserMessageStats } = require('../stores/server-stats-store');
 const { getUserConversationSummary } = require('../stores/user-conversation-store');
 const { formatColor, getProfile } = require('../stores/profile-store');
+const { COLORS } = require('../utils/command-ui');
 
 function formatDiscordTimestamp(date, style = 'f') {
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
@@ -75,7 +76,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle(`Member Info: ${targetUser.tag}`)
-            .setColor(dev ? 0xFF1744 : admin ? 0x1E88E5 : 0xFFFFFF)
+            .setColor(dev ? COLORS.danger : admin ? COLORS.staff : 0xFFFFFF)
             .setThumbnail(targetUser.displayAvatarURL({ size: 128 }))
             .addFields(
                 { name: 'Discord', value: [

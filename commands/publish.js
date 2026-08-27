@@ -1,4 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } = require('discord.js');
+const { COLORS } = require('../utils/command-ui');
 
 module.exports = {
     adminOnly: true,
@@ -19,7 +20,7 @@ module.exports = {
         if (!channel?.isTextBased() || !channel.createWebhook) return interaction.reply({ content: 'Choose a webhook-capable text channel.', flags: MessageFlags.Ephemeral });
         let fields = [], buttons = [];
         try { fields = JSON.parse(interaction.options.getString('fields') || '[]'); buttons = JSON.parse(interaction.options.getString('buttons') || '[]'); } catch { return interaction.reply({ content: 'Fields and buttons must be valid JSON arrays.', flags: MessageFlags.Ephemeral }); }
-        const embed = new EmbedBuilder().setDescription(interaction.options.getString('description', true)).setColor(0x7785ff);
+        const embed = new EmbedBuilder().setDescription(interaction.options.getString('description', true)).setColor(COLORS.primary);
         const title = interaction.options.getString('title'); if (title) embed.setTitle(title);
         const image = interaction.options.getString('image'); if (image) embed.setImage(image);
         const thumbnail = interaction.options.getString('thumbnail'); if (thumbnail) embed.setThumbnail(thumbnail);

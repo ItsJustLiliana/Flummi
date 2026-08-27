@@ -7,6 +7,7 @@ const {
     MessageFlags,
     SlashCommandBuilder
 } = require('discord.js');
+const { COLORS } = require('../utils/command-ui');
 const {
     getChannelVoiceMembers,
     getUserVoiceStats,
@@ -75,7 +76,7 @@ function buildHistoryPage(guildId, targetUser, page = 0, channelId = null) {
     return {
         embeds: [new EmbedBuilder()
             .setTitle(`Voice History: ${targetUser.tag}${pageCount > 1 ? ` (${safePage + 1}/${pageCount})` : ''}`)
-            .setColor(0x1E88E5)
+            .setColor(COLORS.staff)
             .setDescription(description)],
         components
     };
@@ -107,7 +108,7 @@ function buildChannelMembersPage(guildId, channelId, page = 0) {
     return {
         embeds: [new EmbedBuilder()
             .setTitle(`Voice Members: <#${channelId}>${pageCount > 1 ? ` (${safePage + 1}/${pageCount})` : ''}`)
-            .setColor(0x1E88E5)
+            .setColor(COLORS.staff)
             .setDescription(description)],
         components
     };
@@ -171,7 +172,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle(`Voice Time: ${targetUser.tag}`)
-            .setColor(0x1E88E5)
+            .setColor(COLORS.staff)
             .addFields(
                 { name: 'Total Voice Time', value: formatDuration(stats.totalMs), inline: true },
                 {

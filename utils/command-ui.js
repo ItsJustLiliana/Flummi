@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 const COLORS = {
     primary: 0x5865F2,
@@ -15,10 +15,17 @@ function createCommandEmbed(interaction, { title, description = null, tone = 'pr
         .setAuthor({ name: 'Flummi', iconURL: avatarUrl })
         .setTitle(title)
         .setTimestamp()
-        .setFooter({ text: footer || `/${interaction.commandName} • Flummi` });
+        .setFooter({ text: footer || `/${interaction.commandName || 'flummi'} • Flummi` });
 
     if (description) embed.setDescription(description);
     return embed;
 }
 
-module.exports = { COLORS, createCommandEmbed };
+function createLinkRow(links) {
+    return new ActionRowBuilder().addComponents(links.slice(0, 5).map(link => new ButtonBuilder()
+        .setStyle(ButtonStyle.Link)
+        .setLabel(String(link.label).slice(0, 80))
+        .setURL(link.url)));
+}
+
+module.exports = { COLORS, createCommandEmbed, createLinkRow };

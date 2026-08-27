@@ -1,6 +1,7 @@
 const { MessageFlags } = require('discord.js');
 const { SlashCommandBuilder } = require('discord.js');
-const { createCommandEmbed } = require('../utils/command-ui');
+const { createCommandEmbed, createLinkRow } = require('../utils/command-ui');
+const { dashboardUrl, privacyUrl, publicPageUrl } = require('../utils/public-links');
 const {
     getRequiredCommandRole,
     getUserRole,
@@ -207,6 +208,11 @@ module.exports = {
 
         await interaction.reply({
             embeds: [embed],
+            components: [createLinkRow([
+                { label: 'Dashboard', url: dashboardUrl() },
+                { label: 'Command reference', url: publicPageUrl('/commands') },
+                { label: 'Privacy', url: privacyUrl() }
+            ])],
             flags: MessageFlags.Ephemeral
         });
     }

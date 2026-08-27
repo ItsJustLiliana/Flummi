@@ -1,4 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } = require('discord.js');
+const { COLORS } = require('../utils/command-ui');
 const store = require('../stores/custom-command-store');
 const cooldowns = new Map();
 
@@ -20,7 +21,7 @@ async function executeCustomCommand(interaction) {
     if (remaining > 0) { await interaction.reply({ content: `Try again in ${Math.ceil(remaining / 1000)} seconds.`, flags: MessageFlags.Ephemeral }); return true; }
     if (command.cooldownSeconds) cooldowns.set(key, Date.now() + command.cooldownSeconds * 1000);
     const payload = { allowedMentions: { parse: [] }, flags: command.ephemeral ? MessageFlags.Ephemeral : undefined };
-    if (command.responseType === 'embed') { const embed = new EmbedBuilder().setDescription(command.content || ' ').setColor(0x7785ff); if (command.imageUrl) embed.setImage(command.imageUrl); payload.embeds = [embed]; }
+    if (command.responseType === 'embed') { const embed = new EmbedBuilder().setDescription(command.content || ' ').setColor(COLORS.primary); if (command.imageUrl) embed.setImage(command.imageUrl); payload.embeds = [embed]; }
     else payload.content = command.content || ' '; 
     if (command.buttons.length) payload.components = [new ActionRowBuilder().addComponents(command.buttons.map(button => new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(button.label).setURL(button.url)))];
     await interaction.reply(payload);

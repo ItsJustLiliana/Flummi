@@ -48,7 +48,11 @@
 
     function t(source) {
         if (language === 'en') return source;
-        return translations[language]?.[source] || fallbackTranslation(source);
+        const exact = translations[language]?.[source];
+        // Never build long prose word by word: that produces grammatically broken
+        // policy and help text. Long copy stays in its authored language until a
+        // reviewed full-sentence translation is available.
+        return exact || (String(source).length <= 100 ? fallbackTranslation(source) : source);
     }
 
     function tExact(source) {
@@ -67,7 +71,7 @@
             const parent = node.parentElement;
             if (!parent || parent.closest('script, style, code, pre, textarea')) continue;
             const source = node.nodeValue.trim();
-            if (!source || !/[A-Za-z]/.test(source) || ['English', 'Nederlands'].includes(source) || textRecordByNode.has(node)) continue;
+            if (!source || !/[A-Za-z]/.test(source) || ['English', 'Nederlands', 'Deutsch'].includes(source) || textRecordByNode.has(node)) continue;
             if (exactOnly && !hasExactTranslation(source)) continue;
             const record = { node, source, exactOnly, leading: node.nodeValue.match(/^\s*/)?.[0] || '', trailing: node.nodeValue.match(/\s*$/)?.[0] || '', rendered: node.nodeValue };
             textRecords.push(record);

@@ -2,6 +2,7 @@ const { SlashCommandBuilder, MessageFlags, EmbedBuilder } = require('discord.js'
 const { isAdmin } = require('../stores/access-store');
 const store = require('../stores/community-management-store');
 const { moduleConfig } = require('../services/community-management-service');
+const { COLORS } = require('../utils/command-ui');
 
 module.exports = {
     adminSubcommands: ['review'],
@@ -22,7 +23,7 @@ module.exports = {
             if (!channel?.isTextBased()) return interaction.reply({ content: 'An admin needs to select a suggestions channel first.', flags: MessageFlags.Ephemeral });
             const idea = interaction.options.getString('idea');
             const suggestion = store.addSuggestion(interaction.guildId, { authorId: interaction.user.id, channelId: channel.id, idea, status: 'submitted' });
-            const embed = new EmbedBuilder().setTitle(`Suggestion ${suggestion.id}`).setDescription(idea).addFields({ name: 'Voting target', value: `${config.minimumApprovalVotes} approval vote(s)` }).setColor(0x7785ff).setFooter({ text: config.anonymous ? 'Submitted anonymously' : `Submitted by ${interaction.user.tag}` }).setTimestamp();
+            const embed = new EmbedBuilder().setTitle(`Suggestion ${suggestion.id}`).setDescription(idea).addFields({ name: 'Voting target', value: `${config.minimumApprovalVotes} approval vote(s)` }).setColor(COLORS.primary).setFooter({ text: config.anonymous ? 'Submitted anonymously' : `Submitted by ${interaction.user.tag}` }).setTimestamp();
             const posted = await channel.send({ embeds: [embed] });
             await Promise.all([posted.react('👍'), posted.react('👎')]);
             store.updateSuggestion(interaction.guildId, suggestion.id, { messageId: posted.id });
@@ -42,7 +43,7 @@ module.exports = {
         const message = await channel?.messages.fetch(record.messageId).catch(() => null);
         if (message?.embeds[0]) {
             const colors = { implemented: 0x44bb77, planned: 0xf5c542, 'in-progress': 0x7785ff, 'under-review': 0x75cfff, rejected: 0xdd5566 };
-            const embed = EmbedBuilder.from(message.embeds[0]).setColor(colors[status] || 0x7785ff).addFields({ name: `Status: ${status}`, value: note || 'No staff response.' });
+            const embed = EmbedBuilder.from(message.embeds[0]).setColor(colors[status] || COLORS.primary).addFields({ name: `Status: ${status}`, value: note || 'No staff response.' });
             await message.edit({ embeds: [embed] });
         }
         return interaction.reply({ content: `Suggestion **${id}** marked **${status}**.`, flags: MessageFlags.Ephemeral });

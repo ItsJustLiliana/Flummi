@@ -110,10 +110,10 @@ module.exports = {
             await interaction.channel.setName(`closed-${interaction.channel.name.replace(/^ticket-/, '')}`.slice(0, 100)).catch(() => {});
             const workflow = moduleConfig(interaction.guildId, 'workflows');
             if (workflow?.ticketFollowUp && !workflow.dryRun) {
-                const rating = await interaction.channel.send({ content: `<@${ticket.ownerId}> rate this support experience from 1ï¸âƒ£ to 5ï¸âƒ£.`, allowedMentions: { users: [ticket.ownerId] } }).catch(() => null);
+                const rating = await interaction.channel.send({ content: `<@${ticket.ownerId}> rate this support experience from 1️⃣ to 5️⃣.`, allowedMentions: { users: [ticket.ownerId] } }).catch(() => null);
                 if (rating) {
                     store.updateTicket(interaction.guildId, ticket.id, { ratingMessageId: rating.id });
-                    for (const emoji of ['1ï¸âƒ£', '2ï¸âƒ£', '3ï¸âƒ£', '4ï¸âƒ£', '5ï¸âƒ£']) await rating.react(emoji).catch(() => {});
+                    for (const emoji of ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']) await rating.react(emoji).catch(() => {});
                 }
             }
             await interaction.editReply(`Ticket closed and transcript archived. **Reason:** ${updated.closeReason}`);

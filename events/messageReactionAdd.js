@@ -5,7 +5,7 @@ module.exports = {
     async execute(reaction, user) {
         await handleStarReaction(reaction, user).catch(error => console.warn(`Starboard update failed: ${error.message}`));
         if (user.bot || !reaction.message.guildId) return;
-        const ratings = { '1ï¸âƒ£': 1, '2ï¸âƒ£': 2, '3ï¸âƒ£': 3, '4ï¸âƒ£': 4, '5ï¸âƒ£': 5 };
+        const ratings = { '1️⃣': 1, '2️⃣': 2, '3️⃣': 3, '4️⃣': 4, '5️⃣': 5 };
         const rating = ratings[reaction.emoji.toString()];
         if (!rating) return;
         const store = require('../stores/community-management-store');

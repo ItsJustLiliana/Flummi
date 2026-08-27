@@ -8,6 +8,7 @@ const panelStyles = fs.readFileSync(path.join(__dirname, '..', 'panel', 'styles.
 const panelScript = fs.readFileSync(path.join(__dirname, '..', 'panel', 'app.js'), 'utf8');
 const panelI18n = fs.readFileSync(path.join(__dirname, '..', 'panel', 'i18n', 'engine.js'), 'utf8');
 const panelDutch = fs.readFileSync(path.join(__dirname, '..', 'panel', 'i18n', 'locales', 'nl.js'), 'utf8');
+const panelGerman = fs.readFileSync(path.join(__dirname, '..', 'panel', 'i18n', 'locales', 'de.js'), 'utf8');
 const panelHtml = `${panelMarkup}\n${panelStyles}\n${panelScript}`;
 const panelServer = fs.readFileSync(path.join(__dirname, '..', 'control-panel.js'), 'utf8');
 const promoteScript = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'promote-live.sh'), 'utf8');
@@ -57,13 +58,15 @@ test('home pages and selected servers use descriptive browser titles', () => {
     assert.match(panelScript, /function openDashboard\([\s\S]*?setServerPageTitle\(state\.guildId\)/);
 });
 
-test('English and Dutch are available throughout the shared dashboard shell', () => {
+test('English, Dutch, and German are available throughout the shared dashboard shell', () => {
     assert.equal((panelMarkup.match(/data-language-select/g) || []).length, 2);
-    assert.match(panelMarkup, /<option value="en">English<\/option><option value="nl">Nederlands<\/option>/);
-    assert.match(panelMarkup, /<script src="\/panel\/i18n\/locales\/en\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/locales\/nl\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/engine\.js" defer><\/script>/);
+    assert.match(panelMarkup, /<option value="en">English<\/option><option value="nl">Nederlands<\/option><option value="de">Deutsch<\/option>/);
+    assert.match(panelMarkup, /<script src="\/panel\/i18n\/locales\/en\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/locales\/nl\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/locales\/de\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/engine\.js" defer><\/script>/);
     assert.match(panelI18n, /const supportedLanguages = new Set\(Object\.keys\(locales\)\)/);
     assert.match(panelDutch, /'Management': 'Beheer'/);
     assert.match(panelDutch, /'Members & Permissions': 'Leden & rechten'/);
+    assert.match(panelGerman, /'Management': 'Verwaltung'/);
+    assert.match(panelGerman, /'Members & Permissions': 'Mitglieder & Berechtigungen'/);
     assert.match(panelI18n, /localStorage\.setItem\(storageKey, language\)/);
     assert.match(panelI18n, /document\.documentElement\.lang = language/);
     assert.match(panelScript, /window\.addEventListener\('flummi:languagechange'/);
@@ -74,6 +77,8 @@ test('English and Dutch are available throughout the shared dashboard shell', ()
     assert.match(panelScript, /function uiValue\(source\)/);
     assert.doesNotThrow(() => new Function(panelI18n));
     assert.doesNotThrow(() => new Function(panelDutch));
+    assert.doesNotThrow(() => new Function(panelGerman));
+    assert.doesNotMatch(`${panelDutch}\n${panelGerman}`, /(?:Ã.|Â.|â€|â€™|ðŸ|ï¸|�)/);
 });
 
 test('expanded nested navigation scrolls without shrinking the Flummi brand', () => {
@@ -381,6 +386,8 @@ test('landing, developer tools, and dashboard adapt to touch screens and tablets
     assert.match(panelHtml, /select,[\s\S]*?input,[\s\S]*?textarea \{[\s\S]*?font-size: 16px/);
     assert.match(panelHtml, /\.sound-player \{[\s\S]*?grid-template-columns: 34px minmax\(0, 1fr\) 58px/);
     assert.match(panelHtml, /@media \(max-width: 600px\)[\s\S]*?\.developer-search-result \{ grid-template-columns: minmax\(0, 1fr\)/);
+    assert.match(panelStyles, /@media \(max-width: 600px\)[\s\S]*?\.analytics-date-range \{[\s\S]*?width: 100%/);
+    assert.match(panelStyles, /@media \(max-width: 600px\)[\s\S]*?\.analytics-date-editor \{[\s\S]*?width: min\(320px, calc\(100vw - 48px\)\)/);
     assert.match(panelHtml, /@media \(max-width: 420px\)[\s\S]*?\.home-nav-inner/);
     assert.match(panelHtml, /@media \(prefers-reduced-motion: reduce\)/);
     const sidebarStart = panelHtml.indexOf('<aside class="sidebar">');

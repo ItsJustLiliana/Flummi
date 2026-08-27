@@ -26,6 +26,10 @@ function uiValue(source) {
     return window.FlummiI18n?.tExact(String(source)) || String(source);
 }
 
+function uiLocale() {
+    return ({ nl: 'nl-NL', de: 'de-DE' })[window.FlummiI18n?.language] || 'en-GB';
+}
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -346,9 +350,8 @@ function formatAgo(isoString) {
 
     const diffMs = Date.now() - then;
 
-    if (diffMs < 0) {
-        return 'Just now';
-    }
+    const relative = new Intl.RelativeTimeFormat(uiLocale(), { numeric: 'auto' });
+    if (diffMs < 0) return relative.format(0, 'second');
 
     const totalSeconds = Math.floor(diffMs / 1000);
     const days = Math.floor(totalSeconds / 86400);
@@ -356,18 +359,18 @@ function formatAgo(isoString) {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
 
     if (days > 0) {
-        return `${days}d ${hours}h ago`;
+        return relative.format(-days, 'day');
     }
 
     if (hours > 0) {
-        return `${hours}h ${minutes}m ago`;
+        return relative.format(-hours, 'hour');
     }
 
     if (minutes > 0) {
-        return `${minutes}m ago`;
+        return relative.format(-minutes, 'minute');
     }
 
-    return 'Just now';
+    return relative.format(0, 'second');
 }
 
 // Mirrors control-panel.js's formatDuration() so active session durations can tick locally between refreshes.
@@ -399,7 +402,7 @@ function formatDateTime(value) {
         return String(value);
     }
 
-    return date.toLocaleString(undefined, {
+    return date.toLocaleString(uiLocale(), {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -1925,7 +1928,7 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
     canvas.height = Math.round(height * scale);
     canvas.style.height = `${height}px`;
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', `${metricLabel} over time`);
+    canvas.setAttribute('aria-label', uiText(`${metricLabel} over time`));
     container.replaceChildren(canvas);
     const context = canvas.getContext('2d');
     context.scale(scale, scale);
@@ -1989,7 +1992,7 @@ function utcWeekRange(offset = 0) {
 }
 
 function formatHeatmapWeek(start, end) {
-    const format = date => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+    const format = date => date.toLocaleDateString(uiLocale(), { day: 'numeric', month: 'short', timeZone: 'UTC' });
     return `${format(start)} – ${format(new Date(end.getTime() - 1))} ${start.getUTCFullYear()}`;
 }
 
@@ -2350,7 +2353,8 @@ function renderAnalyticsCalendar(rangeId) {
     const firstGridDay = new Date(month);
     firstGridDay.setUTCDate(1 - ((month.getUTCDay() + 6) % 7));
     const today = utcDateInputValue();
-    const title = month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const locale = uiLocale();
+    const title = month.toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' });
     const nextMonthDisabled = monthValue >= today.slice(0, 7);
     const days = Array.from({ length: 42 }, (_, index) => {
         const date = new Date(firstGridDay.getTime() + index * 86400000);
@@ -2363,9 +2367,11 @@ function renderAnalyticsCalendar(rangeId) {
         if (value === fromValue) classes.push('range-start');
         if (value === toValue) classes.push('range-end');
         if (value === today) classes.push('today');
-        return `<button type="button" class="${classes.join(' ')}" data-calendar-date="${value}"${value > today ? ' disabled' : ''} aria-label="${escapeHtml(date.toLocaleDateString('en-GB', { dateStyle: 'full', timeZone: 'UTC' }))}">${date.getUTCDate()}</button>`;
+        return `<button type="button" class="${classes.join(' ')}" data-calendar-date="${value}"${value > today ? ' disabled' : ''} aria-label="${escapeHtml(date.toLocaleDateString(locale, { dateStyle: 'full', timeZone: 'UTC' }))}">${date.getUTCDate()}</button>`;
     }).join('');
-    editor.innerHTML = `<div class="analytics-calendar"><div class="analytics-calendar-header"><button type="button" data-calendar-month="-1" aria-label="Previous month">&#8592;</button><strong>${escapeHtml(title)}</strong><button type="button" data-calendar-month="1" aria-label="Next month"${nextMonthDisabled ? ' disabled' : ''}>&#8594;</button></div><div class="analytics-calendar-weekdays">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => `<span>${day}</span>`).join('')}</div><div class="analytics-calendar-grid">${days}</div><p>${escapeHtml(analyticsDateSelection(rangeId).label)}</p></div>`;
+    const weekdays = Array.from({ length: 7 }, (_, index) => new Date(Date.UTC(2026, 7, 24 + index))
+        .toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' }));
+    editor.innerHTML = `<div class="analytics-calendar"><div class="analytics-calendar-header"><button type="button" data-calendar-month="-1" aria-label="${escapeHtml(uiText('Previous month'))}">&#8592;</button><strong>${escapeHtml(title)}</strong><button type="button" data-calendar-month="1" aria-label="${escapeHtml(uiText('Next month'))}"${nextMonthDisabled ? ' disabled' : ''}>&#8594;</button></div><div class="analytics-calendar-weekdays">${weekdays.map(day => `<span>${escapeHtml(day)}</span>`).join('')}</div><div class="analytics-calendar-grid">${days}</div><p>${escapeHtml(analyticsDateSelection(rangeId).label)}</p></div>`;
 }
 
 function syncAnalyticsDateRange(rangeId, changed = 'range') {
@@ -2387,7 +2393,7 @@ function syncAnalyticsDateRange(rangeId, changed = 'range') {
     previous.disabled = allTime;
     next.disabled = allTime;
     if (allTime) {
-        display.textContent = 'All dates';
+        display.textContent = uiText('All dates');
         display.setAttribute('aria-expanded', 'false');
         editor.hidden = true;
         return;
@@ -2413,11 +2419,11 @@ function syncAnalyticsDateRange(rangeId, changed = 'range') {
 
 function analyticsDateSelection(rangeId) {
     const value = document.getElementById(rangeId).value;
-    if (value === 'all') return { value, query: 'days=all', label: 'all time' };
+    if (value === 'all') return { value, query: 'days=all', label: uiText('All time').toLocaleLowerCase(uiLocale()) };
     const [fromId, toId] = analyticsDateControls[rangeId];
     const from = document.getElementById(fromId).value;
     const to = document.getElementById(toId).value;
-    const format = raw => new Date(`${raw}T00:00:00.000Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    const format = raw => new Date(`${raw}T00:00:00.000Z`).toLocaleDateString(uiLocale(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
     return {
         value,
         from,
@@ -2476,12 +2482,12 @@ async function loadVoice() {
 
     document.getElementById('voiceCards').innerHTML = [
         statCard('Total voice time', formatDuration(analytics.totalAllTimeMs ?? fallbackTotalVoiceMs), 'All tracked voice time, including the current duration of active sessions.'),
-        statCard(`Voice time · ${rangeLabel}`, formatDuration(Number(analytics.totalMs) || 0), 'Time with at least one member in voice inside the selected Period. Overlapping members never make one day exceed 24 hours.'),
+        statCard(`Voice time · ${rangeLabel}`, formatDuration(Number(analytics.totalMs) || 0), 'Time with at least one member in voice inside the selected period. Overlapping members never make one day exceed 24 hours.'),
         statCard('Vs previous period', periodComparison(analytics.totalMs, analytics.previousTotalMs, voiceRange !== 'all'), 'Compares voice time with the immediately preceding period of equal length. All time has no previous-period comparison.'),
         statCard('In Voice Now', activeSessions.length),
         statCard('Tracked Users', leaderboard.length),
-        statCard('Average Session', formatDuration(Number(analytics.averageSessionMs) || 0), 'Average tracked session duration within the selected Period, including active sessions so far.'),
-        statCard('Busiest hour', Number.isInteger(analytics.busiestHour) ? `${String(analytics.busiestHour).padStart(2, '0')}:00 UTC` : '-', 'The UTC hour with the most voice sessions starting in the selected Period.')
+        statCard('Average Session', formatDuration(Number(analytics.averageSessionMs) || 0), 'Average tracked session duration within the selected period, including active sessions so far.'),
+        statCard('Busiest hour', Number.isInteger(analytics.busiestHour) ? `${String(analytics.busiestHour).padStart(2, '0')}:00 UTC` : '-', 'The UTC hour with the most voice sessions starting in the selected period.')
     ].join('');
     renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.', document.getElementById('voiceGraphType').value, 'Voice sessions');
     renderActivityChart('voiceMinutesChart', analytics.minutesOverTime, 'No voice time in this range.', document.getElementById('voiceGraphType').value, 'Voice minutes');
@@ -2628,13 +2634,13 @@ async function loadStats() {
     document.getElementById('messageRangeLabel').textContent = rangeLabel;
     document.getElementById('analyticsCards').innerHTML = [
         statCard('Total messages', data.totalMessageCount ?? data.messageCount ?? 0, 'All tracked message events matching the selected channel and member filters.'),
-        statCard(`Messages · ${rangeLabel}`, data.messageCount ?? 0, 'Tracked message events inside the selected Period and active filters.'),
+        statCard(`Messages · ${rangeLabel}`, data.messageCount ?? 0, 'Tracked message events inside the selected period and active filters.'),
         statCard('Vs previous period', periodComparison(data.messageCount, comparison.previousMessageCount, days !== 'all'), 'Compares messages with the immediately preceding period of equal length. All time has no previous-period comparison.'),
-        statCard('Unique Authors', data.uniqueAuthors ?? 0, 'Distinct members who sent at least one tracked message inside the selected Period.'),
+        statCard('Unique Authors', data.uniqueAuthors ?? 0, 'Distinct members who sent at least one tracked message inside the selected period.'),
         statCard('Attachments', data.engagement?.attachments || 0),
-        statCard('GIFs', data.engagement?.gifs || 0, 'GIF files and recognized GIF links or embeds inside the selected Period. A link and its Discord preview count once.'),
+        statCard('GIFs', data.engagement?.gifs || 0, 'GIF files and recognized GIF links or embeds inside the selected period. A link and its Discord preview count once.'),
         statCard('Replies', data.engagement?.replies || 0),
-        statCard('Busiest hour', busiestHour, 'The UTC hour with the most tracked messages in the selected Period.')
+        statCard('Busiest hour', busiestHour, 'The UTC hour with the most tracked messages in the selected period.')
     ].join('');
     renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.', document.getElementById('analyticsGraphType').value, 'Messages');
     await loadActivityHeatmap('message');
@@ -4619,7 +4625,7 @@ async function loadSoundboard() {
     document.getElementById('soundboardRangeLabel').textContent = rangeLabel;
     document.getElementById('soundboardCards').innerHTML = [
         statCard('Total media uses', totalMediaUses, 'All tracked soundboard plays, custom emoji uses, and sticker uses combined.'),
-        statCard(`Media uses · ${rangeLabel}`, rangeMediaUses, 'Tracked soundboard plays, custom emoji uses, and sticker uses inside the selected Period.'),
+        statCard(`Media uses · ${rangeLabel}`, rangeMediaUses, 'Tracked soundboard plays, custom emoji uses, and sticker uses inside the selected period.'),
         statCard('Vs previous period', periodComparison(rangeMediaUses, previousMediaUses, range !== 'all'), 'Compares combined media usage with the immediately preceding period of equal length. All time has no comparison.'),
         statCard('Soundboard sounds', data.sounds?.length || 0),
         statCard('Static emoji slots', capacity(data.capacity?.staticEmojis), 'Used versus available static emoji slots for the server’s current boost tier.'),

@@ -60,6 +60,14 @@ test('voice and message graph controls are centralized at the top of their tabs'
     assert.ok(messages.indexOf('id="messageHeatmapMode"') > messages.indexOf('Message activity by day and hour'));
 });
 
+test('analytics graphs default to lines while keeping bars available', () => {
+    for (const id of ['analyticsSummaryGraphType', 'analyticsGraphType', 'voiceGraphType', 'mediaGraphType']) {
+        const select = panelHtml.match(new RegExp(`<select id="${id}"[\\s\\S]*?<\\/select>`))?.[0] || '';
+        assert.match(select, /<option value="bar">Bars<\/option>/);
+        assert.match(select, /<option value="line" selected>Line<\/option>/);
+    }
+});
+
 test('Stats & Analytics is a lightweight cross-feature summary', () => {
     const summary = tabMarkup('analytics');
     for (const id of ['analyticsSummaryMessages', 'analyticsSummaryVoice', 'analyticsSummaryMedia', 'moderationCards']) {

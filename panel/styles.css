@@ -349,16 +349,26 @@ h2 {
 
 @media (max-width: 600px) {
     .analytics-date-range {
+        flex: 1 1 100%;
+        width: 100%;
         max-width: 100%;
     }
 
     .analytics-date-display {
-        min-width: 170px;
+        flex: 1 1 auto;
+        min-width: 0;
     }
 
     .analytics-date-editor {
+        width: min(320px, calc(100vw - 48px));
+        min-width: 0;
         right: 0;
-        left: 0;
+        left: auto;
+    }
+
+    .analytics-calendar-day {
+        width: 100%;
+        min-width: 0;
     }
 }
 

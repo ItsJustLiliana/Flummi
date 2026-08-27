@@ -4,6 +4,7 @@ const { moduleConfig, scanServer, snapshotGuild, previewSnapshot, restoreSnapsho
 const moderationStore = require('../stores/moderation-store');
 const { executeModerationAction } = require('../services/moderation-service');
 const { generateAiReply } = require('../services/ai-chat');
+const { COLORS } = require('../utils/command-ui');
 
 module.exports = {
     adminOnly: true,
@@ -91,7 +92,7 @@ module.exports = {
             if (!config) return interaction.reply({ content: 'Flummi Copilot is not enabled.', flags: MessageFlags.Ephemeral });
             const { hasAiConsent, disclosure } = require('../services/ai-consent-service');
             if (!hasAiConsent(interaction.user.id)) return interaction.reply({ content: `${disclosure}\n\nEnable it first with \`/data ai-consent action:allow\`.`, flags: MessageFlags.Ephemeral });
-            if (interaction.options.getString('confirmation') !== 'SEND TO AI') return interaction.reply({ content: `${disclosure}\n\nThis Copilot action sends the selected report or incident text to OpenRouter and a downstream model for this one response. Discord snowflake IDs are redacted, provider data collection is denied, and zero-data-retention routing is required. Re-run the command with \`confirmation:SEND TO AI\` to confirm.`, flags: MessageFlags.Ephemeral });
+            if (interaction.options.getString('confirmation') !== 'SEND TO AI') return interaction.reply({ content: `${disclosure}\n\nThis action sends the selected text to the configured AI provider. Re-run with \`confirmation:SEND TO AI\` to continue.`, flags: MessageFlags.Ephemeral });
             const mode = interaction.options.getString('mode', true);
             if ((mode === 'summarize' && !config.summariesEnabled) || (mode === 'suggest' && !config.suggestionsEnabled) || (mode === 'translate' && !config.translationEnabled)) return interaction.reply({ content: 'That Copilot capability is turned off.', flags: MessageFlags.Ephemeral });
             const state = operationsStore.readState(interaction.guildId);
@@ -118,7 +119,7 @@ module.exports = {
             if (!engagement.giveaways) return interaction.reply({ content: 'Giveaways are turned off.', flags: MessageFlags.Ephemeral });
             const minutes = interaction.options.getInteger('minutes', true);
             const prize = interaction.options.getString('prize', true);
-            const embed = new EmbedBuilder().setTitle('🎉 Giveaway').setDescription(`**${prize}**\n\nReact with 🎉 to enter. Ends <t:${Math.floor((Date.now() + minutes * 60000) / 1000)}:R>.`).setColor(0x7785ff).setTimestamp();
+            const embed = new EmbedBuilder().setTitle('🎉 Giveaway').setDescription(`**${prize}**\n\nReact with 🎉 to enter. Ends <t:${Math.floor((Date.now() + minutes * 60000) / 1000)}:R>.`).setColor(COLORS.primary).setTimestamp();
             const message = await interaction.channel.send({ embeds: [embed] });
             await message.react('🎉');
             operationsStore.addGiveaway(interaction.guildId, { channelId: interaction.channelId, messageId: message.id, prize, endsAt: new Date(Date.now() + minutes * 60000).toISOString() });
@@ -154,7 +155,7 @@ module.exports = {
             return interaction.reply({ content: `Creator feed **${feed.name}** will post in <#${channel.id}>.`, allowedMentions: { parse: [] }, flags: MessageFlags.Ephemeral });
         }
         if (!engagement.embedBuilder) return interaction.reply({ content: 'The embed builder is turned off.', flags: MessageFlags.Ephemeral });
-        await interaction.channel.send({ embeds: [new EmbedBuilder().setTitle(interaction.options.getString('title', true)).setDescription(interaction.options.getString('message', true)).setColor(0x7785ff).setTimestamp()] });
+        await interaction.channel.send({ embeds: [new EmbedBuilder().setTitle(interaction.options.getString('title', true)).setDescription(interaction.options.getString('message', true)).setColor(COLORS.primary).setTimestamp()] });
         return interaction.reply({ content: 'Embed published.', flags: MessageFlags.Ephemeral });
     }
 };

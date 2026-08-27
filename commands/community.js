@@ -2,6 +2,7 @@ const { EmbedBuilder, MessageFlags, SlashCommandBuilder } = require('discord.js'
 const crypto = require('crypto');
 const operationsStore = require('../stores/operations-store');
 const { moduleConfig } = require('../services/operations-service');
+const { COLORS } = require('../utils/command-ui');
 
 module.exports = {
     public: true,
@@ -44,7 +45,7 @@ module.exports = {
             const report = operationsStore.addReport(interaction.guildId, { reporterId: interaction.user.id, reason, messageLink, messageContext, anonymous: config.allowAnonymous });
             const channel = interaction.guild.channels.cache.get(config.channelId) || await interaction.guild.channels.fetch(config.channelId).catch(() => null);
             if (!channel?.isTextBased()) return interaction.reply({ content: 'The configured reports channel is unavailable.', flags: MessageFlags.Ephemeral });
-            const embed = new EmbedBuilder().setTitle(`Member report ${report.id}`).setDescription(reason).setColor(0xf59e42).setTimestamp();
+            const embed = new EmbedBuilder().setTitle(`Member report ${report.id}`).setDescription(reason).setColor(COLORS.warning).setTimestamp();
             embed.addFields({ name: 'Reporter', value: config.allowAnonymous ? 'Anonymous to the public; identity available to staff' : `<@${interaction.user.id}>` });
             if (messageLink) embed.addFields({ name: 'Reported message', value: `[Open message](${messageLink})` });
             if (messageContext) embed.addFields({ name: `Message by ${messageContext.authorTag}`, value: messageContext.content || '*No text content*' });

@@ -1,12 +1,15 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { hasAiConsent, setAiConsent } = require('../stores/ai-consent-store');
+const { privacyUrl, termsUrl } = require('../utils/public-links');
 
-const disclosure = '**AI privacy choice**\nIf you enable AI, Flummi sends your prompt, supported attachments, recent AI conversation context, and any profile information you explicitly entered to OpenRouter and a downstream model provider to generate a reply. Flummi enforces zero data retention and denies provider data collection. Discord account, server, and channel IDs are not sent. Flummi still stores its local conversation memory until you use `/resetmemory` or `/data delete`. Nothing is sent to AI until you agree.';
+const disclosure = `By enabling Flummi AI, you agree to the [Terms of Service](${termsUrl()}) and confirm that you have read the [Privacy Policy](${privacyUrl()}).`;
 
 function consentButtons(userId) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`ai-consent:allow:${userId}`).setLabel('Enable AI').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(`ai-consent:decline:${userId}`).setLabel('Keep AI off').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId(`ai-consent:decline:${userId}`).setLabel('Keep AI off').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setURL(termsUrl()).setLabel('Terms').setStyle(ButtonStyle.Link),
+        new ButtonBuilder().setURL(privacyUrl()).setLabel('Privacy').setStyle(ButtonStyle.Link)
     );
 }
 async function promptForAiConsent(message) {
@@ -21,7 +24,7 @@ async function handleAiConsentInteraction(interaction) {
     if (interaction.user.id !== userId) { await interaction.reply({ content: 'This AI privacy choice belongs to another user.', flags: MessageFlags.Ephemeral }); return true; }
     const granted = action === 'allow';
     setAiConsent(userId, granted);
-    await interaction.update({ content: granted ? 'AI is enabled. Mention Flummi again with your request. You can withdraw this at any time with `/data ai-consent action:withdraw`.' : 'AI remains disabled. Nothing was sent to OpenRouter.', components: [] });
+    await interaction.update({ content: granted ? 'AI is enabled. Mention Flummi again with your request. You can turn it off at any time with `/data ai-consent action:withdraw`.' : 'AI remains disabled. Nothing was sent to an AI provider.', components: [] });
     return true;
 }
 

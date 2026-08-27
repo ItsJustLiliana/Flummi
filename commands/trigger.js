@@ -6,6 +6,7 @@ const {
     MessageFlags,
     SlashCommandBuilder
 } = require('discord.js');
+const { COLORS } = require('../utils/command-ui');
 const { canAddTriggers, isAdmin } = require('../stores/access-store');
 const { checkCooldown } = require('../utils/cooldowns');
 const { readSettings } = require('../stores/settings-store');
@@ -275,7 +276,7 @@ async function executeInfo(interaction) {
 
     const embed = new EmbedBuilder()
         .setTitle(`Trigger Info: ${match.trigger}`)
-        .setColor(0xFF1744)
+        .setColor(COLORS.danger)
         .addFields(
             { name: 'Added By', value: `${match.addedByTag || 'unknown'} (${match.addedById || 'unknown'})`, inline: false },
             { name: 'Added At', value: match.addedAt || 'unknown', inline: true },
@@ -311,7 +312,7 @@ async function executeStats(interaction) {
 
     const embed = new EmbedBuilder()
         .setTitle('Trigger Stats')
-        .setColor(0xFF1744)
+        .setColor(COLORS.danger)
         .setDescription(rows.length
             ? rows.map((row, index) => `${index + 1}. ${row.name} - ${row.count} use(s)`).join('\n')
             : 'No trigger usage data yet.');
@@ -328,7 +329,7 @@ async function executeAudit(interaction) {
 
     const embed = new EmbedBuilder()
         .setTitle('Trigger Audit Log')
-        .setColor(0xFF1744)
+        .setColor(COLORS.danger)
         .setDescription(audit.length
             ? audit.map(entry => {
                 const action = String(entry.action || 'unknown').toUpperCase();

@@ -1,6 +1,7 @@
 const { EmbedBuilder, MessageFlags, SlashCommandBuilder } = require('discord.js');
 const { getAllTriggerStats, getTriggers } = require('../stores/trigger-store');
 const { getServerStatsSummary } = require('../stores/server-stats-store');
+const { COLORS } = require('../utils/command-ui');
 
 function formatRows(rows, formatter) {
     if (!rows.length) {
@@ -41,7 +42,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('Server Stats')
-            .setColor(0x1E88E5)
+            .setColor(COLORS.staff)
             .addFields(
                 { name: 'Messages Tracked', value: String(summary.totalMessages), inline: true },
                 {

@@ -1,5 +1,6 @@
 const { EmbedBuilder, MessageFlags } = require('discord.js');
 const { SlashCommandBuilder } = require('discord.js');
+const { COLORS } = require('../utils/command-ui');
 const {
     getRequiredCommandRole,
     getUserPermissions,
@@ -218,7 +219,7 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle(`Permissions Updated: ${targetUser.tag}`)
-                .setColor(0x1E88E5)
+                .setColor(COLORS.staff)
                 .addFields(
                     { name: 'Changes', value: changes.join('\n') || 'No changes.', inline: false },
                     { name: 'Feature Permissions', value: formatFeaturePermissions(updated), inline: false },

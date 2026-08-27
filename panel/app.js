@@ -823,6 +823,199 @@ function installManagementModuleExperience() {
 }
 
 installManagementModuleExperience();
+
+const moduleCommandHints = {
+    tickets: ['/ticket open', '/ticket claim', '/ticket close'], suggestions: ['/suggest submit', '/suggest review'],
+    forms: ['/form apply', '/form appeal'], channels: ['/channel lock', '/channel slowmode', '/channel temporary-voice'],
+    integrations: ['/integration status', '/integration sync-automod', '/integration create-event'], reports: ['/community report'], starboard: ['/starboard status'],
+    copilot: ['/server copilot'], engagement: ['/server poll', '/server giveaway', '/server feed', '/server temporary-role']
+};
+
+function installModuleCommandHints() {
+    for (const [key, commands] of Object.entries(moduleCommandHints)) {
+        const definition = managementModuleDefinitions[key];
+        const panel = document.getElementById(`tab-${definition.tab}`);
+        if (!panel || panel.querySelector('[data-module-command-hint]')) continue;
+        const callout = document.createElement('div');
+        callout.className = 'module-command-hint';
+        callout.dataset.moduleCommandHint = key;
+        callout.innerHTML = `<div><strong>Use it in Discord</strong><span>Configuration lives here; day-to-day actions use these guided commands.</span></div><div class="command-chip-list">${commands.map(command => `<code>${escapeHtml(command)}</code>`).join('')}</div>`;
+        panel.querySelector('.module-readiness, .module-page-toolbar')?.after(callout);
+    }
+}
+
+function installEngagementGroups() {
+    const section = document.getElementById('advancedEngagementGiveaways')?.closest('.section');
+    const originalGrid = section?.querySelector(':scope > .two-col');
+    if (!originalGrid || section.querySelector('.engagement-feature-groups')) return;
+    const groups = [
+        ['Community events', ['advancedEngagementGiveaways', 'advancedEngagementPolls']],
+        ['Progression', ['advancedEngagementLevels']],
+        ['Content tools', ['advancedEngagementFeeds', 'advancedEngagementEmbeds']],
+        ['Member utilities', ['advancedEngagementReminders', 'advancedEngagementAfk']],
+        ['Role utilities', ['advancedEngagementTempRoles', 'advancedEngagementVoiceRoles']]
+    ];
+    const container = document.createElement('div');
+    container.className = 'engagement-feature-groups';
+    for (const [title, ids] of groups) {
+        const group = document.createElement('fieldset');
+        group.className = 'engagement-feature-group';
+        group.innerHTML = `<legend>${escapeHtml(title)}</legend>`;
+        for (const id of ids) {
+            const row = document.getElementById(id)?.closest('.checkbox-row');
+            if (row) group.append(row);
+        }
+        container.append(group);
+    }
+    originalGrid.replaceWith(container);
+}
+
+const structuredBuilderConfigs = {
+    customCommandButtons: { label: 'command button', fields: [{ key: 'label', label: 'Button label' }, { key: 'url', label: 'Destination URL', type: 'url' }] },
+    webhookFields: { label: 'embed field', fields: [{ key: 'name', label: 'Field name' }, { key: 'value', label: 'Field value', multiline: true }, { key: 'inline', label: 'Show inline', type: 'checkbox' }] },
+    webhookButtons: { label: 'link button', fields: [{ key: 'label', label: 'Button label' }, { key: 'url', label: 'Destination URL', type: 'url' }] }
+};
+
+function readJsonArray(source) {
+    try { const value = JSON.parse(source.value || '[]'); return Array.isArray(value) ? value : []; }
+    catch { return []; }
+}
+
+function renderStructuredBuilder(sourceId) {
+    const source = document.getElementById(sourceId);
+    const config = structuredBuilderConfigs[sourceId];
+    if (!source || !config) return;
+    source.hidden = true;
+    const label = source.closest('.field')?.querySelector('label');
+    if (label) label.textContent = `${config.label.charAt(0).toUpperCase()}${config.label.slice(1)}s`;
+    let builder = document.querySelector(`[data-structured-builder="${sourceId}"]`);
+    if (!builder) {
+        builder = document.createElement('div');
+        builder.className = 'structured-builder';
+        builder.dataset.structuredBuilder = sourceId;
+        source.after(builder);
+    }
+    const values = readJsonArray(source);
+    builder.innerHTML = `<div class="structured-builder-list">${values.map((item, index) => `<div class="structured-builder-row" data-builder-row="${index}"><div class="structured-builder-fields">${config.fields.map(field => field.type === 'checkbox' ? `<label class="checkbox-row"><input data-builder-field="${field.key}" type="checkbox" ${item[field.key] ? 'checked' : ''}><span>${field.label}</span></label>` : `<div class="field"><label>${field.label}</label>${field.multiline ? `<textarea data-builder-field="${field.key}" rows="2">${escapeHtml(item[field.key] || '')}</textarea>` : `<input data-builder-field="${field.key}" type="${field.type || 'text'}" value="${escapeHtml(item[field.key] || '')}">`}</div>`).join('')}</div><button class="danger compact" type="button" data-builder-remove="${index}" aria-label="Remove ${config.label}">Remove</button></div>`).join('')}</div><button class="secondary" type="button" data-builder-add>Add ${config.label}</button>`;
+}
+
+function syncStructuredBuilder(builder) {
+    const source = document.getElementById(builder.dataset.structuredBuilder);
+    const rows = [...builder.querySelectorAll('[data-builder-row]')].map(row => Object.fromEntries([...row.querySelectorAll('[data-builder-field]')].map(field => [field.dataset.builderField, field.type === 'checkbox' ? field.checked : field.value.trim()])));
+    source.value = JSON.stringify(rows.filter(row => Object.values(row).some(Boolean)), null, 2);
+    source.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+for (const sourceId of Object.keys(structuredBuilderConfigs)) renderStructuredBuilder(sourceId);
+document.addEventListener('input', event => {
+    const builder = event.target.closest('[data-structured-builder]');
+    if (builder) syncStructuredBuilder(builder);
+});
+document.addEventListener('click', event => {
+    const builder = event.target.closest('[data-structured-builder]');
+    if (!builder) return;
+    const remove = event.target.closest('[data-builder-remove]');
+    const add = event.target.closest('[data-builder-add]');
+    if (remove) {
+        const values = readJsonArray(document.getElementById(builder.dataset.structuredBuilder));
+        values.splice(Number(remove.dataset.builderRemove), 1);
+        document.getElementById(builder.dataset.structuredBuilder).value = JSON.stringify(values);
+        renderStructuredBuilder(builder.dataset.structuredBuilder);
+        markManagementDirty(builder.closest('.tab-panel'));
+    }
+    if (add) {
+        const values = readJsonArray(document.getElementById(builder.dataset.structuredBuilder));
+        values.push({});
+        document.getElementById(builder.dataset.structuredBuilder).value = JSON.stringify(values);
+        renderStructuredBuilder(builder.dataset.structuredBuilder);
+        markManagementDirty(builder.closest('.tab-panel'));
+    }
+});
+
+const moduleReadinessRequirements = {
+    automod: [['managementAutomodLogChannel', 'Choose a log channel']],
+    cases: [['managementCaseLogChannel', 'Choose a case log channel']],
+    roles: [['managementOnboardingChannel', 'Choose a role-menu channel'], ['managementSelfRoles', 'Choose at least one self-assignable role']],
+    automation: [], tickets: [['managementTicketCategory', 'Choose a ticket category'], ['managementTicketSupportRole', 'Choose a support role']],
+    suggestions: [['managementSuggestionChannel', 'Choose a suggestions channel']], joinSecurity: [['managementSecurityLog', 'Choose a security alerts channel']],
+    starboard: [['managementStarboardChannel', 'Choose a Starboard channel']], forms: [['managementFormsChannel', 'Choose a submission channel'], ['managementFormsReview', 'Choose a private review channel']],
+    channels: [['managementChannelsLog', 'Choose an action log channel']], integrations: [], serverDoctor: [], incidentCenter: [['advancedIncidentLog', 'Choose an incident channel']],
+    reports: [['advancedReportsChannel', 'Choose a private staff channel']], workflows: [], staffOperations: [], communityHealth: [], backups: [], copilot: [], engagement: []
+};
+
+function updateModuleReadiness(key) {
+    const definition = managementModuleDefinitions[key];
+    const panel = document.getElementById(`tab-${definition?.tab}`);
+    const box = panel?.querySelector('[data-module-readiness]');
+    if (!box) return;
+    const requirements = [...(moduleReadinessRequirements[key] || [])];
+    if (key === 'automation') {
+        if (document.getElementById('managementWelcomeEnabled')?.checked) requirements.push(['managementWelcomeChannel', 'Choose a welcome channel']);
+        if (document.getElementById('managementGoodbyeEnabled')?.checked) requirements.push(['managementGoodbyeChannel', 'Choose a goodbye channel']);
+    }
+    if (key === 'joinSecurity' && document.getElementById('managementSecurityAction')?.value === 'quarantine') requirements.push(['managementSecurityRole', 'Choose a quarantine role']);
+    const missing = requirements.filter(([id]) => {
+        const field = document.getElementById(id);
+        return !field || (field.multiple ? field.selectedOptions.length === 0 : !field.value);
+    });
+    const enabled = state.management?.modules?.[key] === true;
+    box.dataset.ready = String(enabled && missing.length === 0);
+    box.innerHTML = missing.length
+        ? `<strong>Setup incomplete</strong><span>${missing.map(([, message]) => escapeHtml(message)).join(' · ')}</span><button type="button" class="secondary" data-readiness-target="${escapeHtml(missing[0][0])}">Fix now</button>`
+        : `<strong>${enabled ? 'Ready and running' : 'Ready to enable'}</strong><span>${enabled ? 'Required settings are present.' : 'Your configuration is ready; turn the module on when you want it to run.'}</span>`;
+}
+
+function installModuleReadiness() {
+    for (const [key, definition] of Object.entries(managementModuleDefinitions)) {
+        const panel = document.getElementById(`tab-${definition.tab}`);
+        const toolbar = panel?.querySelector('.module-page-toolbar');
+        if (!toolbar || panel.querySelector('[data-module-readiness]')) continue;
+        const box = document.createElement('div');
+        box.className = 'module-readiness';
+        box.dataset.moduleReadiness = key;
+        toolbar.after(box);
+        updateModuleReadiness(key);
+    }
+}
+
+installModuleReadiness();
+installModuleCommandHints();
+installEngagementGroups();
+document.addEventListener('change', event => {
+    const panel = event.target.closest('[id^="tab-management-"]');
+    const definition = Object.entries(managementModuleDefinitions).find(([, item]) => `tab-${item.tab}` === panel?.id);
+    if (definition) updateModuleReadiness(definition[0]);
+});
+document.addEventListener('click', event => {
+    const target = event.target.closest('[data-readiness-target]');
+    if (!target) return;
+    const field = document.getElementById(target.dataset.readinessTarget);
+    field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    field?.focus();
+});
+
+const managementSaveBar = document.createElement('div');
+managementSaveBar.className = 'management-save-bar';
+managementSaveBar.hidden = true;
+managementSaveBar.innerHTML = '<span><strong>Unsaved changes</strong><small>Save or discard before leaving this module.</small></span><button type="button" class="secondary" data-discard-management>Discard</button><button type="button" class="primary" data-save-management-bar>Save changes</button>';
+document.getElementById('dashboardLayout').append(managementSaveBar);
+let dirtyManagementPanel = null;
+
+function markManagementDirty(panel) {
+    if (!panel?.id.startsWith('tab-management-') || panel.id === 'tab-management') return;
+    dirtyManagementPanel = panel;
+    managementSaveBar.hidden = false;
+}
+
+function clearManagementDirty() {
+    dirtyManagementPanel = null;
+    managementSaveBar.hidden = true;
+}
+
+document.addEventListener('input', event => markManagementDirty(event.target.closest('.tab-panel')));
+document.addEventListener('change', event => markManagementDirty(event.target.closest('.tab-panel')));
+managementSaveBar.querySelector('[data-save-management-bar]').addEventListener('click', () => dirtyManagementPanel?.querySelector('[data-save-management], [data-save-advanced]')?.click());
+managementSaveBar.querySelector('[data-discard-management]').addEventListener('click', () => { clearManagementDirty(); refreshActiveTab().catch(handleUiError); });
 const automodRuleDefinitions = {
     badWords: { title: 'Bad words', description: 'Block configured words and phrases.', limit: 'Matches allowed', fixedLimit: true },
     serverInvites: { title: 'Discord invites', description: 'Stop unauthorized server invitation links.', limit: 'Invites per message' },
@@ -901,7 +1094,14 @@ document.getElementById('managementNavToggle').addEventListener('click', event =
 });
 
 tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
+        if (dirtyManagementPanel && !dirtyManagementPanel.classList.contains('active')) clearManagementDirty();
+        if (dirtyManagementPanel && btn.dataset.tab !== dirtyManagementPanel.id.replace(/^tab-/, '')) {
+            const leave = await confirmAction({ title: 'Discard unsaved changes?', message: 'This module has changes that have not been saved yet.', confirmLabel: 'Discard and leave' });
+            if (!leave) return;
+            clearManagementDirty();
+            await refreshActiveTab().catch(handleUiError);
+        }
         if (btn.dataset.managementModule) {
             setManagementExpanded(true);
         } else if (btn.hasAttribute('data-analytics-child')) {
@@ -2871,7 +3071,6 @@ async function loadServerMembers() {
         [
             { label: 'Member', key: 'tag', render: r => withNicknameTitle(r.tag, r.nickname) },
             { label: 'Nickname', key: 'nickname', render: r => r.nickname ? escapeHtml(r.nickname) : '<span class="muted">-</span>' },
-            { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
             { label: 'Role', sortValue: r => r.isDeveloper ? 2 : (r.role === 'admin' ? 1 : 0), render: renderMemberRoleCell },
             { label: 'Custom Permissions', sortValue: r => r.nonDefaultFeatureCount, render: r => r.nonDefaultFeatureCount > 0 ? `<span class="badge accent">${r.nonDefaultFeatureCount} custom</span>` : '<span class="muted">Default</span>' },
             { label: '', sortable: false, render: renderMemberActionsCell }
@@ -3101,6 +3300,36 @@ function renderProfileEditor(data) {
             <textarea readonly>${escapeHtml(data.aiMemory.summary || 'No saved AI summary yet.')}</textarea>
         </div>
     `;
+    renderProfileSocialsBuilder(profile.socials || {});
+}
+
+function renderProfileSocialsBuilder(socials = {}) {
+    const source = document.getElementById('profileSocials');
+    if (!source) return;
+    source.hidden = true;
+    const label = source.closest('.field')?.querySelector('label');
+    if (label) label.textContent = 'Social links';
+    let builder = document.getElementById('profileSocialsBuilder');
+    if (!builder) {
+        builder = document.createElement('div');
+        builder.id = 'profileSocialsBuilder';
+        builder.className = 'structured-builder';
+        source.after(builder);
+    }
+    const entries = Object.entries(socials || {});
+    builder.innerHTML = `<datalist id="profileSocialPlatforms"><option value="discord"><option value="github"><option value="website"><option value="youtube"><option value="twitch"></datalist><div class="structured-builder-list">${entries.map(([platform, value], index) => `<div class="structured-builder-row profile-social-row" data-profile-social="${index}"><div class="field"><label>Platform</label><input data-social-platform list="profileSocialPlatforms" value="${escapeHtml(platform)}" placeholder="Choose or type a platform"></div><div class="field"><label>Handle or URL</label><input data-social-value value="${escapeHtml(value)}" placeholder="https://… or @handle"></div><button class="danger compact" type="button" data-social-remove="${index}">Remove</button></div>`).join('')}</div><button class="secondary" type="button" data-social-add>Add social link</button>`;
+}
+
+function syncProfileSocials() {
+    const source = document.getElementById('profileSocials');
+    if (!source) return;
+    const socials = {};
+    for (const row of document.querySelectorAll('[data-profile-social]')) {
+        const platform = row.querySelector('[data-social-platform]').value;
+        const value = row.querySelector('[data-social-value]').value.trim();
+        if (platform && value) socials[platform] = value;
+    }
+    source.value = JSON.stringify(socials, null, 2);
 }
 
 async function loadProfiles(userId = document.getElementById('profileUserId').value.trim()) {
@@ -3202,6 +3431,22 @@ for (const [selectId, inputId] of Object.entries(guildUserSelectTargets)) {
 }
 
 profileEditor.addEventListener('click', event => {
+    if (event.target.closest('[data-social-add]')) {
+        syncProfileSocials();
+        const socials = JSON.parse(document.getElementById('profileSocials').value || '{}');
+        let key = 'website';
+        while (Object.hasOwn(socials, key)) key = `other${Object.keys(socials).length + 1}`;
+        socials[key] = '';
+        renderProfileSocialsBuilder(socials);
+        return;
+    }
+    const socialRemove = event.target.closest('[data-social-remove]');
+    if (socialRemove) {
+        const rows = [...profileEditor.querySelectorAll('[data-profile-social]')];
+        rows[Number(socialRemove.dataset.socialRemove)]?.remove();
+        syncProfileSocials();
+        return;
+    }
     if (event.target.id === 'refreshProfile') { loadProfiles(profileEditor.dataset.userId).catch(error => console.error(error)); return; }
     if (event.target.id !== 'saveProfile') {
         return;
@@ -3246,6 +3491,8 @@ profileEditor.addEventListener('click', event => {
         setStatus(profileStatusField, error.message, 'error');
     });
 });
+profileEditor.addEventListener('input', event => { if (event.target.closest('#profileSocialsBuilder')) syncProfileSocials(); });
+profileEditor.addEventListener('change', event => { if (event.target.closest('#profileSocialsBuilder')) syncProfileSocials(); });
 
 // ---------- Settings ----------
 let editableTabOrder = [];
@@ -3607,11 +3854,52 @@ function managementMultiOptions(items, selectedValues, label) {
     return items.map(item => `<option value="${escapeHtml(item.id)}" ${selected.has(String(item.id)) ? 'selected' : ''}>${label(item)}</option>`).join('');
 }
 
+function resourceDisplay(id, kind = 'member') {
+    if (!id) return 'Not selected';
+    const source = kind === 'channel' ? managementChannels : kind === 'role' ? managementRoles : managementMembers;
+    const item = source.find(entry => String(entry.id) === String(id)) || state.guildMembers.get(String(id));
+    if (!item) return `Unknown ${kind}`;
+    const name = item.displayName || item.nickname || item.name || item.tag || item.username || String(id);
+    return `${kind === 'channel' ? '#' : kind === 'role' ? '@' : ''}${name}`;
+}
+
 function renderAutomationRules() {
     const schedules = state.management?.automation?.schedules || [];
     const purges = state.management?.automation?.purgeRules || [];
     document.getElementById('managementSchedules').innerHTML = schedules.length ? schedules.map((rule, index) => `<div class="automation-rule" data-schedule-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Schedule type</label><select data-rule-type><option value="interval" ${rule.scheduleType === 'interval' ? 'selected' : ''}>Interval</option><option value="once" ${rule.scheduleType === 'once' ? 'selected' : ''}>One-time</option><option value="weekly" ${rule.scheduleType === 'weekly' ? 'selected' : ''}>Weekdays</option><option value="cron" ${rule.scheduleType === 'cron' ? 'selected' : ''}>Cron</option></select></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="5" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="field"><label>Date/time (one-time)</label><input data-rule-run-at type="datetime-local" value="${escapeHtml(rule.runAt || '')}"></div><div class="field"><label>Time (weekly)</label><input data-rule-time type="time" value="${escapeHtml(rule.time || '09:00')}"></div><div class="field"><label>Weekdays (0=Sun … 6=Sat)</label><input data-rule-weekdays value="${escapeHtml((rule.weekdays || []).join(','))}" placeholder="1,3,5"></div><div class="field"><label>Cron (min hour day month weekday)</label><input data-rule-cron value="${escapeHtml(rule.cron || '')}" placeholder="0 20 * * 5"></div><div class="field"><label>Timezone</label><input data-rule-timezone value="${escapeHtml(rule.timezone || 'UTC')}" placeholder="Europe/Amsterdam"></div><div class="field"><label>Start date (optional)</label><input data-rule-start type="datetime-local" value="${escapeHtml(rule.startAt || '')}"></div><div class="field"><label>End date (optional)</label><input data-rule-end type="datetime-local" value="${escapeHtml(rule.endAt || '')}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="field"><label>Message</label><textarea data-rule-message rows="3" maxlength="1800">${escapeHtml(rule.message)}</textarea></div><div class="actions"><button class="danger" type="button" data-remove-schedule="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No scheduled messages yet.</div>';
     document.getElementById('managementPurgeRules').innerHTML = purges.length ? purges.map((rule, index) => `<div class="automation-rule" data-purge-row><div class="two-col"><div class="field"><label>Name</label><input data-rule-id value="${escapeHtml(rule.id)}" maxlength="80"></div><div class="field"><label>Channel</label><select data-rule-channel>${managementChannelOptions(rule.channelId)}</select></div><div class="field"><label>Keep newest messages</label><input data-rule-keep type="number" min="0" max="100" value="${Number(rule.keepMessages) || 0}"></div><div class="field"><label>Every (minutes)</label><input data-rule-interval type="number" min="10" max="43200" value="${Number(rule.intervalMinutes) || 1440}"></div><div class="checkbox-row"><input data-rule-enabled type="checkbox" ${rule.enabled !== false ? 'checked' : ''}><label style="margin:0">Enabled</label></div></div><div class="actions"><button class="danger" type="button" data-remove-purge="${index}">Remove</button></div></div>`).join('') : '<div class="empty">No auto-purge rules yet.</div>';
+    enhanceAutomationSchedules();
+}
+
+function enhanceAutomationSchedules() {
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    for (const row of document.querySelectorAll('[data-schedule-row]')) {
+        const weekdayInput = row.querySelector('[data-rule-weekdays]');
+        if (weekdayInput && !row.querySelector('[data-weekday-picker]')) {
+            weekdayInput.closest('.field').hidden = true;
+            const selected = new Set(weekdayInput.value.split(',').filter(value => value !== '').map(Number));
+            const picker = document.createElement('div');
+            picker.className = 'field schedule-weekday-field';
+            picker.dataset.weekdayPicker = 'true';
+            picker.innerHTML = `<label>Weekdays</label><div class="weekday-picker">${dayLabels.map((label, day) => `<button type="button" data-weekday="${day}" aria-pressed="${selected.has(day)}">${label}</button>`).join('')}</div>`;
+            weekdayInput.closest('.field').after(picker);
+        }
+        const timezone = row.querySelector('[data-rule-timezone]');
+        if (timezone) {
+            timezone.setAttribute('list', 'commonTimezones');
+            if (!document.getElementById('commonTimezones')) document.body.insertAdjacentHTML('beforeend', '<datalist id="commonTimezones"><option value="UTC"><option value="Europe/Amsterdam"><option value="Europe/Berlin"><option value="Europe/London"><option value="America/New_York"><option value="America/Los_Angeles"><option value="Asia/Tokyo"><option value="Australia/Sydney"></datalist>');
+        }
+        const actions = row.querySelector('.actions');
+        if (actions && !actions.querySelector('[data-preview-schedule]')) actions.insertAdjacentHTML('afterbegin', '<button class="secondary" type="button" data-preview-schedule>Preview next runs</button>');
+        updateScheduleFields(row);
+    }
+}
+
+function updateScheduleFields(row) {
+    const type = row.querySelector('[data-rule-type]')?.value || 'interval';
+    const visibility = { interval: ['[data-rule-interval]'], once: ['[data-rule-run-at]'], weekly: ['[data-rule-time]', '[data-weekday-picker]'], cron: ['[data-rule-cron]'] };
+    for (const selector of ['[data-rule-interval]', '[data-rule-run-at]', '[data-rule-time]', '[data-rule-cron]']) row.querySelector(selector)?.closest('.field')?.toggleAttribute('hidden', !(visibility[type] || []).includes(selector));
+    row.querySelector('[data-weekday-picker]')?.toggleAttribute('hidden', type !== 'weekly');
 }
 
 function renderAutomodRules() {
@@ -3656,6 +3944,100 @@ function renderWorkflowResourcePicker() {
         source.insertAdjacentElement('beforebegin', picker);
     }
     picker.innerHTML = `<select id="workflowRolePicker"><option value="">Choose an available role</option>${managementRoles.map(role => `<option value="${escapeHtml(role.id)}">@${escapeHtml(role.name)}</option>`).join('')}</select><button class="secondary" type="button" data-insert-workflow-resource="roleId">Insert role</button><select id="workflowChannelPicker"><option value="">Choose an available channel</option>${managementChannels.filter(channel => channel.kind !== 'category').map(channel => `<option value="${escapeHtml(channel.id)}">#${escapeHtml(channel.name)}</option>`).join('')}</select><button class="secondary" type="button" data-insert-workflow-resource="channelId">Insert channel</button>`;
+}
+
+function renderFormQuestionBuilder() {
+    const source = document.getElementById('managementFormsQuestions');
+    if (!source) return;
+    source.hidden = true;
+    let builder = document.getElementById('formQuestionBuilder');
+    if (!builder) {
+        builder = document.createElement('div');
+        builder.id = 'formQuestionBuilder';
+        builder.className = 'structured-builder';
+        source.after(builder);
+    }
+    const questions = source.value.split('\n').map(value => value.trim()).filter(Boolean);
+    builder.innerHTML = `<div class="structured-builder-list">${questions.map((question, index) => `<div class="question-builder-row" data-question-row="${index}"><span>${index + 1}</span><input value="${escapeHtml(question)}" maxlength="200" aria-label="Question ${index + 1}"><button class="secondary compact" type="button" data-question-up="${index}" ${index === 0 ? 'disabled' : ''}>↑</button><button class="secondary compact" type="button" data-question-down="${index}" ${index === questions.length - 1 ? 'disabled' : ''}>↓</button><button class="danger compact" type="button" data-question-remove="${index}">Remove</button></div>`).join('')}</div><button class="secondary" type="button" data-question-add ${questions.length >= 5 ? 'disabled' : ''}>Add question</button><small>${questions.length}/5 questions · members answer these in a Discord modal.</small>`;
+}
+
+function syncFormQuestions() {
+    const source = document.getElementById('managementFormsQuestions');
+    source.value = [...document.querySelectorAll('[data-question-row] input')].map(input => input.value.trim()).filter(Boolean).join('\n');
+    source.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function workflowResourceOptions(type, selected) {
+    const items = type === 'role' ? managementRoles : managementChannels.filter(channel => channel.kind !== 'category');
+    return `<option value="">No ${type} selected</option>${items.map(item => `<option value="${escapeHtml(item.id)}" ${String(item.id) === String(selected || '') ? 'selected' : ''}>${type === 'role' ? '@' : '#'}${escapeHtml(item.name)}</option>`).join('')}`;
+}
+
+function renderWorkflowBuilder() {
+    const source = document.getElementById('workflowRulesJson');
+    if (!source) return;
+    source.hidden = true;
+    const field = source.closest('.field');
+    const label = field?.querySelector('label');
+    if (label) label.textContent = 'Workflow rules';
+    const sectionDescription = field?.closest('.section')?.querySelector(':scope > .sub');
+    if (sectionDescription) sectionDescription.textContent = 'Build each automation as a clear WHEN event, optional IF conditions, and ordered THEN actions.';
+    document.getElementById('workflowResourcePicker')?.toggleAttribute('hidden', true);
+    let builder = document.getElementById('workflowVisualBuilder');
+    if (!builder) {
+        builder = document.createElement('div');
+        builder.id = 'workflowVisualBuilder';
+        builder.className = 'workflow-builder';
+        source.after(builder);
+    }
+    const rules = readJsonArray(source);
+    const events = ['member.join', 'warning.created', 'ticket.closed', 'ticket.rating', 'message.created'];
+    const operators = ['equals', 'not-equals', 'greater-than', 'less-than', 'contains'];
+    const actionTypes = ['add-role', 'timeout', 'staff-alert', 'send-message', 'notification', 'create-case'];
+    builder.innerHTML = `<div class="workflow-rule-list">${rules.map((rule, ruleIndex) => `<article class="workflow-rule-card" data-workflow-rule="${ruleIndex}"><div class="section-title-row"><div><h3>Rule ${ruleIndex + 1}</h3><p class="sub">WHEN an event occurs, IF every condition matches, THEN actions run in order.</p></div><button class="danger compact" type="button" data-workflow-remove-rule="${ruleIndex}">Remove rule</button></div><div class="two-col"><div class="field"><label>Name</label><input data-workflow-name value="${escapeHtml(rule.name || '')}"></div><div class="field"><label>When</label><select data-workflow-event>${events.map(value => `<option value="${value}" ${rule.event === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div></div><h4>IF conditions</h4><div data-workflow-conditions>${(rule.conditions || []).map((condition, index) => `<div class="workflow-builder-row" data-workflow-condition="${index}"><input data-condition-field value="${escapeHtml(condition.field || '')}" placeholder="Field, e.g. accountAgeDays"><select data-condition-operator>${operators.map(value => `<option value="${value}" ${condition.operator === value ? 'selected' : ''}>${value}</option>`).join('')}</select><input data-condition-value value="${escapeHtml(condition.value ?? '')}" placeholder="Value"><button class="danger compact" type="button" data-remove-condition>×</button></div>`).join('')}</div><button class="secondary compact" type="button" data-add-condition>Add condition</button><h4>THEN actions</h4><div data-workflow-actions>${(rule.actions || []).map((action, index) => `<div class="workflow-action-row" data-workflow-action="${index}"><select data-action-type>${actionTypes.map(value => `<option value="${value}" ${action.type === value ? 'selected' : ''}>${value}</option>`).join('')}</select><select data-action-role>${workflowResourceOptions('role', action.roleId)}</select><select data-action-channel>${workflowResourceOptions('channel', action.channelId)}</select><input data-action-value value="${escapeHtml(action.message || action.duration || '')}" placeholder="Message or duration"><button class="danger compact" type="button" data-remove-action>×</button></div>`).join('')}</div><button class="secondary compact" type="button" data-add-action>Add action</button></article>`).join('')}</div><button class="secondary" type="button" data-workflow-add-rule>Add workflow rule</button>`;
+    for (const row of builder.querySelectorAll('[data-workflow-action]')) updateWorkflowActionFields(row);
+}
+
+function updateWorkflowActionFields(row) {
+    const type = row.querySelector('[data-action-type]')?.value;
+    const role = row.querySelector('[data-action-role]');
+    const channel = row.querySelector('[data-action-channel]');
+    const detail = row.querySelector('[data-action-value]');
+    if (role) role.hidden = type !== 'add-role';
+    if (channel) channel.hidden = !['send-message', 'staff-alert', 'notification'].includes(type);
+    if (detail) {
+        detail.hidden = !['timeout', 'send-message', 'staff-alert', 'notification'].includes(type);
+        detail.placeholder = type === 'timeout' ? 'Duration, e.g. 10m' : 'Message';
+    }
+}
+
+function syncWorkflowBuilder() {
+    const source = document.getElementById('workflowRulesJson');
+    const previous = readJsonArray(source);
+    const rules = [...document.querySelectorAll('[data-workflow-rule]')].map((card, ruleIndex) => ({
+        ...(previous[ruleIndex] || {}), name: card.querySelector('[data-workflow-name]').value.trim(), event: card.querySelector('[data-workflow-event]').value,
+        conditions: [...card.querySelectorAll('[data-workflow-condition]')].map(row => ({ field: row.querySelector('[data-condition-field]').value.trim(), operator: row.querySelector('[data-condition-operator]').value, value: row.querySelector('[data-condition-value]').value.trim() })),
+        actions: [...card.querySelectorAll('[data-workflow-action]')].map(row => { const type = row.querySelector('[data-action-type]').value, roleId = row.querySelector('[data-action-role]').value, channelId = row.querySelector('[data-action-channel]').value, detail = row.querySelector('[data-action-value]').value.trim(); return { type, ...(roleId ? { roleId } : {}), ...(channelId ? { channelId } : {}), ...(detail ? (type === 'timeout' ? { duration: detail } : { message: detail }) : {}) }; })
+    }));
+    source.value = JSON.stringify(rules, null, 2);
+    source.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function renderModulePreviews() {
+    const previews = [
+        ['managementOnboardingMessage', 'roles', 'Role-menu preview', () => `<strong>${escapeHtml(document.getElementById('managementOnboardingTitle').value || 'Choose your roles')}</strong><p>${escapeHtml(document.getElementById('managementOnboardingMessage').value || 'Members will see this message above the role menu.')}</p>`],
+        ['managementWelcomeMessage', 'welcome', 'Welcome message preview', () => `<strong>Welcome, @new-member!</strong><p>${escapeHtml((document.getElementById('managementWelcomeMessage').value || 'Welcome {user} to {server}!').replaceAll('{user}', '@new-member').replaceAll('{server}', state.guildName || 'your server'))}</p>`],
+        ['managementGoodbyeMessage', 'goodbye', 'Goodbye message preview', () => `<strong>Member left</strong><p>${escapeHtml((document.getElementById('managementGoodbyeMessage').value || '{user} left {server}.').replaceAll('{user}', '@member').replaceAll('{server}', state.guildName || 'your server'))}</p>`],
+        ['managementStarboardEmoji', 'starboard', 'Starboard preview', () => `<strong>${escapeHtml(document.getElementById('managementStarboardEmoji').value || '⭐')} ${escapeHtml(document.getElementById('managementStarboardThreshold').value || '3')}</strong><p>A highlighted message will appear in ${escapeHtml(resourceDisplay(document.getElementById('managementStarboardChannel').value, 'channel'))}.</p>`],
+        ['managementFormsTitle', 'forms', 'Form preview', () => `<strong>${escapeHtml(document.getElementById('managementFormsTitle').value || 'Application')}</strong><p>${document.getElementById('managementFormsQuestions').value.split('\n').filter(Boolean).map((question, index) => `${index + 1}. ${escapeHtml(question)}`).join('<br>') || 'Add questions to preview the Discord modal.'}</p>`]
+    ];
+    for (const [anchorId, key, title, render] of previews) {
+        const anchor = document.getElementById(anchorId);
+        const section = anchor?.closest('.section');
+        if (!section) continue;
+        let preview = section.querySelector(`[data-module-preview="${key}"]`);
+        if (!preview) { preview = document.createElement('div'); preview.className = 'module-live-preview'; preview.dataset.modulePreview = key; section.querySelector('.actions')?.before(preview); }
+        preview.innerHTML = `<span>${title}</span>${render()}`;
+    }
 }
 
 function hydrateManagementEditors() {
@@ -3744,6 +4126,11 @@ function hydrateManagementEditors() {
         else field.value = value ?? '';
     }
     renderWorkflowResourcePicker();
+    for (const sourceId of Object.keys(structuredBuilderConfigs)) renderStructuredBuilder(sourceId);
+    renderFormQuestionBuilder();
+    renderWorkflowBuilder();
+    renderModulePreviews();
+    for (const key of Object.keys(managementModuleDefinitions)) updateModuleReadiness(key);
 }
 
 function collectAdvancedManagement(section) {
@@ -3766,6 +4153,140 @@ function operationTable(rows, columns, emptyMessage) {
     return `<table><thead><tr>${columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map(column => `<td>${column.render ? column.render(row) : escapeHtml(row[column.key] ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
+function installOperationFilter(containerId, placeholder = 'Search this list') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const existing = container.previousElementSibling?.dataset.operationFilter === containerId ? container.previousElementSibling : null;
+    if (existing) {
+        existing.querySelector('input')?.dispatchEvent(new Event('input'));
+        return;
+    }
+    const toolbar = document.createElement('div');
+    toolbar.className = 'operation-toolbar';
+    toolbar.dataset.operationFilter = containerId;
+    toolbar.innerHTML = `<label><span class="sr-only">${escapeHtml(placeholder)}</span><input type="search" placeholder="${escapeHtml(placeholder)}" autocomplete="off"></label><span class="sub" data-operation-count></span>`;
+    container.before(toolbar);
+    const input = toolbar.querySelector('input');
+    input.addEventListener('input', () => {
+        const query = input.value.trim().toLocaleLowerCase();
+        const rows = [...container.querySelectorAll('tbody tr')];
+        let visible = 0;
+        for (const row of rows) {
+            const show = !query || row.textContent.toLocaleLowerCase().includes(query);
+            row.hidden = !show;
+            if (show) visible += 1;
+        }
+        toolbar.querySelector('[data-operation-count]').textContent = `${visible} of ${rows.length}`;
+    });
+    input.dispatchEvent(new Event('input'));
+}
+
+function renderOperationalExperience(data) {
+    const queues = [
+        ['incidentCenterTable', 'Search incidents'], ['reportsOperationsTable', 'Search reports'],
+        ['managementTicketsTable', 'Search tickets'], ['managementSuggestionsRoadmap', 'Search suggestions'],
+        ['serverSnapshotsTable', 'Search snapshots'], ['engagementLevelsTable', 'Search members']
+    ];
+    for (const [id, placeholder] of queues) installOperationFilter(id, placeholder);
+
+    const staffPanel = document.getElementById('tab-management-staff-operations');
+    let staffQueue = document.getElementById('staffOperationsQueue');
+    if (staffPanel && !staffQueue) {
+        const section = document.createElement('div');
+        section.className = 'section';
+        section.innerHTML = '<div class="section-title-row"><div><h2>Work queue</h2><p class="sub">Open reports, incidents, and tickets in one place.</p></div><span class="badge accent">Live</span></div><div id="staffOperationsQueue" class="table-wrap"></div>';
+        staffPanel.append(section);
+        staffQueue = section.querySelector('#staffOperationsQueue');
+    }
+    const work = [
+        ...(data.incidents || []).filter(item => item.status !== 'resolved').map(item => ({ type: 'Incident', subject: item.summary, owner: resourceDisplay(item.actorId), status: item.status, createdAt: item.createdAt })),
+        ...(data.reports || []).filter(item => !['resolved', 'dismissed'].includes(item.status)).map(item => ({ type: 'Report', subject: item.reason, owner: resourceDisplay(item.userId || item.authorId), status: item.status, createdAt: item.createdAt })),
+        ...(data.tickets || []).filter(item => item.status !== 'closed').map(item => ({ type: 'Ticket', subject: item.topic, owner: resourceDisplay(item.ownerId), status: item.claimedBy ? `Claimed by ${resourceDisplay(item.claimedBy)}` : 'Unclaimed', createdAt: item.createdAt }))
+    ];
+    if (staffQueue) {
+        staffQueue.innerHTML = operationTable(work, [
+            { label: 'Type', key: 'type' }, { label: 'Subject', key: 'subject' }, { label: 'Member', key: 'owner' },
+            { label: 'Status', key: 'status' }, { label: 'Received', render: row => escapeHtml(row.createdAt ? formatDateTime(row.createdAt) : 'Unknown') }
+        ], 'No staff work is waiting.');
+        installOperationFilter('staffOperationsQueue', 'Search the staff queue');
+    }
+
+    const ensureSection = (key, id, title, description) => {
+        let container = document.getElementById(id);
+        if (container) return container;
+        const panel = document.getElementById(`tab-${managementModuleDefinitions[key]?.tab}`);
+        if (!panel) return null;
+        const section = document.createElement('div');
+        section.className = 'section';
+        section.innerHTML = `<div class="section-title-row"><div><h2>${escapeHtml(title)}</h2><p class="sub">${escapeHtml(description)}</p></div><span class="badge accent">Live</span></div><div id="${escapeHtml(id)}" class="table-wrap"></div>`;
+        panel.append(section);
+        return section.querySelector(`#${id}`);
+    };
+
+    const submissions = ensureSection('forms', 'managementFormsSubmissions', 'Recent submissions', 'Review form and appeal activity without exposing answers outside the private staff workflow.');
+    if (submissions) {
+        submissions.innerHTML = operationTable(data.submissions || [], [
+            { label: 'Submission', key: 'id' }, { label: 'Type', key: 'type' }, { label: 'Member', render: row => escapeHtml(resourceDisplay(row.authorId)) },
+            { label: 'Status', key: 'status' }, { label: 'Received', render: row => escapeHtml(formatDateTime(row.createdAt)) }
+        ], 'No form submissions yet.');
+        installOperationFilter('managementFormsSubmissions', 'Search submissions');
+    }
+
+    const integrationActivity = ensureSection('integrations', 'managementIntegrationActivity', 'Discord activity', 'Native AutoMod rules and scheduled events currently available in this server.');
+    if (integrationActivity) {
+        const integrations = [
+            ...(data.integrations?.nativeAutomodRules || []).map(item => ({ type: 'AutoMod rule', name: item.name, status: item.enabled ? 'Enabled' : 'Disabled', next: '—' })),
+            ...(data.integrations?.scheduledEvents || []).map(item => ({ type: 'Scheduled event', name: item.name, status: item.status, next: item.scheduledStartAt ? formatDateTime(item.scheduledStartAt) : '—' }))
+        ];
+        integrationActivity.innerHTML = operationTable(integrations, [
+            { label: 'Type', key: 'type' }, { label: 'Name', key: 'name' }, { label: 'Status', key: 'status' }, { label: 'Starts', key: 'next' }
+        ], 'No native AutoMod rules or scheduled events found.');
+        installOperationFilter('managementIntegrationActivity', 'Search Discord integrations');
+    }
+
+    const copilotRecords = ensureSection('copilot', 'managementCopilotRecords', 'Available records', 'Choose a real report or incident before using /server copilot in Discord.');
+    if (copilotRecords) {
+        const records = [
+            ...(data.reports || []).map(item => ({ id: item.id, type: 'Report', summary: item.reason, status: item.status })),
+            ...(data.incidents || []).map(item => ({ id: item.id, type: 'Incident', summary: item.summary, status: item.status }))
+        ];
+        copilotRecords.classList.remove('table-wrap');
+        copilotRecords.innerHTML = records.length ? `<div class="field"><label for="copilotRecordSelect">Report or incident</label><select id="copilotRecordSelect"><option value="">Choose an available record</option>${records.map((record, index) => `<option value="${index}">${escapeHtml(record.type)} · ${escapeHtml(record.summary).slice(0, 100)}</option>`).join('')}</select></div><div class="module-live-preview" data-copilot-record-preview><span>Selected record</span><p>Choose a record to see what Copilot will receive.</p></div>` : '<div class="empty">No reports or incidents are available for Copilot.</div>';
+        copilotRecords.querySelector('select')?.addEventListener('change', event => {
+            const record = event.target.value === '' ? null : records[Number(event.target.value)];
+            const preview = copilotRecords.querySelector('[data-copilot-record-preview]');
+            preview.innerHTML = record ? `<span>${escapeHtml(record.type)} · ${escapeHtml(record.status)}</span><strong>${escapeHtml(record.summary)}</strong><div class="row"><code>/server copilot record:${escapeHtml(record.id)}</code><button class="secondary compact" type="button" data-copy-copilot-command="${escapeHtml(record.id)}">Copy command</button></div>` : '<span>Selected record</span><p>Choose a record to see what Copilot will receive.</p>';
+        });
+        copilotRecords.onclick = event => {
+            const button = event.target.closest('[data-copy-copilot-command]');
+            if (!button) return;
+            navigator.clipboard?.writeText(`/server copilot record:${button.dataset.copyCopilotCommand}`).then(() => { button.textContent = 'Copied'; }).catch(() => {});
+        };
+    }
+
+    const starboardActivity = ensureSection('starboard', 'managementStarboardActivity', 'Recent activity', 'Messages that have been copied to the Starboard.');
+    if (starboardActivity) {
+        const count = (data.starboardPosts || []).length;
+        starboardActivity.classList.remove('table-wrap');
+        starboardActivity.innerHTML = `<div class="card-grid"><article class="card"><span>Starboard posts</span><strong>${count}</strong><small>Use /starboard status for the same live count in Discord.</small></article></div>`;
+    }
+
+    const activity = {
+        incidentCenter: `${(data.incidents || []).filter(item => item.status !== 'resolved').length} open`,
+        reports: `${(data.reports || []).filter(item => !['resolved', 'dismissed'].includes(item.status)).length} open`,
+        tickets: `${data.ticketStats?.open || 0} open`, suggestions: `${(data.suggestions || []).length} total`,
+        backups: `${(data.snapshots || []).length} snapshots`, engagement: `${(data.levels || []).length} ranked members`,
+        forms: `${(data.submissions || []).length} submissions`, starboard: `${(data.starboardPosts || []).length} posts`,
+        integrations: `${(data.integrations?.nativeAutomodRules || []).length} rules · ${(data.integrations?.scheduledEvents || []).length} events`,
+        staffOperations: `${work.length} waiting`, communityHealth: `${data.health?.activeMembers30d || 0} active members (30d)`
+    };
+    for (const [key, value] of Object.entries(activity)) {
+        const panel = document.getElementById(`tab-${managementModuleDefinitions[key]?.tab}`);
+        const runtime = panel?.querySelector('[data-module-runtime-state]');
+        if (runtime) runtime.textContent = `${state.management?.modules?.[key] ? 'Running' : 'Paused'} · ${value}`;
+    }
+}
+
 function renderServerDoctor(result) {
     const container = document.getElementById('serverDoctorResults');
     if (!result) return;
@@ -3776,7 +4297,7 @@ function renderServerDoctor(result) {
 function renderAdvancedOperations(data) {
     renderServerDoctor(data.doctor);
     document.getElementById('incidentCenterTable').innerHTML = operationTable(data.incidents || [], [
-        { label: 'Incident', key: 'id' }, { label: 'Summary', key: 'summary' }, { label: 'Actor', key: 'actorId' },
+        { label: 'Incident', key: 'id' }, { label: 'Summary', key: 'summary' }, { label: 'Actor', render: row => escapeHtml(resourceDisplay(row.actorId)) },
         { label: 'Status', render: row => `<select data-incident-status="${escapeHtml(row.id)}"><option value="open" ${row.status === 'open' ? 'selected' : ''}>Open</option><option value="investigating" ${row.status === 'investigating' ? 'selected' : ''}>Investigating</option><option value="resolved" ${row.status === 'resolved' ? 'selected' : ''}>Resolved</option></select>` }
     ], 'No security incidents recorded.');
     document.getElementById('reportsOperationsTable').innerHTML = operationTable(data.reports || [], [
@@ -3788,18 +4309,18 @@ function renderAdvancedOperations(data) {
         { label: 'Recovery', render: row => `<div class="row"><button class="secondary" type="button" data-snapshot-preview="${escapeHtml(row.id)}">Preview</button><button class="secondary" type="button" data-snapshot-restore="${escapeHtml(row.id)}">Restore missing</button></div>` }
     ], 'No snapshots created yet.');
     document.getElementById('engagementLevelsTable').innerHTML = operationTable(data.levels || [], [
-        { label: 'Member ID', key: 'userId' }, { label: 'Level', key: 'level' }, { label: 'XP', key: 'xp' }, { label: 'Messages', key: 'messages' }
+        { label: 'Member', render: row => escapeHtml(resourceDisplay(row.userId)) }, { label: 'Level', key: 'level' }, { label: 'XP', key: 'xp' }, { label: 'Messages', key: 'messages' }
     ], 'No XP has been recorded yet.');
     const utilities = [
-        ...(data.feeds || []).map(row => ({ type: 'Creator feed', name: row.name, destination: row.channelId, status: row.lastError ? `Error: ${row.lastError}` : row.lastCheckedAt ? 'Active' : 'Waiting for first check' })),
-        ...(data.voiceRoleLinks || []).map(row => ({ type: 'Voice role', name: row.roleId, destination: row.channelId, status: 'Active' })),
-        ...(data.temporaryRoles || []).map(row => ({ type: 'Temporary role', name: row.roleId, destination: row.userId, status: `Expires ${formatDateTime(row.removeAt)}` }))
+        ...(data.feeds || []).map(row => ({ type: 'Creator feed', name: row.name, destination: resourceDisplay(row.channelId, 'channel'), status: row.lastError ? `Error: ${row.lastError}` : row.lastCheckedAt ? 'Active' : 'Waiting for first check' })),
+        ...(data.voiceRoleLinks || []).map(row => ({ type: 'Voice role', name: resourceDisplay(row.roleId, 'role'), destination: resourceDisplay(row.channelId, 'channel'), status: 'Active' })),
+        ...(data.temporaryRoles || []).map(row => ({ type: 'Temporary role', name: resourceDisplay(row.roleId, 'role'), destination: resourceDisplay(row.userId), status: `Expires ${formatDateTime(row.removeAt)}` }))
     ];
     document.getElementById('engagementUtilitiesTable').innerHTML = operationTable(utilities, [
         { label: 'Type', key: 'type' }, { label: 'Feed / role', key: 'name' }, { label: 'Channel / member', key: 'destination' }, { label: 'Status', key: 'status' }
     ], 'No feeds, voice roles, or temporary roles configured.');
     document.getElementById('managementActivePunishments').innerHTML = operationTable(data.activePunishments || [], [
-        { label: 'Action', key: 'action' }, { label: 'Member', key: 'targetId' }, { label: 'Moderator', key: 'moderatorId' },
+        { label: 'Action', key: 'action' }, { label: 'Member', render: row => escapeHtml(resourceDisplay(row.targetId)) }, { label: 'Moderator', render: row => escapeHtml(resourceDisplay(row.moderatorId)) },
         { label: 'Reason', key: 'reason' }, { label: 'Remaining', render: row => escapeHtml(formatDuration(row.remainingMs)) },
         { label: '', render: row => `<button class="secondary" type="button" data-cancel-punishment="${escapeHtml(row.id)}">Cancel</button>` }
     ], 'No active temporary punishments.');
@@ -3812,13 +4333,13 @@ function renderAdvancedOperations(data) {
         ['Oldest unanswered', ticketStats.oldestUnanswered ? formatDuration(ticketStats.oldestUnanswered.waitingMs) : 'None']
     ].map(([label, value]) => `<article class="card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
     document.getElementById('managementTicketsTable').innerHTML = operationTable(data.tickets || [], [
-        { label: 'Ticket', key: 'id' }, { label: 'Owner', key: 'ownerId' }, { label: 'Topic', key: 'topic' },
-        { label: 'Status', key: 'status' }, { label: 'Claimed by', key: 'claimedBy' }, { label: 'Created', render: row => escapeHtml(formatDateTime(row.createdAt)) }
+        { label: 'Ticket', key: 'id' }, { label: 'Owner', render: row => escapeHtml(resourceDisplay(row.ownerId)) }, { label: 'Topic', key: 'topic' },
+        { label: 'Status', key: 'status' }, { label: 'Claimed by', render: row => escapeHtml(row.claimedBy ? resourceDisplay(row.claimedBy) : 'Unclaimed') }, { label: 'Created', render: row => escapeHtml(formatDateTime(row.createdAt)) }
     ], 'No tickets recorded.');
 
     const suggestionStatuses = [['submitted', 'Submitted'], ['under-review', 'Under Review'], ['planned', 'Planned'], ['in-progress', 'In Progress'], ['implemented', 'Implemented'], ['rejected', 'Rejected']];
     document.getElementById('managementSuggestionsRoadmap').innerHTML = operationTable(data.suggestions || [], [
-        { label: 'Suggestion', key: 'id' }, { label: 'Idea', key: 'idea' }, { label: 'Author', key: 'authorId' },
+        { label: 'Suggestion', key: 'id' }, { label: 'Idea', key: 'idea' }, { label: 'Author', render: row => escapeHtml(resourceDisplay(row.authorId)) },
         { label: 'Roadmap status', render: row => `<select data-suggestion-status="${escapeHtml(row.id)}">${suggestionStatuses.map(([value, label]) => `<option value="${value}" ${row.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select>` },
         { label: 'Staff response', render: row => escapeHtml(row.staffResponse || row.note || '—') }
     ], 'No suggestions recorded.');
@@ -3848,6 +4369,7 @@ function renderAdvancedOperations(data) {
         { label: '7-day active', render: row => escapeHtml(row.active7d == null ? '—' : `${row.active7d}%`) },
         { label: '30-day active', render: row => escapeHtml(row.active30d == null ? '—' : `${row.active30d}%`) }
     ], 'No invite retention data yet.');
+    renderOperationalExperience(data);
 }
 
 async function loadAdvancedManagement() {
@@ -3910,6 +4432,7 @@ async function persistManagement(statusField) {
     renderManagementCards();
     applyManagementNavigation();
     hydrateManagementEditors();
+    clearManagementDirty();
     if (statusField) setStatus(statusField, 'Saved.', 'ok');
 }
 
@@ -4068,6 +4591,21 @@ document.getElementById('managementAutomodPreset').addEventListener('change', ev
 document.getElementById('managementAddSchedule').addEventListener('click', () => { state.management.automation.schedules.push({ id: `schedule-${Date.now()}`, enabled: true, channelId: '', message: '', intervalMinutes: 1440, scheduleType: 'interval', timezone: 'UTC', weekdays: [], time: '09:00' }); renderAutomationRules(); });
 document.getElementById('managementAddPurgeRule').addEventListener('click', () => { state.management.automation.purgeRules.push({ id: `purge-${Date.now()}`, enabled: true, channelId: '', keepMessages: 20, intervalMinutes: 1440 }); renderAutomationRules(); });
 document.getElementById('managementSchedules').addEventListener('click', event => { const button = event.target.closest('[data-remove-schedule]'); if (!button) return; state.management.automation.schedules.splice(Number(button.dataset.removeSchedule), 1); renderAutomationRules(); });
+document.getElementById('managementSchedules').addEventListener('change', event => {
+    const row = event.target.closest('[data-schedule-row]');
+    if (row && event.target.matches('[data-rule-type]')) updateScheduleFields(row);
+});
+document.getElementById('managementSchedules').addEventListener('click', event => {
+    const day = event.target.closest('[data-weekday]');
+    const preview = event.target.closest('[data-preview-schedule]');
+    const row = event.target.closest('[data-schedule-row]');
+    if (day && row) {
+        day.setAttribute('aria-pressed', String(day.getAttribute('aria-pressed') !== 'true'));
+        row.querySelector('[data-rule-weekdays]').value = [...row.querySelectorAll('[data-weekday][aria-pressed="true"]')].map(button => button.dataset.weekday).join(',');
+        markManagementDirty(row.closest('.tab-panel'));
+    }
+    if (preview && row) row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+});
 document.getElementById('managementSchedules').addEventListener('dblclick', async event => {
     const row = event.target.closest('[data-schedule-row]'); if (!row) return;
     const schedule = { enabled: true, scheduleType: row.querySelector('[data-rule-type]').value, intervalMinutes: Number(row.querySelector('[data-rule-interval]').value), runAt: row.querySelector('[data-rule-run-at]').value, time: row.querySelector('[data-rule-time]').value, weekdays: row.querySelector('[data-rule-weekdays]').value.split(',').map(Number).filter(Number.isInteger), cron: row.querySelector('[data-rule-cron]').value, timezone: row.querySelector('[data-rule-timezone]').value, startAt: row.querySelector('[data-rule-start]').value, endAt: row.querySelector('[data-rule-end]').value };
@@ -4075,6 +4613,57 @@ document.getElementById('managementSchedules').addEventListener('dblclick', asyn
     await alertDialog({ title: 'Next executions', message: result.next.length ? result.next.map(formatDateTime).join('\n') : 'No execution falls within the next year.' });
 });
 document.getElementById('managementPurgeRules').addEventListener('click', event => { const button = event.target.closest('[data-remove-purge]'); if (!button) return; state.management.automation.purgeRules.splice(Number(button.dataset.removePurge), 1); renderAutomationRules(); });
+
+document.addEventListener('input', event => { if (event.target.closest('#formQuestionBuilder')) syncFormQuestions(); });
+document.addEventListener('click', event => {
+    if (!event.target.closest('#formQuestionBuilder')) return;
+    const source = document.getElementById('managementFormsQuestions');
+    const questions = source.value.split('\n').map(value => value.trim()).filter(Boolean);
+    const add = event.target.closest('[data-question-add]');
+    const remove = event.target.closest('[data-question-remove]');
+    const up = event.target.closest('[data-question-up]');
+    const down = event.target.closest('[data-question-down]');
+    if (add && questions.length < 5) questions.push('New question');
+    if (remove) questions.splice(Number(remove.dataset.questionRemove), 1);
+    if (up) { const index = Number(up.dataset.questionUp); [questions[index - 1], questions[index]] = [questions[index], questions[index - 1]]; }
+    if (down) { const index = Number(down.dataset.questionDown); [questions[index + 1], questions[index]] = [questions[index], questions[index + 1]]; }
+    if (add || remove || up || down) { source.value = questions.join('\n'); renderFormQuestionBuilder(); renderModulePreviews(); markManagementDirty(source.closest('.tab-panel')); }
+});
+
+document.addEventListener('input', event => { if (event.target.closest('#workflowVisualBuilder')) syncWorkflowBuilder(); });
+document.addEventListener('change', event => {
+    if (!event.target.closest('#workflowVisualBuilder')) return;
+    if (event.target.matches('[data-action-type]')) updateWorkflowActionFields(event.target.closest('[data-workflow-action]'));
+    syncWorkflowBuilder();
+});
+document.addEventListener('click', event => {
+    if (!event.target.closest('#workflowVisualBuilder')) return;
+    const source = document.getElementById('workflowRulesJson');
+    const rules = readJsonArray(source);
+    const card = event.target.closest('[data-workflow-rule]');
+    const ruleIndex = Number(card?.dataset.workflowRule);
+    if (event.target.closest('[data-workflow-add-rule]')) rules.push({ name: '', event: 'member.join', conditions: [], actions: [] });
+    else if (event.target.closest('[data-workflow-remove-rule]')) rules.splice(Number(event.target.closest('[data-workflow-remove-rule]').dataset.workflowRemoveRule), 1);
+    else if (event.target.closest('[data-add-condition]')) (rules[ruleIndex].conditions ||= []).push({ field: '', operator: 'equals', value: '' });
+    else if (event.target.closest('[data-remove-condition]')) rules[ruleIndex].conditions.splice(Number(event.target.closest('[data-workflow-condition]').dataset.workflowCondition), 1);
+    else if (event.target.closest('[data-add-action]')) (rules[ruleIndex].actions ||= []).push({ type: 'notification' });
+    else if (event.target.closest('[data-remove-action]')) rules[ruleIndex].actions.splice(Number(event.target.closest('[data-workflow-action]').dataset.workflowAction), 1);
+    else return;
+    source.value = JSON.stringify(rules, null, 2);
+    renderWorkflowBuilder();
+    markManagementDirty(source.closest('.tab-panel'));
+});
+
+window.addEventListener('beforeunload', event => {
+    if (!dirtyManagementPanel) return;
+    event.preventDefault();
+    event.returnValue = '';
+});
+
+for (const id of ['managementOnboardingTitle', 'managementOnboardingMessage', 'managementWelcomeMessage', 'managementGoodbyeMessage', 'managementStarboardEmoji', 'managementStarboardThreshold', 'managementStarboardChannel', 'managementFormsTitle']) {
+    document.getElementById(id)?.addEventListener('input', renderModulePreviews);
+    document.getElementById(id)?.addEventListener('change', renderModulePreviews);
+}
 
 const managementStatusIds = { moderation: 'managementModerationStatus', automod: 'managementAutomodStatus', cases: 'managementCasesStatus', roles: 'managementRolesStatus', automation: 'managementAutomationStatus', tickets: 'managementTicketsStatus', suggestions: 'managementSuggestionsStatus', joinSecurity: 'managementJoinSecurityStatus', starboard: 'managementStarboardStatus', forms: 'managementFormsStatus', channels: 'managementChannelsStatus', integrations: 'managementIntegrationsStatus', serverDoctor: 'managementServerDoctorStatus', incidentCenter: 'managementIncidentCenterStatus', reports: 'managementReportsStatus', workflows: 'managementWorkflowsStatus', staffOperations: 'managementStaffOperationsStatus', communityHealth: 'managementCommunityHealthStatus', backups: 'managementBackupsStatus', copilot: 'managementCopilotStatus', engagement: 'managementEngagementStatus' };
 document.querySelectorAll('[data-save-management]').forEach(button => button.addEventListener('click', async () => {
@@ -4177,18 +4766,18 @@ async function loadManagementTimeline() {
     const suffix = parameters.size ? `&${parameters}` : '';
     const data = await api(`${withGuild('/api/management/cases')}${suffix}`);
     document.getElementById('managementCasesTable').innerHTML = data.cases.length ? `<table><thead><tr><th>Case</th><th>Action</th><th>Target</th><th>Reason</th><th>Status</th><th>Created</th></tr></thead><tbody>${data.cases.map(entry => `<tr><td><code>${escapeHtml(entry.id)}</code></td><td>${escapeHtml(entry.action)}</td><td>${escapeHtml(entry.targetLabel || entry.targetId || '—')}</td><td>${escapeHtml(entry.reason)}</td><td>${escapeHtml(entry.status)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No cases found.</div>';
-    document.getElementById('managementEventsTable').innerHTML = data.events.length ? `<table><thead><tr><th>Event</th><th>Member</th><th>Summary</th><th>Created</th></tr></thead><tbody>${data.events.map(entry => `<tr><td>${escapeHtml(entry.type)}</td><td>${escapeHtml(entry.userId || '—')}</td><td>${escapeHtml(entry.summary)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No events found.</div>';
+    document.getElementById('managementEventsTable').innerHTML = data.events.length ? `<table><thead><tr><th>Event</th><th>Member</th><th>Summary</th><th>Created</th></tr></thead><tbody>${data.events.map(entry => `<tr><td>${escapeHtml(entry.type)}</td><td>${escapeHtml(entry.userId ? resourceDisplay(entry.userId) : '—')}</td><td>${escapeHtml(entry.summary)}</td><td>${escapeHtml(formatDate(entry.createdAt))}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No events found.</div>';
     document.getElementById('managementAuditTable').innerHTML = operationTable(data.audit || [], [
         { label: 'Time', render: row => escapeHtml(formatDateTime(row.at)) }, { label: 'Source', key: 'source' },
-        { label: 'Action', key: 'action' }, { label: 'Member', render: row => row.memberId ? `<button class="secondary" type="button" data-dossier-member="${escapeHtml(row.memberId)}">${escapeHtml(row.memberId)}</button>` : '—' }, { label: 'Moderator', key: 'moderatorId' },
-        { label: 'Channel', key: 'channelId' }, { label: 'Summary', key: 'summary' }
+        { label: 'Action', key: 'action' }, { label: 'Member', render: row => row.memberId ? `<button class="secondary" type="button" data-dossier-member="${escapeHtml(row.memberId)}">${escapeHtml(resourceDisplay(row.memberId))}</button>` : '—' }, { label: 'Moderator', render: row => escapeHtml(row.moderatorId ? resourceDisplay(row.moderatorId) : '—') },
+        { label: 'Channel', render: row => escapeHtml(row.channelId ? resourceDisplay(row.channelId, 'channel') : '—') }, { label: 'Summary', key: 'summary' }
     ], 'No audit records match these filters.');
     const dossier = data.dossier;
     document.getElementById('managementMemberDossier').innerHTML = dossier ? `<div class="card-grid">
         <article class="card"><span>Moderation cases</span><strong>${dossier.cases.length}</strong><small>Factual records only; no derived member scoring</small></article>
         <article class="card"><span>Timeline records</span><strong>${dossier.timeline.length}</strong><small>Necessary moderation and support metadata</small></article>
     </div>${operationTable(dossier.timeline || [], [
-        { label: 'Time', render: row => escapeHtml(formatDateTime(row.at)) }, { label: 'Type', key: 'type' }, { label: 'Event', key: 'label' }, { label: 'Channel', key: 'channelId' }, { label: 'Status', key: 'status' }
+        { label: 'Time', render: row => escapeHtml(formatDateTime(row.at)) }, { label: 'Type', key: 'type' }, { label: 'Event', key: 'label' }, { label: 'Channel', render: row => escapeHtml(row.channelId ? resourceDisplay(row.channelId, 'channel') : '—') }, { label: 'Status', key: 'status' }
     ], 'No timeline entries for this member.')}` : '<div class="empty">Choose a member to load factual moderation and support records.</div>';
 }
 
@@ -4726,7 +5315,6 @@ async function loadSoundboard() {
     renderTable(document.getElementById('soundboardTable'), [
         { label: 'Sound', key: 'name', render: r => `<div class="media-name">${r.emojiUrl ? mediaPreview(r.emojiUrl, r.emoji || r.name) : `<span style="font-size:24px">${escapeHtml(r.emoji || '🔊')}</span>`}<strong>${escapeHtml(r.name)}</strong></div>` },
         { label: 'Preview', sortable: false, render: r => soundPlayer(r.url) },
-        { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
         { label: 'Volume', key: 'volume', render: r => `${Math.round((r.volume ?? 1) * 100)}%` },
         { label: 'Plays', key: 'uses' },
         { label: 'Trend', sortValue: r => r.trend?.percent, render: r => trendHtml(r.trend) },
@@ -4736,12 +5324,11 @@ async function loadSoundboard() {
         { label: 'Creator', key: 'creator', render: r => escapeHtml(r.creator || 'Unknown') },
         { label: 'Created', key: 'createdAt', render: r => created(r.createdAt) }
     ], data.sounds, 'No guild soundboard sounds found.');
-    renderTable(document.getElementById('soundboardTopSounds'), [{ label: 'Sound', key: 'soundId', render: r => escapeHtml(soundsById.get(r.soundId) || r.soundId) }, { label: 'Plays', key: 'count' }], data.summary?.topSounds || [], 'No plays recorded yet.');
+    renderTable(document.getElementById('soundboardTopSounds'), [{ label: 'Sound', key: 'soundId', render: r => escapeHtml(soundsById.get(r.soundId) || 'Unknown sound') }, { label: 'Plays', key: 'count' }], data.summary?.topSounds || [], 'No plays recorded yet.');
     renderTable(document.getElementById('soundboardTopChannels'), [{ label: 'Channel', key: 'name', render: r => escapeHtml(r.name) }, { label: 'Plays', key: 'count' }], data.summary?.topChannels || [], 'No plays recorded yet.');
     renderTable(document.getElementById('soundboardTopUsers'), [{ label: 'Member', key: 'label', render: r => withNicknameTitle(r.label, r.nickname) }, { label: 'Plays', key: 'count' }], data.summary?.topUsers || [], 'No plays recorded yet.');
     renderTable(document.getElementById('emojiTable'), [
         { label: 'Emoji', key: 'name', render: r => `<div class="media-name">${mediaPreview(r.url, `:${r.name}:`)}<strong>:${escapeHtml(r.name)}:</strong></div>` },
-        { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
         { label: 'Type', key: 'animated', render: r => r.animated ? '<span class="badge accent">Animated</span>' : 'Static' },
         { label: 'Uses', key: 'uses' },
         { label: 'Trend', sortValue: r => r.trend?.percent, render: r => trendHtml(r.trend) },
@@ -4757,7 +5344,6 @@ async function loadSoundboard() {
     applyMediaView('emoji', mediaViewModes.emoji);
     renderTable(document.getElementById('stickerTable'), [
         { label: 'Sticker', key: 'name', render: r => `<div class="media-name">${mediaPreview(r.previewUrl, r.name, r.lottieUrl)}<strong>${escapeHtml(r.name)}</strong></div>` },
-        { label: 'ID', key: 'id', render: r => `<code>${escapeHtml(r.id)}</code>` },
         { label: 'Format', key: 'formatName' },
         { label: 'Related emoji', key: 'tags', render: r => escapeHtml(r.tags || '—') },
         { label: 'Uses', key: 'uses' },

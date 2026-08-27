@@ -4611,3 +4611,275 @@ code {
 #dashboardLayout .brand-copy {
     cursor: pointer;
 }
+
+/* Management builders and operational workspace */
+.structured-builder,
+.workflow-builder {
+    display: grid;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.structured-builder-list,
+.workflow-rule-list {
+    display: grid;
+    gap: 10px;
+}
+
+.structured-builder-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--panel) 82%, transparent);
+}
+
+.structured-builder-fields,
+.profile-social-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.question-builder-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 9px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+}
+
+.question-builder-row > span {
+    color: var(--muted);
+    font-weight: 700;
+    text-align: center;
+}
+
+.weekday-picker {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(42px, 1fr));
+    gap: 6px;
+}
+
+.weekday-picker button {
+    min-height: 38px;
+    padding: 7px;
+}
+
+.weekday-picker button[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+    color: var(--text);
+}
+
+.workflow-rule-card {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--panel) 86%, transparent);
+}
+
+.workflow-builder-row,
+.workflow-action-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.workflow-action-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+}
+
+.module-readiness,
+.module-command-hint,
+.module-live-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 10px 0 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+
+.module-readiness > span,
+.module-command-hint span {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.module-readiness > button {
+    margin-left: auto;
+}
+
+.module-readiness[data-ready="true"] {
+    border-color: color-mix(in srgb, #55d98b 55%, var(--border));
+}
+
+.module-readiness[data-ready="false"] {
+    border-color: color-mix(in srgb, #f0b35b 55%, var(--border));
+}
+
+.module-command-hint {
+    justify-content: space-between;
+}
+
+.module-command-hint > div:first-child {
+    display: grid;
+    gap: 3px;
+}
+
+.command-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.command-chip-list code {
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--accent) 13%, var(--panel));
+    color: var(--text);
+}
+
+.module-live-preview {
+    display: grid;
+    gap: 5px;
+    border-left: 3px solid var(--accent);
+}
+
+.module-live-preview > span {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.module-live-preview p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.operation-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.operation-toolbar label {
+    flex: 1;
+    max-width: 420px;
+}
+
+.management-save-bar {
+    position: fixed;
+    z-index: 70;
+    right: 24px;
+    bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--panel) 96%, transparent);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, .34);
+    backdrop-filter: blur(14px);
+}
+
+.management-save-bar > span {
+    display: grid;
+    gap: 2px;
+    margin-right: 8px;
+}
+
+.management-save-bar small { color: var(--muted); }
+.management-save-bar[hidden] { display: none !important; }
+
+.engagement-feature-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.engagement-feature-group {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.engagement-feature-group legend {
+    padding: 0 5px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+#managementCopilotRecords .module-live-preview code {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+    .structured-builder-row,
+    .structured-builder-fields,
+    .profile-social-row,
+    .workflow-builder-row,
+    .workflow-action-row {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .question-builder-row {
+        grid-template-columns: 28px minmax(0, 1fr) repeat(3, auto);
+    }
+
+    .question-builder-row input {
+        grid-column: 2 / -1;
+    }
+
+    .weekday-picker { grid-template-columns: repeat(4, minmax(42px, 1fr)); }
+    .engagement-feature-groups { grid-template-columns: 1fr; }
+
+    .module-readiness,
+    .module-command-hint,
+    .operation-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .module-readiness > button { margin-left: 0; }
+    .command-chip-list { justify-content: flex-start; }
+    .operation-toolbar label { max-width: none; }
+
+    .management-save-bar {
+        right: 10px;
+        bottom: 10px;
+        left: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .management-save-bar > span { grid-column: 1 / -1; }
+}

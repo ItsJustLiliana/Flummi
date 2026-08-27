@@ -2400,6 +2400,10 @@ function createServer() {
                 const recentPulse = state.pulseResponses.filter(entry => Date.now() - new Date(entry.createdAt).getTime() <= 30 * 86400000);
                 const management = settingsStore.readSettings(guildId).management;
                 const intelligence = buildCommunityHealth(guildId);
+                const [nativeAutomodRules, scheduledEvents] = await Promise.all([
+                    guild.autoModerationRules?.fetch ? guild.autoModerationRules.fetch().then(rules => [...rules.values()].map(rule => ({ id: rule.id, name: rule.name, enabled: rule.enabled, triggerType: rule.triggerType }))).catch(() => []) : Promise.resolve([]),
+                    guild.scheduledEvents?.fetch ? guild.scheduledEvents.fetch().then(events => [...events.values()].map(event => ({ id: event.id, name: event.name, status: event.status, scheduledStartAt: event.scheduledStartAt?.toISOString() || null }))).catch(() => []) : Promise.resolve([])
+                ]);
                 sendJson(res, 200, {
                     doctor: await scanServer(guild),
                     reports: state.reports.slice(0, 100), incidents: state.incidents.slice(0, 100),
@@ -2410,6 +2414,9 @@ function createServer() {
                     activePunishments: activePunishments(guildId),
                     tickets: community.tickets.slice(0, 200),
                     suggestions: community.suggestions.slice(0, 200),
+                    submissions: community.submissions.slice(0, 200),
+                    starboardPosts: Object.entries(community.starboard).slice(0, 100).map(([sourceMessageId, starboardMessageId]) => ({ sourceMessageId, starboardMessageId })),
+                    integrations: { nativeAutomodRules, scheduledEvents },
                     ticketStats: buildTicketStatistics(community.tickets),
                     threat: buildThreatAssessment(guildId, { settings: management.joinSecurity }),
                     communityIntelligence: intelligence,

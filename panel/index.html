@@ -52,7 +52,6 @@
                     <a class="home-nav-invite" data-invite-link href="#" target="_blank" rel="noopener">Add Flummi</a>
                 </nav>
                 <div class="home-account">
-                    <label class="language-picker language-picker-compact"><span class="visually-hidden">Language</span><select data-language-select aria-label="Language"><option value="en">English</option><option value="nl">Nederlands</option><option value="de">Deutsch</option></select></label>
                     <div id="homeSignedOut"><a class="home-auth-button" href="/auth/login">Log in with Discord</a></div>
                     <div id="homeSignedIn" class="home-account-card" hidden><img id="homeAvatar" src="/assets/branding/flummi.png" alt=""><span id="homeUsername" class="account-name"></span><button id="homeLogout" class="home-logout-button" type="button">Log out</button></div>
                 </div>
@@ -65,8 +64,7 @@
                     <h1>Less server chaos.<br><span>More community.</span></h1>
                     <p class="sub">Moderation, automation, analytics, and community tools in one friendly place. Pick a server and make Flummi yours.</p>
                     <span id="homeServerSummary" class="home-server-summary" hidden></span>
-                    <div class="home-hero-actions"><a id="homeLoginCta" class="home-login" href="/auth/login">Continue with Discord</a><button class="home-hero-secondary" data-home-view="commands" type="button">Explore commands <span aria-hidden="true">&rarr;</span></button></div>
-                    <div class="home-capability-strip" aria-label="Flummi highlights"><span><i aria-hidden="true"></i>Clear controls</span><span><i aria-hidden="true"></i>Live insights</span><span><i aria-hidden="true"></i>Human support</span></div>
+                    <a id="homeLoginCta" class="home-login" href="/auth/login">Continue with Discord</a>
                 </div>
                 <div id="homeGuilds" hidden></div>
             </section>
@@ -170,7 +168,7 @@
             </section>
         </div>
         <footer class="home-footer">
-            <div class="home-footer-brand"><img src="/assets/branding/flummi.png" alt=""><div><strong>Flummi</strong><span>Friendly Discord server management.</span></div></div>
+            <div class="home-footer-brand"><img src="/assets/branding/flummi.png" alt=""><div><strong>Flummi</strong><span>Friendly Discord server management.</span><label class="language-picker language-picker-footer"><span class="visually-hidden">Language</span><select data-language-select aria-label="Language"><option value="en">English</option><option value="nl">Nederlands</option><option value="de">Deutsch</option></select></label></div></div>
             <div class="home-footer-links"><section><h2>Resources</h2><button data-home-view="support" type="button">Support</button><button data-home-view="feedback" type="button">Feedback</button><button data-home-view="commands" type="button">Commands</button><button data-home-view="status" type="button">Status</button><a id="homeInviteLink" data-invite-link href="#" target="_blank" rel="noopener">Add Flummi</a></section><section><h2>Policies</h2><button data-home-view="terms" type="button">Terms of Service</button><button data-home-view="privacy" type="button">Privacy Policy</button><button data-home-view="licenses" type="button">Licenses</button><button data-home-view="archive" type="button">Policy Archive</button></section><section><h2>Credits</h2><button data-home-view="credits" type="button">Acknowledgements</button><a href="https://discord.com/developers/docs/intro" target="_blank" rel="noopener">Discord Docs</a><a href="https://discord.js.org/docs" target="_blank" rel="noopener">discord.js Docs</a><a href="https://openrouter.ai/docs" target="_blank" rel="noopener">OpenRouter Docs</a></section></div>
         </footer>
     </div>

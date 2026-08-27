@@ -3359,7 +3359,7 @@ code {
 .home-login {
     width: max-content;
     max-width: 100%;
-    margin: 0;
+    margin: 28px auto 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3374,50 +3374,6 @@ code {
     text-decoration: none;
     font-weight: 850;
 }
-
-.home-hero-actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 28px;
-}
-
-.home-hero-secondary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 9px;
-    width: auto;
-    min-height: 48px;
-    padding: 12px 18px;
-    border: 1px solid rgba(125, 151, 211, .28);
-    border-radius: 12px;
-    background: rgba(13, 23, 47, .7);
-    color: #c9d5f2;
-    box-shadow: inset 0 1px rgba(255, 255, 255, .035);
-}
-
-.home-hero-secondary:hover {
-    border-color: rgba(142, 220, 255, .42);
-    background: rgba(20, 34, 66, .86);
-    color: var(--text);
-}
-
-.home-capability-strip {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 9px 18px;
-    margin-top: 24px;
-    color: #8494bd;
-    font-size: 11px;
-    font-weight: 750;
-    letter-spacing: .025em;
-}
-
-.home-capability-strip span { display: inline-flex; align-items: center; gap: 7px; }
-.home-capability-strip i { width: 5px; height: 5px; border-radius: 50%; background: #69d8af; box-shadow: 0 0 0 4px rgba(105, 216, 175, .08); }
 
 .home-login:hover {
     color: #fff;
@@ -3445,7 +3401,7 @@ code {
 
 .home-footer-brand {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
 }
 
@@ -3453,6 +3409,8 @@ code {
 .home-footer-brand div { display: grid; gap: 3px; }
 .home-footer-brand strong { color: var(--text); font-size: 16px; }
 .home-footer-brand span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.language-picker-footer { width: max-content; margin-top: 8px; }
+.language-picker-footer select { min-width: 124px; border-color: rgba(102, 130, 190, .2); background-color: rgba(13, 22, 45, .72); }
 .home-footer-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
 .home-footer-links section { display: grid; align-content: start; justify-items: start; gap: 9px; }
 .home-footer-links h2 { margin: 0 0 5px; color: var(--text); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
@@ -4577,12 +4535,6 @@ code {
         display: none;
     }
 
-    .language-picker-compact select {
-        min-width: 82px;
-        max-width: 82px;
-        padding-inline: 6px;
-    }
-
     .home-account .account-name {
         display: none;
     }
@@ -4599,11 +4551,7 @@ code {
         font-size: 40px;
     }
 
-    .home-hero-actions { align-items: stretch; flex-direction: column; }
-    .home-login,
-    .home-hero-secondary { width: 100%; }
-
-    .home-capability-strip { gap: 10px 14px; }
+    .home-login { width: 100%; }
 
     .home-guild-grid {
         grid-template-columns: 1fr;

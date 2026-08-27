@@ -64,6 +64,10 @@ test('home pages and selected servers use descriptive browser titles', () => {
 test('English, Dutch, and German are available throughout the shared dashboard shell', () => {
     assert.equal((panelMarkup.match(/data-language-select/g) || []).length, 2);
     assert.match(panelMarkup, /<option value="en">English<\/option><option value="nl">Nederlands<\/option><option value="de">Deutsch<\/option>/);
+    const publicHeader = panelMarkup.slice(panelMarkup.indexOf('<header class="home-nav">'), panelMarkup.indexOf('</header>'));
+    const publicFooter = panelMarkup.slice(panelMarkup.indexOf('<footer class="home-footer">'), panelMarkup.indexOf('</footer>'));
+    assert.doesNotMatch(publicHeader, /data-language-select/);
+    assert.match(publicFooter, /Friendly Discord server management\.[\s\S]*?class="language-picker language-picker-footer"[\s\S]*?data-language-select/);
     assert.match(panelMarkup, /<script src="\/panel\/i18n\/locales\/en\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/locales\/nl\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/locales\/de\.js" defer><\/script>[\s\S]*?<script src="\/panel\/i18n\/engine\.js" defer><\/script>/);
     assert.match(panelI18n, /const supportedLanguages = new Set\(Object\.keys\(locales\)\)/);
     assert.match(panelDutch, /'Management': 'Beheer'/);

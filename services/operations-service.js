@@ -141,7 +141,15 @@ async function scanServer(guild) {
 
     if (!me) checks.push(doctorCheck('bot-member', 'critical', 'Flummi member unavailable', 'Discord did not return the bot member for this server.'));
     else {
-        const expected = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.ReadMessageHistory];
+        const expected = [
+            PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.SendMessagesInThreads,
+            PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory,
+            PermissionFlagsBits.AddReactions, PermissionFlagsBits.MentionEveryone, PermissionFlagsBits.UseExternalEmojis,
+            PermissionFlagsBits.ViewAuditLog, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageRoles,
+            PermissionFlagsBits.ManageChannels, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers,
+            PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ModerateMembers, PermissionFlagsBits.ManageEvents,
+            PermissionFlagsBits.ChangeNickname
+        ];
         const missing = me.permissions.missing(expected);
         if (missing.length) checks.push(doctorCheck('base-permissions', 'critical', 'Required bot permissions are missing', missing.join(', '), 'Update Flummi’s server role permissions.'));
         const highest = me.roles.highest.position;
@@ -158,20 +166,62 @@ async function scanServer(guild) {
     ].filter(([, flag]) => everyone.permissions.has(flag)).map(([name]) => name);
     if (dangerous.length) checks.push(doctorCheck('everyone-permissions', 'critical', '@everyone has dangerous permissions', dangerous.join(', '), 'Remove these permissions from @everyone.'));
 
-    const channelExists = id => !id || guild.channels.cache.has(id);
     const configuredChannels = [
         ['AutoMod log', management.automod.logChannelId], ['Case log', management.cases.logChannelId],
-        ['Ticket log', management.tickets.logChannelId], ['Reports inbox', management.reports.channelId],
-        ['Incident log', management.incidentCenter.logChannelId], ['Starboard', management.starboard.channelId]
+        ['Role onboarding', management.roles.onboardingChannelId], ['Welcome', management.automation.welcomeChannelId],
+        ['Goodbye', management.automation.goodbyeChannelId], ['Ticket category', management.tickets.categoryId],
+        ['Ticket log', management.tickets.logChannelId], ['Suggestions', management.suggestions.channelId],
+        ['Suggestion review', management.suggestions.reviewChannelId], ['Join Security log', management.joinSecurity.logChannelId],
+        ['Starboard', management.starboard.channelId], ['Form submissions', management.forms.submissionChannelId],
+        ['Form review', management.forms.reviewChannelId], ['Channel action log', management.channels.logChannelId],
+        ['Sticky notice', management.channels.stickyChannelId], ['Temporary voice category', management.channels.temporaryVoiceCategoryId],
+        ['Integration announcements', management.integrations.announcementChannelId], ['Server Doctor digest', management.serverDoctor.logChannelId],
+        ['Incident log', management.incidentCenter.logChannelId], ['Reports inbox', management.reports.channelId],
+        ['Modmail category', management.reports.modmailCategoryId], ['Modmail log', management.reports.modmailLogChannelId],
+        ...management.automation.schedules.map(rule => [`Scheduled message (${rule.id})`, rule.channelId]),
+        ...management.automation.purgeRules.map(rule => [`Auto-purge (${rule.id})`, rule.channelId])
     ];
     for (const [name, channelId] of configuredChannels) {
-        if (channelId && !channelExists(channelId)) checks.push(doctorCheck(`channel-${channelId}`, 'warning', `${name} channel no longer exists`, `Configured channel ${channelId} could not be found.`, 'Choose a replacement channel.'));
+        if (channelId && !guild.channels.cache.has(channelId)) checks.push(doctorCheck(`channel-${channelId}`, 'warning', `${name} channel no longer exists`, 'A saved Discord channel is no longer available.', 'Choose an available replacement channel and save the module.'));
     }
 
+    const configuredRoles = [
+        ['Autorole', management.roles.autoroleId], ['Ticket support', management.tickets.supportRoleId],
+        ['Quarantine', management.joinSecurity.quarantineRoleId],
+        ...management.roles.selfAssignableRoleIds.map(roleId => ['Self-assignable', roleId]),
+        ...management.tickets.supportTeams.map(team => [`Ticket team (${team.name})`, team.roleId])
+    ];
+    for (const [name, roleId] of configuredRoles) {
+        if (roleId && !guild.roles.cache.has(roleId)) checks.push(doctorCheck(`role-${roleId}`, 'warning', `${name} role no longer exists`, 'A saved Discord role is no longer available.', 'Choose an available replacement role and save the module.'));
+    }
+
+    const requiredModuleSettings = {
+        automod: [['AutoMod log channel', management.automod.logChannelId]],
+        cases: [['Case log channel', management.cases.logChannelId]],
+        roles: [['Role onboarding channel', management.roles.onboardingChannelId], ['Self-assignable role', management.roles.selfAssignableRoleIds.length]],
+        tickets: [['Ticket category', management.tickets.categoryId], ['Ticket support role', management.tickets.supportRoleId]],
+        suggestions: [['Suggestions channel', management.suggestions.channelId]],
+        joinSecurity: [['Join Security log channel', management.joinSecurity.logChannelId], ...(management.joinSecurity.action === 'quarantine' ? [['Quarantine role', management.joinSecurity.quarantineRoleId]] : [])],
+        starboard: [['Starboard channel', management.starboard.channelId]],
+        forms: [['Submission channel', management.forms.submissionChannelId], ['Review channel', management.forms.reviewChannelId]],
+        channels: [['Channel action log', management.channels.logChannelId]],
+        incidentCenter: [['Incident log channel', management.incidentCenter.logChannelId]],
+        reports: [['Reports inbox', management.reports.channelId]],
+        serverDoctor: management.serverDoctor.weeklyDigest ? [['Health digest channel', management.serverDoctor.logChannelId]] : [],
+        automation: [
+            ...(management.automation.welcomeEnabled ? [['Welcome channel', management.automation.welcomeChannelId]] : []),
+            ...(management.automation.goodbyeEnabled ? [['Goodbye channel', management.automation.goodbyeChannelId]] : [])
+        ]
+    };
     for (const [key, enabled] of Object.entries(management.modules)) {
         if (!enabled) continue;
         const value = management[key];
-        if (!value || typeof value !== 'object') checks.push(doctorCheck(`module-${key}`, 'warning', `${key} has incomplete settings`, 'The module is enabled without a valid configuration.', 'Open the module and save its settings.'));
+        if (!value || typeof value !== 'object') {
+            checks.push(doctorCheck(`module-${key}`, 'warning', `${key} has incomplete settings`, 'The module is enabled without a valid configuration.', 'Open the module and save its settings.'));
+            continue;
+        }
+        const missing = (requiredModuleSettings[key] || []).filter(([, configured]) => !configured).map(([label]) => label);
+        if (missing.length) checks.push(doctorCheck(`module-${key}-required`, 'warning', `${key} setup is incomplete`, `Missing: ${missing.join(', ')}.`, 'Open the module, complete the highlighted settings, and save.'));
     }
 
     const critical = checks.filter(check => check.severity === 'critical').length;

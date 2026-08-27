@@ -1868,8 +1868,15 @@ function createServer() {
             if (req.method === 'GET' && requestUrl.pathname === '/api/overview') {
                 const guildId = requireGuildId(requestUrl, res);
                 if (!guildId) return;
-
-                sendJson(res, 200, await buildOverview(guildId));
+                const overview = await buildOverview(guildId);
+                if (['developer', 'admin'].includes(getPanelGuildRole(panelSession, guildId))) {
+                    const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                    overview.health = guild ? await scanServer(guild) : null;
+                    overview.recentChanges = readActivity()
+                        .filter(entry => String(entry.guildId || '') === String(guildId) && entry.type !== 'command')
+                        .slice(0, 6);
+                }
+                sendJson(res, 200, overview);
                 return;
             }
 

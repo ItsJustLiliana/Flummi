@@ -943,6 +943,76 @@ const moduleReadinessRequirements = {
     reports: [['advancedReportsChannel', 'Choose a private staff channel']], workflows: [], staffOperations: [], communityHealth: [], backups: [], copilot: [], engagement: []
 };
 
+function enhanceDashboardEmptyState(element) {
+    if (!element || element.dataset.contextualEmpty === 'true' || !element.closest('#dashboardLayout')) return;
+    const message = element.textContent.trim();
+    if (!message || /loading|checking|select a server|unavailable/i.test(message)) return;
+    element.dataset.contextualEmpty = 'true';
+    element.classList.add('contextual-empty');
+    const positive = /no problems|no missing permissions/i.test(message);
+    if (positive) element.classList.add('empty-positive');
+    const panel = element.closest('.tab-panel');
+    const managementPanel = panel?.id.startsWith('tab-management-');
+    let description = positive
+        ? 'Everything is configured correctly right now.'
+        : managementPanel
+            ? 'Configure this module or wait for new activity to appear.'
+            : 'Refresh to check for new data.';
+    let action = positive ? null : managementPanel ? 'configure' : 'refresh';
+    let actionLabel = managementPanel ? 'Configure module' : 'Refresh data';
+    if (/no matching/i.test(message)) {
+        description = 'Try a different search or clear the current filter.';
+        action = 'clear-search';
+        actionLabel = 'Clear search';
+    } else if (element.closest('#serverSnapshotsTable')) {
+        description = 'Create a recovery point before making major server changes.';
+        action = 'create-snapshot';
+        actionLabel = 'Create snapshot';
+    } else if (/no (messages|voice|activity|plays|usage|sessions)/i.test(message)) {
+        description = 'This section will fill automatically when members start using the related feature.';
+    }
+    element.innerHTML = `<span class="contextual-empty-icon" aria-hidden="true"></span><strong>${escapeHtml(message)}</strong><span>${escapeHtml(uiText(description))}</span>${action ? `<button class="secondary" type="button" data-empty-action="${action}">${escapeHtml(uiText(actionLabel))}</button>` : ''}`;
+}
+
+function enhanceDashboardEmptyStates(root = document.getElementById('dashboardLayout')) {
+    if (!root) return;
+    if (root.matches?.('.empty')) enhanceDashboardEmptyState(root);
+    root.querySelectorAll?.('.empty').forEach(enhanceDashboardEmptyState);
+}
+
+const dashboardEmptyObserver = new MutationObserver(records => {
+    for (const record of records) {
+        for (const node of record.addedNodes) {
+            if (node.nodeType === Node.ELEMENT_NODE) enhanceDashboardEmptyStates(node);
+        }
+    }
+});
+dashboardEmptyObserver.observe(document.getElementById('dashboardLayout'), { childList: true, subtree: true });
+enhanceDashboardEmptyStates();
+
+document.getElementById('dashboardLayout').addEventListener('click', event => {
+    const button = event.target.closest('[data-empty-action]');
+    if (!button) return;
+    const empty = button.closest('.contextual-empty');
+    if (button.dataset.emptyAction === 'clear-search') {
+        const search = empty.closest('.table-wrap')?.querySelector('[data-role="table-search"]');
+        if (search) { search.value = ''; search.dispatchEvent(new Event('input', { bubbles: true })); }
+        return;
+    }
+    if (button.dataset.emptyAction === 'create-snapshot') {
+        document.getElementById('createServerSnapshot')?.click();
+        return;
+    }
+    if (button.dataset.emptyAction === 'configure') {
+        const panel = empty.closest('.tab-panel');
+        const target = panel?.querySelector('.module-primary-section, .section');
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        target?.querySelector('input, select, textarea, button')?.focus({ preventScroll: true });
+        return;
+    }
+    refreshActiveTab().catch(handleUiError);
+});
+
 function updateModuleReadiness(key) {
     const definition = managementModuleDefinitions[key];
     const panel = document.getElementById(`tab-${definition?.tab}`);
@@ -1128,6 +1198,7 @@ tabButtons.forEach(btn => {
         tabPanels.forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+        updateMobileSaveDock();
         const developerTool = fixedDeveloperTabIds.has(btn.dataset.tab);
         localStorage.setItem(developerTool ? 'flummi.developerTab' : 'flummi.activeTab', btn.dataset.tab);
         if (developerTool && !document.getElementById('homeViewDeveloper').hidden) {
@@ -1148,6 +1219,58 @@ function activeTab() {
     const active = tabButtons.find(b => b.classList.contains('active'));
     return active ? active.dataset.tab : 'overview';
 }
+
+const mobileSaveDock = document.getElementById('mobileSaveDock');
+const mobileSaveDockButton = document.getElementById('mobileSaveDockButton');
+const mobileSaveDockContext = document.getElementById('mobileSaveDockContext');
+const mobileSaveMedia = window.matchMedia('(max-width: 820px)');
+let mobileSaveTarget = null;
+
+function dashboardSaveButtons(panel) {
+    return [...(panel?.querySelectorAll('[data-save-management], [data-save-advanced], button.primary[id^="save"]') || [])]
+        .filter(button => !button.closest('[hidden]') && button.getAttribute('aria-hidden') !== 'true');
+}
+
+function updateMobileSaveDock(preferredElement = null) {
+    const dashboardVisible = !document.getElementById('dashboardLayout').hidden;
+    const panel = document.querySelector('#dashboardLayout .tab-panel.active');
+    const buttons = dashboardSaveButtons(panel);
+    if (!mobileSaveMedia.matches || !dashboardVisible || !buttons.length) {
+        mobileSaveTarget = null;
+        mobileSaveDock.hidden = true;
+        return;
+    }
+    const preferredSection = preferredElement?.closest?.('.section');
+    mobileSaveTarget = buttons.find(button => preferredSection && button.closest('.section') === preferredSection)
+        || (buttons.includes(mobileSaveTarget) ? mobileSaveTarget : buttons[0]);
+    const sectionTitle = mobileSaveTarget.closest('.section')?.querySelector(':scope > h2, :scope > .section-title-row h2')?.textContent.trim()
+        || panel?.querySelector(':scope > h2')?.textContent.trim()
+        || 'Current settings';
+    mobileSaveDockContext.textContent = sectionTitle;
+    mobileSaveDockButton.textContent = mobileSaveTarget.textContent.trim() || 'Save';
+    mobileSaveDockButton.disabled = mobileSaveTarget.disabled;
+    mobileSaveDock.hidden = false;
+}
+
+mobileSaveDockButton.addEventListener('click', () => {
+    if (!mobileSaveTarget || mobileSaveTarget.disabled) return;
+    const target = mobileSaveTarget;
+    mobileSaveDockButton.disabled = true;
+    target.click();
+    let attempts = 0;
+    const syncSaveState = () => {
+        if (mobileSaveTarget !== target) { updateMobileSaveDock(); return; }
+        mobileSaveDockButton.disabled = target.disabled;
+        if (target.disabled && attempts++ < 40) setTimeout(syncSaveState, 250);
+        else updateMobileSaveDock();
+    };
+    setTimeout(syncSaveState, 250);
+});
+
+document.getElementById('dashboardLayout').addEventListener('focusin', event => updateMobileSaveDock(event.target));
+document.getElementById('dashboardLayout').addEventListener('input', event => updateMobileSaveDock(event.target));
+document.getElementById('dashboardLayout').addEventListener('change', event => updateMobileSaveDock(event.target));
+mobileSaveMedia.addEventListener('change', () => updateMobileSaveDock());
 
 async function refreshActiveTab() {
     const loader = tabLoaders[activeTab()];
@@ -1687,6 +1810,7 @@ function showHomeView(name = 'servers', developerTool = null) {
     setHomeMobileMenu(false);
     document.getElementById('homeShell').hidden = false;
     document.getElementById('dashboardLayout').hidden = true;
+    updateMobileSaveDock();
     setHomePageTitle(name);
     history.replaceState(null, '', name === 'developer' ? `/?view=developer${developerTool ? `&tool=${encodeURIComponent(developerTool)}` : ''}` : (homeViewPaths[name] || '/'));
     for (const button of document.querySelectorAll('[data-home-view]')) button.classList.toggle('active', button.dataset.homeView === name);
@@ -1724,13 +1848,17 @@ function guildCard(row) {
 function renderHomeGuilds(rows) {
     state.guilds = rows;
     const container = document.getElementById('homeGuilds');
+    const emptyState = document.getElementById('homeNoServers');
+    const groupContainer = document.getElementById('homeGuildGroups');
     container.hidden = false;
     const groups = [
         { title: 'Admin access', rows: rows.filter(row => row.displayRole === 'admin') },
         { title: 'Member access', rows: rows.filter(row => row.displayRole === 'member') },
         { title: 'Developer-only access', rows: rows.filter(row => row.displayRole === 'not a member') }
     ].filter(group => group.rows.length);
-    container.innerHTML = groups.map(group => `<section class="guild-group"><div class="guild-group-heading"><h2>${escapeHtml(group.title)}</h2><span class="guild-count">${group.rows.length} ${group.rows.length === 1 ? 'server' : 'servers'}</span></div><div class="home-guild-grid">${group.rows.map(guildCard).join('')}</div></section>`).join('') || '<div class="home-panel empty">No servers shared with Flummi were found.</div>';
+    emptyState.hidden = rows.length > 0;
+    groupContainer.hidden = rows.length === 0;
+    groupContainer.innerHTML = groups.map(group => `<section class="guild-group"><div class="guild-group-heading"><h2>${escapeHtml(group.title)}</h2><span class="guild-count">${group.rows.length} ${group.rows.length === 1 ? 'server' : 'servers'}</span></div><div class="home-guild-grid">${group.rows.map(guildCard).join('')}</div></section>`).join('');
 
     container
         .querySelectorAll('.home-guild-card.bannerless')
@@ -2142,6 +2270,34 @@ function renderOverviewDetails(containerId, guildInfo) {
     `).join('');
 }
 
+function renderOverviewHealth(health) {
+    const container = document.getElementById('overviewHealth');
+    if (!health) {
+        container.innerHTML = '<div class="empty">Server health is unavailable right now.</div>';
+        return;
+    }
+    const tone = health.critical ? 'error' : health.warnings ? 'warn' : 'ok';
+    const headline = health.critical ? 'Action needed' : health.warnings ? 'Review recommended' : 'Everything looks healthy';
+    const checks = (health.checks || []).slice(0, 3);
+    container.innerHTML = `
+        <div class="overview-health-summary"><strong>${escapeHtml(String(health.score))}<small>/100</small></strong><span><b>${escapeHtml(uiText(headline))}</b><small>${health.critical} critical · ${health.warnings} warnings</small></span><span class="badge ${tone}">${escapeHtml(uiText(health.critical ? 'Fix now' : health.warnings ? 'Review' : 'Healthy'))}</span></div>
+        ${checks.length ? `<div class="overview-health-issues">${checks.map(check => `<article class="${escapeHtml(check.severity)}"><i aria-hidden="true"></i><span><strong>${escapeHtml(check.title)}</strong><small>${escapeHtml(check.fix || check.detail)}</small></span></article>`).join('')}</div>` : '<div class="contextual-empty empty-positive"><strong>No problems found</strong><span>Flummi can reach its configured resources and has the expected permissions.</span></div>'}
+    `;
+}
+
+function renderOverviewChanges(entries = []) {
+    const container = document.getElementById('overviewRecentChanges');
+    if (!entries.length) {
+        container.innerHTML = '<div class="empty">No dashboard changes or automatic actions yet.</div>';
+        return;
+    }
+    container.innerHTML = entries.map(entry => {
+        const actor = entry.actorName || entry.username || (entry.source === 'panel' ? 'Dashboard' : 'Flummi');
+        const label = entry.message || entry.summary || entry.type || 'Server action';
+        return `<article class="overview-change-item"><span class="overview-change-dot" aria-hidden="true"></span><span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(actor)} · ${escapeHtml(formatDateTime(entry.at))}</small></span></article>`;
+    }).join('');
+}
+
 function showChartTooltip(event, row, metricLabel) {
     const tooltip = document.getElementById('chartTooltip');
     const timestamp = row.granularity === 'hour' ? `${row.date}:00` : row.date;
@@ -2355,6 +2511,10 @@ async function loadOverview() {
     renderGuildHeader('guildHeader', data.guildInfo);
     renderOverviewCards('overviewCards', data.guildInfo, data);
     renderOverviewDetails('overviewDetails', data.guildInfo);
+    if (['developer', 'admin'].includes(state.role)) {
+        renderOverviewHealth(data.health);
+        renderOverviewChanges(data.recentChanges || []);
+    }
     const localFeatures = data.settings?.features || {};
     state.globalFeatures = data.globalFeatures || state.globalFeatures || {};
     applyGlobalFeatureNavigation();
@@ -2392,6 +2552,14 @@ async function loadOverview() {
         ],
         data.topVoiceChannels, 'No voice activity tracked yet.');
 }
+
+document.getElementById('openServerDoctor').addEventListener('click', () => {
+    tabButtons.find(button => button.dataset.tab === 'management-server-doctor')?.click();
+});
+
+document.getElementById('openAuditLog').addEventListener('click', () => {
+    tabButtons.find(button => button.dataset.tab === 'audit')?.click();
+});
 
 // ---------- Messenger ----------
 const channelSelect = document.getElementById('channel');

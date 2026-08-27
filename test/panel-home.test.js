@@ -11,6 +11,7 @@ const panelDutch = fs.readFileSync(path.join(__dirname, '..', 'panel', 'i18n', '
 const panelGerman = fs.readFileSync(path.join(__dirname, '..', 'panel', 'i18n', 'locales', 'de.js'), 'utf8');
 const panelHtml = `${panelMarkup}\n${panelStyles}\n${panelScript}`;
 const panelServer = fs.readFileSync(path.join(__dirname, '..', 'control-panel.js'), 'utf8');
+const operationsService = fs.readFileSync(path.join(__dirname, '..', 'services', 'operations-service.js'), 'utf8');
 const promoteScript = fs.readFileSync(path.join(__dirname, '..', 'deploy', 'promote-live.sh'), 'utf8');
 const updateRecorder = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'record-update-status.js'), 'utf8');
 
@@ -31,7 +32,9 @@ test('public root is a landing page with role-aware navigation and server groups
     assert.match(panelHtml, /class="home-auth-button" href="\/auth\/login"/);
     assert.match(panelHtml, /id="homeSignedIn" class="home-account-card"/);
     assert.match(panelMarkup, /class="home-footer"[\s\S]*?id="homeInviteLink"[\s\S]*?data-invite-link/);
-    assert.equal((panelMarkup.match(/data-invite-link/g) || []).length, 3);
+    assert.equal((panelMarkup.match(/data-invite-link/g) || []).length, 4);
+    assert.match(panelMarkup, /id="homeNoServers"[\s\S]*?class="home-nav-invite home-empty-invite"[\s\S]*?>Add Flummi to your server<\/a>/);
+    assert.match(panelScript, /emptyState\.hidden = rows\.length > 0;[\s\S]*?groupContainer\.hidden = rows\.length === 0/);
     assert.match(panelMarkup, /class="home-nav-links"[\s\S]*?>Home<\/button>[\s\S]*?class="home-nav-invite"/);
     for (const group of ['Product', 'Contact', 'Legal']) assert.match(panelMarkup, new RegExp(`<summary>${group}`));
     assert.match(panelMarkup, /<summary>Contact[\s\S]*?data-home-view="support"[\s\S]*?data-home-view="feedback"/);
@@ -516,4 +519,26 @@ test('overview is detail-focused and analytics summary owns compact graphs', () 
     assert.match(panelHtml, /id="analyticsSummaryRange"/);
     assert.match(panelHtml, /id="analyticsSummaryGraphType"/);
     assert.doesNotMatch(panelHtml, /statCard\('Busiest day'/);
+});
+
+test('overview surfaces server health and a recent changes timeline for administrators', () => {
+    assert.match(panelMarkup, /id="overviewHealth"/);
+    assert.match(panelMarkup, /id="overviewRecentChanges"/);
+    assert.match(panelMarkup, /id="openServerDoctor"[\s\S]*?id="openAuditLog"/);
+    assert.match(panelServer, /requestUrl\.pathname === '\/api\/overview'[\s\S]*?overview\.health = guild \? await scanServer\(guild\)[\s\S]*?overview\.recentChanges = readActivity\(\)/);
+    assert.match(panelScript, /function renderOverviewHealth\(health\)/);
+    assert.match(panelScript, /function renderOverviewChanges\(entries = \[\]\)/);
+    assert.match(operationsService, /const configuredChannels = \[[\s\S]*?Modmail log/);
+    assert.match(operationsService, /const configuredRoles = \[[\s\S]*?Ticket support/);
+    assert.match(operationsService, /const requiredModuleSettings = \{[\s\S]*?tickets:[\s\S]*?incidentCenter:/);
+});
+
+test('dashboard empty states are contextual and mobile pages keep a reachable Save dock', () => {
+    assert.match(panelMarkup, /id="mobileSaveDock"[\s\S]*?id="mobileSaveDockButton"/);
+    assert.match(panelScript, /function enhanceDashboardEmptyState\(element\)/);
+    assert.match(panelScript, /data-empty-action/);
+    assert.match(panelScript, /function updateMobileSaveDock\(preferredElement = null\)/);
+    assert.match(panelScript, /\[data-save-management\], \[data-save-advanced\], button\.primary\[id\^="save"\]/);
+    assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?\.mobile-save-dock:not\(\[hidden\]\)/);
+    assert.match(panelStyles, /padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom\)\)/);
 });

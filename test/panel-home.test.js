@@ -27,18 +27,21 @@ test('public root is a landing page with role-aware navigation and server groups
     const sidebar = panelHtml.slice(sidebarStart, sidebarEnd);
     assert.doesNotMatch(sidebar, /<label for="guild">|<select id="guild"/);
     assert.ok(sidebar.indexOf('id="refreshAll"') > sidebar.indexOf('</nav>'));
-    assert.ok(sidebar.indexOf('id="refreshAll"') < sidebar.indexOf('id="logoutPanel"'));
-    assert.match(panelHtml, /id="logoutPanel"[\s\S]*?window\.location\.assign\('\/'\)/);
+    assert.ok(sidebar.indexOf('id="refreshAll"') < sidebar.indexOf('id="panelAccount"'));
+    assert.doesNotMatch(panelMarkup, /id="logoutPanel"|id="homeLogout"/);
+    assert.equal((panelMarkup.match(/data-account-logout/g) || []).length, 2);
+    assert.match(panelScript, /function logoutToHome\(\)[\s\S]*?window\.location\.assign\('\/'\)[\s\S]*?querySelectorAll\('\[data-account-logout\]'\)/);
     assert.match(panelHtml, /class="home-auth-button" href="\/auth\/login"/);
-    assert.match(panelHtml, /id="homeSignedIn" class="home-account-card"/);
+    assert.match(panelHtml, /id="homeSignedIn" class="[^"]*home-account-card[^"]*"/);
+    assert.match(panelMarkup, /id="panelAccount"[\s\S]*?data-account-destination="account-profile"[\s\S]*?data-account-destination="notifications"[\s\S]*?data-account-logout/);
     assert.match(panelMarkup, /class="home-footer"[\s\S]*?id="homeInviteLink"[\s\S]*?data-invite-link/);
     assert.equal((panelMarkup.match(/data-invite-link/g) || []).length, 4);
     assert.match(panelMarkup, /id="homeNoServers"[\s\S]*?class="home-nav-invite home-empty-invite"[\s\S]*?>Add Flummi to your server<\/a>/);
     assert.match(panelScript, /emptyState\.hidden = rows\.length > 0;[\s\S]*?groupContainer\.hidden = rows\.length === 0/);
     assert.match(panelMarkup, /class="home-nav-links"[\s\S]*?>Home<\/button>[\s\S]*?class="home-nav-invite"/);
-    for (const group of ['Product', 'Contact', 'Legal']) assert.match(panelMarkup, new RegExp(`<summary>${group}`));
-    assert.match(panelMarkup, /<summary>Contact[\s\S]*?data-home-view="support"[\s\S]*?data-home-view="feedback"/);
-    assert.match(panelMarkup, /<summary>Legal[\s\S]*?data-home-view="terms"[\s\S]*?data-home-view="privacy"[\s\S]*?data-home-view="credits"/);
+    for (const group of ['Product', 'Contact', 'Legal']) assert.match(panelMarkup, new RegExp(`<summary><span class="home-nav-label">${group}`));
+    assert.match(panelMarkup, /<summary><span class="home-nav-label">Contact[\s\S]*?data-home-view="support"[\s\S]*?data-home-view="feedback"/);
+    assert.match(panelMarkup, /<summary><span class="home-nav-label">Legal[\s\S]*?data-home-view="terms"[\s\S]*?data-home-view="privacy"[\s\S]*?data-home-view="credits"/);
     assert.match(panelStyles, /\.home-nav-invite \{[\s\S]*?background: linear-gradient\(135deg, #9be2ff, #65bff2\)/);
     assert.match(panelScript, /document\.querySelectorAll\('\[data-invite-link\]'\)/);
     assert.match(panelScript, /loadInviteLink\(\)[\s\S]*?const authenticated = await loadPanelAccount\(\)/);
@@ -89,6 +92,15 @@ test('English, Dutch, and German are available throughout the shared dashboard s
     assert.doesNotThrow(() => new Function(panelDutch));
     assert.doesNotThrow(() => new Function(panelGerman));
     assert.doesNotMatch(`${panelDutch}\n${panelGerman}`, /(?:Ã.|Â.|â€|â€™|ðŸ|ï¸|�)/);
+});
+
+test('personal account settings are centralised and remain available without a server', () => {
+    for (const label of ['Your Flummi profile', 'AI consent', 'AI memory', 'Personal notifications', 'Dashboard preferences', 'Accessibility']) {
+        assert.match(panelMarkup, new RegExp(label));
+    }
+    assert.match(panelServer, /pathname === '\/api\/account\/ai-memory'[\s\S]*?getUserConversationSummary\(panelSession\.userId\)[\s\S]*?clearUserHistory\(panelSession\.userId\)/);
+    assert.match(panelScript, /async function openAccountArea[\s\S]*?dashboard\.dataset\.accountOnly = 'true'[\s\S]*?\?account=/);
+    assert.match(panelStyles, /#dashboardLayout\[data-account-only="true"\][\s\S]*?\[data-account-nav\]/);
 });
 
 test('expanded nested navigation scrolls without shrinking the Flummi brand', () => {
@@ -425,6 +437,10 @@ test('landing, developer tools, and dashboard adapt to touch screens and tablets
     assert.match(panelHtml, /#dashboardLayout \.brand \{ width: 100%; padding: 0; border-bottom: 0; \}/);
     assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?#dashboardLayout \.tabs \{[\s\S]*?flex-direction: column;/);
     assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?\.developer-tool-nav \{[\s\S]*?flex-direction: column;/);
+    assert.match(panelStyles, /\.home-nav-links \{[\s\S]*?position: absolute;[\s\S]*?max-height: calc\(100dvh - 92px\)/);
+    assert.match(panelStyles, /\.home-nav-group > summary \{[\s\S]*?grid-template-columns: 1fr auto 1fr;[\s\S]*?text-align: center/);
+    assert.match(panelStyles, /@media \(hover: hover\) and \(min-width: 821px\)[\s\S]*?\.home-nav-group:not\(\[open\]\):hover > \.home-nav-popover/);
+    assert.match(panelScript, /homeMobileMenuToggle\.getAttribute\('aria-expanded'\) === 'true'[\s\S]*?!event\.target\.closest\('#homeNavigation'\)[\s\S]*?setHomeMobileMenu\(false\)/);
 });
 
 test('sound previews use an edge-to-edge custom progress track', () => {
@@ -528,9 +544,18 @@ test('overview surfaces server health and a recent changes timeline for administ
     assert.match(panelServer, /requestUrl\.pathname === '\/api\/overview'[\s\S]*?overview\.health = guild \? await scanServer\(guild\)[\s\S]*?overview\.recentChanges = readActivity\(\)/);
     assert.match(panelScript, /function renderOverviewHealth\(health\)/);
     assert.match(panelScript, /function renderOverviewChanges\(entries = \[\]\)/);
+    assert.match(panelServer, /function labelOverviewChanges\(entries, guildId\)[\s\S]*?labels\[id\]\?\.nickname/);
+    assert.match(panelServer, /topChannels = statsSummary\.channels\.map[\s\S]*?namedTopVoiceChannels/);
     assert.match(operationsService, /const configuredChannels = \[[\s\S]*?Modmail log/);
     assert.match(operationsService, /const configuredRoles = \[[\s\S]*?Ticket support/);
     assert.match(operationsService, /const requiredModuleSettings = \{[\s\S]*?tickets:[\s\S]*?incidentCenter:/);
+});
+
+test('analytics correction loads selectable Discord resources and a usable default range', () => {
+    assert.match(panelScript, /activateDeveloperWorkspace[\s\S]*?await ensureManagementResources\(\)/);
+    assert.match(panelScript, /function initializeAnalyticsCorrectionRange\(\)[\s\S]*?7 \* 86400000/);
+    assert.match(panelServer, /function listKnownGuildMembers\(guildId\)[\s\S]*?getServerStatsSummary[\s\S]*?getVoiceStatsSummary/);
+    assert.match(panelServer, /pathname === '\/api\/management\/channels'[\s\S]*?listKnownGuildMembers\(guildId\)/);
 });
 
 test('dashboard empty states are contextual and mobile pages keep a reachable Save dock', () => {

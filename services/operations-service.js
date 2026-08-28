@@ -154,7 +154,7 @@ async function scanServer(guild) {
         if (missing.length) checks.push(doctorCheck('base-permissions', 'critical', 'Required bot permissions are missing', missing.join(', '), 'Update Flummi’s server role permissions.'));
         const highest = me.roles.highest.position;
         const blockedRoles = [...guild.roles.cache.values()].filter(role => !role.managed && role.id !== guild.id && role.position >= highest && (role.permissions.has(PermissionFlagsBits.Administrator) || role.members?.size));
-        if (blockedRoles.length) checks.push(doctorCheck('role-hierarchy', 'warning', 'Role hierarchy limits Flummi', `${blockedRoles.length} role(s) are at or above Flummi’s highest role.`, 'Move Flummi above roles it must manage.'));
+        if (blockedRoles.length) checks.push(doctorCheck('role-hierarchy', 'info', 'Role hierarchy may limit some actions', `${blockedRoles.length} role(s) are at or above Flummi’s highest role.`, 'This does not affect server health. Move Flummi above only the roles it needs to manage.'));
     }
 
     const everyone = guild.roles.everyone;
@@ -226,7 +226,9 @@ async function scanServer(guild) {
 
     const critical = checks.filter(check => check.severity === 'critical').length;
     const warnings = checks.filter(check => check.severity === 'warning').length;
-    return { checkedAt: new Date().toISOString(), score: Math.max(0, 100 - critical * 20 - warnings * 7), critical, warnings, checks };
+    const severityOrder = { critical: 0, warning: 1, info: 2 };
+    checks.sort((left, right) => (severityOrder[left.severity] ?? 3) - (severityOrder[right.severity] ?? 3));
+    return { checkedAt: new Date().toISOString(), score: Math.max(0, 100 - critical * 20 - warnings * 7), critical, warnings, info: checks.filter(check => check.severity === 'info').length, checks };
 }
 
 async function sendLog(guild, channelId, content) {

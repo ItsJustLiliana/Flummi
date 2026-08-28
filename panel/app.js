@@ -12,7 +12,9 @@ const state = {
     publicCommands: [],
     accountUsername: '',
     accountUserId: '',
-    guildRoles: new Map()
+    guildRoles: new Map(),
+    preferences: null,
+    settingsRevision: null
 };
 
 const guildSelect = document.getElementById('guild');
@@ -782,7 +784,7 @@ function installManagementModuleExperience() {
         const guideId = `${definition.tab}-guide`;
         const toolbar = document.createElement('div');
         toolbar.className = 'module-page-toolbar';
-        toolbar.innerHTML = `<span class="module-runtime-state" data-module-runtime-state="${escapeHtml(key)}"></span><button class="secondary module-guide-button" type="button" data-module-guide-toggle="${escapeHtml(key)}" aria-expanded="false" aria-controls="${escapeHtml(guideId)}">ⓘ ${escapeHtml(uiText('How this module works'))}</button>`;
+        toolbar.innerHTML = `<span class="module-runtime-state" data-module-runtime-state="${escapeHtml(key)}"></span><div class="module-toolbar-actions"><button class="secondary compact" type="button" data-module-test="${escapeHtml(key)}" title="Checks saved resources and required Discord permissions.">Test configuration</button><button class="secondary compact" type="button" data-copy-module-link="${escapeHtml(key)}">Copy link</button><button class="secondary module-guide-button" type="button" data-module-guide-toggle="${escapeHtml(key)}" aria-expanded="false" aria-controls="${escapeHtml(guideId)}">ⓘ ${escapeHtml(uiText('How this module works'))}</button></div>`;
         intro?.after(toolbar);
 
         const guide = document.createElement('section');
@@ -803,6 +805,8 @@ function installManagementModuleExperience() {
         const toggle = event.target.closest('[data-module-guide-toggle]');
         const close = event.target.closest('[data-module-guide-close]');
         const sectionLink = event.target.closest('[data-module-section-target]');
+        const testButton = event.target.closest('[data-module-test]');
+        const copyButton = event.target.closest('[data-copy-module-link]');
         if (toggle || close) {
             const key = (toggle || close).dataset.moduleGuideToggle || (toggle || close).dataset.moduleGuideClose;
             const definition = managementModuleDefinitions[key];
@@ -815,14 +819,42 @@ function installManagementModuleExperience() {
         }
         if (sectionLink) {
             const target = document.getElementById(sectionLink.dataset.moduleSectionTarget);
+            const url = new URL(window.location.href); url.hash = target?.id || ''; history.replaceState(null, '', url);
             target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             target?.classList.add('module-section-highlight');
             window.setTimeout(() => target?.classList.remove('module-section-highlight'), 1400);
+        }
+        if (copyButton) {
+            const definition = managementModuleDefinitions[copyButton.dataset.copyModuleLink];
+            const url = new URL(window.location.href); url.searchParams.set('guildId', state.guildId); url.searchParams.set('tab', definition.tab); url.hash = '';
+            navigator.clipboard.writeText(url.toString()).then(() => { copyButton.textContent = 'Link copied'; window.setTimeout(() => { copyButton.textContent = 'Copy link'; }, 1400); }).catch(handleUiError);
+        }
+        if (testButton) {
+            const original = testButton.textContent; testButton.disabled = true; testButton.textContent = 'Testing…';
+            api(withGuild('/api/management/test'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ module: testButton.dataset.moduleTest }) }).then(result => {
+                const problems = result.checks || [];
+                testButton.textContent = problems.length ? `${problems.length} issue${problems.length === 1 ? '' : 's'} found` : 'Configuration ready';
+                testButton.title = problems.length ? problems.map(check => `${check.title}: ${check.detail}`).join('\n') : 'Saved resources and required Discord permissions are available.';
+            }).catch(error => { testButton.textContent = 'Test failed'; testButton.title = error.message; }).finally(() => { testButton.disabled = false; window.setTimeout(() => { testButton.textContent = original; }, 3500); });
         }
     });
 }
 
 installManagementModuleExperience();
+
+const actionPermissionExplanations = {
+    managementRunAction: 'Requires the matching Discord permission (for example Moderate Members, Kick Members, Ban Members or Manage Messages) and a role below Flummi.',
+    managementPublishRoles: 'Requires Manage Roles and Manage Messages. Flummi must be above every role in this menu.',
+    publishWebhook: 'Requires Manage Webhooks, View Channel and Send Messages in the selected channel.',
+    createServerSnapshot: 'Reading a snapshot requires View Channels; restoring one also requires Manage Roles and Manage Channels.'
+};
+for (const [id, explanation] of Object.entries(actionPermissionExplanations)) {
+    const button = document.getElementById(id); if (!button) continue;
+    button.dataset.permissionExplanation = explanation;
+    button.title = explanation;
+    const actions = button.closest('.actions');
+    if (actions) { button.setAttribute('aria-describedby', `${id}-permission`); const note = document.createElement('small'); note.id = `${id}-permission`; note.className = 'permission-explanation'; note.textContent = explanation; actions.after(note); }
+}
 
 const moduleCommandHints = {
     tickets: ['/ticket open', '/ticket claim', '/ticket close'], suggestions: ['/suggest submit', '/suggest review'],
@@ -942,6 +974,7 @@ const moduleReadinessRequirements = {
     channels: [['managementChannelsLog', 'Choose an action log channel']], integrations: [], serverDoctor: [], incidentCenter: [['advancedIncidentLog', 'Choose an incident channel']],
     reports: [['advancedReportsChannel', 'Choose a private staff channel']], workflows: [], staffOperations: [], communityHealth: [], backups: [], copilot: [], engagement: []
 };
+const moduleDependencies = { staffOperations: ['cases'], copilot: ['tickets', 'reports'], workflows: ['automation'], communityHealth: ['serverDoctor'] };
 
 function enhanceDashboardEmptyState(element) {
     if (!element || element.dataset.contextualEmpty === 'true' || !element.closest('#dashboardLayout')) return;
@@ -1028,10 +1061,11 @@ function updateModuleReadiness(key) {
         const field = document.getElementById(id);
         return !field || (field.multiple ? field.selectedOptions.length === 0 : !field.value);
     });
+    const missingDependencies = (moduleDependencies[key] || []).filter(dependency => state.management?.modules?.[dependency] !== true);
     const enabled = state.management?.modules?.[key] === true;
     box.dataset.ready = String(enabled && missing.length === 0);
-    box.innerHTML = missing.length
-        ? `<strong>Setup incomplete</strong><span>${missing.map(([, message]) => escapeHtml(message)).join(' · ')}</span><button type="button" class="secondary" data-readiness-target="${escapeHtml(missing[0][0])}">Fix now</button>`
+    box.innerHTML = missing.length || missingDependencies.length
+        ? `<strong>Setup incomplete</strong><span>${[...missing.map(([, message]) => message), ...missingDependencies.map(dependency => `${managementModuleDefinitions[dependency]?.title || dependency} must be enabled first`)].map(escapeHtml).join(' · ')}</span>${missing.length ? `<button type="button" class="secondary" data-readiness-target="${escapeHtml(missing[0][0])}">Fix now</button>` : `<button type="button" class="secondary" data-open-module="${escapeHtml(missingDependencies[0])}">Open dependency</button>`}`
         : `<strong>${enabled ? 'Ready and running' : 'Ready to enable'}</strong><span>${enabled ? 'Required settings are present.' : 'Your configuration is ready; turn the module on when you want it to run.'}</span>`;
 }
 
@@ -1069,6 +1103,10 @@ managementSaveBar.className = 'management-save-bar';
 managementSaveBar.hidden = true;
 managementSaveBar.innerHTML = '<span><strong>Unsaved changes</strong><small>Save or discard before leaving this module.</small></span><button type="button" class="secondary" data-discard-management>Discard</button><button type="button" class="primary" data-save-management-bar>Save changes</button>';
 document.getElementById('dashboardLayout').append(managementSaveBar);
+document.querySelectorAll('#dashboardLayout [id^="tab-management-"] [data-save-management], #dashboardLayout [id^="tab-management-"] [data-save-advanced]').forEach(button => {
+    const actionRow = button.closest('.actions');
+    if (actionRow && actionRow.querySelectorAll('button').length === 1) button.classList.add('module-inline-save-replaced');
+});
 let dirtyManagementPanel = null;
 let dirtyManagementSaveButton = null;
 
@@ -1156,6 +1194,8 @@ const tabLoaders = {
     'management-backups': loadAdvancedManagement,
     'management-copilot': loadAdvancedManagement,
     'management-engagement': loadAdvancedManagement,
+    notifications: loadNotifications,
+    'account-profile': loadAccountPreferences,
     profiles: loadProfilesTab,
     settings: loadSettings,
     pings: loadPingRequests,
@@ -1228,7 +1268,7 @@ let mobileSaveTarget = null;
 
 function dashboardSaveButtons(panel) {
     return [...(panel?.querySelectorAll('[data-save-management], [data-save-advanced], button.primary[id^="save"]') || [])]
-        .filter(button => !button.closest('[hidden]') && button.getAttribute('aria-hidden') !== 'true');
+        .filter(button => !button.classList.contains('module-inline-save-replaced') && !button.closest('[hidden]') && button.getAttribute('aria-hidden') !== 'true');
 }
 
 function updateMobileSaveDock(preferredElement = null) {
@@ -1675,11 +1715,6 @@ function applyAccessVisibility() {
     }
 }
 
-document.getElementById('logoutPanel').addEventListener('click', async () => {
-    await fetch('/auth/logout', { method: 'POST' });
-    window.location.assign('/');
-});
-
 document.getElementById('refreshDiscordAccess').addEventListener('click', () => {
     refreshDiscordSignIn();
 });
@@ -1784,7 +1819,138 @@ async function loadPublicStatus() {
     document.getElementById('publicStatusUpdated').textContent = data.lastLiveUpdateAt
         ? formatDateTime(data.lastLiveUpdateAt)
         : 'No live update has been recorded yet.';
+    const container = document.getElementById('publicIncidentHistory');
+    const incidents = data.incidents || [];
+    container.innerHTML = incidents.length ? `<h2>Incident history</h2>${incidents.map(incident => `<article class="public-incident"><span class="badge ${incident.status === 'resolved' ? 'ok' : 'warn'}">${escapeHtml(incident.status)}</span><div><strong>${escapeHtml(incident.title)}</strong><p>${escapeHtml(incident.message || 'No additional details.')}</p><small>${escapeHtml(formatDateTime(incident.createdAt))}${incident.resolvedAt ? ` · Resolved ${escapeHtml(formatDateTime(incident.resolvedAt))}` : ''}</small></div></article>`).join('')}` : '<p class="sub">No public incidents have been recorded.</p>';
 }
+
+function applyAccountPreferences(preferences = state.preferences || {}) {
+    state.preferences = preferences;
+    document.documentElement.classList.toggle('a11y-reduced-motion', preferences.reducedMotion === true);
+    document.documentElement.classList.toggle('a11y-high-contrast', preferences.highContrast === true);
+    document.documentElement.classList.toggle('a11y-large-text', preferences.largeText === true);
+    document.documentElement.classList.toggle('dashboard-compact', preferences.compactMode === true);
+    const pinned = new Set(preferences.pinnedTabs || []);
+    document.querySelectorAll('#dashboardLayout .tabs > .tab-btn, #dashboardLayout .management-parent').forEach(button => button.classList.toggle('is-pinned', pinned.has(button.dataset.tab)));
+}
+
+async function loadAccountPreferences() {
+    const [data, profileData, memoryData, notificationData] = await Promise.all([
+        api('/api/account/preferences'),
+        api('/api/account/profile'),
+        api('/api/account/ai-memory'),
+        api('/api/notifications')
+    ]);
+    applyAccountPreferences(data.preferences);
+    document.getElementById('accountDefaultTab').value = data.preferences.defaultTab || 'overview';
+    const pinned = new Set(data.preferences.pinnedTabs || []);
+    [...document.getElementById('accountPinnedTabs').options].forEach(option => { option.selected = pinned.has(option.value); });
+    document.getElementById('accountCompactMode').checked = data.preferences.compactMode === true;
+    document.getElementById('accountReducedMotion').checked = data.preferences.reducedMotion === true;
+    document.getElementById('accountHighContrast').checked = data.preferences.highContrast === true;
+    document.getElementById('accountLargeText').checked = data.preferences.largeText === true;
+    const profile = profileData.profile || {};
+    document.getElementById('accountProfileNickname').value = profile.nickname || '';
+    document.getElementById('accountProfilePronouns').value = profile.pronouns || '';
+    document.getElementById('accountProfileTimezone').value = profile.timezone || '';
+    document.getElementById('accountProfileLanguages').value = (profile.languages || []).map(language => language.label).join(', ');
+    document.getElementById('accountProfileWebsite').value = profile.website || '';
+    document.getElementById('accountProfileBio').value = profile.bio || '';
+    document.getElementById('accountProfileColor').value = `#${Number(profile.color || 0x1e88e5).toString(16).padStart(6, '0')}`;
+    document.getElementById('accountProfileIdentity').innerHTML = `${profileData.user?.avatarUrl ? `<img src="${escapeHtml(profileData.user.avatarUrl)}" alt="">` : ''}<span><strong>${escapeHtml(profile.nickname || profileData.user?.username || 'Discord user')}</strong><small>${profile.updatedAt ? `Updated ${escapeHtml(formatDateTime(profile.updatedAt))}` : 'Profile not completed yet'}</small></span>`;
+    const consentGranted = profileData.aiConsent?.status === 'granted';
+    document.getElementById('accountAiConsent').innerHTML = `<div><strong>AI consent</strong><span class="badge ${consentGranted ? 'ok' : ''}">${consentGranted ? 'Enabled' : profileData.aiConsent?.status === 'withdrawn' ? 'Withdrawn' : 'Not enabled'}</span></div><p>${consentGranted ? `Granted ${escapeHtml(formatDateTime(profileData.aiConsent.updatedAt))}.` : 'Flummi will ask privately before sending your first request to an AI provider.'} Read the <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p><button class="${consentGranted ? 'danger' : 'secondary'} compact" type="button" data-account-ai-consent="${consentGranted ? 'withdraw' : 'allow'}">${consentGranted ? 'Withdraw AI consent' : 'Enable AI'}</button>`;
+    const memory = memoryData.memory || {};
+    const memoryItems = Number(memory.historyMessages || 0);
+    document.getElementById('accountAiMemoryBadge').textContent = memoryItems ? `${memoryItems} messages` : 'Empty';
+    document.getElementById('accountAiMemoryBadge').className = `badge ${memoryItems ? 'accent' : ''}`;
+    document.getElementById('accountAiMemorySummary').innerHTML = `<div class="account-summary-item"><strong>${memoryItems ? `${memoryItems} remembered messages across ${Number(memory.turns || 0)} turns` : 'No AI conversation memory stored'}</strong><span class="sub">${memory.updatedAt ? `Last changed ${escapeHtml(formatDateTime(memory.updatedAt))}` : 'Flummi will only build memory after you enable and use AI.'}</span></div><p class="sub">Clearing this removes your saved conversation context and compact summary. It does not change your AI consent.</p>`;
+    document.getElementById('clearAccountAiMemory').disabled = !memoryItems && !Number(memory.summaryChars || 0);
+    const notifications = notificationData.notifications || [];
+    const unread = Number(notificationData.unread || 0);
+    document.getElementById('accountNotificationBadge').textContent = `${unread} unread`;
+    document.getElementById('accountNotificationBadge').className = `badge ${unread ? 'accent' : 'ok'}`;
+    document.getElementById('accountNotificationSummary').innerHTML = notifications.length
+        ? notifications.slice(0, 3).map(entry => `<div class="account-summary-item"><strong>${escapeHtml(entry.title)}</strong><span class="sub">${escapeHtml(formatDateTime(entry.createdAt))}${entry.readAt ? '' : ' · Unread'}</span></div>`).join('')
+        : '<div class="contextual-empty"><strong>You are all caught up</strong><span>No personal notifications yet.</span></div>';
+}
+
+async function saveAccountPreferences() {
+    const status = document.getElementById('accountPreferencesStatus');
+    const payload = {
+        defaultTab: document.getElementById('accountDefaultTab').value,
+        pinnedTabs: [...document.getElementById('accountPinnedTabs').selectedOptions].map(option => option.value),
+        compactMode: document.getElementById('accountCompactMode').checked,
+        reducedMotion: document.getElementById('accountReducedMotion').checked,
+        highContrast: document.getElementById('accountHighContrast').checked,
+        largeText: document.getElementById('accountLargeText').checked
+    };
+    try {
+        const data = await api('/api/account/preferences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        applyAccountPreferences(data.preferences);
+        setStatus(status, 'Profile preferences saved.', 'ok');
+    } catch (error) { setStatus(status, error.message, 'error'); }
+}
+
+function renderNotificationList(entries = []) {
+    const container = document.getElementById('notificationList');
+    container.innerHTML = entries.length ? entries.map(entry => `<article class="notification-item ${entry.readAt ? '' : 'unread'}" data-notification-id="${escapeHtml(entry.id)}"><span class="notification-dot" aria-hidden="true"></span><div><strong>${escapeHtml(entry.title)}</strong><p>${escapeHtml(entry.message)}</p><small>${escapeHtml(entry.type)} · ${escapeHtml(formatDateTime(entry.createdAt))}</small></div>${entry.readAt ? '' : '<button class="secondary compact" type="button" data-mark-notification>Mark read</button>'}</article>`).join('') : '<div class="contextual-empty"><strong>You are all caught up</strong><span>No notifications match this search.</span></div>';
+}
+
+async function loadNotifications() {
+    const query = document.getElementById('notificationSearch').value.trim();
+    const data = await api(withGuild(`/api/notifications${query ? `&q=${encodeURIComponent(query)}` : ''}`));
+    renderNotificationList(data.notifications || []);
+    const badge = document.getElementById('notificationNavBadge');
+    badge.textContent = String(data.unread || 0); badge.hidden = !data.unread;
+}
+
+async function searchOperations() {
+    const query = document.getElementById('operationsSearch').value.trim();
+    const container = document.getElementById('operationsSearchResults');
+    if (query.length < 2) { container.innerHTML = '<div class="empty">Enter at least two characters.</div>'; return; }
+    const data = await api(withGuild(`/api/operations-search?q=${encodeURIComponent(query)}`));
+    container.innerHTML = data.results.length ? data.results.map(entry => `<article class="notification-item"><span class="badge accent">${escapeHtml(entry.kind)}</span><div><strong>${escapeHtml(entry.title)}</strong><small>${entry.status ? `${escapeHtml(entry.status)} · ` : ''}${escapeHtml(formatDateTime(entry.at))}</small></div></article>`).join('') : '<div class="empty">No operational records match this search.</div>';
+}
+
+document.getElementById('saveAccountPreferences').addEventListener('click', saveAccountPreferences);
+document.getElementById('saveAccountProfile').addEventListener('click', async () => {
+    const status = document.getElementById('accountProfileStatus');
+    try {
+        await api('/api/account/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname: document.getElementById('accountProfileNickname').value, pronouns: document.getElementById('accountProfilePronouns').value, timezone: document.getElementById('accountProfileTimezone').value, languages: document.getElementById('accountProfileLanguages').value, website: document.getElementById('accountProfileWebsite').value, bio: document.getElementById('accountProfileBio').value, color: document.getElementById('accountProfileColor').value }) });
+        setStatus(status, 'Flummi profile saved.', 'ok'); await loadAccountPreferences();
+    } catch (error) { setStatus(status, error.message, 'error'); }
+});
+document.getElementById('accountAiConsent').addEventListener('click', async event => {
+    const button = event.target.closest('[data-account-ai-consent]'); if (!button) return;
+    if (button.dataset.accountAiConsent === 'allow') {
+        const confirmed = await confirmAction({ title: 'Enable Flummi AI?', message: 'By enabling AI you agree to the Terms of Service and confirm that you have read the Privacy Policy.', confirmLabel: 'Enable AI', danger: false });
+        if (!confirmed) return;
+    }
+    button.disabled = true;
+    try { await api('/api/account/ai-consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: button.dataset.accountAiConsent }) }); await loadAccountPreferences(); }
+    catch (error) { handleUiError(error); button.disabled = false; }
+});
+document.getElementById('clearAccountAiMemory').addEventListener('click', async () => {
+    const confirmed = await confirmAction({ title: 'Clear your AI memory?', message: 'This permanently removes your saved AI conversation context and summary. Your AI consent stays unchanged.', confirmLabel: 'Clear AI memory' });
+    if (!confirmed) return;
+    const button = document.getElementById('clearAccountAiMemory');
+    button.disabled = true;
+    try {
+        await api('/api/account/ai-memory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmation: 'CLEAR' }) });
+        setStatus(document.getElementById('accountAiMemoryStatus'), 'Your AI memory has been cleared.', 'ok');
+        await loadAccountPreferences();
+    } catch (error) {
+        setStatus(document.getElementById('accountAiMemoryStatus'), error.message, 'error');
+        button.disabled = false;
+    }
+});
+document.getElementById('markAllNotificationsRead').addEventListener('click', async () => { await api('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); await loadNotifications(); });
+document.getElementById('notificationList').addEventListener('click', async event => { const row = event.target.closest('[data-notification-id]'); if (!row || !event.target.closest('[data-mark-notification]')) return; await api('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: row.dataset.notificationId }) }); await loadNotifications(); });
+let notificationSearchTimer;
+document.getElementById('notificationSearch').addEventListener('input', () => { clearTimeout(notificationSearchTimer); notificationSearchTimer = setTimeout(() => loadNotifications().catch(handleUiError), 250); });
+let operationsSearchTimer;
+document.getElementById('operationsSearch').addEventListener('input', () => { clearTimeout(operationsSearchTimer); operationsSearchTimer = setTimeout(() => searchOperations().catch(handleUiError), 300); });
 
 let publicLicenseLoaded = false;
 
@@ -1893,6 +2059,14 @@ async function activateDeveloperWorkspace(preferredTab = null) {
         localStorage.setItem('flummi.guildId', state.guildId);
     }
     applyAccessVisibility();
+    if (state.guildId && state.role !== 'member') {
+        try {
+            await ensureManagementResources();
+        } catch (error) {
+            const correctionStatus = document.getElementById('analyticsCorrectionStatus');
+            if (correctionStatus) setStatus(correctionStatus, `Discord members and channels could not be loaded: ${error.message}`, 'error');
+        }
+    }
 
     const requestedTool = preferredTab || new URLSearchParams(window.location.search).get('tool') || localStorage.getItem('flummi.developerTab') || 'global';
     const button = tabButtons.find(candidate => candidate.dataset.tab === requestedTool && fixedDeveloperTabIds.has(candidate.dataset.tab) && !candidate.hidden)
@@ -1901,11 +2075,13 @@ async function activateDeveloperWorkspace(preferredTab = null) {
 }
 
 async function openDashboard(guildId, tab = null) {
+    const requestedHash = window.location.hash;
     fillGuildSelect(state.guilds);
     const previousGuildId = state.guildId;
     guildSelect.value = String(guildId || state.guilds[0]?.id || '');
     state.guildId = guildSelect.value || null;
     if (!state.guildId) return;
+    delete document.getElementById('dashboardLayout').dataset.accountOnly;
     if (String(previousGuildId || '') !== String(state.guildId)) {
         state.management = null;
         managementChannelsGuildId = null;
@@ -1918,11 +2094,30 @@ async function openDashboard(guildId, tab = null) {
     document.getElementById('homeShell').hidden = true;
     document.getElementById('dashboardLayout').hidden = false;
     const rememberedDashboardTab = localStorage.getItem('flummi.activeTab');
-    const selectedTab = [tab, rememberedDashboardTab, 'overview'].find(candidate => candidate && !fixedDeveloperTabIds.has(candidate) && tabButtons.some(button => button.dataset.tab === candidate && !button.hidden)) || 'overview';
+    const selectedTab = [tab, state.preferences?.defaultTab, rememberedDashboardTab, 'overview'].find(candidate => candidate && !fixedDeveloperTabIds.has(candidate) && tabButtons.some(button => button.dataset.tab === candidate && !button.hidden)) || 'overview';
     const button = tabButtons.find(candidate => candidate.dataset.tab === selectedTab);
     if (button) button.click();
-    history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(selectedTab)}`);
+    history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(selectedTab)}${requestedHash}`);
     await refreshActiveTab();
+    if (requestedHash) document.getElementById(requestedHash.slice(1))?.scrollIntoView({ block: 'start' });
+}
+
+async function openAccountArea(tab = 'account-profile') {
+    const destination = tab === 'notifications' ? 'notifications' : 'account-profile';
+    const guildId = state.guildId || localStorage.getItem('flummi.guildId') || state.guilds[0]?.id;
+    if (guildId && state.guilds.some(guild => String(guild.id) === String(guildId))) {
+        await openDashboard(guildId, destination);
+        return;
+    }
+    state.guildId = null;
+    document.getElementById('homeShell').hidden = true;
+    const dashboard = document.getElementById('dashboardLayout');
+    dashboard.hidden = false;
+    dashboard.dataset.accountOnly = 'true';
+    document.title = `${uiText(destination === 'notifications' ? 'Notifications' : 'Profile & account')} - Flummi`;
+    const button = tabButtons.find(candidate => candidate.dataset.tab === destination);
+    button?.click();
+    history.replaceState(null, '', `/?account=${destination === 'notifications' ? 'notifications' : 'profile'}`);
 }
 
 document.querySelector('#dashboardLayout .brand')?.addEventListener('click', event => {
@@ -1959,10 +2154,20 @@ for (const group of homeNavGroups) {
 
 document.addEventListener('click', event => {
     if (!event.target.closest('.home-nav-group')) closeHomeNavGroups();
+    if (homeMobileMenuToggle.getAttribute('aria-expanded') === 'true'
+        && !event.target.closest('#homeNavigation')
+        && !event.target.closest('#homeMobileMenuToggle')) {
+        setHomeMobileMenu(false);
+    }
 });
 
 document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
+    if (homeMobileMenuToggle.getAttribute('aria-expanded') === 'true') {
+        setHomeMobileMenu(false);
+        homeMobileMenuToggle.focus();
+        return;
+    }
     const openGroup = homeNavGroups.find(group => group.open);
     if (!openGroup) return;
     openGroup.removeAttribute('open');
@@ -2280,7 +2485,7 @@ function renderOverviewHealth(health) {
     const headline = health.critical ? 'Action needed' : health.warnings ? 'Review recommended' : 'Everything looks healthy';
     const checks = (health.checks || []).slice(0, 3);
     container.innerHTML = `
-        <div class="overview-health-summary"><strong>${escapeHtml(String(health.score))}<small>/100</small></strong><span><b>${escapeHtml(uiText(headline))}</b><small>${health.critical} critical · ${health.warnings} warnings</small></span><span class="badge ${tone}">${escapeHtml(uiText(health.critical ? 'Fix now' : health.warnings ? 'Review' : 'Healthy'))}</span></div>
+        <div class="overview-health-summary"><strong>${escapeHtml(String(health.score))}<small>/100</small></strong><span><b>${escapeHtml(uiText(headline))}</b><small>${health.critical} critical · ${health.warnings} warnings${health.info ? ` · ${health.info} informational` : ''}</small></span><span class="badge ${tone}">${escapeHtml(uiText(health.critical ? 'Fix now' : health.warnings ? 'Review' : 'Healthy'))}</span></div>
         ${checks.length ? `<div class="overview-health-issues">${checks.map(check => `<article class="${escapeHtml(check.severity)}"><i aria-hidden="true"></i><span><strong>${escapeHtml(check.title)}</strong><small>${escapeHtml(check.fix || check.detail)}</small></span></article>`).join('')}</div>` : '<div class="contextual-empty empty-positive"><strong>No problems found</strong><span>Flummi can reach its configured resources and has the expected permissions.</span></div>'}
     `;
 }
@@ -2294,9 +2499,34 @@ function renderOverviewChanges(entries = []) {
     container.innerHTML = entries.map(entry => {
         const actor = entry.actorName || entry.username || (entry.source === 'panel' ? 'Dashboard' : 'Flummi');
         const label = entry.message || entry.summary || entry.type || 'Server action';
-        return `<article class="overview-change-item"><span class="overview-change-dot" aria-hidden="true"></span><span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(actor)} · ${escapeHtml(formatDateTime(entry.at))}</small></span></article>`;
+        return `<article class="overview-change-item"><span class="overview-change-dot" aria-hidden="true"></span><span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(actor)} · ${escapeHtml(formatDateTime(entry.at))}</small></span>${entry.undoable ? `<button class="secondary compact" type="button" data-undo-change="${escapeHtml(entry.changeId)}">Undo</button>` : ''}</article>`;
     }).join('');
 }
+
+function renderModuleInsights(entries = []) {
+    const container = document.getElementById('overviewModuleInsights');
+    const visible = entries.filter(entry => entry.enabled || entry.recommendation || entry.events30d);
+    container.innerHTML = visible.length ? visible.map(entry => `<article class="module-insight-card ${entry.recommendation ? 'attention' : ''}"><div><strong>${escapeHtml(managementModuleDefinitions[entry.key]?.label || entry.key)}</strong><span class="badge ${entry.enabled ? 'ok' : ''}">${entry.enabled ? 'Enabled' : 'Paused'}</span></div><p>${entry.events30d} event${entry.events30d === 1 ? '' : 's'} in 30 days${entry.lastActivityAt ? ` · Last ${escapeHtml(formatDateTime(entry.lastActivityAt))}` : ''}</p>${entry.recommendation ? `<small>${escapeHtml(entry.recommendation)}</small>` : '<small>Configured and no attention is needed.</small>'}<button class="secondary compact" type="button" data-open-module="${escapeHtml(entry.key)}">Open module</button></article>`).join('') : '<div class="empty">No module activity or recommendations yet.</div>';
+}
+
+document.getElementById('dashboardLayout').addEventListener('click', async event => {
+    const moduleButton = event.target.closest('[data-open-module]');
+    if (moduleButton) {
+        const definition = managementModuleDefinitions[moduleButton.dataset.openModule];
+        document.querySelector(`.tab-btn[data-tab="${definition?.tab}"]`)?.click();
+        return;
+    }
+    const undoButton = event.target.closest('[data-undo-change]');
+    if (!undoButton) return;
+    const confirmed = await confirmAction({ title: 'Undo this settings change?', message: 'The server settings snapshot from before this change will be restored.', confirmLabel: 'Undo change', danger: false });
+    if (!confirmed) return;
+    try {
+        undoButton.disabled = true;
+        const result = await api(withGuild('/api/settings/undo'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: undoButton.dataset.undoChange }) });
+        state.management = result.settings.management; state.settingsRevision = result.revision;
+        await loadOverview();
+    } catch (error) { handleUiError(error); undoButton.disabled = false; }
+});
 
 function showChartTooltip(event, row, metricLabel) {
     const tooltip = document.getElementById('chartTooltip');
@@ -2514,6 +2744,7 @@ async function loadOverview() {
     if (['developer', 'admin'].includes(state.role)) {
         renderOverviewHealth(data.health);
         renderOverviewChanges(data.recentChanges || []);
+        renderModuleInsights(data.moduleInsights || []);
     }
     const localFeatures = data.settings?.features || {};
     state.globalFeatures = data.globalFeatures || state.globalFeatures || {};
@@ -3277,6 +3508,7 @@ async function loadServerMembers() {
             { label: 'Member', key: 'tag', render: r => withNicknameTitle(r.tag, r.nickname) },
             { label: 'Nickname', key: 'nickname', render: r => r.nickname ? escapeHtml(r.nickname) : '<span class="muted">-</span>' },
             { label: 'Role', sortValue: r => r.isDeveloper ? 2 : (r.role === 'admin' ? 1 : 0), render: renderMemberRoleCell },
+            { label: 'AI consent', sortValue: r => r.aiConsent?.status === 'granted' ? 1 : 0, render: r => r.aiConsent?.status === 'granted' ? `<span class="badge ok" title="Agreed ${escapeHtml(formatDateTime(r.aiConsent.updatedAt))}">Agreed</span>` : r.aiConsent?.status === 'withdrawn' ? '<span class="badge">Withdrawn</span>' : '<span class="muted">Not asked</span>' },
             { label: 'Custom Permissions', sortValue: r => r.nonDefaultFeatureCount, render: r => r.nonDefaultFeatureCount > 0 ? `<span class="badge accent">${r.nonDefaultFeatureCount} custom</span>` : '<span class="muted">Default</span>' },
             { label: '', sortable: false, render: renderMemberActionsCell }
         ],
@@ -4517,7 +4749,7 @@ function renderServerDoctor(result) {
     const container = document.getElementById('serverDoctorResults');
     if (!result) return;
     const tone = result.critical ? 'error' : result.warnings ? 'warn' : 'ok';
-    container.innerHTML = `<div class="section-title-row"><div><h2>Health score: ${result.score}/100</h2><p class="sub">${result.critical} critical · ${result.warnings} warnings · checked ${escapeHtml(formatDateTime(result.checkedAt))}</p></div><span class="badge ${tone}">${result.critical ? 'Action needed' : result.warnings ? 'Review' : 'Healthy'}</span></div>${result.checks.length ? `<div class="doctor-check-list">${result.checks.map(check => `<article class="doctor-check ${escapeHtml(check.severity)}"><strong>${escapeHtml(check.title)}</strong><span>${escapeHtml(check.detail)}</span>${check.fix ? `<small>${escapeHtml(check.fix)}</small>` : ''}</article>`).join('')}</div>` : '<div class="empty">No problems found.</div>'}`;
+    container.innerHTML = `<div class="section-title-row"><div><h2>Health score: ${result.score}/100</h2><p class="sub">${result.critical} critical · ${result.warnings} warnings${result.info ? ` · ${result.info} informational` : ''} · checked ${escapeHtml(formatDateTime(result.checkedAt))}</p></div><span class="badge ${tone}">${result.critical ? 'Action needed' : result.warnings ? 'Review' : 'Healthy'}</span></div>${result.checks.length ? `<div class="doctor-check-list">${result.checks.map(check => `<article class="doctor-check ${escapeHtml(check.severity)}"><strong>${escapeHtml(check.title)}</strong><span>${escapeHtml(check.detail)}</span>${check.fix ? `<small>${escapeHtml(check.fix)}</small>` : ''}</article>`).join('')}</div>` : '<div class="empty">No problems found.</div>'}`;
 }
 
 function renderAdvancedOperations(data) {
@@ -4682,10 +4914,11 @@ document.getElementById('publishWebhook').addEventListener('click', async () => 
 async function persistManagement(statusField) {
     const result = await api(withGuild('/api/settings'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Flummi-Settings-Revision': String(state.settingsRevision ?? '') },
         body: JSON.stringify({ management: state.management })
     });
     state.management = result.settings.management;
+    state.settingsRevision = result.revision;
     renderManagementCards();
     applyManagementNavigation();
     hydrateManagementEditors();
@@ -4697,6 +4930,7 @@ async function loadManagement() {
     if (!state.guildId || state.role === 'member') return;
     const settingsData = await api(withGuild('/api/settings'));
     state.management = settingsData.settings.management;
+    state.settingsRevision = settingsData.revision;
     await ensureManagementResources();
     hydrateManagementEditors();
     renderManagementCards();
@@ -5109,13 +5343,26 @@ async function loadSettings() {
 }
 
 async function loadGlobalSettings() {
-    const [configData, complianceData] = await Promise.all([api('/api/config'), api('/api/developer/compliance')]);
+    const [configData, complianceData, incidentData] = await Promise.all([api('/api/config'), api('/api/developer/compliance'), api('/api/public/incidents')]);
     document.getElementById('publicPanelEnabled').checked = configData.panel?.publicAccessEnabled !== false;
     applyDeveloperSettings(configData);
     renderCommandPermissions(configData);
     syncGlobalFeatureState();
     renderComplianceOperations(complianceData);
+    renderDeveloperPublicIncidents(incidentData.incidents || []);
 }
+
+function renderDeveloperPublicIncidents(entries) {
+    document.getElementById('developerPublicIncidents').innerHTML = entries.length ? entries.slice(0, 8).map(entry => `<article class="notification-item"><span class="badge ${entry.status === 'resolved' ? 'ok' : 'warn'}">${escapeHtml(entry.status)}</span><div><strong>${escapeHtml(entry.title)}</strong><p>${escapeHtml(entry.message || '')}</p><small>${escapeHtml(formatDateTime(entry.createdAt))}</small></div></article>`).join('') : '<div class="empty">No public incidents yet.</div>';
+}
+
+document.getElementById('publishPublicIncident').addEventListener('click', async () => {
+    const status = document.getElementById('publicIncidentStatus');
+    try {
+        const data = await api('/api/public/incidents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: document.getElementById('publicIncidentTitle').value, message: document.getElementById('publicIncidentMessage').value, status: document.getElementById('publicIncidentState').value }) });
+        renderDeveloperPublicIncidents(data.incidents || []); document.getElementById('publicIncidentTitle').value = ''; document.getElementById('publicIncidentMessage').value = ''; setStatus(status, 'Public status update published.', 'ok');
+    } catch (error) { setStatus(status, error.message, 'error'); }
+});
 
 function renderComplianceTable(rows) {
     return `<table><thead><tr><th>Stage</th><th>Target</th><th>Required action</th></tr></thead><tbody>${(rows || []).map(row => `<tr><td>${escapeHtml(row.stage)}</td><td>${escapeHtml(row.target)}</td><td>${escapeHtml(row.action)}</td></tr>`).join('')}</tbody></table>`;
@@ -6229,10 +6476,17 @@ async function loadAudit() {
     renderTable(document.getElementById('auditTable'), [
         { label: 'When', key: 'at', render: row => escapeHtml(formatDateTime(row.at)) },
         { label: 'Who', key: 'actorName', render: row => escapeHtml(row.actorName || row.actorId || 'Unknown') },
-        { label: 'Action', key: 'type' },
+        { label: 'Action', key: 'type', render: row => escapeHtml(humanizeAuditType(row.type)) },
         { label: 'Details', key: 'message' },
         { label: 'Changes', key: 'changes', sortable: false, render: row => renderAuditChanges(row.changes) }
     ], data.entries || [], 'No confirmed panel changes have been recorded for this server yet.', { index: 0, dir: -1 });
+}
+
+function humanizeAuditType(value) {
+    const known = { 'settings-update': 'Server settings updated', 'settings-undo': 'Settings change undone', 'module-test': 'Module configuration tested', 'member-reset': 'Member permissions reset', 'permissions-update': 'Member permissions updated', 'moderation-action': 'Moderation action performed', 'role-menu-publish': 'Role menu published', 'server-snapshot': 'Server snapshot created', 'server-restore': 'Server snapshot restored' };
+    if (known[value]) return known[value];
+    const text = String(value || 'server action').replace(/[-_.]+/g, ' ');
+    return text[0].toUpperCase() + text.slice(1);
 }
 
 function formatAuditValue(value) {
@@ -6243,9 +6497,16 @@ function formatAuditValue(value) {
     return String(value);
 }
 
+function friendlyAuditField(change) {
+    const value = String(change?.label || change?.field || 'Setting');
+    if (!/[._-]/.test(value) && !/[a-z][A-Z]/.test(value)) return value;
+    const leaf = value.split('.').pop().replace(/Ids?$/i, '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim();
+    return leaf ? leaf[0].toUpperCase() + leaf.slice(1).toLowerCase() : 'Setting';
+}
+
 function renderAuditChanges(changes) {
     if (!Array.isArray(changes) || !changes.length) return '<span class="muted">—</span>';
-    return `<div class="audit-change-list">${changes.map(change => `<div class="audit-change"><strong>${escapeHtml(change.label || change.field || 'Setting')}</strong><span class="audit-change-values">${escapeHtml(formatAuditValue(change.before))} → ${escapeHtml(formatAuditValue(change.after))}</span></div>`).join('')}</div>`;
+    return `<div class="audit-change-list">${changes.map(change => `<div class="audit-change"><strong>${escapeHtml(friendlyAuditField(change))}</strong><span class="audit-change-values">${escapeHtml(formatAuditValue(change.before))} → ${escapeHtml(formatAuditValue(change.after))}</span></div>`).join('')}</div>`;
 }
 
 async function loadExperiments() {
@@ -6561,7 +6822,20 @@ async function logoutToHome() {
     await fetch('/auth/logout', { method: 'POST' });
     window.location.assign('/');
 }
-document.getElementById('homeLogout').addEventListener('click', logoutToHome);
+document.querySelectorAll('[data-account-logout]').forEach(button => button.addEventListener('click', logoutToHome));
+document.querySelectorAll('[data-account-destination]').forEach(button => button.addEventListener('click', () => {
+    button.closest('.account-menu')?.removeAttribute('open');
+    openAccountArea(button.dataset.accountDestination).catch(handleUiError);
+}));
+document.addEventListener('click', event => {
+    for (const menu of document.querySelectorAll('.account-menu[open]')) {
+        if (!menu.contains(event.target)) menu.removeAttribute('open');
+    }
+});
+document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    for (const menu of document.querySelectorAll('.account-menu[open]')) menu.removeAttribute('open');
+});
 
 document.getElementById('saveOpenRouterAgreement').addEventListener('click', async () => {
     const statusElement = document.getElementById('openRouterAgreementStatusText');
@@ -6595,12 +6869,28 @@ document.getElementById('saveOpenRouterAgreement').addEventListener('click', asy
 // ---------- Analytics corrections ----------
 let analyticsCorrectionPreview = null;
 
+function localDateTimeInputValue(value) {
+    const date = new Date(value);
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function initializeAnalyticsCorrectionRange() {
+    const from = document.getElementById('analyticsCorrectionFrom');
+    const to = document.getElementById('analyticsCorrectionTo');
+    if (!to.value) to.value = localDateTimeInputValue(Date.now());
+    if (!from.value) from.value = localDateTimeInputValue(Date.now() - 7 * 86400000);
+}
+
+initializeAnalyticsCorrectionRange();
+
 function analyticsCorrectionPayload() {
     const fromValue = document.getElementById('analyticsCorrectionFrom').value;
     const toValue = document.getElementById('analyticsCorrectionTo').value;
     const reason = document.getElementById('analyticsCorrectionReason').value.trim();
     if (!fromValue || !toValue) throw new Error('Choose both a start and end time.');
     if (!reason) throw new Error('An audit reason is required.');
+    if (new Date(fromValue).getTime() > new Date(toValue).getTime()) throw new Error('The start time must be before the end time.');
     const payload = {
         category: document.getElementById('analyticsCorrectionCategory').value,
         from: new Date(fromValue).toISOString(),
@@ -6686,12 +6976,16 @@ async function initializePanel() {
     const authenticated = await loadPanelAccount();
     showHomeView(initialView);
     if (!authenticated) return;
+    try { applyAccountPreferences((await api('/api/account/preferences')).preferences); } catch (error) { console.error(error); }
     const data = await api('/api/guilds');
     renderHomeGuilds(data.guilds || []);
     const requestedGuild = requestedParams.get('guildId');
     const requestedTab = requestedParams.get('tab');
+    const requestedAccount = requestedParams.get('account');
     if (requestedGuild && state.guilds.some(guild => guild.id === requestedGuild)) {
         await openDashboard(requestedGuild, requestedTab);
+    } else if (requestedAccount === 'profile' || requestedAccount === 'notifications') {
+        await openAccountArea(requestedAccount === 'notifications' ? 'notifications' : 'account-profile');
     } else if (requestedView === 'developer' && state.actualRole === 'developer') {
         showHomeView(requestedView, requestedParams.get('tool'));
     }

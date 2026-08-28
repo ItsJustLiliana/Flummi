@@ -33,6 +33,11 @@ const pingMetricsStore = require('./stores/ping-metrics-store');
 const aiHealthStore = require('./stores/ai-health-store');
 const userConversationStore = require('./stores/user-conversation-store');
 const profileStore = require('./stores/profile-store');
+const aiConsentStore = require('./stores/ai-consent-store');
+const panelPreferenceStore = require('./stores/panel-preference-store');
+const settingsHistoryStore = require('./stores/settings-history-store');
+const publicIncidentStore = require('./stores/public-incident-store');
+const notificationStore = require('./stores/notification-store');
 const feedbackStore = require('./stores/feedback-store');
 const { getAiConfig, buildTextModelCandidates, buildVisionModelCandidates } = require('./services/ai-chat');
 const readyEvent = require('./events/ready');
@@ -224,7 +229,10 @@ function buildPublicStatus() {
     let updateStatus = {};
     try { updateStatus = JSON.parse(fs.readFileSync(updateStatusFilePath, 'utf8')); } catch { /* no live promotion recorded yet */ }
     const release = buildReleaseStatus();
-    return { lastLiveUpdateAt: updateStatus.lastPromotedAt || release.live?.promotedAt || release.live?.committedAt || null };
+    return {
+        lastLiveUpdateAt: updateStatus.lastPromotedAt || release.live?.promotedAt || release.live?.committedAt || null,
+        incidents: publicIncidentStore.readIncidents().map(({ id, title, message, status, createdAt, resolvedAt }) => ({ id, title, message, status, createdAt, resolvedAt }))
+    };
 }
 for (const [key, label] of Object.entries({ badWords: 'Bad words', serverInvites: 'Discord invites', externalLinks: 'External links', messageSpam: 'Fast message spam', duplicateSpam: 'Repeated messages', mentionSpam: 'Mention spam', capsSpam: 'Excessive capitals', emojiSpam: 'Emoji spam', zalgoSpam: 'Zalgo text' })) {
     settingAuditLabels[`management.automod.rules.${key}.enabled`] = `${label} enabled`;
@@ -942,6 +950,23 @@ async function listGuildMembers(guildId) {
     return members;
 }
 
+async function listKnownGuildMembers(guildId) {
+    if (membersIntentEnabled) {
+        const members = await listGuildMembers(guildId).catch(() => null);
+        if (members?.length) return members;
+    }
+    const trackedUsers = serverStatsStore.getServerStatsSummary(guildId, 25).users || [];
+    const voiceUsers = voiceStore.getVoiceStatsSummary(guildId, 25) || [];
+    const ids = [...new Set([...trackedUsers.map(row => row.id), ...voiceUsers.map(row => row.id)].filter(Boolean).map(String))];
+    const labels = await resolveUserLabels(ids, guildId);
+    return ids.map(id => ({
+        id,
+        tag: labels[id]?.tag || trackedUsers.find(row => String(row.id) === id)?.name || id,
+        displayName: labels[id]?.nickname || labels[id]?.tag || trackedUsers.find(row => String(row.id) === id)?.name || id,
+        nickname: labels[id]?.nickname || null
+    })).sort((left, right) => left.displayName.localeCompare(right.displayName));
+}
+
 async function getMemberIdentity(guildId, userId) {
     const guild = await client.guilds.fetch(String(guildId));
     const member = guild.members.cache.get(String(userId)) || await guild.members.fetch(String(userId)).catch(() => null);
@@ -1068,7 +1093,7 @@ async function buildGuildInfo(guildId) {
         boostTier: guild.premiumTier ? String(guild.premiumTier) : '0',
         boostCount: guild.premiumSubscriptionCount || 0,
         verificationLevel: verificationLevelLabels[guild.verificationLevel] || 'Unknown',
-        ownerTag: owner?.user?.tag || null,
+        ownerTag: owner?.displayName || owner?.nickname || owner?.user?.globalName || owner?.user?.tag || null,
         createdAt: guild.createdAt.toISOString()
     };
 }
@@ -1090,6 +1115,11 @@ async function buildOverview(guildId) {
         .reduce((sum, entry) => sum + (Number(entry.totalMs) || 0), 0);
     const missingPermissions = await getMissingBotPermissions(guildId);
     const guildInfo = await buildGuildInfo(guildId).catch(() => null);
+    const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+    if (guild?.channels?.fetch) await guild.channels.fetch().catch(() => null);
+    const channelName = channelId => guild?.channels?.cache?.get(String(channelId))?.name || null;
+    const topChannels = statsSummary.channels.map(row => ({ ...row, name: channelName(row.id) || row.name }));
+    const namedTopVoiceChannels = topVoiceChannels.map(row => ({ ...row, channelName: channelName(row.channelId) || row.channelName }));
     const labels = await resolveUserLabels([
         ...voiceSummary.map(row => row.id),
         ...developerIds
@@ -1106,14 +1136,40 @@ async function buildOverview(guildId) {
         totalMessages: statsSummary.totalMessages,
         analytics: analyticsStore.getAnalyticsSummary(guildId, 7),
         voiceAnalytics: voiceStore.getVoiceAnalytics(guildId, sevenDaysAgo),
-        topChannels: statsSummary.channels,
-        topVoiceChannels,
+        topChannels,
+        topVoiceChannels: namedTopVoiceChannels,
         adminCount,
         developerCount: developerIds.length,
         missingPermissions,
         inviteUrl: buildInviteUrl(),
         labels
     };
+}
+
+async function labelOverviewChanges(entries, guildId) {
+    const userKeys = ['userId', 'targetId', 'actorId', 'memberId', 'authorId', 'submittedByUserId', 'reviewedBy'];
+    const userIds = [...new Set(entries.flatMap(entry => userKeys.map(key => entry[key])).filter(value => /^\d{16,20}$/.test(String(value || ''))).map(String))];
+    const labels = await resolveUserLabels(userIds, guildId);
+    const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+    const replacements = new Map();
+    for (const id of userIds) replacements.set(id, labels[id]?.nickname || labels[id]?.tag || id);
+    for (const entry of entries) {
+        for (const key of ['channelId', 'parentId']) {
+            const id = String(entry[key] || '');
+            const name = guild?.channels?.cache?.get(id)?.name;
+            if (id && name) replacements.set(id, `#${name}`);
+        }
+    }
+    const replaceIds = value => {
+        let output = String(value || '');
+        for (const [id, label] of replacements) output = output.replaceAll(id, label);
+        return output;
+    };
+    return entries.map(entry => ({
+        ...entry,
+        message: replaceIds(entry.message || entry.summary || entry.type || 'Server action'),
+        actorName: entry.actorId && replacements.has(String(entry.actorId)) ? replacements.get(String(entry.actorId)) : entry.actorName
+    }));
 }
 
 async function buildDeveloperServerStats() {
@@ -1657,7 +1713,7 @@ function createServer() {
                     '/api/data-tools', '/api/backup', '/api/data-tools/reset', '/api/reliability',
                     '/api/ai-health', '/api/reliability/backup', '/api/reliability/reconcile-voice',
                     '/api/health', '/api/runtime', '/api/update-status', '/api/send', '/api/release/promote', '/api/developer/stats',
-                    '/api/developer/analytics-correction', '/api/developer/compliance'
+                    '/api/developer/analytics-correction', '/api/developer/compliance', '/api/public/incidents'
                 ]);
                 if (developerPaths.has(requestUrl.pathname) && !requireDeveloperAccess(panelSession, res)) return;
                 if (requestUrl.pathname.startsWith('/api/developer/files') && !requireDeveloperAccess(panelSession, res)) return;
@@ -1872,9 +1928,21 @@ function createServer() {
                 if (['developer', 'admin'].includes(getPanelGuildRole(panelSession, guildId))) {
                     const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
                     overview.health = guild ? await scanServer(guild) : null;
-                    overview.recentChanges = readActivity()
+                    overview.recentChanges = readActivity();
+                    const activity = overview.recentChanges.filter(entry => String(entry.guildId || '') === String(guildId));
+                    const settings = settingsStore.readSettings(guildId);
+                    const history = settingsHistoryStore.readHistory(guildId);
+                    overview.recentChanges = await labelOverviewChanges([
+                        ...history.entries.map(({ before, after, ...entry }) => ({ ...entry, message: entry.summary, undoable: !entry.undoneAt, changeId: entry.id })),
+                        ...activity
                         .filter(entry => String(entry.guildId || '') === String(guildId) && entry.type !== 'command')
-                        .slice(0, 6);
+                    ].sort((left, right) => new Date(right.at) - new Date(left.at)).slice(0, 8), guildId);
+                    const dependencies = { staffOperations: ['cases'], copilot: ['tickets', 'reports'], workflows: ['automation'], communityHealth: ['serverDoctor'] };
+                    overview.moduleInsights = Object.entries(settings.management.modules).map(([key, enabled]) => {
+                        const rows = activity.filter(entry => String(entry.module || entry.type || '').toLowerCase().includes(key.toLowerCase()));
+                        const missingDependencies = (dependencies[key] || []).filter(dependency => !settings.management.modules[dependency]);
+                        return { key, enabled, events30d: rows.filter(entry => Date.now() - new Date(entry.at).getTime() < 30 * 86400000).length, lastActivityAt: rows[0]?.at || null, missingDependencies, recommendation: enabled && missingDependencies.length ? `Enable ${missingDependencies.join(', ')} to use the complete workflow.` : enabled && !rows.length ? 'Configured but no activity has been recorded yet. Run a configuration test.' : !enabled && rows.length ? 'Recent activity exists; consider enabling this module.' : null };
+                    });
                 }
                 sendJson(res, 200, overview);
                 return;
@@ -2126,7 +2194,7 @@ function createServer() {
                 const [channels, roles, members, bans] = await Promise.all([
                     listManagementChannels(guildId),
                     listManagementRoles(guildId),
-                    membersIntentEnabled ? listGuildMembers(guildId).catch(() => []) : Promise.resolve([]),
+                    listKnownGuildMembers(guildId),
                     listManagementBans(guildId)
                 ]);
                 sendJson(res, 200, { channels, roles, members, bans });
@@ -2367,8 +2435,124 @@ function createServer() {
 
                 sendJson(res, 200, {
                     settings: settingsStore.readSettings(guildId),
-                    globalFeatures: config.features || {}
+                    globalFeatures: config.features || {},
+                    revision: settingsHistoryStore.readHistory(guildId).revision
                 });
+                return;
+            }
+
+            if (requestUrl.pathname === '/api/account/preferences') {
+                if (req.method === 'GET') {
+                    sendJson(res, 200, { preferences: panelPreferenceStore.readPreferences(panelSession.userId) });
+                    return;
+                }
+                if (req.method === 'POST') {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    const preferences = panelPreferenceStore.updatePreferences(panelSession.userId, parsed);
+                    auditPanelAction(panelSession, 'account-preferences', 'Updated personal dashboard preferences');
+                    sendJson(res, 200, { ok: true, preferences });
+                    return;
+                }
+            }
+
+            if (requestUrl.pathname === '/api/account/profile') {
+                if (req.method === 'GET') {
+                    const discordUser = await client.users.fetch(panelSession.userId).catch(() => null);
+                    sendJson(res, 200, {
+                        profile: profileStore.getProfile(panelSession.userId),
+                        aiConsent: aiConsentStore.readAiConsent(panelSession.userId),
+                        user: { id: panelSession.userId, username: panelSession.username, avatarUrl: discordUser?.displayAvatarURL({ size: 128 }) || null }
+                    });
+                    return;
+                }
+                if (req.method === 'POST') {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    const allowed = ['nickname', 'bio', 'pronouns', 'timezone', 'languages', 'website', 'color'];
+                    const updates = Object.fromEntries(allowed.filter(key => Object.prototype.hasOwnProperty.call(parsed, key)).map(key => [key, parsed[key]]));
+                    const profile = profileStore.updateProfile(panelSession.userId, null, updates);
+                    auditPanelAction(panelSession, 'personal-profile', 'Updated personal Flummi profile');
+                    sendJson(res, 200, { ok: true, profile }); return;
+                }
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/account/ai-consent') {
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                if (!['allow', 'withdraw'].includes(parsed.action)) { sendJson(res, 400, { error: 'Choose allow or withdraw.' }); return; }
+                const consent = aiConsentStore.setAiConsent(panelSession.userId, parsed.action === 'allow');
+                auditPanelAction(panelSession, 'ai-consent', parsed.action === 'allow' ? 'Enabled personal AI consent' : 'Withdrew personal AI consent');
+                sendJson(res, 200, { ok: true, consent }); return;
+            }
+
+            if (requestUrl.pathname === '/api/account/ai-memory') {
+                if (req.method === 'GET') {
+                    sendJson(res, 200, { memory: userConversationStore.getUserConversationSummary(panelSession.userId) });
+                    return;
+                }
+                if (req.method === 'POST') {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    if (parsed.confirmation !== 'CLEAR') {
+                        sendJson(res, 400, { error: 'Confirm clearing your AI memory first.' });
+                        return;
+                    }
+                    userConversationStore.clearUserHistory(panelSession.userId);
+                    auditPanelAction(panelSession, 'ai-memory', 'Cleared personal AI conversation memory');
+                    sendJson(res, 200, { ok: true, memory: userConversationStore.getUserConversationSummary(panelSession.userId) });
+                    return;
+                }
+            }
+
+            if (requestUrl.pathname === '/api/public/incidents') {
+                if (req.method === 'GET') { sendJson(res, 200, { incidents: publicIncidentStore.readIncidents() }); return; }
+                if (req.method === 'POST') {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    if (!String(parsed.title || '').trim()) { sendJson(res, 400, { error: 'An incident title is required.' }); return; }
+                    const incident = publicIncidentStore.addIncident(parsed);
+                    auditPanelAction(panelSession, 'public-incident', `Published public incident: ${incident.title}`);
+                    sendJson(res, 200, { ok: true, incident, incidents: publicIncidentStore.readIncidents() }); return;
+                }
+            }
+
+            if (requestUrl.pathname === '/api/notifications') {
+                if (req.method === 'GET') {
+                    const query = String(requestUrl.searchParams.get('q') || '').trim().toLowerCase();
+                    const guildId = requestUrl.searchParams.get('guildId');
+                    const entries = notificationStore.readNotifications(panelSession.userId)
+                        .filter(entry => !guildId || !entry.guildId || entry.guildId === guildId)
+                        .filter(entry => !query || `${entry.title} ${entry.message} ${entry.type}`.toLowerCase().includes(query));
+                    sendJson(res, 200, { notifications: entries.slice(0, 200), unread: entries.filter(entry => !entry.readAt).length });
+                    return;
+                }
+                if (req.method === 'POST') {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    const entries = notificationStore.markRead(panelSession.userId, parsed.id || null);
+                    sendJson(res, 200, { ok: true, unread: entries.filter(entry => !entry.readAt).length });
+                    return;
+                }
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/operations-search') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Operational search is only available to server administrators.')) return;
+                const query = String(requestUrl.searchParams.get('q') || '').trim().toLowerCase();
+                if (query.length < 2) { sendJson(res, 200, { results: [] }); return; }
+                const state = operationsStore.readState(guildId);
+                const community = communityStore.readState(guildId);
+                const sources = [['activity', readActivity().filter(entry => entry.guildId === guildId)], ['case', moderationStore.readCases(guildId)], ['report', state.reports], ['incident', state.incidents], ['ticket', community.tickets], ['suggestion', community.suggestions]];
+                const results = sources.flatMap(([kind, rows]) => rows.map(row => ({ kind, id: row.id, at: row.at || row.createdAt || row.updatedAt, title: row.title || row.message || row.reason || row.subject || `${kind} ${row.id}`, status: row.status || null, raw: row })).filter(item => JSON.stringify(item.raw).toLowerCase().includes(query)).map(({ raw, ...safe }) => safe)).slice(0, 100);
+                sendJson(res, 200, { results }); return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/management/test') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Configuration tests require server administrator access.')) return;
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
+                const doctor = await scanServer(guild);
+                const moduleName = String(parsed.module || '').trim();
+                const related = doctor.checks.filter(check => check.id.includes(moduleName) || check.title.toLowerCase().includes(moduleName.toLowerCase()) || ['base-permissions', 'role-hierarchy'].includes(check.id));
+                auditPanelAction(panelSession, 'module-test', `Tested ${moduleName || 'server'} configuration`, { guildId, module: moduleName });
+                sendJson(res, 200, { ok: related.every(check => check.severity !== 'critical'), module: moduleName, checkedAt: doctor.checkedAt, checks: related });
                 return;
             }
 
@@ -2606,14 +2790,43 @@ function createServer() {
 
                 const rawBody = await readBody(req);
                 const parsed = JSON.parse(rawBody || '{}');
+                const history = settingsHistoryStore.readHistory(guildId);
+                const suppliedRevision = Number(req.headers['x-flummi-settings-revision'] ?? parsed._revision);
+                if (Number.isFinite(suppliedRevision) && suppliedRevision !== history.revision) {
+                    sendJson(res, 409, { code: 'SETTINGS_CONFLICT', error: 'These settings changed in another dashboard session. Reload before saving so you do not overwrite someone else’s work.', revision: history.revision });
+                    return;
+                }
+                delete parsed._revision;
                 const current = settingsStore.readSettings(guildId);
                 const next = { ...current, ...parsed };
                 const saved = settingsStore.writeSettings(next, guildId);
                 const changes = buildFieldChanges(current, saved, settingAuditLabels);
+                const recorded = settingsHistoryStore.recordChange(guildId, { actorId: panelSession.userId, actorName: panelSession.username, before: current, after: saved });
                 auditPanelAction(panelSession, 'settings-update', 'Updated server settings', { guildId, changes });
 
-                sendJson(res, 200, { ok: true, settings: saved });
+                sendJson(res, 200, { ok: true, settings: saved, revision: recorded.revision, changeId: recorded.entry.id });
                 return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/settings/history') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireSettingsAccess(panelSession, guildId, res)) return;
+                const history = settingsHistoryStore.readHistory(guildId);
+                sendJson(res, 200, { revision: history.revision, entries: history.entries.map(({ before, after, ...entry }) => ({ ...entry, undoable: !entry.undoneAt })) });
+                return;
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/settings/undo') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireSettingsAccess(panelSession, guildId, res)) return;
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                const history = settingsHistoryStore.readHistory(guildId);
+                const entry = history.entries.find(item => item.id === String(parsed.id));
+                if (!entry || entry.undoneAt) { sendJson(res, 404, { error: 'That change can no longer be undone.' }); return; }
+                const saved = settingsStore.writeSettings(entry.before, guildId);
+                const marked = settingsHistoryStore.markUndone(guildId, entry.id, panelSession.userId);
+                auditPanelAction(panelSession, 'settings-undo', `Undid settings change ${entry.id}`, { guildId, changeId: entry.id });
+                sendJson(res, 200, { ok: true, settings: saved, revision: marked.revision }); return;
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/members') {
@@ -2650,7 +2863,8 @@ function createServer() {
                         role: accessStore.isConfiguredDeveloper(member.id) ? 'developer' : member.isAdministrator ? 'admin' : 'member',
                         isOwner: accessStore.isGuildOwner(member.id, guildId),
                         isDeveloper: accessStore.isConfiguredDeveloper(member.id),
-                        nonDefaultFeatureCount: featureKeys.filter(key => permissions[key] === false).length
+                        nonDefaultFeatureCount: featureKeys.filter(key => permissions[key] === false).length,
+                        aiConsent: aiConsentStore.readAiConsent(member.id)
                     };
                 });
 

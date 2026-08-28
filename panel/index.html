@@ -22,7 +22,7 @@
                 <nav id="homeNavigation" class="home-nav-links" aria-label="Main navigation">
                     <button class="home-nav-direct active" data-home-view="servers" type="button">Home</button>
                     <details class="home-nav-group">
-                        <summary>Product <span class="home-nav-chevron" aria-hidden="true"></span></summary>
+                        <summary><span class="home-nav-label">Product</span><span class="home-nav-chevron" aria-hidden="true"></span></summary>
                         <div class="home-nav-popover">
                             <span class="home-nav-popover-label">Explore Flummi</span>
                             <button class="home-nav-card" data-home-view="commands" type="button"><span class="home-nav-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 9 5 12l3 3M16 9l3 3-3 3M14 6l-4 12"/></svg></span><span><strong>Commands</strong><small>Browse every available slash command.</small></span></button>
@@ -30,7 +30,7 @@
                         </div>
                     </details>
                     <details class="home-nav-group">
-                        <summary>Contact <span class="home-nav-chevron" aria-hidden="true"></span></summary>
+                        <summary><span class="home-nav-label">Contact</span><span class="home-nav-chevron" aria-hidden="true"></span></summary>
                         <div class="home-nav-popover">
                             <span class="home-nav-popover-label">We're here to help</span>
                             <button class="home-nav-card" data-home-view="support" type="button"><span class="home-nav-card-icon help-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.7 9a2.4 2.4 0 1 1 3.5 2.1c-.8.4-1.2.9-1.2 1.9M12 17h.01"/></svg></span><span><strong>Support</strong><small>Ask for help and receive the reply in Discord.</small></span></button>
@@ -38,7 +38,7 @@
                         </div>
                     </details>
                     <details class="home-nav-group home-nav-group-wide">
-                        <summary>Legal <span class="home-nav-chevron" aria-hidden="true"></span></summary>
+                        <summary><span class="home-nav-label">Legal</span><span class="home-nav-chevron" aria-hidden="true"></span></summary>
                         <div class="home-nav-popover home-nav-popover-grid">
                             <span class="home-nav-popover-label">Policies &amp; transparency</span>
                             <button class="home-nav-card" data-home-view="terms" type="button"><span class="home-nav-card-icon legal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7V3Zm7 0v5h5M10 12h5M10 16h5"/></svg></span><span><strong>Terms of Service</strong><small>The rules for using Flummi.</small></span></button>
@@ -53,7 +53,7 @@
                 </nav>
                 <div class="home-account">
                     <div id="homeSignedOut"><a class="home-auth-button" href="/auth/login">Log in with Discord</a></div>
-                    <div id="homeSignedIn" class="home-account-card" hidden><img id="homeAvatar" src="/assets/branding/flummi.png" alt=""><span id="homeUsername" class="account-name"></span><button id="homeLogout" class="home-logout-button" type="button">Log out</button></div>
+                    <details id="homeSignedIn" class="account-menu home-account-card" hidden><summary><img id="homeAvatar" src="/assets/branding/flummi.png" alt=""><span id="homeUsername" class="account-name"></span><span class="account-menu-chevron" aria-hidden="true"></span></summary><div class="account-menu-popover"><button type="button" data-account-destination="account-profile"><strong>Profile &amp; account</strong><small>Profile, AI, notifications and accessibility</small></button><button type="button" data-account-destination="notifications">Notifications</button><button class="account-menu-logout" type="button" data-account-logout>Log out</button></div></details>
                 </div>
             </div>
         </header>
@@ -84,6 +84,7 @@
             <section id="homeViewStatus" class="home-view home-view-narrow" hidden>
                 <div class="home-page-heading"><h1>Status</h1></div>
                 <p id="publicStatusUpdated" class="public-status-summary">Loading last live update...</p>
+                <div id="publicIncidentHistory" class="public-incident-history" aria-live="polite"></div>
             </section>
             <section id="homeViewFeedback" class="home-view home-view-narrow" hidden>
                 <div class="home-page-heading"><span class="home-eyebrow">Help shape Flummi</span><h1>Feedback</h1><p class="sub">Found something confusing, broken, or worth improving? Send it straight to the people building Flummi.</p></div>
@@ -227,6 +228,7 @@
                         <div id="overviewRecentChanges" class="overview-change-list"><div class="empty">Loading recent changes...</div></div>
                     </section>
                 </div>
+                <section class="section" data-admin-only><div class="section-title-row"><div><h2>Module activity &amp; recommendations</h2><p class="sub">See what is active, what depends on another module, and where configuration needs attention.</p></div></div><div id="overviewModuleInsights" class="module-insight-grid"><div class="empty">Loading module insights…</div></div></section>
                 <div id="overviewBanner"></div>
             </section>
 
@@ -799,7 +801,7 @@
             <section id="tab-management-server-doctor" class="tab-panel" data-admin-only>
                 <h2 style="font-size:20px;">Server Doctor</h2><p class="sub tab-intro">Find permission, hierarchy, channel, and module problems before they interrupt the server.</p>
                 <div class="section module-page-switch" data-module-page-switch="serverDoctor"><div class="management-module-heading"><div><h3>Continuous health checks</h3><p class="sub">Scans are read-only and explain each recommended fix.</p></div><button class="module-toggle" type="button" data-page-module-toggle="serverDoctor">Off</button></div></div>
-                <div class="section"><div class="section-title-row"><div><h2>Checks</h2><p class="sub">Choose what Flummi should watch.</p></div><button id="runServerDoctor" class="secondary" type="button">Run scan now</button></div><div class="two-col"><div class="checkbox-row"><input id="advancedServerDoctorPermissions" type="checkbox" data-advanced-field="serverDoctor.scanDangerousPermissions"><label for="advancedServerDoctorPermissions">Dangerous permissions and role hierarchy</label></div><div class="checkbox-row"><input id="advancedServerDoctorModules" type="checkbox" data-advanced-field="serverDoctor.scanBrokenModules"><label for="advancedServerDoctorModules">Broken or incomplete modules</label></div><div class="checkbox-row"><input id="advancedServerDoctorDigest" type="checkbox" data-advanced-field="serverDoctor.weeklyDigest"><label for="advancedServerDoctorDigest">Weekly health digest</label></div><div class="field"><label for="advancedServerDoctorLog">Health digest channel</label><select id="advancedServerDoctorLog" data-management-channel data-advanced-field="serverDoctor.logChannelId"><option value="">No channel selected</option></select></div></div><div class="actions"><span id="managementServerDoctorStatus" class="status"></span><button class="primary" data-save-advanced="serverDoctor" type="button">Save Server Doctor</button></div></div>
+                <div class="section"><div class="section-title-row"><div><h2>Checks</h2><p class="sub">Choose what Flummi should watch. Role hierarchy limits are informational and do not lower the health score.</p></div><button id="runServerDoctor" class="secondary" type="button">Run scan now</button></div><div class="two-col"><div class="checkbox-row"><input id="advancedServerDoctorPermissions" type="checkbox" data-advanced-field="serverDoctor.scanDangerousPermissions"><label for="advancedServerDoctorPermissions">Dangerous permissions</label></div><div class="checkbox-row"><input id="advancedServerDoctorModules" type="checkbox" data-advanced-field="serverDoctor.scanBrokenModules"><label for="advancedServerDoctorModules">Broken or incomplete modules</label></div><div class="checkbox-row"><input id="advancedServerDoctorDigest" type="checkbox" data-advanced-field="serverDoctor.weeklyDigest"><label for="advancedServerDoctorDigest">Weekly health digest</label></div><div class="field"><label for="advancedServerDoctorLog">Health digest channel</label><select id="advancedServerDoctorLog" data-management-channel data-advanced-field="serverDoctor.logChannelId"><option value="">No channel selected</option></select></div></div><div class="actions"><span id="managementServerDoctorStatus" class="status"></span><button class="primary" data-save-advanced="serverDoctor" type="button">Save Server Doctor</button></div></div>
                 <div id="serverDoctorResults" class="section"><div class="empty">Run a scan to see server health.</div></div>
             </section>
 
@@ -926,6 +928,7 @@
                             access</button></div>
                     <p id="publicPanelAccessStatus" class="status"></p>
                 </div>
+                <div class="section"><h2>Public incident history</h2><p class="sub">Publish a privacy-safe service update on the public status page. Never include server or member identifiers.</p><div class="two-col"><div class="field"><label for="publicIncidentTitle">Title</label><input id="publicIncidentTitle" maxlength="100" placeholder="Delayed dashboard updates"></div><div class="field"><label for="publicIncidentState">Status</label><select id="publicIncidentState"><option value="investigating">Investigating</option><option value="monitoring">Monitoring</option><option value="resolved">Resolved</option></select></div></div><div class="field"><label for="publicIncidentMessage">Public update</label><textarea id="publicIncidentMessage" maxlength="500" rows="3"></textarea></div><div class="actions"><span id="publicIncidentStatus" class="status"></span><button id="publishPublicIncident" class="primary" type="button">Publish status update</button></div><div id="developerPublicIncidents" class="notification-list"></div></div>
                 <div id="developerGlobalFeatures" class="section">
                     <h2>Global Feature Settings <span class="help-tip" tabindex="0"
                             data-tooltip="A global switch overrides every guild. When it is off, the corresponding guild switch becomes unavailable because no guild can turn it back on.">?</span>
@@ -1543,6 +1546,20 @@
                     <div id="overwatchMatches" class="overwatch-match-grid"><div class="empty">Loading...</div></div>
                 </div>
             </section>
+            <section id="tab-notifications" class="tab-panel">
+                <div class="section-title-row"><div><h2>Notification centre</h2><p class="sub tab-intro">Updates addressed to your account, plus one search across server operations.</p></div><button id="markAllNotificationsRead" class="secondary" type="button">Mark all read</button></div>
+                <div class="section"><div class="field"><label for="notificationSearch">Search notifications</label><input id="notificationSearch" type="search" placeholder="Search title, message or type…"></div><div id="notificationList" class="notification-list"><div class="empty">Loading notifications…</div></div></div>
+                <div class="section" data-admin-only><h2>Search server operations</h2><p class="sub">Find matching cases, reports, tickets, incidents, suggestions and dashboard activity.</p><div class="field"><label for="operationsSearch">Search everything</label><input id="operationsSearch" type="search" minlength="2" placeholder="Member, case, reason, status…"></div><div id="operationsSearchResults" class="notification-list"><div class="empty">Enter at least two characters.</div></div></div>
+            </section>
+
+            <section id="tab-account-profile" class="tab-panel">
+                <h2>Profile &amp; account</h2><p class="sub tab-intro">Manage the personal settings that follow your Discord account across every server.</p>
+                <section class="section"><div class="section-title-row"><div><h2>Your Flummi profile</h2><p class="sub">Information you choose to share with profile commands and consented AI features.</p></div><div id="accountProfileIdentity" class="account-profile-identity"></div></div><div id="accountAiConsent" class="account-consent-card"></div><div class="two-col"><div class="field"><label for="accountProfileNickname">Profile name</label><input id="accountProfileNickname" maxlength="80"></div><div class="field"><label for="accountProfilePronouns">Pronouns</label><input id="accountProfilePronouns" maxlength="80"></div><div class="field"><label for="accountProfileTimezone">Timezone</label><input id="accountProfileTimezone" maxlength="40" placeholder="Europe/Amsterdam"></div><div class="field"><label for="accountProfileLanguages">Languages</label><input id="accountProfileLanguages" maxlength="300" placeholder="Dutch, English, German"></div><div class="field"><label for="accountProfileWebsite">Website</label><input id="accountProfileWebsite" type="url" maxlength="500"></div><div class="field"><label for="accountProfileColor">Profile colour</label><input id="accountProfileColor" type="color" value="#1e88e5"></div></div><div class="field"><label for="accountProfileBio">Bio</label><textarea id="accountProfileBio" rows="4" maxlength="500"></textarea></div><div class="actions"><span id="accountProfileStatus" class="status" aria-live="polite"></span><button id="saveAccountProfile" class="primary" type="button">Save Flummi profile</button></div></section>
+                <div class="two-col account-data-grid"><section class="section"><div class="section-title-row"><div><h2>AI memory</h2><p class="sub">See and clear the conversation context Flummi remembers for your account.</p></div><span id="accountAiMemoryBadge" class="badge">Loading</span></div><div id="accountAiMemorySummary" class="account-summary-list"><p class="sub">Loading your AI memory...</p></div><div class="actions"><span id="accountAiMemoryStatus" class="status" aria-live="polite"></span><button id="clearAccountAiMemory" class="danger" type="button">Clear AI memory</button></div></section><section class="section"><div class="section-title-row"><div><h2>Personal notifications</h2><p class="sub">Account updates from every server in one private inbox.</p></div><span id="accountNotificationBadge" class="badge">0 unread</span></div><div id="accountNotificationSummary" class="account-summary-list"><p class="sub">Loading notifications...</p></div><div class="actions"><button class="secondary" type="button" data-account-destination="notifications">Open notification centre</button></div></section></div>
+                <div class="two-col"><section class="section"><h2>Dashboard preferences</h2><div class="field"><label for="accountDefaultTab">Open this page by default</label><select id="accountDefaultTab"><option value="overview">Overview</option><option value="notifications">Notifications</option><option value="analytics">Analytics</option><option value="settings">Settings</option></select></div><div class="field"><label for="accountPinnedTabs">Pinned pages</label><select id="accountPinnedTabs" multiple><option value="overview">Overview</option><option value="notifications">Notifications</option><option value="analytics">Analytics</option><option value="settings">Settings</option><option value="management">Management</option></select><small>Choose the pages you use most; they are highlighted in navigation.</small></div><div class="checkbox-row"><input id="accountCompactMode" type="checkbox"><label for="accountCompactMode">Compact dashboard spacing</label></div></section>
+                <section class="section"><h2>Accessibility</h2><p class="sub">These controls only affect your account.</p><div class="checkbox-row"><input id="accountReducedMotion" type="checkbox"><label for="accountReducedMotion">Reduce animations and motion</label></div><div class="checkbox-row"><input id="accountHighContrast" type="checkbox"><label for="accountHighContrast">Increase contrast</label></div><div class="checkbox-row"><input id="accountLargeText" type="checkbox"><label for="accountLargeText">Use larger interface text</label></div></section></div>
+                <div class="actions"><span id="accountPreferencesStatus" class="status" aria-live="polite"></span><button id="saveAccountPreferences" class="primary" type="button">Save profile preferences</button></div>
+            </section>
         </main>
 
         <aside class="sidebar">
@@ -1610,7 +1627,9 @@
                             <button class="tab-btn" data-tab="management-engagement" data-management-module="engagement" data-admin-only type="button">Engagement &amp; Utilities</button>
                         </div>
                     </div>
+                    <button class="tab-btn" data-tab="notifications" data-account-nav type="button">Notifications <span id="notificationNavBadge" class="nav-count" hidden>0</span></button>
                     <button class="tab-btn" data-tab="settings" type="button">Settings</button>
+                    <button class="tab-btn" data-tab="account-profile" data-account-nav type="button">Profile</button>
                     <button class="tab-btn" data-tab="pings" type="button">Ping Requests</button>
                     <button class="tab-btn" data-tab="audit" data-audit-only type="button">Audit Log</button>
                 </nav>
@@ -1621,13 +1640,10 @@
                             title="Refresh the current tab now. Most tabs update every 20 seconds; Voice updates every 5 seconds.">Refresh</button>
                         <a id="inviteLink" class="secondary invite-btn" data-invite-link href="#" target="_blank" rel="noopener">Invite bot</a>
                     </div>
-                    <div id="panelAccount" class="sidebar-account" hidden>
-                        <div class="account-summary"><img id="panelAccountAvatar" class="account-avatar" src="/assets/branding/flummi.png" alt=""><span
-                                id="panelAccountName" class="account-name">Signed in</span></div>
-                        <button id="logoutPanel" class="secondary" type="button" style="width:100%">Log out</button>
-                        <button id="refreshDiscordAccess" class="secondary" type="button" data-actual-developer-only
-                            style="width:100%;margin-top:8px">Refresh Discord access</button>
-                    </div>
+                    <details id="panelAccount" class="sidebar-account account-menu" hidden>
+                        <summary class="account-summary"><img id="panelAccountAvatar" class="account-avatar" src="/assets/branding/flummi.png" alt=""><span id="panelAccountName" class="account-name">Signed in</span><span class="account-menu-chevron" aria-hidden="true"></span></summary>
+                        <div class="account-menu-popover account-menu-popover-up"><button type="button" data-account-destination="account-profile"><strong>Profile &amp; account</strong><small>All personal settings</small></button><button type="button" data-account-destination="notifications">Notifications</button><button id="refreshDiscordAccess" type="button" data-actual-developer-only>Refresh Discord access</button><button class="account-menu-logout" type="button" data-account-logout>Log out</button></div>
+                    </details>
                 </div>
             </div>
         </aside>

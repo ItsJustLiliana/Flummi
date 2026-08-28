@@ -31,16 +31,20 @@ Support and feedback submissions require Discord sign-in so the requester can be
 
 ### Server workspace
 
-- **Overview:** guild details, member and bot counts, roles, channels, bot state, feature availability, and compact activity summaries.
+- **Overview:** guild details, member and bot counts, roles, channels, bot state, feature availability, server health, recent reversible changes, module activity, dependency warnings, and recommendations.
 - **Stats & Analytics:** selectable 1/7/30/90-day UTC date ranges or all-time views, hourly charts for a selected day, message and voice charts, heatmaps, member/channel filtering, comparison periods, media usage, and administrator-only moderation totals.
 - **Triggers:** create and audit text or image responses, limits, cooldowns, imports, and exports.
 - **Members & Permissions:** inspect members and configure per-user command and feature overrides. Discord server administrators automatically receive dashboard admin access.
+- **Notifications:** account-addressed updates with unread state and administrator search across cases, reports, tickets, incidents, suggestions, and dashboard activity.
+- **Profile & account:** one account menu and profile page for the Flummi profile, private AI consent, personal AI memory controls, notifications, dashboard defaults, and accessibility preferences. These controls remain available without a shared server and follow the signed-in Discord account across servers.
 - **Profiles and AI memory:** inspect user-supplied profiles and permitted AI conversation memory.
 - **Settings:** guild bot settings, feature switches, configurable navigation, retention, backups, storage inspection, and targeted data-reset tools.
 - **Messenger and saved pings:** publish through the bot and inspect explicitly saved ping requests.
 - **Audit and reliability:** structured panel changes, runtime logs, storage forecasts, permission checks, backups, and voice-session reconciliation.
 
 Dashboard forms load resources directly from Discord. Single and multi-select controls expose the roles, channels, categories, members, servers, and banned users that are actually available in the selected guild. Workflow JSON remains an advanced editor, with role and channel pickers for inserting valid references.
+
+Every module page includes an explanation, stable shareable link, non-destructive configuration test, permission guidance, readiness checks, and dependency warnings. Server-setting writes use revision checks to prevent one dashboard session from silently overwriting another, while recent saved changes can be undone from Overview.
 
 ### Management modules
 
@@ -70,7 +74,7 @@ Every management module has an independent enable state and its own setup page:
 
 ### Developer workspace
 
-Configured developers can manage global feature switches, command permissions, application and guild bot profiles, AI providers, runtime health, logs, compliance records, repository files, support mail, experiments, staging state, and release promotion. Sensitive operations remain protected by role checks, audit logging, confirmation dialogs, and private-connection requirements where applicable.
+Configured developers can manage global feature switches, command permissions, application and guild bot profiles, AI providers, runtime health, logs, compliance records, public status incidents, repository files, support mail, experiments, staging state, and release promotion. Sensitive operations remain protected by role checks, audit logging, confirmation dialogs, and private-connection requirements where applicable.
 
 ## Discord features and commands
 

@@ -1203,8 +1203,6 @@ const tabLoaders = {
     'management-backups': loadAdvancedManagement,
     'management-copilot': loadAdvancedManagement,
     'management-engagement': loadAdvancedManagement,
-    notifications: loadNotifications,
-    'account-profile': loadAccountPreferences,
     profiles: loadProfilesTab,
     settings: loadSettings,
     pings: loadPingRequests,
@@ -1242,9 +1240,6 @@ tabButtons.forEach(btn => {
         } else if (btn.hasAttribute('data-analytics-child')) {
             setAnalyticsExpanded(true);
         }
-        const dashboard = document.getElementById('dashboardLayout');
-        delete dashboard.dataset.accountArea;
-        delete dashboard.dataset.accountOnly;
         setMobileMenu(false);
         tabButtons.forEach(b => b.classList.remove('active'));
         tabPanels.forEach(p => p.classList.remove('active'));
@@ -1272,6 +1267,10 @@ function activeTab() {
     if (active) return active.dataset.tab;
     const activePanel = tabPanels.find(panel => panel.classList.contains('active'));
     return activePanel?.id.replace(/^tab-/, '') || 'overview';
+}
+
+function isDashboardVisible() {
+    return document.getElementById('dashboardLayout')?.hidden === false;
 }
 
 const mobileSaveDock = document.getElementById('mobileSaveDock');
@@ -1775,6 +1774,7 @@ async function loadInviteLink() {
 // ---------- Guild loading ----------
 const homePageTitles = {
     servers: 'Home - Flummi',
+    account: 'Account - Flummi',
     commands: 'Commands - Flummi',
     status: 'Status - Flummi',
     support: 'Support - Flummi',
@@ -1786,7 +1786,7 @@ const homePageTitles = {
     archive: 'Policy Archive - Flummi',
     credits: 'Credits - Flummi'
 };
-const homeViewPaths = { servers: '/', commands: '/commands', status: '/status', support: '/support', feedback: '/feedback', terms: '/terms', privacy: '/privacy', licenses: '/licenses', archive: '/policy-archive', credits: '/credits' };
+const homeViewPaths = { servers: '/', account: '/account', commands: '/commands', status: '/status', support: '/support', feedback: '/feedback', terms: '/terms', privacy: '/privacy', licenses: '/licenses', archive: '/policy-archive', credits: '/credits' };
 const homeViewNames = Object.keys(homeViewPaths);
 
 function setHomePageTitle(view) {
@@ -1870,11 +1870,10 @@ function applyAccountPreferences(preferences = state.preferences || {}) {
 }
 
 async function loadAccountPreferences() {
-    const [data, profileData, memoryData, notificationData] = await Promise.all([
+    const [data, profileData, memoryData] = await Promise.all([
         api('/api/account/preferences'),
         api('/api/account/profile'),
-        api('/api/account/ai-memory'),
-        api('/api/notifications')
+        api('/api/account/ai-memory')
     ]);
     applyAccountPreferences(data.preferences);
     document.getElementById('accountDefaultTab').value = data.preferences.defaultTab || 'overview';
@@ -1901,13 +1900,6 @@ async function loadAccountPreferences() {
     document.getElementById('accountAiMemoryBadge').className = `badge ${memoryItems ? 'accent' : ''}`;
     document.getElementById('accountAiMemorySummary').innerHTML = `<div class="account-summary-item"><strong>${memoryItems ? `${memoryItems} remembered messages across ${Number(memory.turns || 0)} turns` : 'No AI conversation memory stored'}</strong><span class="sub">${memory.updatedAt ? `Last changed ${escapeHtml(formatDateTime(memory.updatedAt))}` : 'Flummi will only build memory after you enable and use AI.'}</span></div><p class="sub">Clearing this removes your saved conversation context and compact summary. It does not change your AI consent.</p>`;
     document.getElementById('clearAccountAiMemory').disabled = !memoryItems && !Number(memory.summaryChars || 0);
-    const notifications = notificationData.notifications || [];
-    const unread = Number(notificationData.unread || 0);
-    document.getElementById('accountNotificationBadge').textContent = `${unread} unread`;
-    document.getElementById('accountNotificationBadge').className = `badge ${unread ? 'accent' : 'ok'}`;
-    document.getElementById('accountNotificationSummary').innerHTML = notifications.length
-        ? notifications.slice(0, 3).map(entry => `<div class="account-summary-item"><strong>${escapeHtml(entry.title)}</strong><span class="sub">${escapeHtml(formatDateTime(entry.createdAt))}${entry.readAt ? '' : ' · Unread'}</span></div>`).join('')
-        : '<div class="contextual-empty"><strong>You are all caught up</strong><span>No personal notifications yet.</span></div>';
 }
 
 async function saveAccountPreferences() {
@@ -1934,16 +1926,8 @@ function renderNotificationList(entries = []) {
 
 async function loadNotifications() {
     const query = document.getElementById('notificationSearch').value.trim();
-    const data = await api(withGuild(`/api/notifications${query ? `&q=${encodeURIComponent(query)}` : ''}`));
+    const data = await api(`/api/notifications${query ? `?q=${encodeURIComponent(query)}` : ''}`);
     renderNotificationList(data.notifications || []);
-}
-
-async function searchOperations() {
-    const query = document.getElementById('operationsSearch').value.trim();
-    const container = document.getElementById('operationsSearchResults');
-    if (query.length < 2) { container.innerHTML = '<div class="empty">Enter at least two characters.</div>'; return; }
-    const data = await api(withGuild(`/api/operations-search?q=${encodeURIComponent(query)}`));
-    container.innerHTML = data.results.length ? data.results.map(entry => `<article class="notification-item"><span class="badge accent">${escapeHtml(entry.kind)}</span><div><strong>${escapeHtml(entry.title)}</strong><small>${entry.status ? `${escapeHtml(entry.status)} · ` : ''}${escapeHtml(formatDateTime(entry.at))}</small></div></article>`).join('') : '<div class="empty">No operational records match this search.</div>';
 }
 
 document.getElementById('saveAccountPreferences').addEventListener('click', saveAccountPreferences);
@@ -1982,8 +1966,6 @@ document.getElementById('markAllNotificationsRead').addEventListener('click', as
 document.getElementById('notificationList').addEventListener('click', async event => { const row = event.target.closest('[data-notification-id]'); if (!row || !event.target.closest('[data-mark-notification]')) return; await api('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: row.dataset.notificationId }) }); await loadNotifications(); });
 let notificationSearchTimer;
 document.getElementById('notificationSearch').addEventListener('input', () => { clearTimeout(notificationSearchTimer); notificationSearchTimer = setTimeout(() => loadNotifications().catch(handleUiError), 250); });
-let operationsSearchTimer;
-document.getElementById('operationsSearch').addEventListener('input', () => { clearTimeout(operationsSearchTimer); operationsSearchTimer = setTimeout(() => searchOperations().catch(handleUiError), 300); });
 
 let publicLicenseLoaded = false;
 
@@ -2114,8 +2096,6 @@ async function openDashboard(guildId, tab = null) {
     guildSelect.value = String(guildId || state.guilds[0]?.id || '');
     state.guildId = guildSelect.value || null;
     if (!state.guildId) return;
-    delete document.getElementById('dashboardLayout').dataset.accountArea;
-    delete document.getElementById('dashboardLayout').dataset.accountOnly;
     if (String(previousGuildId || '') !== String(state.guildId)) {
         state.management = null;
         managementChannelsGuildId = null;
@@ -2137,30 +2117,15 @@ async function openDashboard(guildId, tab = null) {
 }
 
 async function openAccountArea(tab = 'account-profile') {
-    const destination = tab === 'notifications' ? 'notifications' : 'account-profile';
-    fillGuildSelect(state.guilds);
-    const preferredGuildId = state.guildId || localStorage.getItem('flummi.guildId') || state.guilds[0]?.id;
-    const guildId = state.guilds.find(guild => String(guild.id) === String(preferredGuildId))?.id || null;
-    state.guildId = guildId ? String(guildId) : null;
-    if (state.guildId) {
-        guildSelect.value = state.guildId;
-        state.role = state.guildRoles.get(state.guildId) || state.role;
-        localStorage.setItem('flummi.guildId', state.guildId);
-    }
-    applyAccessVisibility();
-    document.getElementById('homeShell').hidden = true;
-    const dashboard = document.getElementById('dashboardLayout');
-    dashboard.hidden = false;
-    dashboard.dataset.accountArea = 'true';
-    if (state.guildId) delete dashboard.dataset.accountOnly;
-    else dashboard.dataset.accountOnly = 'true';
-    tabButtons.forEach(button => button.classList.remove('active'));
-    tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `tab-${destination}`));
-    updateMobileSaveDock();
-    document.title = `${uiText(destination === 'notifications' ? 'Notifications' : 'Profile & account')} - Flummi`;
-    history.replaceState(null, '', `/?account=${destination === 'notifications' ? 'notifications' : 'profile'}`);
-    const loader = tabLoaders[destination];
-    if (loader) await loader();
+    const aliases = { 'account-profile': 'profile', profile: 'profile', consent: 'consent', memory: 'memory', notifications: 'notifications', preferences: 'preferences' };
+    const destination = aliases[tab] || 'profile';
+    showHomeView('account');
+    document.querySelectorAll('[data-account-tab]').forEach(button => button.classList.toggle('active', button.dataset.accountTab === destination));
+    document.querySelectorAll('[data-account-panel]').forEach(panel => { panel.hidden = panel.dataset.accountPanel !== destination; });
+    document.title = `${destination === 'notifications' ? 'Notifications' : 'Account'} - Flummi`;
+    history.replaceState(null, '', `/account?tab=${encodeURIComponent(destination)}`);
+    if (destination === 'notifications') await loadNotifications();
+    else await loadAccountPreferences();
     clearPageNotice();
     lastAutoRefreshAt = Date.now();
 }
@@ -2394,7 +2359,7 @@ let autoRefreshBusy = false;
 let lastAutoRefreshAt = 0;
 
 setInterval(() => {
-    if (autoRefreshBusy || !state.guildId || document.visibilityState !== 'visible') {
+    if (autoRefreshBusy || !state.guildId || !isDashboardVisible() || document.visibilityState !== 'visible') {
         return;
     }
 
@@ -6719,7 +6684,7 @@ document.getElementById('saveGlobalModuleSwitches').addEventListener('click', as
 });
 
 window.setInterval(() => {
-    if (state.actualRole === 'developer' && activeTab() === 'experiments' && document.visibilityState === 'visible') {
+    if (state.actualRole === 'developer' && isDashboardVisible() && activeTab() === 'experiments' && document.visibilityState === 'visible') {
         loadOverwatchHistory();
     }
 }, 30 * 1000);
@@ -6918,6 +6883,9 @@ document.querySelectorAll('[data-account-destination]').forEach(button => button
     button.closest('.account-menu')?.removeAttribute('open');
     openAccountArea(button.dataset.accountDestination).catch(handleUiError);
 }));
+document.querySelectorAll('[data-account-tab]').forEach(button => button.addEventListener('click', () => {
+    openAccountArea(button.dataset.accountTab).catch(handleUiError);
+}));
 document.addEventListener('click', event => {
     for (const menu of document.querySelectorAll('.account-menu[open]')) {
         if (!menu.contains(event.target)) menu.removeAttribute('open');
@@ -7061,7 +7029,7 @@ async function initializePanel() {
     const requestedParams = new URLSearchParams(window.location.search);
     const pathViews = Object.fromEntries(Object.entries(homeViewPaths).map(([view, route]) => [route, view]));
     const requestedView = pathViews[window.location.pathname] || requestedParams.get('view');
-    const publicViews = new Set(homeViewNames);
+    const publicViews = new Set(homeViewNames.filter(view => view !== 'account'));
     const initialView = publicViews.has(requestedView) ? requestedView : 'servers';
     loadInviteLink().catch(error => console.error(error));
     const authenticated = await loadPanelAccount();
@@ -7075,6 +7043,8 @@ async function initializePanel() {
     const requestedAccount = requestedParams.get('account');
     if (requestedGuild && state.guilds.some(guild => guild.id === requestedGuild)) {
         await openDashboard(requestedGuild, requestedTab);
+    } else if (requestedView === 'account') {
+        await openAccountArea(requestedParams.get('tab') || 'profile');
     } else if (requestedAccount === 'profile' || requestedAccount === 'notifications') {
         await openAccountArea(requestedAccount === 'notifications' ? 'notifications' : 'account-profile');
     } else if (requestedView === 'developer' && state.actualRole === 'developer') {

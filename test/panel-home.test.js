@@ -99,10 +99,14 @@ test('personal account settings are centralised and remain available without a s
         assert.match(panelMarkup, new RegExp(label));
     }
     assert.match(panelServer, /pathname === '\/api\/account\/ai-memory'[\s\S]*?getUserConversationSummary\(panelSession\.userId\)[\s\S]*?clearUserHistory\(panelSession\.userId\)/);
-    assert.match(panelScript, /async function openAccountArea[\s\S]*?dashboard\.dataset\.accountOnly = 'true'[\s\S]*?\?account=/);
-    assert.doesNotMatch(panelMarkup, /class="tab-btn"[^>]*data-tab="(?:notifications|account-profile)"/);
-    assert.match(panelStyles, /#dashboardLayout\[data-account-area="true"\] \.tabs/);
-    assert.match(panelScript, /tabPanels\.forEach\(panel => panel\.classList\.toggle\('active', panel\.id === `tab-\$\{destination\}`\)\)/);
+    assert.match(panelMarkup, /id="homeViewAccount" class="home-view account-page"[\s\S]*?data-account-tab="profile"[\s\S]*?data-account-tab="consent"[\s\S]*?data-account-tab="memory"[\s\S]*?data-account-tab="notifications"[\s\S]*?data-account-tab="preferences"/);
+    assert.doesNotMatch(panelMarkup, /id="tab-(?:notifications|account-profile)"/);
+    assert.doesNotMatch(panelMarkup, /id="operationsSearch"|id="operationsSearchResults"/);
+    assert.match(panelServer, /publicPagePaths = new Set\(\[[^\]]*'\/account'/);
+    assert.match(panelStyles, /\.account-page-tabs \{[\s\S]*?overflow-x: auto/);
+    assert.match(panelScript, /async function openAccountArea[\s\S]*?showHomeView\('account'\)[\s\S]*?\/account\?tab=/);
+    assert.match(panelScript, /querySelectorAll\('\[data-account-panel\]'\)[\s\S]*?panel\.hidden = panel\.dataset\.accountPanel !== destination/);
+    assert.match(panelScript, /api\(`\/api\/notifications\$\{query \? `\?q=/);
     assert.match(panelScript, /persistentChildren = \[\.\.\.button\.children\]\.filter\(child => child\.matches\('\.nav-count'\)\)[\s\S]*?button\.replaceChildren/);
 });
 
@@ -126,7 +130,7 @@ test('commands and status are public home pages backed by unauthenticated APIs',
     assert.match(panelMarkup, /id="publicStatusComponents"/);
     assert.match(panelServer, /components\.every\(component => component\.status === 'operational'\)/);
     assert.doesNotMatch(panelMarkup, /id="refreshPublicStatus"/);
-    assert.match(panelScript, /const publicViews = new Set\(homeViewNames\)/);
+    assert.match(panelScript, /const publicViews = new Set\(homeViewNames\.filter\(view => view !== 'account'\)\)/);
 
     const publicCommandsRoute = panelServer.indexOf("requestUrl.pathname === '/api/public/commands'");
     const authenticatedApiGate = panelServer.indexOf("if (requestUrl.pathname.startsWith('/api/'))", publicCommandsRoute);

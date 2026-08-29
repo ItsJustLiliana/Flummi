@@ -527,6 +527,7 @@ function buildSiteMetadata(req) {
     const siteUrl = panelPublicUrl(req).replace(/\/$/, '');
     const pathname = new URL(req.url, `${siteUrl}/`).pathname;
     const pageMetadata = {
+        '/account': ['Account - Flummi', 'Manage your personal Flummi profile, AI consent, notifications, and accessibility preferences.'],
         '/terms': ['Terms of Service - Flummi', 'Terms governing use of the Flummi Discord bot and dashboard.'],
         '/privacy': ['Privacy Policy - Flummi', 'How Flummi collects, uses, retains, protects, and shares Discord data.'],
         '/support': ['Support - Flummi', 'Contact the Flummi team and receive a reply through Discord.'],
@@ -1624,7 +1625,7 @@ function createServer() {
                 return;
             }
 
-            const publicPagePaths = new Set(['/', '/commands', '/status', '/support', '/feedback', '/terms', '/privacy', '/licenses', '/policy-archive', '/credits']);
+            const publicPagePaths = new Set(['/', '/account', '/commands', '/status', '/support', '/feedback', '/terms', '/privacy', '/licenses', '/policy-archive', '/credits']);
             if (['GET', 'HEAD'].includes(req.method) && publicPagePaths.has(requestUrl.pathname)) {
                 const html = fs.readFileSync(indexPath, 'utf8');
                 const tabOrder = Array.isArray(config.panel?.tabOrder) ? config.panel.tabOrder : [];

@@ -3,6 +3,16 @@
 
     const translations = {
         nl: {
+            'Your account': 'Jouw account',
+            'Profile & settings': 'Profiel en instellingen',
+            'Personal settings that follow your Discord account across every Flummi server.': 'Persoonlijke instellingen die op elke Flummi-server aan je Discord-account gekoppeld blijven.',
+            'Flummi profile': 'Flummi-profiel',
+            'Preferences & accessibility': 'Voorkeuren en toegankelijkheid',
+            'Information you choose to share with profile commands and consented AI features.': 'Informatie die je zelf deelt via profielcommando’s en AI-functies waarvoor je toestemming hebt gegeven.',
+            'Control whether Flummi may send your requests to the configured AI provider.': 'Bepaal of Flummi jouw verzoeken naar de ingestelde AI-provider mag sturen.',
+            'See and clear the conversation context Flummi remembers for your account.': 'Bekijk en wis de gesprekscontext die Flummi voor je account onthoudt.',
+            'Private account updates from every server in one inbox.': 'Privé-updates voor je account vanuit alle servers in één inbox.',
+            'These controls only affect your account.': 'Deze instellingen gelden alleen voor jouw account.',
             'Notifications': 'Meldingen',
             'Notification centre': 'Meldingencentrum',
             'Mark all read': 'Alles als gelezen markeren',

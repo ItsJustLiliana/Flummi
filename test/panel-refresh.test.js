@@ -19,6 +19,8 @@ test('passive panel refresh protects every tab with unsaved editors', () => {
 test('resize and timer refreshes both use the passive-refresh guard', () => {
     assert.match(panelHtml, /resize[\s\S]{0,500}!shouldSkipPassiveRefresh\(\)/);
     assert.match(panelHtml, /if \(shouldSkipPassiveRefresh\(tab\)\)/);
+    assert.match(panelHtml, /autoRefreshBusy \|\| !state\.guildId \|\| !isDashboardVisible\(\)/);
+    assert.match(panelHtml, /actualRole === 'developer' && isDashboardVisible\(\) && activeTab\(\) === 'experiments'/);
 });
 
 test('manual Discord access refresh is only visible to actual developers', () => {

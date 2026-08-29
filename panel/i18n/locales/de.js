@@ -2,6 +2,16 @@
     'use strict';
 
     const translations = {
+        'Your account': 'Dein Konto',
+        'Profile & settings': 'Profil und Einstellungen',
+        'Personal settings that follow your Discord account across every Flummi server.': 'Persönliche Einstellungen, die deinem Discord-Konto auf allen Flummi-Servern folgen.',
+        'Flummi profile': 'Flummi-Profil',
+        'Preferences & accessibility': 'Einstellungen und Barrierefreiheit',
+        'Information you choose to share with profile commands and consented AI features.': 'Informationen, die du über Profilbefehle und freigegebene KI-Funktionen teilst.',
+        'Control whether Flummi may send your requests to the configured AI provider.': 'Lege fest, ob Flummi deine Anfragen an den konfigurierten KI-Anbieter senden darf.',
+        'See and clear the conversation context Flummi remembers for your account.': 'Sieh dir den für dein Konto gespeicherten Gesprächskontext an oder lösche ihn.',
+        'Private account updates from every server in one inbox.': 'Private Kontoaktualisierungen von allen Servern in einem Posteingang.',
+        'These controls only affect your account.': 'Diese Einstellungen gelten nur für dein Konto.',
         'Notifications': 'Benachrichtigungen',
         'Notification centre': 'Benachrichtigungszentrale',
         'Mark all read': 'Alle als gelesen markieren',

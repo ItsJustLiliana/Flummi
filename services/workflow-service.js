@@ -40,4 +40,19 @@ async function runWorkflows(guild, event, context = {}) {
     return results;
 }
 
-module.exports = { conditionMatches, executeAction, runWorkflows, valueAt };
+function simulateWorkflows(management, event, context = {}) {
+    const rules = Array.isArray(management?.workflows?.rules) ? management.workflows.rules : [];
+    return rules.filter(rule => rule.enabled && rule.event === event).map(rule => {
+        const conditions = (rule.conditions || []).map(condition => ({ ...condition, actual: valueAt(context, condition.field), matched: conditionMatches(condition, context) }));
+        const matched = conditions.every(condition => condition.matched);
+        return {
+            id: rule.id,
+            name: rule.name,
+            matched,
+            conditions,
+            actions: (rule.actions || []).map(action => ({ type: action.type, wouldRun: matched, summary: matched ? `Would run ${action.type}` : `Skipped ${action.type}` }))
+        };
+    });
+}
+
+module.exports = { conditionMatches, executeAction, runWorkflows, simulateWorkflows, valueAt };

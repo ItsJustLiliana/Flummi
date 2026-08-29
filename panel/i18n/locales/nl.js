@@ -192,6 +192,10 @@
             'Last checked': 'Laatst gecontroleerd',
             'Last live update': 'Laatste live-update',
             'not recorded yet': 'nog niet geregistreerd',
+            'Not recorded yet': 'Nog niet geregistreerd',
+            'Release': 'Release',
+            'Latest bot update': 'Laatste botupdate',
+            'When the currently available version was last updated.': 'Wanneer de huidige beschikbare versie voor het laatst is bijgewerkt.',
             'Current availability of Flummi and its public features.': 'De huidige beschikbaarheid van Flummi en de openbare functies.',
             'Checking status...': 'Status controleren...',
             'Refresh': 'Vernieuwen',
@@ -564,7 +568,23 @@
             'Collapse Analytics tabs': 'Analysetabs inklappen',
             'Expand Management tabs': 'Beheertabs uitklappen',
             'Collapse Management tabs': 'Beheertabs inklappen',
-            'Close navigation': 'Navigatie sluiten'
+        'Close navigation': 'Navigatie sluiten',
+        'Privacy & data': 'Privacy en gegevens',
+        'Sessions': 'Sessies',
+        'Dashboard sessions': 'Dashboardsessies',
+        'Log out other sessions': 'Andere sessies uitloggen',
+        'Delivery preferences': 'Bezorgvoorkeuren',
+        'Save delivery preferences': 'Bezorgvoorkeuren opslaan',
+        'Configuration templates': 'Configuratiesjablonen',
+        'Preview changes': 'Wijzigingen bekijken',
+        'Apply template': 'Sjabloon toepassen',
+        'Workflow debugger': 'Workflowdebugger',
+        'Simulate saved workflows': 'Opgeslagen workflows simuleren',
+        'Staff inbox': 'Teaminbox',
+        'Scheduled reports': 'Geplande rapporten',
+        'Save report schedule': 'Rapportschema opslaan',
+        'Safe test result': 'Veilig testresultaat',
+        'No Discord action was executed.': 'Er is geen Discord-actie uitgevoerd.'
         }
     };
 

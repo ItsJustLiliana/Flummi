@@ -9,8 +9,18 @@ const defaults = Object.freeze({
     reducedMotion: false,
     highContrast: false,
     largeText: false,
+    notificationDelivery: {
+        general: 'dashboard',
+        moderation: 'dashboard',
+        support: 'both',
+        privacy: 'both',
+        workflow: 'dashboard'
+    },
     updatedAt: null
 });
+
+const notificationKinds = ['general', 'moderation', 'support', 'privacy', 'workflow'];
+const notificationChannels = new Set(['dashboard', 'dm', 'both', 'off']);
 
 function normalize(userId, value = {}) {
     const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -22,6 +32,10 @@ function normalize(userId, value = {}) {
         reducedMotion: source.reducedMotion === true,
         highContrast: source.highContrast === true,
         largeText: source.largeText === true,
+        notificationDelivery: Object.fromEntries(notificationKinds.map(kind => {
+            const value = source.notificationDelivery?.[kind];
+            return [kind, notificationChannels.has(value) ? value : defaults.notificationDelivery[kind]];
+        })),
         updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : null
     };
 }

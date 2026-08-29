@@ -136,7 +136,8 @@ const defaultSettings = {
         reports: {
             channelId: '', allowAnonymous: true, includeMessageContext: true,
             modmailEnabled: false, modmailCategoryId: '', modmailLogChannelId: '',
-            modmailGuildId: '', anonymousStaffReplies: false
+            modmailGuildId: '', anonymousStaffReplies: false,
+            digestFrequency: 'off', digestType: 'server', digestChannelId: ''
         },
         workflows: {
             dryRun: true, welcomeReview: false, warningEscalation: false, ticketFollowUp: false, eventLaunch: false,
@@ -390,7 +391,10 @@ function normalizeManagement(value) {
             modmailCategoryId: snowflakeOrEmpty(reports.modmailCategoryId),
             modmailLogChannelId: snowflakeOrEmpty(reports.modmailLogChannelId),
             modmailGuildId: snowflakeOrEmpty(reports.modmailGuildId),
-            anonymousStaffReplies: booleanOr(reports.anonymousStaffReplies, defaults.reports.anonymousStaffReplies)
+            anonymousStaffReplies: booleanOr(reports.anonymousStaffReplies, defaults.reports.anonymousStaffReplies),
+            digestFrequency: ['off', 'daily', 'weekly'].includes(reports.digestFrequency) ? reports.digestFrequency : defaults.reports.digestFrequency,
+            digestType: ['server', 'moderation', 'community'].includes(reports.digestType) ? reports.digestType : defaults.reports.digestType,
+            digestChannelId: snowflakeOrEmpty(reports.digestChannelId)
         },
         workflows: {
             dryRun: booleanOr(workflows.dryRun, defaults.workflows.dryRun),

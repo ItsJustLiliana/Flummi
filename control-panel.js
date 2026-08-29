@@ -38,6 +38,8 @@ const settingsHistoryStore = require('./stores/settings-history-store');
 const publicIncidentStore = require('./stores/public-incident-store');
 const notificationStore = require('./stores/notification-store');
 const feedbackStore = require('./stores/feedback-store');
+const privacyRequestStore = require('./stores/privacy-request-store');
+const { deleteDiscordUserArtifacts, deleteUserData, previewUserDeletion } = require('./services/privacy-service');
 const { getAiConfig, buildTextModelCandidates, buildVisionModelCandidates } = require('./services/ai-chat');
 const readyEvent = require('./events/ready');
 const moderationStore = require('./stores/moderation-store');
@@ -49,6 +51,8 @@ const customCommandStore = require('./stores/custom-command-store');
 const { syncCommand, removeSyncedCommand } = require('./services/custom-command-service');
 const { nextExecutions } = require('./services/schedule-service');
 const { scanServer, snapshotGuild, previewSnapshot, restoreSnapshot } = require('./services/operations-service');
+const configTemplates = require('./services/config-template-service');
+const { simulateWorkflows } = require('./services/workflow-service');
 const { createOverwatchHistoryService } = require('./services/overwatch-history-service');
 const {
     activePunishments,
@@ -71,6 +75,8 @@ const port = Number(process.env.PANEL_PORT) || 3789;
 const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
 const panelScriptPath = path.join(__dirname, 'panel', 'app.js');
+const panelAccountFeaturesPath = path.join(__dirname, 'panel', 'account-features.js');
+const panelRealtimePath = path.join(__dirname, 'panel', 'realtime.js');
 const panelI18nEnginePath = path.join(__dirname, 'panel', 'i18n', 'engine.js');
 const panelLocaleDir = path.join(__dirname, 'panel', 'i18n', 'locales');
 const panelStylesPath = path.join(__dirname, 'panel', 'styles.css');
@@ -101,6 +107,15 @@ const panelSessionsFilePath = path.join(__dirname, 'data', 'runtime', 'panel-ses
 const panelSessions = new Map();
 const oauthStates = new Map();
 const sessionDurationMs = 14 * 24 * 60 * 60 * 1000;
+const realtimeClients = new Set();
+
+function pushRealtime(event, payload = {}, predicate = () => true) {
+    const packet = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+    for (const clientRecord of realtimeClients) {
+        if (!predicate(clientRecord)) continue;
+        try { clientRecord.res.write(packet); } catch { realtimeClients.delete(clientRecord); }
+    }
+}
 const settingAuditLabels = {
     botEnabled: 'Bot enabled',
     triggersEnabled: 'Triggers enabled',
@@ -261,8 +276,13 @@ function buildPublicStatus() {
             detail: discordReady ? `${connectedServers} ${connectedServers === 1 ? 'server' : 'servers'} connected.` : 'Server availability cannot be checked yet.'
         }
     ];
+    const publicBotUpdatedAt = release.live?.promotedAt
+        || release.live?.committedAt
+        || updateStatus.lastPromotedAt
+        || null;
     return {
-        lastLiveUpdateAt: updateStatus.lastPromotedAt || release.live?.promotedAt || release.live?.committedAt || null,
+        publicBotUpdatedAt,
+        lastLiveUpdateAt: publicBotUpdatedAt,
         checkedAt: new Date().toISOString(),
         overall: components.every(component => component.status === 'operational') ? 'operational' : 'degraded',
         components,
@@ -387,6 +407,26 @@ function canAccessGuild(session, guildId) {
     if (hasDeveloperView(session)) return true;
     const sharedGuildIds = Array.isArray(session.sharedGuildIds) ? session.sharedGuildIds : session.adminGuildIds;
     return Array.isArray(sharedGuildIds) && sharedGuildIds.includes(String(guildId));
+}
+
+function collectPanelUserData(session) {
+    const guildIds = Array.isArray(session.sharedGuildIds) ? session.sharedGuildIds.map(String) : [];
+    const guildData = guildIds.map(guildId => ({
+        guildId,
+        messages: serverStatsStore.getUserMessageStats(guildId, session.userId),
+        voice: voiceStore.getUserVoiceStats(guildId, session.userId)
+    }));
+    return {
+        exportedAt: new Date().toISOString(),
+        user: { id: session.userId, username: session.username },
+        profile: profileStore.getProfile(session.userId),
+        aiConsent: aiConsentStore.readAiConsent(session.userId),
+        aiMemory: userConversationStore.getUserConversationSummary(session.userId),
+        preferences: panelPreferenceStore.readPreferences(session.userId),
+        notifications: notificationStore.readNotifications(session.userId),
+        correctionRequests: privacyRequestStore.readRequests().filter(entry => String(entry.userId) === String(session.userId)),
+        guildData
+    };
 }
 
 async function hasCurrentGuildAccess(session, guildId) {
@@ -687,6 +727,14 @@ function auditPanelAction(session, type, message, details = {}) {
         actorName: session?.username || 'Unknown panel user',
         source: 'panel'
     });
+    pushRealtime('dashboard-update', { type, guildId: details.guildId || null, at: new Date().toISOString() }, clientRecord => !details.guildId || clientRecord.guildIds.has(String(details.guildId)) || clientRecord.isDeveloper);
+}
+
+function analyticsAnnotations(guildId, from = null, to = null) {
+    const start = from ? new Date(from).getTime() : -Infinity;
+    const end = to ? new Date(to).getTime() : Infinity;
+    const visibleTypes = new Set(['settings-update', 'settings-undo', 'settings-template', 'public-incident', 'moderation-action', 'module-test', 'server-restore']);
+    return readActivity().filter(entry => String(entry.guildId || '') === String(guildId) && visibleTypes.has(entry.type) && new Date(entry.at).getTime() >= start && new Date(entry.at).getTime() <= end).slice(0, 50).map(entry => ({ at: entry.at, type: entry.type, label: entry.message || entry.type }));
 }
 
 function loginPage(message = '') {
@@ -1576,7 +1624,7 @@ function createServer() {
                     }
 
                     const sessionToken = crypto.randomBytes(32).toString('hex');
-                    panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, isDeveloper, sharedGuildIds, adminGuildIds, authenticatedAt: Date.now(), expiresAt: Date.now() + sessionDurationMs });
+                    panelSessions.set(sessionKey(sessionToken), { userId: user.id, username: user.global_name || user.username, avatar: user.avatar || null, isDeveloper, sharedGuildIds, adminGuildIds, authenticatedAt: Date.now(), lastSeenAt: Date.now(), userAgent: String(req.headers['user-agent'] || '').slice(0, 300), expiresAt: Date.now() + sessionDurationMs });
                     if (record.previousSessionKey) panelSessions.delete(record.previousSessionKey);
                     persistPanelSessions();
                     const secure = record.redirectUri.startsWith('https://') ? '; Secure' : '';
@@ -1680,6 +1728,14 @@ function createServer() {
                 sendAsset(res, panelScriptPath, 'no-store');
                 return;
             }
+            if (req.method === 'GET' && requestUrl.pathname === '/panel/account-features.js') {
+                sendAsset(res, panelAccountFeaturesPath, 'no-store');
+                return;
+            }
+            if (req.method === 'GET' && requestUrl.pathname === '/panel/realtime.js') {
+                sendAsset(res, panelRealtimePath, 'no-store');
+                return;
+            }
 
             if (req.method === 'GET' && requestUrl.pathname === '/panel/i18n/engine.js') {
                 sendAsset(res, panelI18nEnginePath, 'no-store');
@@ -1711,6 +1767,7 @@ function createServer() {
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/public/status') {
+                res.setHeader('Cache-Control', 'no-store');
                 sendJson(res, 200, buildPublicStatus());
                 return;
             }
@@ -1737,6 +1794,46 @@ function createServer() {
             if (requestUrl.pathname.startsWith('/api/')) {
                 panelSession = requirePanelAccess(req, res);
                 if (!panelSession) return;
+
+                if (req.method === 'GET' && requestUrl.pathname === '/api/events') {
+                    res.writeHead(200, {
+                        'Content-Type': 'text/event-stream; charset=utf-8',
+                        'Cache-Control': 'no-cache, no-store',
+                        Connection: 'keep-alive',
+                        'X-Accel-Buffering': 'no'
+                    });
+                    const record = { res, userId: panelSession.userId, guildIds: new Set(panelSession.sharedGuildIds || []), isDeveloper: isDeveloperSession(panelSession) };
+                    realtimeClients.add(record);
+                    res.write(`event: connected\ndata: ${JSON.stringify({ at: new Date().toISOString() })}\n\n`);
+                    const heartbeat = setInterval(() => { try { res.write(': heartbeat\n\n'); } catch { /* closed below */ } }, 25000);
+                    req.on('close', () => { clearInterval(heartbeat); realtimeClients.delete(record); });
+                    return;
+                }
+
+                if (requestUrl.pathname === '/api/account/sessions') {
+                    if (req.method === 'GET') {
+                        const sessions = [...panelSessions.entries()]
+                            .filter(([, entry]) => String(entry.userId) === String(panelSession.userId))
+                            .map(([key, entry]) => ({ id: key.slice(0, 16), current: key === panelSession.key, authenticatedAt: entry.authenticatedAt, lastSeenAt: entry.lastSeenAt || entry.authenticatedAt, expiresAt: entry.expiresAt, device: entry.userAgent || 'Unknown browser' }));
+                        sendJson(res, 200, { sessions }); return;
+                    }
+                    if (req.method === 'POST') {
+                        const parsed = JSON.parse(await readBody(req) || '{}');
+                        let currentRemoved = false;
+                        for (const [key, entry] of panelSessions) {
+                            if (String(entry.userId) !== String(panelSession.userId)) continue;
+                            const remove = parsed.action === 'all' || (parsed.action === 'others' && key !== panelSession.key) || (parsed.id && key.startsWith(String(parsed.id)));
+                            if (!remove) continue;
+                            currentRemoved ||= key === panelSession.key;
+                            panelSessions.delete(key);
+                        }
+                        persistPanelSessions();
+                        auditPanelAction(panelSession, 'account-sessions', 'Revoked dashboard session access');
+                        const secure = isSecureRequest(req) ? '; Secure' : '';
+                        if (currentRemoved) res.setHeader('Set-Cookie', `flummi_panel_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`);
+                        sendJson(res, 200, { ok: true, signedOut: currentRemoved }); return;
+                    }
+                }
 
                 if ((requestUrl.pathname === '/api/experiments' || requestUrl.pathname.startsWith('/api/experiments/')) && !isDeveloperSession(panelSession)) {
                     sendJson(res, 403, { error: 'Experiments are only available to configured developers.' });
@@ -2174,6 +2271,7 @@ function createServer() {
                 const labels = await resolveUserLabels(ids, guildId);
                 analytics.userTotals = analytics.userTotals.map(row => ({ ...row, label: labels[row.userId]?.tag || row.userId, nickname: labels[row.userId]?.nickname || null }));
                 analytics.groupSessions = analytics.groupSessions.map(row => ({ ...row, labels: row.userIds.map(id => labels[id]?.tag || id) }));
+                analytics.annotations = analyticsAnnotations(guildId, from, to);
                 sendJson(res, 200, analytics);
                 return;
             }
@@ -2459,6 +2557,7 @@ function createServer() {
                     from: requestUrl.searchParams.get('from'),
                     to: requestUrl.searchParams.get('to')
                 });
+                analytics.annotations = analyticsAnnotations(guildId, requestUrl.searchParams.get('from'), requestUrl.searchParams.get('to'));
                 if (!['developer', 'admin'].includes(getPanelGuildRole(panelSession, guildId))) analytics.moderation = null;
                 sendJson(res, 200, analytics);
                 return;
@@ -2537,6 +2636,52 @@ function createServer() {
                 }
             }
 
+            if (requestUrl.pathname === '/api/account/data') {
+                if (req.method === 'GET') {
+                    const data = collectPanelUserData(panelSession);
+                    const deletion = previewUserDeletion(panelSession.userId);
+                    sendJson(res, 200, {
+                        summary: {
+                            servers: data.guildData.length,
+                            notifications: data.notifications.length,
+                            aiMemoryMessages: Number(data.aiMemory.historyMessages || 0),
+                            correctionRequests: data.correctionRequests.length,
+                            deletion
+                        },
+                        correctionRequests: data.correctionRequests
+                    });
+                    return;
+                }
+                if (req.method === 'POST') {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    const categories = new Set(['profile', 'analytics', 'voice', 'moderation', 'support', 'other']);
+                    const category = categories.has(parsed.category) ? parsed.category : 'other';
+                    const details = String(parsed.details || '').trim().slice(0, 1500);
+                    if (details.length < 10) { sendJson(res, 400, { error: 'Describe what is inaccurate in at least 10 characters.' }); return; }
+                    const request = privacyRequestStore.addCorrectionRequest({ userId: panelSession.userId, guildId: parsed.guildId && panelSession.sharedGuildIds?.includes(String(parsed.guildId)) ? String(parsed.guildId) : null, category, details });
+                    for (const developerId of accessStore.getDeveloperUserIds()) notificationStore.addNotification(developerId, { type: 'privacy-correction', title: `Correction request ${request.id}`, message: `Category: ${request.category}`, referenceId: request.id, href: '/?view=developer&tool=privacy' });
+                    auditPanelAction(panelSession, 'privacy-correction', `Submitted correction request ${request.id}`);
+                    sendJson(res, 201, { ok: true, request }); return;
+                }
+                if (req.method === 'DELETE') {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    if (parsed.confirmation !== 'DELETE') { sendJson(res, 400, { error: 'Type DELETE to confirm permanent removal.' }); return; }
+                    const discord = await deleteDiscordUserArtifacts(client, panelSession.userId);
+                    const local = deleteUserData(panelSession.userId);
+                    for (const [key, entry] of panelSessions) if (String(entry.userId) === String(panelSession.userId)) panelSessions.delete(key);
+                    persistPanelSessions();
+                    const secure = isSecureRequest(req) ? '; Secure' : '';
+                    res.setHeader('Set-Cookie', `flummi_panel_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`);
+                    sendJson(res, 200, { ok: true, signedOut: true, local, discord }); return;
+                }
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/account/data/export') {
+                const data = JSON.stringify(collectPanelUserData(panelSession), null, 2);
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="flummi-data-${panelSession.userId}.json"`, 'Cache-Control': 'no-store' });
+                res.end(data); return;
+            }
+
             if (requestUrl.pathname === '/api/public/incidents') {
                 if (req.method === 'GET') { sendJson(res, 200, { incidents: publicIncidentStore.readIncidents() }); return; }
                 if (req.method === 'POST') {
@@ -2553,6 +2698,7 @@ function createServer() {
                     const query = String(requestUrl.searchParams.get('q') || '').trim().toLowerCase();
                     const guildId = requestUrl.searchParams.get('guildId');
                     const entries = notificationStore.readNotifications(panelSession.userId)
+                        .filter(entry => !entry.delivery || ['dashboard', 'both'].includes(entry.delivery))
                         .filter(entry => !guildId || !entry.guildId || entry.guildId === guildId)
                         .filter(entry => !query || `${entry.title} ${entry.message} ${entry.type}`.toLowerCase().includes(query));
                     sendJson(res, 200, { notifications: entries.slice(0, 200), unread: entries.filter(entry => !entry.readAt).length });
@@ -2578,6 +2724,49 @@ function createServer() {
                 sendJson(res, 200, { results }); return;
             }
 
+            if (requestUrl.pathname === '/api/management/templates') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Configuration templates require server administrator access.')) return;
+                if (req.method === 'GET') {
+                    const sources = (await listGuilds(panelSession)).filter(row => row.id !== guildId && ['admin', 'developer'].includes(row.role)).map(row => ({ id: row.id, name: row.name }));
+                    sendJson(res, 200, { templates: Object.entries(configTemplates.presets).map(([id, preset]) => ({ id, label: preset.label, description: preset.description })), sources }); return;
+                }
+                if (req.method === 'POST') {
+                    const parsed = JSON.parse(await readBody(req) || '{}');
+                    let template;
+                    let label;
+                    if (parsed.templateId && configTemplates.presets[parsed.templateId]) {
+                        template = configTemplates.presets[parsed.templateId].management;
+                        label = configTemplates.presets[parsed.templateId].label;
+                    } else if (parsed.sourceGuildId) {
+                        if (!await requireGuildAdminAccess(panelSession, String(parsed.sourceGuildId), res, 'You need administrator access to copy that server configuration.')) return;
+                        template = settingsStore.readSettings(String(parsed.sourceGuildId)).management;
+                        label = 'Copied server configuration';
+                    } else { sendJson(res, 400, { error: 'Choose a preset or source server.' }); return; }
+                    const current = settingsStore.readSettings(guildId);
+                    const management = configTemplates.applyTemplate(current.management, template);
+                    const preview = buildFieldChanges(current.management, management, settingAuditLabels);
+                    if (parsed.apply !== true) { sendJson(res, 200, { ok: true, label, preview, management }); return; }
+                    const saved = settingsStore.writeSettings({ ...current, management }, guildId);
+                    settingsHistoryStore.recordChange(guildId, { actorId: panelSession.userId, actorName: panelSession.username, before: current, after: saved });
+                    auditPanelAction(panelSession, 'settings-template', `Applied ${label}`, { guildId, changes: preview });
+                    sendJson(res, 200, { ok: true, label, preview, settings: saved }); return;
+                }
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/api/management/workflows/debug') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Workflow simulation requires server administrator access.')) return;
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                const allowedEvents = new Set(['member.join', 'warning.created', 'ticket.closed', 'ticket.rating', 'message.created']);
+                if (!allowedEvents.has(parsed.event)) { sendJson(res, 400, { error: 'Choose a supported workflow event.' }); return; }
+                const context = parsed.context && typeof parsed.context === 'object' && !Array.isArray(parsed.context) ? parsed.context : {};
+                const management = settingsStore.readSettings(guildId).management;
+                const trace = simulateWorkflows(management, parsed.event, context);
+                auditPanelAction(panelSession, 'workflow-simulation', `Simulated ${parsed.event}`, { guildId, matchedRules: trace.filter(row => row.matched).length });
+                sendJson(res, 200, { ok: true, event: parsed.event, trace, dryRun: true }); return;
+            }
+
             if (req.method === 'POST' && requestUrl.pathname === '/api/management/test') {
                 const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
                 if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Configuration tests require server administrator access.')) return;
@@ -2587,8 +2776,20 @@ function createServer() {
                 const doctor = await scanServer(guild);
                 const moduleName = String(parsed.module || '').trim();
                 const related = doctor.checks.filter(check => check.id.includes(moduleName) || check.title.toLowerCase().includes(moduleName.toLowerCase()) || ['base-permissions', 'role-hierarchy'].includes(check.id));
+                const savedModule = settingsStore.readSettings(guildId).management;
+                const scenarioNames = {
+                    moderation: ['Example warning', 'Validate target and reason', 'Create a moderation case and optional member DM'],
+                    automod: ['Example spam message', 'Evaluate enabled AutoMod rules', `${savedModule.automod.mode === 'enforce' ? 'Apply' : 'Preview'} the configured action`],
+                    roles: ['Example role-menu selection', 'Check selected role and hierarchy', 'Add or remove the self-assignable role'],
+                    automation: ['Example member join', 'Resolve welcome placeholders and destination', 'Send the welcome message'],
+                    tickets: ['Example ticket request', 'Check open-ticket limit and permissions', 'Create a private support channel'],
+                    reports: ['Example private report', 'Validate staff destination and privacy options', 'Create a staff inbox record'],
+                    workflows: ['Example saved workflow event', 'Evaluate every condition in order', 'List matching actions without executing them'],
+                    backups: ['Example recovery preview', 'Compare saved roles and channels', 'List missing resources; leave existing items untouched']
+                };
+                const scenario = scenarioNames[moduleName] || [`Example ${moduleName || 'module'} event`, 'Validate saved configuration and Discord permissions', 'Show the action Flummi would take'];
                 auditPanelAction(panelSession, 'module-test', `Tested ${moduleName || 'server'} configuration`, { guildId, module: moduleName });
-                sendJson(res, 200, { ok: related.every(check => check.severity !== 'critical'), module: moduleName, checkedAt: doctor.checkedAt, checks: related });
+                sendJson(res, 200, { ok: related.every(check => check.severity !== 'critical'), module: moduleName, checkedAt: doctor.checkedAt, checks: related, simulation: { dryRun: true, enabled: savedModule.modules[moduleName] === true, steps: scenario.map((summary, index) => ({ index: index + 1, summary })), outcome: related.some(check => check.severity === 'critical') ? 'Blocked by a critical configuration issue.' : savedModule.modules[moduleName] === true ? 'This saved configuration is ready for the example event.' : 'Configuration is valid, but the module is paused.' } });
                 return;
             }
 
@@ -2633,7 +2834,7 @@ function createServer() {
                 ]);
                 sendJson(res, 200, {
                     doctor: await scanServer(guild),
-                    reports: state.reports.slice(0, 100), incidents: state.incidents.slice(0, 100),
+                    reports: state.reports.slice(0, 100), modmail: state.modmail.slice(0, 100), incidents: state.incidents.slice(0, 100),
                     reminders: state.reminders.slice(0, 100), giveaways: state.giveaways.slice(0, 100),
                     feeds: state.feeds.slice(0, 25), voiceRoleLinks: state.voiceRoleLinks.slice(0, 25), temporaryRoles: state.temporaryRoles.filter(entry => entry.status === 'open').slice(0, 100),
                     snapshots: state.snapshots.map(snapshot => ({ id: snapshot.id, createdAt: snapshot.createdAt, reason: snapshot.reason, roleCount: snapshot.roles?.length || 0, channelCount: snapshot.channels?.length || 0 })),
@@ -3433,12 +3634,33 @@ function createServer() {
     });
 }
 
+async function deliverNotificationDm(userId, entry) {
+    try {
+        const user = await client.users.fetch(String(userId));
+        const publicBase = String(process.env.PANEL_PUBLIC_URL || config.panel?.publicUrl || '').replace(/\/$/, '');
+        const link = entry.href && publicBase ? `\n${publicBase}${entry.href}` : '';
+        await user.send(`**${entry.title}**\n${entry.message}${link}`);
+        notificationStore.markDmDelivered(userId, entry.id);
+    } catch (error) {
+        console.warn(`Could not deliver notification DM to ${userId}: ${error.message}`);
+    }
+}
+
 async function start() {
     if (!botToken) {
         throw new Error('Missing bot token. Set DISCORD_BOT_TOKEN in .env.');
     }
 
     await loginClient();
+
+    notificationStore.onNotification(async ({ userId, entry, delivery }) => {
+        pushRealtime('notification', entry, clientRecord => clientRecord.userId === String(userId));
+        if (delivery !== 'dm' && delivery !== 'both') return;
+        await deliverNotificationDm(userId, entry);
+    });
+    setInterval(() => {
+        for (const pending of notificationStore.pendingDmNotifications().slice(0, 25)) deliverNotificationDm(pending.userId, pending.entry);
+    }, 10000).unref();
 
     const listenHosts = (host === '0.0.0.0' || host === '::' || host === '127.0.0.1')
         ? [host]

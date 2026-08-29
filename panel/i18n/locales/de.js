@@ -191,6 +191,10 @@
         'Last checked': 'Zuletzt geprüft',
         'Last live update': 'Letzte Live-Aktualisierung',
         'not recorded yet': 'noch nicht erfasst',
+        'Not recorded yet': 'Noch nicht erfasst',
+        'Release': 'Version',
+        'Latest bot update': 'Letzte Bot-Aktualisierung',
+        'When the currently available version was last updated.': 'Wann die derzeit verfügbare Version zuletzt aktualisiert wurde.',
         'Current availability of Flummi and its public features.': 'Aktuelle Verfügbarkeit von Flummi und seinen öffentlichen Funktionen.',
         'Checking status...': 'Status wird geprüft …',
         'Refresh': 'Aktualisieren',
@@ -478,7 +482,23 @@
         'Collapse Analytics tabs': 'Analysetabs einklappen',
         'Expand Management tabs': 'Verwaltungstabs ausklappen',
         'Collapse Management tabs': 'Verwaltungstabs einklappen',
-        'Close navigation': 'Navigation schließen'
+        'Close navigation': 'Navigation schließen',
+        'Privacy & data': 'Datenschutz und Daten',
+        'Sessions': 'Sitzungen',
+        'Dashboard sessions': 'Dashboard-Sitzungen',
+        'Log out other sessions': 'Andere Sitzungen abmelden',
+        'Delivery preferences': 'Zustellungseinstellungen',
+        'Save delivery preferences': 'Zustellungseinstellungen speichern',
+        'Configuration templates': 'Konfigurationsvorlagen',
+        'Preview changes': 'Änderungen prüfen',
+        'Apply template': 'Vorlage anwenden',
+        'Workflow debugger': 'Workflow-Debugger',
+        'Simulate saved workflows': 'Gespeicherte Workflows simulieren',
+        'Staff inbox': 'Team-Posteingang',
+        'Scheduled reports': 'Geplante Berichte',
+        'Save report schedule': 'Berichtsplan speichern',
+        'Safe test result': 'Sicheres Testergebnis',
+        'No Discord action was executed.': 'Es wurde keine Discord-Aktion ausgeführt.'
     };
 
     const phrases = {

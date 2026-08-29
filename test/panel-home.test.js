@@ -125,8 +125,12 @@ test('commands and status are public home pages backed by unauthenticated APIs',
     assert.match(panelServer, /buildPublicCommandCatalog\(\)/);
     assert.match(panelServer, /accessStore\.getRequiredCommandRole/);
     assert.match(panelServer, /function buildPublicStatus\(\)/);
-    assert.match(panelServer, /lastLiveUpdateAt: updateStatus\.lastPromotedAt/);
+    assert.match(panelServer, /const publicBotUpdatedAt = release\.live\?\.promotedAt[\s\S]*?\|\| updateStatus\.lastPromotedAt/);
+    assert.match(panelServer, /publicBotUpdatedAt,[\s\S]*?lastLiveUpdateAt: publicBotUpdatedAt/);
+    assert.match(panelServer, /pathname === '\/api\/public\/status'[\s\S]*?Cache-Control', 'no-store'/);
     assert.match(panelMarkup, /id="publicStatusUpdated"/);
+    assert.match(panelMarkup, /id="publicStatusChecked"/);
+    assert.match(panelMarkup, /Latest bot update/);
     assert.match(panelMarkup, /id="publicStatusComponents"/);
     assert.match(panelServer, /components\.every\(component => component\.status === 'operational'\)/);
     assert.doesNotMatch(panelMarkup, /id="refreshPublicStatus"/);

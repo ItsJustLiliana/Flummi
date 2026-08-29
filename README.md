@@ -35,7 +35,7 @@ Support and feedback submissions require Discord sign-in so the requester can be
 - **Stats & Analytics:** selectable 1/7/30/90-day UTC date ranges or all-time views, hourly charts for a selected day, message and voice charts, heatmaps, member/channel filtering, comparison periods, media usage, and administrator-only moderation totals.
 - **Triggers:** create and audit text or image responses, limits, cooldowns, imports, and exports.
 - **Members & Permissions:** inspect members and configure per-user command and feature overrides. Discord server administrators automatically receive dashboard admin access.
-- **Profile & account:** the separate `/account` page on the main website has tabs for the Flummi profile, private AI consent, AI memory controls, notifications, dashboard defaults, and accessibility preferences. It is not mixed into the server dashboard, remains available without a shared server, and follows the signed-in Discord account across servers.
+- **Profile & account:** the separate `/account` page on the main website has tabs for the Flummi profile, private AI consent, AI memory controls, notification delivery, dashboard defaults, accessibility, privacy/data controls, exports, correction requests, and active sessions. It is not mixed into the server dashboard, remains available without a shared server, and follows the signed-in Discord account across servers.
 - **Profiles and AI memory:** inspect user-supplied profiles and permitted AI conversation memory.
 - **Settings:** guild bot settings, feature switches, configurable navigation, retention, backups, storage inspection, and targeted data-reset tools.
 - **Messenger and saved pings:** publish through the bot and inspect explicitly saved ping requests.
@@ -43,7 +43,9 @@ Support and feedback submissions require Discord sign-in so the requester can be
 
 Dashboard forms load resources directly from Discord. Single and multi-select controls expose the roles, channels, categories, members, servers, and banned users that are actually available in the selected guild. Workflow JSON remains an advanced editor, with role and channel pickers for inserting valid references.
 
-Every module page includes an explanation, stable shareable link, non-destructive configuration test, permission guidance, readiness checks, and dependency warnings. Server-setting writes use revision checks to prevent one dashboard session from silently overwriting another, while recent saved changes can be undone from Overview.
+Every module page includes an explanation, stable shareable link, scenario-based non-destructive test, permission guidance, readiness checks, and dependency warnings. Server-setting writes use revision checks and a readable change preview to prevent accidental overwrites, while recent saved changes can be undone from Overview. Resource-safe presets can be applied or copied between administered servers without transferring channel, role, or member IDs. Workflow Studio includes a condition-by-condition debugger that never executes its simulated actions.
+
+The staff inbox combines reports, modmail, tickets, and appeals behind an **All** filter. Administrators can schedule privacy-safe server, moderation, or community summaries to a Discord channel, while analytics graphs annotate relevant configuration and operational events. Signed-in dashboards receive notification and dashboard invalidation events over authenticated Server-Sent Events, with normal refresh behavior retained as a fallback.
 
 ### Management modules
 

@@ -844,6 +844,10 @@ function installManagementModuleExperience() {
                 const problems = result.checks || [];
                 testButton.textContent = problems.length ? `${problems.length} issue${problems.length === 1 ? '' : 's'} found` : 'Configuration ready';
                 testButton.title = problems.length ? problems.map(check => `${check.title}: ${check.detail}`).join('\n') : 'Saved resources and required Discord permissions are available.';
+                const toolbar = testButton.closest('.module-page-toolbar');
+                let output = toolbar.parentElement.querySelector(':scope > .module-test-result');
+                if (!output) { output = document.createElement('section'); output.className = 'module-test-result'; toolbar.after(output); }
+                output.innerHTML = `<div class="section-title-row"><div><strong>Safe test result</strong><p class="sub">No Discord action was executed.</p></div><span class="badge ${result.ok ? 'ok' : 'warn'}">${result.ok ? 'Ready' : 'Needs attention'}</span></div><ol>${(result.simulation?.steps || []).map(step => `<li>${escapeHtml(step.summary)}</li>`).join('')}</ol><p>${escapeHtml(result.simulation?.outcome || '')}</p>${problems.length ? `<details><summary>${problems.length} configuration check${problems.length === 1 ? '' : 's'}</summary>${problems.map(check => `<p><strong>${escapeHtml(check.title)}</strong><br>${escapeHtml(check.detail)}</p>`).join('')}</details>` : ''}`;
             }).catch(error => { testButton.textContent = 'Test failed'; testButton.title = error.message; }).finally(() => { testButton.disabled = false; window.setTimeout(() => { testButton.textContent = original; }, 3500); });
         }
     });
@@ -1118,6 +1122,25 @@ document.querySelectorAll('#dashboardLayout [id^="tab-management-"] [data-save-m
 });
 let dirtyManagementPanel = null;
 let dirtyManagementSaveButton = null;
+let savedManagementSnapshot = null;
+
+function flattenManagementValues(value, prefix = '', output = {}) {
+    if (Array.isArray(value)) { output[prefix] = JSON.stringify(value); return output; }
+    if (value && typeof value === 'object') {
+        for (const [key, child] of Object.entries(value)) flattenManagementValues(child, prefix ? `${prefix}.${key}` : key, output);
+        return output;
+    }
+    output[prefix] = value;
+    return output;
+}
+
+function managementChangePreview() {
+    const before = flattenManagementValues(savedManagementSnapshot || {});
+    const after = flattenManagementValues(state.management || {});
+    return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+        .filter(key => JSON.stringify(before[key]) !== JSON.stringify(after[key]))
+        .map(key => ({ key, before: before[key], after: after[key] }));
+}
 
 function managementSaveTarget(panel, source) {
     if (!panel || !source) return null;
@@ -1147,7 +1170,18 @@ function clearManagementDirty() {
 
 document.addEventListener('input', event => markManagementDirty(event.target.closest('.tab-panel'), event.target));
 document.addEventListener('change', event => markManagementDirty(event.target.closest('.tab-panel'), event.target));
-managementSaveBar.querySelector('[data-save-management-bar]').addEventListener('click', () => dirtyManagementSaveButton?.click());
+managementSaveBar.querySelector('[data-save-management-bar]').addEventListener('click', async () => {
+    if (!dirtyManagementSaveButton) return;
+    try {
+        if (dirtyManagementSaveButton.dataset.saveManagement) collectManagementSection(dirtyManagementSaveButton.dataset.saveManagement);
+        if (dirtyManagementSaveButton.dataset.saveAdvanced) collectAdvancedManagement(dirtyManagementSaveButton.dataset.saveAdvanced);
+        const changes = managementChangePreview();
+        if (!changes.length) { clearManagementDirty(); return; }
+        const summary = changes.slice(0, 8).map(change => `${change.key.split('.').at(-1).replace(/([A-Z])/g, ' $1').replace(/^./, value => value.toUpperCase())}: ${String(change.before ?? 'empty')} → ${String(change.after ?? 'empty')}`).join('\n');
+        const confirmed = await confirmAction({ title: `Save ${changes.length} setting change${changes.length === 1 ? '' : 's'}?`, message: `${summary}${changes.length > 8 ? `\n…and ${changes.length - 8} more.` : ''}`, confirmLabel: 'Save changes', danger: false });
+        if (confirmed) dirtyManagementSaveButton.click();
+    } catch (error) { handleUiError(error); }
+});
 managementSaveBar.querySelector('[data-discard-management]').addEventListener('click', () => { clearManagementDirty(); refreshActiveTab().catch(handleUiError); });
 const automodRuleDefinitions = {
     badWords: { title: 'Bad words', description: 'Block configured words and phrases.', limit: 'Matches allowed', fixedLimit: true },
@@ -1332,6 +1366,16 @@ async function refreshActiveTab() {
         updateLiveDurations();
     }
 }
+
+window.addEventListener('flummi:notification', () => {
+    if (!document.querySelector('[data-account-panel="notifications"]:not([hidden])')) return;
+    loadNotifications().catch(handleUiError);
+});
+window.addEventListener('flummi:dashboard-update', event => {
+    if (!isDashboardVisible() || shouldSkipPassiveRefresh(activeTab())) return;
+    if (event.detail?.guildId && String(event.detail.guildId) !== String(state.guildId)) return;
+    refreshActiveTab().catch(handleUiError);
+});
 
 // Server tabs stay in the dashboard sidebar. Developer tools have their own top-level workspace.
 const defaultDeveloperTabOrder = ['global', 'mail', 'messenger', 'profiles', 'ai', 'adoption', 'reliability', 'logs', 'files', 'experiments'];
@@ -1641,6 +1685,7 @@ async function loadPanelAccount() {
     avatar.src = data.user.avatarUrl;
     avatar.alt = `${data.user.username}'s Discord avatar`;
     document.getElementById('panelAccount').hidden = false;
+    window.dispatchEvent(new CustomEvent('flummi:authenticated'));
     applyAccessVisibility();
     document.getElementById('homeSignedOut').hidden = true;
     document.getElementById('homeSignedIn').hidden = false;
@@ -1853,7 +1898,11 @@ async function loadPublicStatus() {
             <div><strong>${escapeHtml(uiText(component.label))}</strong><span class="public-status-detail">${escapeHtml(componentDetail(component))}</span></div>
             <span class="badge ${component.status === 'operational' ? 'ok' : 'warn'}">${escapeHtml(uiText(component.status === 'operational' ? 'Operational' : 'Degraded'))}</span>
         </article>`).join('');
-    document.getElementById('publicStatusUpdated').textContent = `${uiText('Last checked')} ${formatDateTime(data.checkedAt)} - ${uiText('Last live update')} ${data.lastLiveUpdateAt ? formatDateTime(data.lastLiveUpdateAt) : uiText('not recorded yet')}`;
+    const publicBotUpdatedAt = data.publicBotUpdatedAt || data.lastLiveUpdateAt;
+    const updateTime = document.getElementById('publicStatusUpdated');
+    updateTime.textContent = publicBotUpdatedAt ? formatDateTime(publicBotUpdatedAt) : uiText('Not recorded yet');
+    updateTime.dateTime = publicBotUpdatedAt || '';
+    document.getElementById('publicStatusChecked').textContent = `${uiText('Last checked')} ${formatDateTime(data.checkedAt)}`;
     const container = document.getElementById('publicIncidentHistory');
     const incidents = data.incidents || [];
     container.innerHTML = incidents.length ? `<h2>Incident history</h2>${incidents.map(incident => `<article class="public-incident"><span class="badge ${incident.status === 'resolved' ? 'ok' : 'warn'}">${escapeHtml(incident.status)}</span><div><strong>${escapeHtml(incident.title)}</strong><p>${escapeHtml(incident.message || 'No additional details.')}</p><small>${escapeHtml(formatDateTime(incident.createdAt))}${incident.resolvedAt ? ` · Resolved ${escapeHtml(formatDateTime(incident.resolvedAt))}` : ''}</small></div></article>`).join('')}` : '<p class="sub">No public incidents have been recorded.</p>';
@@ -1921,7 +1970,8 @@ async function saveAccountPreferences() {
 
 function renderNotificationList(entries = []) {
     const container = document.getElementById('notificationList');
-    container.innerHTML = entries.length ? entries.map(entry => `<article class="notification-item ${entry.readAt ? '' : 'unread'}" data-notification-id="${escapeHtml(entry.id)}"><span class="notification-dot" aria-hidden="true"></span><div><strong>${escapeHtml(entry.title)}</strong><p>${escapeHtml(entry.message)}</p><small>${escapeHtml(entry.type)} · ${escapeHtml(formatDateTime(entry.createdAt))}</small></div>${entry.readAt ? '' : '<button class="secondary compact" type="button" data-mark-notification>Mark read</button>'}</article>`).join('') : '<div class="contextual-empty"><strong>You are all caught up</strong><span>No notifications match this search.</span></div>';
+    const notificationHref = entry => entry.href || (/privacy/i.test(entry.type) ? '/account?tab=data' : entry.guildId && /workflow/i.test(entry.type) ? `/?guildId=${encodeURIComponent(entry.guildId)}&tab=management-workflows` : entry.guildId && /ticket|modmail|report/i.test(entry.type) ? `/?guildId=${encodeURIComponent(entry.guildId)}&tab=management-reports` : null);
+    container.innerHTML = entries.length ? entries.map(entry => { const href = notificationHref(entry); return `<article class="notification-item ${entry.readAt ? '' : 'unread'}" data-notification-id="${escapeHtml(entry.id)}"><span class="notification-dot" aria-hidden="true"></span><div>${href ? `<a class="notification-link" href="${escapeHtml(href)}"><strong>${escapeHtml(entry.title)}</strong></a>` : `<strong>${escapeHtml(entry.title)}</strong>`}<p>${escapeHtml(entry.message)}</p><small>${escapeHtml(entry.type)} · ${escapeHtml(formatDateTime(entry.createdAt))}</small></div>${entry.readAt ? '' : '<button class="secondary compact" type="button" data-mark-notification>Mark read</button>'}</article>`; }).join('') : '<div class="contextual-empty"><strong>You are all caught up</strong><span>No notifications match this search.</span></div>';
 }
 
 async function loadNotifications() {
@@ -2117,7 +2167,7 @@ async function openDashboard(guildId, tab = null) {
 }
 
 async function openAccountArea(tab = 'account-profile') {
-    const aliases = { 'account-profile': 'profile', profile: 'profile', consent: 'consent', memory: 'memory', notifications: 'notifications', preferences: 'preferences' };
+    const aliases = { 'account-profile': 'profile', profile: 'profile', consent: 'consent', memory: 'memory', notifications: 'notifications', preferences: 'preferences', data: 'data', sessions: 'sessions' };
     const destination = aliases[tab] || 'profile';
     showHomeView('account');
     document.querySelectorAll('[data-account-tab]').forEach(button => button.classList.toggle('active', button.dataset.accountTab === destination));
@@ -2125,7 +2175,8 @@ async function openAccountArea(tab = 'account-profile') {
     document.title = `${destination === 'notifications' ? 'Notifications' : 'Account'} - Flummi`;
     history.replaceState(null, '', `/account?tab=${encodeURIComponent(destination)}`);
     if (destination === 'notifications') await loadNotifications();
-    else await loadAccountPreferences();
+    else if (!['data', 'sessions'].includes(destination)) await loadAccountPreferences();
+    await window.FlummiAccountFeatures?.load(destination);
     clearPageNotice();
     lastAutoRefreshAt = Date.now();
 }
@@ -2719,6 +2770,17 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
     canvas.addEventListener('pointerleave', hideChartTooltip);
 }
 
+function renderChartAnnotations(containerId, annotations = []) {
+    const container = document.getElementById(containerId);
+    container.querySelector('.analytics-annotations')?.remove();
+    if (!annotations.length) return;
+    const list = document.createElement('div');
+    list.className = 'analytics-annotations';
+    list.setAttribute('aria-label', 'Events affecting this graph');
+    list.innerHTML = annotations.slice(0, 8).map(row => `<span title="${escapeHtml(row.label)}"><i></i>${escapeHtml(new Date(row.at).toLocaleDateString(uiLocale(), { day: 'numeric', month: 'short' }))} · ${escapeHtml(row.label)}</span>`).join('');
+    container.append(list);
+}
+
 function renderHeatmap(containerId, rows) {
     const container = document.getElementById(containerId);
     const values = Array.isArray(rows) ? rows : Array.from({ length: 7 }, () => Array(24).fill(0));
@@ -3252,6 +3314,7 @@ async function loadVoice() {
     ].join('');
     renderActivityChart('voiceActivityChart', analytics.activeOverTime, 'No voice sessions in this range.', document.getElementById('voiceGraphType').value, 'Voice sessions');
     renderActivityChart('voiceMinutesChart', analytics.minutesOverTime, 'No voice time in this range.', document.getElementById('voiceGraphType').value, 'Voice minutes');
+    renderChartAnnotations('voiceActivityChart', analytics.annotations || []);
     await loadActivityHeatmap('voice');
 
     renderTable(document.getElementById('voiceActive'),
@@ -3404,6 +3467,7 @@ async function loadStats() {
         statCard('Busiest hour', busiestHour, 'The UTC hour with the most tracked messages in the selected period.')
     ].join('');
     renderActivityChart('analyticsChart', data.dailyMessages, 'No events in this period yet.', document.getElementById('analyticsGraphType').value, 'Messages');
+    renderChartAnnotations('analyticsChart', data.annotations || []);
     await loadActivityHeatmap('message');
     renderTable(document.getElementById('analyticsChannels'), [{ label: 'Channel', key: 'name', render: r => `#${escapeHtml(r.name)}` }, { label: 'Messages', key: 'count' }], data.topChannels, 'No channel activity yet.');
     renderTable(document.getElementById('analyticsUsers'), [{ label: 'Member', key: 'name', render: r => escapeHtml(r.name) }, { label: 'Messages', key: 'count' }], data.topUsers, 'No member activity yet.');
@@ -4808,16 +4872,43 @@ function renderServerDoctor(result) {
     container.innerHTML = `<div class="section-title-row"><div><h2>Health score: ${result.score}/100</h2><p class="sub">${result.critical} critical · ${result.warnings} warnings${result.info ? ` · ${result.info} informational` : ''} · checked ${escapeHtml(formatDateTime(result.checkedAt))}</p></div><span class="badge ${tone}">${result.critical ? 'Action needed' : result.warnings ? 'Review' : 'Healthy'}</span></div>${result.checks.length ? `<div class="doctor-check-list">${result.checks.map(check => `<article class="doctor-check ${escapeHtml(check.severity)}"><strong>${escapeHtml(check.title)}</strong><span>${escapeHtml(check.detail)}</span>${check.fix ? `<small>${escapeHtml(check.fix)}</small>` : ''}</article>`).join('')}</div>` : '<div class="empty">No problems found.</div>'}`;
 }
 
+let staffInboxFilter = 'all';
+let latestAdvancedOperations = null;
+const staffInboxTable = document.getElementById('reportsOperationsTable');
+staffInboxTable.closest('.section').insertAdjacentHTML('beforebegin', '<div class="section"><h2>Scheduled reports</h2><p class="sub">Send a privacy-safe summary to a Discord channel on a daily or weekly schedule.</p><div class="two-col"><div class="field"><label for="scheduledReportFrequency">Frequency</label><select id="scheduledReportFrequency" data-advanced-field="reports.digestFrequency"><option value="off">Off</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></div><div class="field"><label for="scheduledReportType">Report type</label><select id="scheduledReportType" data-advanced-field="reports.digestType"><option value="server">Server overview</option><option value="moderation">Moderation</option><option value="community">Community health</option></select></div><div class="field"><label for="scheduledReportChannel">Destination channel</label><select id="scheduledReportChannel" data-management-channel data-advanced-field="reports.digestChannelId"><option value="">Choose a channel</option></select></div></div><div class="actions"><span class="status" id="scheduledReportStatus"></span><button class="primary" data-save-advanced="reports" type="button">Save report schedule</button></div></div>');
+staffInboxTable.insertAdjacentHTML('beforebegin', '<p class="sub">Reports, modmail, tickets and appeals in one queue.</p><div class="management-filter-bar" id="staffInboxFilters" role="group" aria-label="Filter staff inbox"><button class="management-filter active" type="button" data-staff-inbox-filter="all">All</button><button class="management-filter" type="button" data-staff-inbox-filter="report">Reports</button><button class="management-filter" type="button" data-staff-inbox-filter="modmail">Modmail</button><button class="management-filter" type="button" data-staff-inbox-filter="ticket">Tickets</button><button class="management-filter" type="button" data-staff-inbox-filter="appeal">Appeals</button></div>');
+
+function renderStaffInbox(data) {
+    const rows = [
+        ...(data.reports || []).map(row => ({ ...row, kind: 'report', summary: row.reason || row.message, ownerId: row.reporterId || row.userId })),
+        ...(data.modmail || []).map(row => ({ ...row, kind: 'modmail', summary: row.category || 'Direct message conversation', ownerId: row.userId })),
+        ...(data.tickets || []).map(row => ({ ...row, kind: 'ticket', summary: row.topic || 'Support ticket', ownerId: row.ownerId })),
+        ...(data.submissions || []).filter(row => /appeal/i.test(`${row.type || ''} ${row.title || ''}`)).map(row => ({ ...row, kind: 'appeal', summary: row.title || 'Moderation appeal', ownerId: row.userId || row.authorId }))
+    ].filter(row => staffInboxFilter === 'all' || row.kind === staffInboxFilter).sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    staffInboxTable.innerHTML = operationTable(rows, [
+        { label: 'Type', render: row => `<span class="badge accent">${escapeHtml(row.kind)}</span>` },
+        { label: 'Request', render: row => `<strong>${escapeHtml(row.summary || row.id)}</strong><small>${escapeHtml(row.id)}</small>` },
+        { label: 'Member', render: row => escapeHtml(row.ownerId ? resourceDisplay(row.ownerId) : 'Anonymous') },
+        { label: 'Updated', render: row => escapeHtml(formatDateTime(row.updatedAt || row.createdAt)) },
+        { label: 'Status', render: row => row.kind === 'report' ? `<select data-report-status="${escapeHtml(row.id)}"><option value="open" ${row.status === 'open' ? 'selected' : ''}>Open</option><option value="claimed" ${row.status === 'claimed' ? 'selected' : ''}>Claimed</option><option value="resolved" ${row.status === 'resolved' ? 'selected' : ''}>Resolved</option><option value="dismissed" ${row.status === 'dismissed' ? 'selected' : ''}>Dismissed</option></select>` : escapeHtml(row.status || 'open') }
+    ], `No ${staffInboxFilter === 'all' ? 'staff requests' : `${staffInboxFilter} requests`} found.`);
+}
+
+document.getElementById('staffInboxFilters').addEventListener('click', event => {
+    const button = event.target.closest('[data-staff-inbox-filter]'); if (!button) return;
+    staffInboxFilter = button.dataset.staffInboxFilter;
+    document.querySelectorAll('[data-staff-inbox-filter]').forEach(item => item.classList.toggle('active', item === button));
+    if (latestAdvancedOperations) renderStaffInbox(latestAdvancedOperations);
+});
+
 function renderAdvancedOperations(data) {
+    latestAdvancedOperations = data;
     renderServerDoctor(data.doctor);
     document.getElementById('incidentCenterTable').innerHTML = operationTable(data.incidents || [], [
         { label: 'Incident', key: 'id' }, { label: 'Summary', key: 'summary' }, { label: 'Actor', render: row => escapeHtml(resourceDisplay(row.actorId)) },
         { label: 'Status', render: row => `<select data-incident-status="${escapeHtml(row.id)}"><option value="open" ${row.status === 'open' ? 'selected' : ''}>Open</option><option value="investigating" ${row.status === 'investigating' ? 'selected' : ''}>Investigating</option><option value="resolved" ${row.status === 'resolved' ? 'selected' : ''}>Resolved</option></select>` }
     ], 'No security incidents recorded.');
-    document.getElementById('reportsOperationsTable').innerHTML = operationTable(data.reports || [], [
-        { label: 'Report', key: 'id' }, { label: 'Reason', key: 'reason' }, { label: 'Created', render: row => escapeHtml(formatDateTime(row.createdAt)) },
-        { label: 'Status', render: row => `<select data-report-status="${escapeHtml(row.id)}"><option value="open" ${row.status === 'open' ? 'selected' : ''}>Open</option><option value="claimed" ${row.status === 'claimed' ? 'selected' : ''}>Claimed</option><option value="resolved" ${row.status === 'resolved' ? 'selected' : ''}>Resolved</option><option value="dismissed" ${row.status === 'dismissed' ? 'selected' : ''}>Dismissed</option></select>` }
-    ], 'No member reports received.');
+    renderStaffInbox(data);
     document.getElementById('serverSnapshotsTable').innerHTML = operationTable(data.snapshots || [], [
         { label: 'Snapshot', key: 'id' }, { label: 'Created', render: row => escapeHtml(formatDateTime(row.createdAt)) }, { label: 'Reason', key: 'reason' }, { label: 'Roles', key: 'roleCount' }, { label: 'Channels', key: 'channelCount' },
         { label: 'Recovery', render: row => `<div class="row"><button class="secondary" type="button" data-snapshot-preview="${escapeHtml(row.id)}">Preview</button><button class="secondary" type="button" data-snapshot-restore="${escapeHtml(row.id)}">Restore missing</button></div>` }
@@ -4974,6 +5065,7 @@ async function persistManagement(statusField) {
         body: JSON.stringify({ management: state.management })
     });
     state.management = result.settings.management;
+    savedManagementSnapshot = structuredClone(state.management);
     state.settingsRevision = result.revision;
     renderManagementCards();
     applyManagementNavigation();
@@ -4986,12 +5078,74 @@ async function loadManagement() {
     if (!state.guildId || state.role === 'member') return;
     const settingsData = await api(withGuild('/api/settings'));
     state.management = settingsData.settings.management;
+    savedManagementSnapshot = structuredClone(state.management);
     state.settingsRevision = settingsData.revision;
     await ensureManagementResources();
     hydrateManagementEditors();
     renderManagementCards();
     applyManagementNavigation();
+    await loadManagementTemplates();
 }
+
+let pendingManagementTemplate = null;
+async function loadManagementTemplates() {
+    const data = await api(withGuild('/api/management/templates'));
+    document.getElementById('managementTemplatePreset').innerHTML = '<option value="">Choose a preset</option>' + (data.templates || []).map(row => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.label)} — ${escapeHtml(row.description)}</option>`).join('');
+    document.getElementById('managementTemplateSource').innerHTML = '<option value="">Choose a server</option>' + (data.sources || []).map(row => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`).join('');
+    pendingManagementTemplate = null;
+    document.getElementById('applyManagementTemplate').disabled = true;
+}
+
+function selectedManagementTemplate() {
+    const templateId = document.getElementById('managementTemplatePreset').value;
+    const sourceGuildId = document.getElementById('managementTemplateSource').value;
+    if (!templateId && !sourceGuildId) throw new Error('Choose a preset or source server.');
+    return templateId ? { templateId } : { sourceGuildId };
+}
+
+for (const id of ['managementTemplatePreset', 'managementTemplateSource']) document.getElementById(id).addEventListener('change', event => {
+    const other = document.getElementById(id === 'managementTemplatePreset' ? 'managementTemplateSource' : 'managementTemplatePreset');
+    if (event.target.value) other.value = '';
+    pendingManagementTemplate = null;
+    document.getElementById('applyManagementTemplate').disabled = true;
+    document.getElementById('managementTemplatePreview').innerHTML = '';
+});
+document.getElementById('previewManagementTemplate').addEventListener('click', async () => {
+    const status = document.getElementById('managementTemplateStatus');
+    try {
+        const selection = selectedManagementTemplate();
+        const data = await api(withGuild('/api/management/templates'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(selection) });
+        pendingManagementTemplate = selection;
+        const changes = data.preview || [];
+        document.getElementById('managementTemplatePreview').innerHTML = changes.length ? changes.slice(0, 50).map(change => `<article><strong>${escapeHtml(change.label || change.field || 'Setting')}</strong><span>${escapeHtml(String(change.before ?? 'empty'))} → ${escapeHtml(String(change.after ?? 'empty'))}</span></article>`).join('') : '<div class="empty">This template would not change any settings.</div>';
+        document.getElementById('applyManagementTemplate').disabled = !changes.length;
+        setStatus(status, `${changes.length} change${changes.length === 1 ? '' : 's'} ready to apply.`, 'ok');
+    } catch (error) { setStatus(status, error.message, 'error'); }
+});
+document.getElementById('applyManagementTemplate').addEventListener('click', async () => {
+    if (!pendingManagementTemplate) return;
+    const status = document.getElementById('managementTemplateStatus');
+    const confirmed = await confirmAction({ title: 'Apply this configuration template?', message: 'Only non-resource settings are copied. Existing channel, role and member selections remain unchanged.', confirmLabel: 'Apply template', danger: false });
+    if (!confirmed) return;
+    try {
+        const data = await api(withGuild('/api/management/templates'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...pendingManagementTemplate, apply: true }) });
+        state.management = data.settings.management;
+        savedManagementSnapshot = structuredClone(state.management);
+        hydrateManagementEditors(); renderManagementCards(); applyManagementNavigation();
+        document.getElementById('applyManagementTemplate').disabled = true;
+        setStatus(status, `${data.label} applied. Choose channels and roles where required.`, 'ok');
+    } catch (error) { setStatus(status, error.message, 'error'); }
+});
+
+document.getElementById('runWorkflowDebugger').addEventListener('click', async () => {
+    const status = document.getElementById('workflowDebugStatus');
+    try {
+        const context = JSON.parse(document.getElementById('workflowDebugContext').value || '{}');
+        const data = await api(withGuild('/api/management/workflows/debug'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: document.getElementById('workflowDebugEvent').value, context }) });
+        document.getElementById('workflowDebugTrace').innerHTML = data.trace.length ? data.trace.map(rule => `<article class="workflow-debug-rule ${rule.matched ? 'matched' : 'skipped'}"><header><strong>${escapeHtml(rule.name)}</strong><span class="badge ${rule.matched ? 'ok' : ''}">${rule.matched ? 'Would run' : 'Skipped'}</span></header>${rule.conditions.map(condition => `<p><span>${escapeHtml(condition.field)} ${escapeHtml(condition.operator)} ${escapeHtml(String(condition.value))}</span><strong>${condition.matched ? 'Matched' : `Actual: ${escapeHtml(String(condition.actual ?? 'empty'))}`}</strong></p>`).join('')}${rule.actions.map(action => `<small>${escapeHtml(action.summary)}</small>`).join('')}</article>`).join('') : '<div class="empty">No enabled saved workflows listen for this event.</div>';
+        setStatus(status, `${data.trace.filter(rule => rule.matched).length} workflow${data.trace.filter(rule => rule.matched).length === 1 ? '' : 's'} would run.`, 'ok');
+    } catch (error) { setStatus(status, error.message, 'error'); }
+});
 
 async function toggleManagementModule(moduleKey, statusField) {
     const definition = managementModuleDefinitions[moduleKey];

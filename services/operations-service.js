@@ -1,13 +1,20 @@
 const { AuditLogEvent, ChannelType, GuildVerificationLevel, PermissionFlagsBits } = require('discord.js');
 const dns = require('dns').promises;
 const net = require('net');
+const fs = require('fs');
+const path = require('path');
 const { readSettings, isModuleGloballyDisabled } = require('../stores/settings-store');
 const operationsStore = require('../stores/operations-store');
 const communityStore = require('../stores/community-management-store');
+const analyticsStore = require('../stores/analytics-store');
+const moderationStore = require('../stores/moderation-store');
 
 const recentAdministrativeActions = new Map();
 const lastAutomaticBackup = new Map();
 const lastDoctorDigest = new Map();
+const reportDigestStatePath = path.join(__dirname, '..', 'data', 'runtime', 'report-digests.json');
+function readReportDigestState() { try { return JSON.parse(fs.readFileSync(reportDigestStatePath, 'utf8')); } catch { return {}; } }
+function writeReportDigestState(state) { fs.mkdirSync(path.dirname(reportDigestStatePath), { recursive: true }); fs.writeFileSync(reportDigestStatePath, JSON.stringify(state, null, 2)); }
 
 function decodeXml(value) {
     return String(value || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
@@ -232,9 +239,10 @@ async function scanServer(guild) {
 }
 
 async function sendLog(guild, channelId, content) {
-    if (!channelId) return;
+    if (!channelId) return false;
     const channel = guild.channels.cache.get(channelId) || await guild.channels.fetch(channelId).catch(() => null);
-    if (channel?.isTextBased()) await channel.send({ content, allowedMentions: { parse: [] } }).catch(() => {});
+    if (!channel?.isTextBased()) return false;
+    return channel.send({ content, allowedMentions: { parse: [] } }).then(() => true).catch(() => false);
 }
 
 async function recordAdministrativeAction(guild, type, target) {
@@ -269,8 +277,34 @@ async function recordAdministrativeAction(guild, type, target) {
 }
 
 async function processOperations(client) {
+    const reportDigestState = readReportDigestState();
     for (const guild of client.guilds.cache.values()) {
         const management = readSettings(guild.id).management;
+        const digest = management.reports;
+        if (digest.digestFrequency !== 'off' && digest.digestChannelId) {
+            const interval = digest.digestFrequency === 'daily' ? 86400000 : 7 * 86400000;
+            const last = Date.parse(reportDigestState[guild.id] || '') || 0;
+            if (last && Date.now() - last >= interval) {
+                const days = digest.digestFrequency === 'daily' ? 1 : 7;
+                const analytics = analyticsStore.getAnalyticsSummary(guild.id, days);
+                const operations = operationsStore.readState(guild.id);
+                const community = communityStore.readState(guild.id);
+                const cases = moderationStore.readCases(guild.id).filter(row => Date.now() - new Date(row.createdAt || row.at).getTime() <= interval);
+                const descriptions = {
+                    server: `${analytics.messageCount || 0} messages from ${analytics.uniqueAuthors || 0} active members. ${operations.incidents.filter(row => row.status !== 'resolved').length} open incidents.`,
+                    moderation: `${cases.length} moderation cases, ${operations.reports.filter(row => !['resolved', 'dismissed'].includes(row.status)).length} open reports and ${operations.incidents.filter(row => row.status !== 'resolved').length} open incidents.`,
+                    community: `${community.tickets.filter(row => row.status === 'open').length} open tickets, ${community.suggestions.filter(row => !['implemented', 'rejected'].includes(row.status)).length} active suggestions and ${operations.pulseResponses.filter(row => Date.now() - new Date(row.createdAt).getTime() <= interval).length} pulse responses.`
+                };
+                const delivered = await sendLog(guild, digest.digestChannelId, `📊 **${digest.digestFrequency === 'daily' ? 'Daily' : 'Weekly'} ${digest.digestType} report**\n${descriptions[digest.digestType]}`);
+                if (delivered) {
+                    reportDigestState[guild.id] = new Date().toISOString();
+                    writeReportDigestState(reportDigestState);
+                }
+            } else if (!last) {
+                reportDigestState[guild.id] = new Date().toISOString();
+                writeReportDigestState(reportDigestState);
+            }
+        }
         if (management.modules.serverDoctor && management.serverDoctor.weeklyDigest && management.serverDoctor.logChannelId) {
             const last = lastDoctorDigest.get(guild.id) || 0;
             if (Date.now() - last >= 7 * 86400000) {

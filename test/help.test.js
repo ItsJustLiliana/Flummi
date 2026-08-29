@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Collection, SlashCommandBuilder } = require('discord.js');
 const config = require('../config.json');
-const { getConfiguredCommandRows } = require('../commands/help');
+const { getConfiguredCommandRows, getRegisteredCommandRows } = require('../commands/help');
 
 function makeCommand(name, description) {
     return {
@@ -39,4 +39,20 @@ test('public commands remain visible as member commands despite stale configured
 
     const row = getConfiguredCommandRows(client).find(entry => entry.pathKey === 'dashboard');
     assert.equal(row.requiredRole, 'member');
+});
+
+test('help discovers every registered subcommand including developer commands', () => {
+    const client = { commands: new Collection() };
+    const settings = {
+        data: new SlashCommandBuilder()
+            .setName('settings')
+            .setDescription('Settings')
+            .addSubcommand(option => option.setName('view').setDescription('View settings'))
+            .addSubcommand(option => option.setName('triggers').setDescription('Developer trigger settings'))
+    };
+    client.commands.set('settings', settings);
+
+    const rows = getRegisteredCommandRows(client, 'guild');
+    assert.deepEqual(rows.map(row => row.pathKey).sort(), ['settings.triggers', 'settings.view']);
+    assert.equal(rows.find(row => row.pathKey === 'settings.triggers').requiredRole, 'developer');
 });

@@ -22,7 +22,11 @@ module.exports = {
         const action = interaction.options.getSubcommand();
         if (action === 'list') {
             const rows = store.readCommands(interaction.guildId);
-            return interaction.reply({ content: rows.length ? rows.map(row => `/${row.name} — ${row.description} (${row.enabled ? 'enabled' : 'disabled'})`).join('\n') : 'No custom commands configured.', flags: MessageFlags.Ephemeral });
+            const visible = rows.slice(0, 25);
+            const content = visible.length
+                ? `${visible.map(row => `/${row.name} — ${row.description} (${row.enabled ? 'enabled' : 'disabled'})`).join('\n')}${rows.length > visible.length ? `\n…and ${rows.length - visible.length} more. Manage the full list in the dashboard.` : ''}`
+                : 'No custom commands configured.';
+            return interaction.reply({ content: content.slice(0, 2000), flags: MessageFlags.Ephemeral });
         }
         const name = store.normalizeName(interaction.options.getString('name', true));
         if (interaction.client.commands.has(name)) return interaction.reply({ content: 'That name belongs to a built-in Flummi command.', flags: MessageFlags.Ephemeral });

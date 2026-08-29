@@ -35,6 +35,7 @@ test('command permissions resolve top-level and subcommand roles from config', (
     assert.equal(getRequiredCommandRole('dashboard', null, { public: true }), 'member');
     assert.equal(getRequiredCommandRole('ticket', 'open', { adminSubcommands: ['claim'] }), 'member');
     assert.equal(getRequiredCommandRole('ticket', 'claim', { adminSubcommands: ['claim'] }), 'admin');
+    assert.equal(getRequiredCommandRole('data', 'correction-update', { public: true, developerSubcommands: ['correction-update'] }), 'developer');
 });
 
 test('command permission requirements can be refreshed without restarting the process', () => {

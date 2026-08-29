@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, StringSelectMenuBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, MessageFlags, PermissionFlagsBits, StringSelectMenuBuilder } = require('discord.js');
 const operations = require('../stores/operations-store');
 const notifications = require('../stores/notification-store');
 const { readSettings } = require('../stores/settings-store');
@@ -76,7 +76,7 @@ async function handleModmailConsentInteraction(interaction) {
     const isDecision = interaction.isButton?.() && interaction.customId.startsWith('modmail-consent:');
     if (!isGuildChoice && !isDecision) return false;
     const expectedUserId = interaction.customId.split(':').at(-1);
-    if (expectedUserId !== interaction.user.id) { await interaction.reply({ content: 'This modmail confirmation belongs to another user.', ephemeral: true }); return true; }
+    if (expectedUserId !== interaction.user.id) { await interaction.reply({ content: 'This modmail confirmation belongs to another user.', flags: MessageFlags.Ephemeral }); return true; }
     const pending = pendingIntakes.get(interaction.user.id);
     if (!pending || pending.expiresAt <= Date.now()) { pendingIntakes.delete(interaction.user.id); await interaction.update({ content: 'This modmail confirmation expired. Send your DM again to restart.', components: [] }); return true; }
     if (isGuildChoice) {
@@ -114,7 +114,13 @@ async function handleStaffMessage(message) {
     const anonymous = readSettings(message.guildId).management.reports.anonymousStaffReplies;
     const prefix = anonymous ? `**${message.guild.name} staff:**` : `**${message.author.displayName || message.author.username} (${message.guild.name}):**`;
     const attachments = filesFrom(message);
-    await user.send({ content: `${prefix} ${message.content || '*attachment*'}`, files: attachments }).catch(() => null);
+    const delivered = await user.send({ content: `${prefix} ${message.content || '*attachment*'}`, files: attachments })
+        .then(() => true)
+        .catch(() => false);
+    if (!delivered) {
+        await message.reply({ content: 'I could not deliver that reply because the member’s DMs are closed or unavailable.', allowedMentions: { repliedUser: false } }).catch(() => {});
+        return true;
+    }
     const messages = [...(record.messages || []), { direction: 'out', authorId: message.author.id, anonymous, content: message.content, attachments: attachments.map(file => file.attachment), at: new Date().toISOString() }].slice(-1000);
     operations.updateModmail(message.guildId, record.id, { messages, lastMessageAt: new Date().toISOString(), firstResponseAt: record.firstResponseAt || new Date().toISOString() });
     return true;

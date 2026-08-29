@@ -732,7 +732,16 @@ mobileMenuToggle.addEventListener('click', () => setMobileMenu(!sidebar.classLis
 mobileMenuBackdrop.addEventListener('click', () => setMobileMenu(false));
 document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileMenu(false); });
 mobileMenuMedia.addEventListener('change', () => setMobileMenu(false));
-const defaultTabLabels = Object.fromEntries(tabButtons.map(button => [button.dataset.tab, button.textContent.trim()]));
+function tabButtonLabel(button) {
+    const directText = [...button.childNodes]
+        .filter(node => node.nodeType === Node.TEXT_NODE)
+        .map(node => node.textContent)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return directText || button.textContent.trim();
+}
+const defaultTabLabels = Object.fromEntries(tabButtons.map(button => [button.dataset.tab, tabButtonLabel(button)]));
 const managementModuleDefinitions = {
     moderation: { tab: 'management-moderation', title: 'Moderation', description: 'Warnings, timeouts, kicks, bans, purge tools, and safe action defaults.' },
     automod: { tab: 'management-automod', title: 'AutoMod & Safety', description: 'Spam protection, rule presets, test mode, escalation, and raid safety.' },
@@ -1233,6 +1242,9 @@ tabButtons.forEach(btn => {
         } else if (btn.hasAttribute('data-analytics-child')) {
             setAnalyticsExpanded(true);
         }
+        const dashboard = document.getElementById('dashboardLayout');
+        delete dashboard.dataset.accountArea;
+        delete dashboard.dataset.accountOnly;
         setMobileMenu(false);
         tabButtons.forEach(b => b.classList.remove('active'));
         tabPanels.forEach(p => p.classList.remove('active'));
@@ -1257,7 +1269,9 @@ tabButtons.forEach(btn => {
 
 function activeTab() {
     const active = tabButtons.find(b => b.classList.contains('active'));
-    return active ? active.dataset.tab : 'overview';
+    if (active) return active.dataset.tab;
+    const activePanel = tabPanels.find(panel => panel.classList.contains('active'));
+    return activePanel?.id.replace(/^tab-/, '') || 'overview';
 }
 
 const mobileSaveDock = document.getElementById('mobileSaveDock');
@@ -1722,7 +1736,10 @@ document.getElementById('refreshDiscordAccess').addEventListener('click', () => 
 function applyTabNames(names) {
     for (const button of tabButtons) {
         const name = typeof names?.[button.dataset.tab] === 'string' ? names[button.dataset.tab].trim() : '';
-        button.textContent = name || defaultTabLabels[button.dataset.tab];
+        const label = name || defaultTabLabels[button.dataset.tab];
+        const persistentChildren = [...button.children].filter(child => child.matches('.nav-count'));
+        if (persistentChildren.length) button.replaceChildren(document.createTextNode(`${label} `), ...persistentChildren);
+        else button.textContent = label;
         const panel = document.getElementById(`tab-${button.dataset.tab}`);
         const heading = panel?.querySelector(':scope > h2');
         const textNode = Array.from(heading?.childNodes || []).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
@@ -1816,9 +1833,27 @@ async function loadPublicCommands() {
 
 async function loadPublicStatus() {
     const data = await api('/api/public/status');
-    document.getElementById('publicStatusUpdated').textContent = data.lastLiveUpdateAt
-        ? formatDateTime(data.lastLiveUpdateAt)
-        : 'No live update has been recorded yet.';
+    const operational = data.overall === 'operational';
+    document.getElementById('publicStatusOverview').innerHTML = `<div class="public-status-summary-row"><span class="public-status-dot" aria-hidden="true"></span><div><strong>${operational ? 'All systems operational' : 'Some services need attention'}</strong><p>${operational ? 'Flummi is available and connected.' : 'One or more live checks are not fully operational.'}</p></div></div>`;
+    document.getElementById('publicStatusOverview').classList.toggle('degraded', !operational);
+    const componentDetail = component => {
+        if (component.key === 'bot') return uiText(component.status === 'operational' ? 'Connected and ready for Discord events.' : 'The Discord connection is still starting.');
+        if (component.key === 'dashboard') return uiText('The website and public API are responding.');
+        if (component.key === 'gateway') return component.status === 'operational'
+            ? `${uiText('Connected')}${Number.isFinite(component.latencyMs) ? ` - ${component.latencyMs} ms ${uiText('latency')}` : ''}.`
+            : uiText('Not connected.');
+        if (component.key === 'servers') return component.status === 'operational'
+            ? `${component.serverCount || 0} ${uiText(component.serverCount === 1 ? 'server connected.' : 'servers connected.')}`
+            : uiText('Server availability cannot be checked yet.');
+        return uiText(component.detail || 'No details available.');
+    };
+    document.getElementById('publicStatusComponents').innerHTML = (data.components || []).map(component => `
+        <article class="public-status-row ${escapeHtml(component.status || 'degraded')}">
+            <span class="public-status-dot" aria-hidden="true"></span>
+            <div><strong>${escapeHtml(uiText(component.label))}</strong><span class="public-status-detail">${escapeHtml(componentDetail(component))}</span></div>
+            <span class="badge ${component.status === 'operational' ? 'ok' : 'warn'}">${escapeHtml(uiText(component.status === 'operational' ? 'Operational' : 'Degraded'))}</span>
+        </article>`).join('');
+    document.getElementById('publicStatusUpdated').textContent = `${uiText('Last checked')} ${formatDateTime(data.checkedAt)} - ${uiText('Last live update')} ${data.lastLiveUpdateAt ? formatDateTime(data.lastLiveUpdateAt) : uiText('not recorded yet')}`;
     const container = document.getElementById('publicIncidentHistory');
     const incidents = data.incidents || [];
     container.innerHTML = incidents.length ? `<h2>Incident history</h2>${incidents.map(incident => `<article class="public-incident"><span class="badge ${incident.status === 'resolved' ? 'ok' : 'warn'}">${escapeHtml(incident.status)}</span><div><strong>${escapeHtml(incident.title)}</strong><p>${escapeHtml(incident.message || 'No additional details.')}</p><small>${escapeHtml(formatDateTime(incident.createdAt))}${incident.resolvedAt ? ` · Resolved ${escapeHtml(formatDateTime(incident.resolvedAt))}` : ''}</small></div></article>`).join('')}` : '<p class="sub">No public incidents have been recorded.</p>';
@@ -1901,8 +1936,6 @@ async function loadNotifications() {
     const query = document.getElementById('notificationSearch').value.trim();
     const data = await api(withGuild(`/api/notifications${query ? `&q=${encodeURIComponent(query)}` : ''}`));
     renderNotificationList(data.notifications || []);
-    const badge = document.getElementById('notificationNavBadge');
-    badge.textContent = String(data.unread || 0); badge.hidden = !data.unread;
 }
 
 async function searchOperations() {
@@ -2081,6 +2114,7 @@ async function openDashboard(guildId, tab = null) {
     guildSelect.value = String(guildId || state.guilds[0]?.id || '');
     state.guildId = guildSelect.value || null;
     if (!state.guildId) return;
+    delete document.getElementById('dashboardLayout').dataset.accountArea;
     delete document.getElementById('dashboardLayout').dataset.accountOnly;
     if (String(previousGuildId || '') !== String(state.guildId)) {
         state.management = null;
@@ -2104,20 +2138,31 @@ async function openDashboard(guildId, tab = null) {
 
 async function openAccountArea(tab = 'account-profile') {
     const destination = tab === 'notifications' ? 'notifications' : 'account-profile';
-    const guildId = state.guildId || localStorage.getItem('flummi.guildId') || state.guilds[0]?.id;
-    if (guildId && state.guilds.some(guild => String(guild.id) === String(guildId))) {
-        await openDashboard(guildId, destination);
-        return;
+    fillGuildSelect(state.guilds);
+    const preferredGuildId = state.guildId || localStorage.getItem('flummi.guildId') || state.guilds[0]?.id;
+    const guildId = state.guilds.find(guild => String(guild.id) === String(preferredGuildId))?.id || null;
+    state.guildId = guildId ? String(guildId) : null;
+    if (state.guildId) {
+        guildSelect.value = state.guildId;
+        state.role = state.guildRoles.get(state.guildId) || state.role;
+        localStorage.setItem('flummi.guildId', state.guildId);
     }
-    state.guildId = null;
+    applyAccessVisibility();
     document.getElementById('homeShell').hidden = true;
     const dashboard = document.getElementById('dashboardLayout');
     dashboard.hidden = false;
-    dashboard.dataset.accountOnly = 'true';
+    dashboard.dataset.accountArea = 'true';
+    if (state.guildId) delete dashboard.dataset.accountOnly;
+    else dashboard.dataset.accountOnly = 'true';
+    tabButtons.forEach(button => button.classList.remove('active'));
+    tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `tab-${destination}`));
+    updateMobileSaveDock();
     document.title = `${uiText(destination === 'notifications' ? 'Notifications' : 'Profile & account')} - Flummi`;
-    const button = tabButtons.find(candidate => candidate.dataset.tab === destination);
-    button?.click();
     history.replaceState(null, '', `/?account=${destination === 'notifications' ? 'notifications' : 'profile'}`);
+    const loader = tabLoaders[destination];
+    if (loader) await loader();
+    clearPageNotice();
+    lastAutoRefreshAt = Date.now();
 }
 
 document.querySelector('#dashboardLayout .brand')?.addEventListener('click', event => {

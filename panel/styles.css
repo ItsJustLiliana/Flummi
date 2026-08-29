@@ -262,10 +262,10 @@ body {
     border-bottom: 0;
 }
 
-#dashboardLayout[data-account-only="true"] .tabs > :not([data-account-nav]),
-#dashboardLayout[data-account-only="true"] .dashboard-search-shell,
-#dashboardLayout[data-account-only="true"] .sidebar-actions,
-#dashboardLayout[data-account-only="true"] #tab-notifications [data-admin-only] {
+#dashboardLayout[data-account-area="true"] .tabs,
+#dashboardLayout[data-account-area="true"] .dashboard-search-shell,
+#dashboardLayout[data-account-area="true"] .sidebar-actions,
+#dashboardLayout[data-account-area="true"] #tab-notifications [data-admin-only] {
     display: none !important;
 }
 
@@ -3415,11 +3415,15 @@ code {
 
 .home-account-card {
     gap: 9px;
-    padding: 5px 5px 5px 7px;
+    padding: 5px 11px 5px 7px;
     border: 1px solid rgba(102, 130, 190, .2);
     border-radius: 14px;
     background: rgba(17, 26, 51, .74);
     box-shadow: 0 12px 30px rgba(0, 0, 0, .18);
+}
+
+.home-account-card .account-menu-chevron {
+    margin-right: 2px;
 }
 
 .home-account img {
@@ -3982,6 +3986,34 @@ code {
     font-weight: 800;
 }
 
+.public-status-overview {
+    margin-bottom: 14px;
+}
+
+.public-status-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.public-status-summary-row .public-status-dot {
+    flex: 0 0 auto;
+}
+
+.public-status-summary-row strong {
+    font-size: 18px;
+}
+
+.public-status-summary-row p {
+    margin: 3px 0 0;
+    color: var(--muted);
+}
+
+.public-status-overview.degraded .public-status-dot {
+    background: var(--danger);
+    box-shadow: 0 0 0 4px rgba(255, 77, 109, .1);
+}
+
 .public-status-list {
     display: grid;
     gap: 10px;
@@ -4021,6 +4053,7 @@ code {
 }
 
 .public-status-detail {
+    display: block;
     color: var(--muted);
     font-size: 13px;
 }
@@ -4028,6 +4061,18 @@ code {
 .public-status-checked {
     margin-top: 13px;
     font-size: 12px;
+}
+
+@media (max-width: 600px) {
+    .public-status-row {
+        grid-template-columns: 12px minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .public-status-row .badge {
+        grid-column: 2;
+        justify-self: start;
+    }
 }
 
 .developer-command-bar {

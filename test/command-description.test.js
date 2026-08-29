@@ -27,6 +27,7 @@ test('deployment descriptions reflect top-level and subcommand access', () => {
     const resolver = (_name, subcommand) => subcommand === 'role' ? 'developer' : 'admin';
     const payload = commandPayloadWithAccessDescriptions(command, resolver);
 
+    assert.equal(payload.dm_permission, false);
     assert.equal(payload.description, 'Manage members (admin only)');
     assert.equal(payload.options[0].description, 'Edit permissions (admin only)');
     assert.equal(payload.options[1].description, 'Edit roles (developer only)');

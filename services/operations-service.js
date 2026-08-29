@@ -282,8 +282,14 @@ async function processOperations(client) {
         if (management.modules.engagement && management.engagement.reminders) {
             for (const reminder of operationsStore.dueReminders(guild.id)) {
                 const channel = guild.channels.cache.get(reminder.channelId) || await guild.channels.fetch(reminder.channelId).catch(() => null);
-                if (channel?.isTextBased()) await channel.send({ content: `<@${reminder.userId}> reminder: ${reminder.message}`, allowedMentions: { users: [reminder.userId] } }).catch(() => {});
-                operationsStore.updateReminder(guild.id, reminder.id, { status: 'sent', sentAt: new Date().toISOString() });
+                const delivered = channel?.isTextBased()
+                    ? await channel.send({ content: `<@${reminder.userId}> reminder: ${reminder.message}`, allowedMentions: { users: [reminder.userId] } }).then(() => true).catch(() => false)
+                    : false;
+                const attemptedAt = new Date().toISOString();
+                const attempts = (Number(reminder.attempts) || 0) + 1;
+                operationsStore.updateReminder(guild.id, reminder.id, delivered
+                    ? { status: 'sent', sentAt: attemptedAt, attempts, lastError: null }
+                    : { status: attempts >= 5 ? 'failed' : 'pending', attempts, lastAttemptAt: attemptedAt, lastError: 'Discord could not deliver the reminder.' });
             }
         }
         if (management.modules.engagement && management.engagement.giveaways) {
@@ -302,8 +308,14 @@ async function processOperations(client) {
             const temporaryRoles = operationsStore.readState(guild.id).temporaryRoles.filter(entry => entry.status === 'open' && new Date(entry.removeAt).getTime() <= Date.now());
             for (const assignment of temporaryRoles) {
                 const member = guild.members.cache.get(assignment.userId) || await guild.members.fetch(assignment.userId).catch(() => null);
-                if (member) await member.roles.remove(assignment.roleId, 'Temporary role expired').catch(() => {});
-                operationsStore.updateTemporaryRole(guild.id, assignment.id, { status: 'expired', removedAt: new Date().toISOString() });
+                if (!member) {
+                    operationsStore.updateTemporaryRole(guild.id, assignment.id, { status: 'expired', removedAt: new Date().toISOString(), lastError: null });
+                    continue;
+                }
+                const removed = await member.roles.remove(assignment.roleId, 'Temporary role expired').then(() => true).catch(() => false);
+                operationsStore.updateTemporaryRole(guild.id, assignment.id, removed
+                    ? { status: 'expired', removedAt: new Date().toISOString(), lastError: null }
+                    : { status: 'open', lastAttemptAt: new Date().toISOString(), lastError: 'Discord could not remove the temporary role.' });
             }
         }
         if (management.modules.engagement && management.engagement.feeds) {
@@ -318,7 +330,8 @@ async function processOperations(client) {
                     const item = newestFeedItem((await response.text()).slice(0, 2 * 1024 * 1024));
                     if (item && feed.lastItemUrl && item.url !== feed.lastItemUrl) {
                         const channel = guild.channels.cache.get(feed.channelId) || await guild.channels.fetch(feed.channelId).catch(() => null);
-                        if (channel?.isTextBased()) await channel.send({ content: `**${feed.name}** published **${item.title}**\n${item.url}`, allowedMentions: { parse: [] } }).catch(() => {});
+                        if (!channel?.isTextBased()) throw new Error('The configured feed channel is unavailable.');
+                        await channel.send({ content: `**${feed.name}** published **${item.title}**\n${item.url}`, allowedMentions: { parse: [] } });
                     }
                     operationsStore.updateFeed(guild.id, feed.id, { lastItemUrl: item?.url || feed.lastItemUrl, lastCheckedAt: new Date().toISOString(), lastError: null });
                 } catch (error) {

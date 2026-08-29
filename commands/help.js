@@ -78,6 +78,75 @@ function getConfiguredCommandRows(client) {
         .filter(Boolean);
 }
 
+function getRegisteredCommandRows(client, guildId) {
+    const rows = [];
+
+    for (const command of client.commands.values()) {
+        if (Array.isArray(command.allowedGuildIds) && !command.allowedGuildIds.includes(guildId)) continue;
+
+        const commandJson = command.data?.toJSON?.();
+        if (!commandJson?.name) continue;
+        const containers = (commandJson.options || []).filter(option => option.type === 1 || option.type === 2);
+
+        if (!containers.length) {
+            const requiredRole = getRequiredCommandRole(commandJson.name, null, command);
+            rows.push({
+                pathKey: commandJson.name,
+                command,
+                requiredRole,
+                label: `\`/${commandJson.name}\``
+            });
+            continue;
+        }
+
+        for (const container of containers) {
+            const subcommands = container.type === 2
+                ? (container.options || []).filter(option => option.type === 1)
+                : [container];
+
+            for (const subcommand of subcommands) {
+                const groupName = container.type === 2 ? container.name : null;
+                const requiredRole = getRequiredCommandRole(commandJson.name, subcommand.name, command, groupName);
+                const pathKey = [commandJson.name, groupName, subcommand.name].filter(Boolean).join('.');
+                const displayPath = [commandJson.name, groupName, subcommand.name].filter(Boolean).join(' ');
+                rows.push({
+                    pathKey,
+                    command,
+                    requiredRole,
+                    label: `\`/${displayPath}\``
+                });
+            }
+        }
+    }
+
+    const roleRank = { member: 0, admin: 1, developer: 2 };
+    return rows.sort((left, right) =>
+        roleRank[left.requiredRole] - roleRank[right.requiredRole] || left.pathKey.localeCompare(right.pathKey)
+    );
+}
+
+function addCommandFields(embed, title, rows) {
+    const chunks = [];
+    let current = '';
+
+    for (const row of rows) {
+        const line = row.label;
+        if (current && current.length + line.length + 1 > 1000) {
+            chunks.push(current);
+            current = '';
+        }
+        current += `${current ? '\n' : ''}${line}`;
+    }
+    if (current) chunks.push(current);
+    if (!chunks.length) chunks.push('No commands.');
+
+    chunks.forEach((value, index) => embed.addFields({
+        name: index ? `${title} (continued)` : title,
+        value,
+        inline: false
+    }));
+}
+
 const COMMAND_CATALOG = [
     { path: 'help', label: '/help', description: 'Shows the commands available to you.' },
     { path: 'ping', label: '/ping', description: 'Checks whether Flummi is online.' },
@@ -129,6 +198,7 @@ function getCatalogCommandRows(client, guildId) {
 
 module.exports = {
     getConfiguredCommandRows,
+    getRegisteredCommandRows,
 
     data: new SlashCommandBuilder()
         .setName('help')
@@ -156,19 +226,7 @@ module.exports = {
                 ? 'You can use member commands and admin-only commands.'
                 : 'You can use member commands.';
 
-        const commandRows = getCatalogCommandRows(interaction.client, guildId);
-
-        const memberCommands = commandRows
-            .filter(row => row.requiredRole === 'member')
-            .map(row => row.label);
-
-        const adminCommands = commandRows
-            .filter(row => row.requiredRole === 'admin')
-            .map(row => row.label);
-
-        const developerCommands = commandRows
-            .filter(row => row.requiredRole === 'developer')
-            .map(row => row.label);
+        const commandRows = getRegisteredCommandRows(interaction.client, guildId);
 
         const embed = createCommandEmbed(interaction, {
             title: 'Command Guide',
@@ -183,27 +241,15 @@ module.exports = {
             .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }));
 
         if (roleMeetsRequirement(userRole, 'member')) {
-            embed.addFields({
-                name: 'Member Commands',
-                value: memberCommands.join('\n') || 'No member commands.',
-                inline: false
-            });
+            addCommandFields(embed, 'Member Commands', commandRows.filter(row => row.requiredRole === 'member'));
         }
 
         if (admin) {
-            embed.addFields({
-                name: 'Admin Commands',
-                value: adminCommands.join('\n') || 'No admin commands.',
-                inline: false
-            });
+            addCommandFields(embed, 'Admin Commands', commandRows.filter(row => row.requiredRole === 'admin'));
         }
 
         if (developer) {
-            embed.addFields({
-                name: 'Developer Commands',
-                value: developerCommands.join('\n') || 'No developer commands.',
-                inline: false
-            });
+            addCommandFields(embed, 'Developer Commands', commandRows.filter(row => row.requiredRole === 'developer'));
         }
 
         await interaction.reply({

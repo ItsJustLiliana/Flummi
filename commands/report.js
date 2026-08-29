@@ -6,6 +6,7 @@ const { getDeveloperUserIds, isConfiguredDeveloper } = require('../stores/access
 const statuses = ['received', 'acknowledged', 'investigating', 'resolved', 'dismissed'];
 module.exports = {
     public: true,
+    developerSubcommands: ['update'],
     data: new SlashCommandBuilder().setName('report').setDescription('Report abuse, safety, privacy, or policy issues involving Flummi')
         .addSubcommand(command => command.setName('submit').setDescription('Privately submit a report to the Flummi maintainers')
             .addStringOption(option => option.setName('category').setDescription('Issue category').setRequired(true).addChoices(

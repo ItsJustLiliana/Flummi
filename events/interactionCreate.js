@@ -163,6 +163,21 @@ module.exports = {
             return;
         }
 
+        if (interaction.isAutocomplete?.()) {
+            const command = interaction.client.commands.get(interaction.commandName);
+            if (!interaction.guildId || typeof command?.autocomplete !== 'function') {
+                await interaction.respond([]).catch(() => {});
+                return;
+            }
+            try {
+                await command.autocomplete(interaction);
+            } catch (error) {
+                console.warn(`Autocomplete failed for /${interaction.commandName}: ${error.message}`);
+                await interaction.respond([]).catch(() => {});
+            }
+            return;
+        }
+
         if (!interaction.isChatInputCommand()) return;
 
         if (!interaction.guildId) {

@@ -185,10 +185,6 @@ function getCommandPath(interaction) {
 }
 
 function getRequiredCommandRole(commandName, subcommandName, commandDefinition, subcommandGroupName = null) {
-    if (commandDefinition?.public) {
-        return 'member';
-    }
-
     const permissions = config.commandPermissions || {};
     const commandKey = String(commandName || '');
     const groupKey = subcommandGroupName ? `${commandKey}.${subcommandGroupName}` : null;
@@ -206,15 +202,24 @@ function getRequiredCommandRole(commandName, subcommandName, commandDefinition, 
         return normalizeRole(permissions[groupKey]);
     }
 
-    if (permissions[commandKey]) {
-        return normalizeRole(permissions[commandKey]);
-    }
-
     const subcommandPath = subcommandName
         ? subcommandGroupName ? `${subcommandGroupName}.${subcommandName}` : subcommandName
         : null;
+    if (subcommandPath && commandDefinition?.developerSubcommands?.includes(subcommandPath)) {
+        return 'developer';
+    }
     if (subcommandPath && commandDefinition?.adminSubcommands?.includes(subcommandPath)) {
         return 'admin';
+    }
+
+    // Public commands stay usable by members by default, while exact subcommand
+    // rules above may still protect staff-only actions.
+    if (commandDefinition?.public) {
+        return 'member';
+    }
+
+    if (permissions[commandKey]) {
+        return normalizeRole(permissions[commandKey]);
     }
 
     if (commandDefinition?.devOnly) {

@@ -5,6 +5,7 @@ const path = require('path');
 const operations = require('../stores/operations-store');
 const { newestFeedItem, isPrivateAddress } = require('../services/operations-service');
 const { writeSettings } = require('../stores/settings-store');
+const operationsService = fs.readFileSync(path.join(__dirname, '..', 'services', 'operations-service.js'), 'utf8');
 
 function cleanup(guildId) {
     fs.rmSync(path.join(__dirname, '..', 'data', 'guilds', guildId), { recursive: true, force: true });
@@ -75,4 +76,10 @@ test('new workflows stay grouped and are represented in dashboard and developer 
     const panelScript = fs.readFileSync(path.join(__dirname, '..', 'panel', 'app.js'), 'utf8');
     assert.match(panelScript, /api\/developer\/stats/);
     assert.match(panelScript, /activeServers/);
+});
+
+test('scheduled deliveries only advance after Discord confirms the action', () => {
+    assert.match(operationsService, /const delivered = channel\?\.isTextBased\(\)[\s\S]*?status: attempts >= 5 \? 'failed' : 'pending'/);
+    assert.match(operationsService, /const removed = await member\.roles\.remove[\s\S]*?status: 'open'.*lastError/);
+    assert.match(operationsService, /if \(!channel\?\.isTextBased\(\)\) throw new Error\('The configured feed channel is unavailable\.'\)/);
 });

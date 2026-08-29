@@ -14,7 +14,7 @@ function buildCommand() {
         .addSubcommand(c => c.setName('tag').setDescription('Add or remove a tag').addStringOption(o => o.setName('name').setDescription('Tag').setRequired(true).setMaxLength(30)).addBooleanOption(o => o.setName('remove').setDescription('Remove this tag')))
         .addSubcommand(c => c.setName('note').setDescription('Add a private staff note').addStringOption(o => o.setName('text').setDescription('Internal note').setRequired(true).setMaxLength(1000)))
         .addSubcommand(c => c.setName('status').setDescription('Set helpdesk status').addStringOption(o => o.setName('state').setDescription('Status').setRequired(true).addChoices({ name: 'Open', value: 'open' }, { name: 'Waiting for user', value: 'waiting-user' }, { name: 'Escalated', value: 'escalated' })))
-        .addSubcommand(c => c.setName('transfer').setDescription('Transfer to a support team').addStringOption(o => o.setName('team').setDescription('Configured team ID').setRequired(true)))
+        .addSubcommand(c => c.setName('transfer').setDescription('Transfer to a support team').addStringOption(o => o.setName('team').setDescription('Choose an available support team').setRequired(true).setAutocomplete(true)))
         .addSubcommand(c => c.setName('reopen').setDescription('Re-open a closed ticket'))
         .addSubcommand(c => c.setName('close').setDescription('Close and archive this ticket').addStringOption(o => o.setName('reason').setDescription('Closing reason').setMaxLength(500)));
 }
@@ -34,6 +34,16 @@ async function publishTranscript(interaction, ticket, config) {
 module.exports = {
     adminSubcommands: ['claim', 'assign', 'priority', 'tag', 'note', 'status', 'transfer', 'reopen'],
     data: buildCommand(),
+    async autocomplete(interaction) {
+        if (!isAdmin(interaction.user.id, interaction.guildId, interaction.memberPermissions)) return interaction.respond([]);
+        const query = String(interaction.options.getFocused() || '').trim().toLowerCase();
+        const config = moduleConfig(interaction.guildId, 'tickets');
+        const choices = (config?.supportTeams || [])
+            .filter(team => !query || team.name.toLowerCase().includes(query))
+            .slice(0, 25)
+            .map(team => ({ name: team.name.slice(0, 100), value: team.id }));
+        return interaction.respond(choices);
+    },
     async execute(interaction) {
         const action = interaction.options.getSubcommand();
         try {
@@ -92,7 +102,7 @@ module.exports = {
             if (action === 'transfer') {
                 const config = moduleConfig(interaction.guildId, 'tickets');
                 const team = config.supportTeams.find(entry => entry.id === interaction.options.getString('team', true));
-                if (!team) throw new Error('Unknown support-team ID. Configure it in the dashboard first.');
+                if (!team) throw new Error('That support team is no longer available. Choose another team.');
                 store.updateTicket(interaction.guildId, ticket.id, { teamId: team.id, transferredAt: new Date().toISOString(), transferredBy: interaction.user.id });
                 if (team.categoryId) await interaction.channel.setParent(team.categoryId, { lockPermissions: false }).catch(() => {});
                 if (team.roleId) await interaction.channel.permissionOverwrites.edit(team.roleId, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true }).catch(() => {});

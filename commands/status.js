@@ -63,6 +63,14 @@ module.exports = {
         const developer = isDeveloper(interaction.user.id);
         const admin = isAdmin(interaction.user.id, guildId, interaction.memberPermissions);
         const role = getUserRole(interaction.user.id, guildId, interaction.memberPermissions);
+        const discordConnected = interaction.client.isReady();
+        const gatewayLatency = Number.isFinite(interaction.client.ws.ping)
+            ? Math.max(0, Math.round(interaction.client.ws.ping))
+            : null;
+        const serverName = interaction.guild?.name || 'Current server';
+        const memberCount = Number.isFinite(interaction.guild?.memberCount)
+            ? interaction.guild.memberCount.toLocaleString('en-US')
+            : 'Unknown';
         const base = [botRunningCheck(settings)];
         const triggerChecks = [
             ...base,
@@ -87,7 +95,20 @@ module.exports = {
             footer: 'Flummi • Live configuration status'
         })
             .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }))
-            .addFields({ name: 'Your role', value: role[0].toUpperCase() + role.slice(1), inline: true })
+            .addFields(
+                { name: 'Your role', value: role[0].toUpperCase() + role.slice(1), inline: true },
+                { name: 'Server', value: serverName, inline: true },
+                {
+                    name: 'Server status',
+                    value: [
+                        `${settings.botEnabled !== false ? '🟢' : '🔴'} **Flummi** — ${settings.botEnabled !== false ? 'Enabled' : 'Paused for this server'}`,
+                        `${discordConnected ? '🟢' : '🔴'} **Discord connection** — ${discordConnected ? 'Connected' : 'Connecting'}`,
+                        `📡 **Gateway latency** — ${gatewayLatency === null ? 'Unavailable' : `${gatewayLatency} ms`}`,
+                        `👥 **Members** — ${memberCount}`
+                    ].join('\n'),
+                    inline: false
+                }
+            )
             .addFields({ name: 'Member features', value: memberFeatures.join('\n\n'), inline: false });
 
         if (admin) {

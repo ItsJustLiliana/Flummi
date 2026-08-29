@@ -21,7 +21,6 @@ config.commandPermissions = { ...(config.commandPermissions || {}), dashboard: '
 const settingsStore = require('./stores/settings-store');
 const accessStore = require('./stores/access-store');
 config.commandPermissions = Object.fromEntries(Object.entries(config.commandPermissions).map(([commandPath, role]) => [commandPath, accessStore.normalizeRole(role)]));
-delete config.commandPermissions['manage.role'];
 accessStore.setCommandPermissions(config.commandPermissions);
 const triggerStore = require('./stores/trigger-store');
 const voiceStore = require('./stores/voice-store');
@@ -229,8 +228,44 @@ function buildPublicStatus() {
     let updateStatus = {};
     try { updateStatus = JSON.parse(fs.readFileSync(updateStatusFilePath, 'utf8')); } catch { /* no live promotion recorded yet */ }
     const release = buildReleaseStatus();
+    const discordReady = client.isReady();
+    const gatewayPing = Number.isFinite(client.ws.ping) ? Math.max(0, Math.round(client.ws.ping)) : null;
+    const connectedServers = client.guilds.cache.size;
+    const components = [
+        {
+            key: 'bot',
+            label: 'Flummi bot',
+            status: discordReady ? 'operational' : 'degraded',
+            detail: discordReady ? 'Connected and ready for Discord events.' : 'The Discord connection is still starting.'
+        },
+        {
+            key: 'dashboard',
+            label: 'Dashboard and API',
+            status: 'operational',
+            detail: 'The website and public API are responding.'
+        },
+        {
+            key: 'gateway',
+            label: 'Discord gateway',
+            status: discordReady ? 'operational' : 'degraded',
+            latencyMs: gatewayPing,
+            detail: discordReady
+                ? `Connected${gatewayPing === null ? '' : ` - ${gatewayPing} ms latency`}.`
+                : 'Not connected.'
+        },
+        {
+            key: 'servers',
+            label: 'Discord servers',
+            status: discordReady ? 'operational' : 'degraded',
+            serverCount: connectedServers,
+            detail: discordReady ? `${connectedServers} ${connectedServers === 1 ? 'server' : 'servers'} connected.` : 'Server availability cannot be checked yet.'
+        }
+    ];
     return {
         lastLiveUpdateAt: updateStatus.lastPromotedAt || release.live?.promotedAt || release.live?.committedAt || null,
+        checkedAt: new Date().toISOString(),
+        overall: components.every(component => component.status === 'operational') ? 'operational' : 'degraded',
+        components,
         incidents: publicIncidentStore.readIncidents().map(({ id, title, message, status, createdAt, resolvedAt }) => ({ id, title, message, status, createdAt, resolvedAt }))
     };
 }
@@ -3165,7 +3200,6 @@ function createServer() {
                 if (parsed.ai?.imageSearch) updates.ai = { ...(updates.ai || config.ai), imageSearch: { ...(config.ai?.imageSearch || {}), ...parsed.ai.imageSearch } };
                 Object.assign(config, updates);
                 config.commandPermissions = Object.fromEntries(Object.entries({ ...(config.commandPermissions || {}), dashboard: 'member' }).map(([commandPath, role]) => [commandPath, accessStore.normalizeRole(role)]));
-                delete config.commandPermissions['manage.role'];
                 accessStore.setCommandPermissions(config.commandPermissions);
                 saveConfig(config);
                 if (updates.presence) {

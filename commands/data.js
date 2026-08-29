@@ -24,6 +24,7 @@ function collect(interaction) {
 
 module.exports = {
     public: true,
+    developerSubcommands: ['correction-update'],
     data: new SlashCommandBuilder().setName('data').setDescription('View or export your stored Flummi data')
         .addSubcommand(command => command.setName('view').setDescription('Show a private summary of your data'))
         .addSubcommand(command => command.setName('export').setDescription('Download your data as JSON'))

@@ -17,6 +17,9 @@ function appendAccessSuffix(description, requiredRole, maxLength = MAX_COMMAND_D
 
 function commandPayloadWithAccessDescriptions(command, getRequiredCommandRole) {
     const payload = command.data.toJSON();
+    // Every built-in interaction is guild-scoped. Centralizing this prevents a
+    // newly added command from accidentally appearing in Discord DMs.
+    payload.dm_permission = false;
     payload.description = appendAccessSuffix(
         payload.description,
         getRequiredCommandRole(payload.name, null, command)

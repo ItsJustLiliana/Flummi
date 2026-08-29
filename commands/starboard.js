@@ -9,6 +9,7 @@ module.exports = {
         const config = moduleConfig(interaction.guildId, 'starboard');
         if (!config) return interaction.reply({ content: 'Starboard is not enabled in this server.', flags: MessageFlags.Ephemeral });
         const count = Object.keys(store.readState(interaction.guildId).starboard).length;
-        return interaction.reply({ content: `${config.emoji} Messages reach <#${config.channelId || '0'}> at **${config.threshold}** reactions. **${count}** message(s) have been featured.`, flags: MessageFlags.Ephemeral });
+        const destination = config.channelId ? `<#${config.channelId}>` : '**no channel selected**';
+        return interaction.reply({ content: `${config.emoji} Messages reach ${destination} at **${config.threshold}** reactions. **${count}** message(s) have been featured.`, flags: MessageFlags.Ephemeral });
     }
 };

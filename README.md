@@ -19,7 +19,7 @@ The control-panel server also hosts Flummi's public website. These routes do not
 
 - `/` — landing page and shared-server chooser
 - `/commands` — current slash-command catalogue and access requirements
-- `/status` — last live update date and time
+- `/status` — live bot, dashboard/API, Discord gateway, connected-server, incident, and release-update status
 - `/support` — authenticated support form
 - `/feedback` — authenticated product-feedback form
 - `/terms` and `/privacy` — Discord Developer Portal policy URLs
@@ -35,8 +35,7 @@ Support and feedback submissions require Discord sign-in so the requester can be
 - **Stats & Analytics:** selectable 1/7/30/90-day UTC date ranges or all-time views, hourly charts for a selected day, message and voice charts, heatmaps, member/channel filtering, comparison periods, media usage, and administrator-only moderation totals.
 - **Triggers:** create and audit text or image responses, limits, cooldowns, imports, and exports.
 - **Members & Permissions:** inspect members and configure per-user command and feature overrides. Discord server administrators automatically receive dashboard admin access.
-- **Notifications:** account-addressed updates with unread state and administrator search across cases, reports, tickets, incidents, suggestions, and dashboard activity.
-- **Profile & account:** one account menu and profile page for the Flummi profile, private AI consent, personal AI memory controls, notifications, dashboard defaults, and accessibility preferences. These controls remain available without a shared server and follow the signed-in Discord account across servers.
+- **Profile & account:** a separate account menu and personal workspace for the Flummi profile, private AI consent, AI memory controls, notifications, dashboard defaults, and accessibility preferences. It is not mixed into the server tab list, remains available without a shared server, and follows the signed-in Discord account across servers.
 - **Profiles and AI memory:** inspect user-supplied profiles and permitted AI conversation memory.
 - **Settings:** guild bot settings, feature switches, configurable navigation, retention, backups, storage inspection, and targeted data-reset tools.
 - **Messenger and saved pings:** publish through the bot and inspect explicitly saved ping requests.

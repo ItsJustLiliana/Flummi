@@ -100,7 +100,10 @@ test('personal account settings are centralised and remain available without a s
     }
     assert.match(panelServer, /pathname === '\/api\/account\/ai-memory'[\s\S]*?getUserConversationSummary\(panelSession\.userId\)[\s\S]*?clearUserHistory\(panelSession\.userId\)/);
     assert.match(panelScript, /async function openAccountArea[\s\S]*?dashboard\.dataset\.accountOnly = 'true'[\s\S]*?\?account=/);
-    assert.match(panelStyles, /#dashboardLayout\[data-account-only="true"\][\s\S]*?\[data-account-nav\]/);
+    assert.doesNotMatch(panelMarkup, /class="tab-btn"[^>]*data-tab="(?:notifications|account-profile)"/);
+    assert.match(panelStyles, /#dashboardLayout\[data-account-area="true"\] \.tabs/);
+    assert.match(panelScript, /tabPanels\.forEach\(panel => panel\.classList\.toggle\('active', panel\.id === `tab-\$\{destination\}`\)\)/);
+    assert.match(panelScript, /persistentChildren = \[\.\.\.button\.children\]\.filter\(child => child\.matches\('\.nav-count'\)\)[\s\S]*?button\.replaceChildren/);
 });
 
 test('expanded nested navigation scrolls without shrinking the Flummi brand', () => {
@@ -120,7 +123,9 @@ test('commands and status are public home pages backed by unauthenticated APIs',
     assert.match(panelServer, /function buildPublicStatus\(\)/);
     assert.match(panelServer, /lastLiveUpdateAt: updateStatus\.lastPromotedAt/);
     assert.match(panelMarkup, /id="publicStatusUpdated"/);
-    assert.doesNotMatch(panelMarkup, /id="publicStatusList"|id="refreshPublicStatus"/);
+    assert.match(panelMarkup, /id="publicStatusComponents"/);
+    assert.match(panelServer, /components\.every\(component => component\.status === 'operational'\)/);
+    assert.doesNotMatch(panelMarkup, /id="refreshPublicStatus"/);
     assert.match(panelScript, /const publicViews = new Set\(homeViewNames\)/);
 
     const publicCommandsRoute = panelServer.indexOf("requestUrl.pathname === '/api/public/commands'");

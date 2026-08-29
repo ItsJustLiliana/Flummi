@@ -445,14 +445,16 @@ test('landing, developer tools, and dashboard adapt to touch screens and tablets
     assert.match(panelStyles, /\.account-menu:not\(\[open\]\) > \.account-menu-popover \{[\s\S]*?display: none;/);
     assert.match(panelStyles, /\.sidebar\.mobile-menu-open \.mobile-sidebar-content \{[\s\S]*?width: min\(360px, calc\(100vw - 44px\)\)/);
     assert.match(panelStyles, /#dashboardLayout \.management-nav-group > \.management-parent \{[\s\S]*?justify-content: center;[\s\S]*?padding-left: 44px;[\s\S]*?text-align: center;/);
-    assert.match(panelStyles, /\.home-nav-links \{[\s\S]*?position: absolute;[\s\S]*?max-height: calc\(100dvh - 92px\)/);
+    assert.match(panelMarkup, /id="homeMobileMenuPanel" class="home-nav-menu"[\s\S]*?id="homeNavigation"[\s\S]*?class="home-account"/);
+    assert.match(panelStyles, /\.home-nav-menu \{[\s\S]*?position: absolute;[\s\S]*?max-height: calc\(100dvh - 92px\)/);
+    assert.match(panelStyles, /\.home-account \{[\s\S]*?width: 100%;[\s\S]*?border-top:/);
     assert.match(panelStyles, /\.home-nav-group > summary \{[\s\S]*?grid-template-columns: 1fr auto 1fr;[\s\S]*?text-align: center/);
     assert.match(panelStyles, /@media \(hover: hover\) and \(min-width: 821px\)[\s\S]*?\.home-nav-group:not\(\[open\]\):hover > \.home-nav-popover/);
     assert.match(panelScript, /homeDesktopNavMedia = window\.matchMedia\('\(hover: hover\) and \(min-width: 821px\)'\)/);
     assert.match(panelScript, /group\.addEventListener\('pointerenter'[\s\S]*?homeNavHoveredGroup = group;[\s\S]*?syncDesktopHomeNav\(\)/);
     assert.match(panelScript, /group\.querySelector\('summary'\)\?\.addEventListener\('click'[\s\S]*?homeNavPinnedGroup = homeNavPinnedGroup === group \? null : group/);
     assert.match(panelScript, /group\.addEventListener\('pointerleave'[\s\S]*?homeNavHoveredGroup = null;[\s\S]*?syncDesktopHomeNav\(\)/);
-    assert.match(panelScript, /homeMobileMenuToggle\.getAttribute\('aria-expanded'\) === 'true'[\s\S]*?!event\.target\.closest\('#homeNavigation'\)[\s\S]*?setHomeMobileMenu\(false\)/);
+    assert.match(panelScript, /homeMobileMenuToggle\.getAttribute\('aria-expanded'\) === 'true'[\s\S]*?!event\.target\.closest\('#homeMobileMenuPanel'\)[\s\S]*?setHomeMobileMenu\(false\)/);
 });
 
 test('sound previews use an edge-to-edge custom progress track', () => {

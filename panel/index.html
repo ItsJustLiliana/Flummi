@@ -19,6 +19,7 @@
             <div class="home-nav-inner">
                 <button class="home-brand" data-home-view="servers" type="button" aria-label="Go to Flummi home"><img src="/assets/branding/flummi.png" alt=""><span>Flummi</span></button>
                 <button id="homeMobileMenuToggle" class="home-mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="homeNavigation"><span class="visually-hidden">Menu</span><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
+                <div id="homeMobileMenuPanel" class="home-nav-menu">
                 <nav id="homeNavigation" class="home-nav-links" aria-label="Main navigation">
                     <button class="home-nav-direct active" data-home-view="servers" type="button">Home</button>
                     <details class="home-nav-group">
@@ -54,6 +55,7 @@
                 <div class="home-account">
                     <div id="homeSignedOut"><a class="home-auth-button" href="/auth/login">Log in with Discord</a></div>
                     <details id="homeSignedIn" class="account-menu home-account-card" hidden><summary><img id="homeAvatar" src="/assets/branding/flummi.png" alt=""><span id="homeUsername" class="account-name"></span><span class="account-menu-chevron" aria-hidden="true"></span></summary><div class="account-menu-popover"><button type="button" data-account-destination="account-profile"><strong>Profile &amp; account</strong><small>Profile, AI, notifications and accessibility</small></button><button type="button" data-account-destination="notifications">Notifications</button><button class="account-menu-logout" type="button" data-account-logout>Log out</button></div></details>
+                </div>
                 </div>
             </div>
         </header>

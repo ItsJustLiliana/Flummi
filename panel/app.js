@@ -2183,6 +2183,7 @@ document.querySelectorAll('[data-home-view]').forEach(button => button.addEventL
 }));
 document.getElementById('homeCommandSearch').addEventListener('input', event => renderPublicCommands(event.target.value));
 const homeMobileMenuToggle = document.getElementById('homeMobileMenuToggle');
+const homeMobileMenuPanel = document.getElementById('homeMobileMenuPanel');
 const homeNavigation = document.getElementById('homeNavigation');
 const homeNavGroups = [...document.querySelectorAll('.home-nav-group')];
 const homeDesktopNavMedia = window.matchMedia('(hover: hover) and (min-width: 821px)');
@@ -2204,6 +2205,7 @@ function syncDesktopHomeNav() {
 function setHomeMobileMenu(open) {
     const expanded = Boolean(open) && window.matchMedia('(max-width: 820px)').matches;
     homeMobileMenuToggle.setAttribute('aria-expanded', String(expanded));
+    homeMobileMenuPanel.classList.toggle('open', expanded);
     homeNavigation.classList.toggle('open', expanded);
     if (!expanded) closeHomeNavGroups();
 }
@@ -2237,7 +2239,7 @@ document.addEventListener('click', event => {
         closeHomeNavGroups();
     }
     if (homeMobileMenuToggle.getAttribute('aria-expanded') === 'true'
-        && !event.target.closest('#homeNavigation')
+        && !event.target.closest('#homeMobileMenuPanel')
         && !event.target.closest('#homeMobileMenuToggle')) {
         setHomeMobileMenu(false);
     }

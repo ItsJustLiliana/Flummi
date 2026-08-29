@@ -3178,6 +3178,10 @@ code {
     min-width: 0;
 }
 
+.home-nav-menu {
+    display: contents;
+}
+
 .home-nav-links > button,
 .home-nav-group > summary {
     width: auto;
@@ -4676,21 +4680,20 @@ code {
 @media (max-width: 820px) {
     .home-nav-inner {
         width: min(100% - 28px, 1280px);
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: 1fr auto;
         gap: 12px;
         padding: 10px 0;
         position: relative;
     }
 
-    .home-nav-links {
+    .home-nav-menu {
         position: absolute;
         z-index: 60;
         top: calc(100% + 8px);
         right: 0;
         left: 0;
         display: none;
-        justify-content: stretch;
-        align-items: stretch;
+        flex-direction: column;
         gap: 4px;
         max-height: calc(100dvh - 92px);
         padding: 8px;
@@ -4700,15 +4703,47 @@ code {
         box-shadow: 0 24px 70px rgba(0, 0, 0, .48);
         overflow-x: hidden;
         overflow-y: auto;
-        flex-direction: column;
+    }
+
+    .home-nav-menu.open { display: flex; }
+
+    .home-nav-links {
+        position: static;
+        display: flex;
+        width: 100%;
+        max-height: none;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+        transform: none;
     }
 
     .home-nav-links.open { display: flex; }
 
-    .home-mobile-menu-toggle { display: block; grid-column: 3; grid-row: 1; }
+    .home-mobile-menu-toggle { display: block; grid-column: 2; grid-row: 1; }
 
-    .home-account { grid-column: 2; grid-row: 1; justify-content: flex-end; }
-    .home-account-card, .home-auth-button { width: auto; }
+    .home-account {
+        width: 100%;
+        padding-top: 8px;
+        justify-content: stretch;
+        border-top: 1px solid rgba(102, 130, 190, .16);
+    }
+
+    .home-account > div,
+    .home-account-card,
+    .home-auth-button { width: 100%; }
+
+    .home-account-card > summary { width: 100%; }
+
+    .home-account .account-menu-popover {
+        position: static;
+        width: 100%;
+        margin-top: 6px;
+        box-shadow: none;
+    }
 
     .home-nav-links {
         overscroll-behavior-x: contain;
@@ -4856,10 +4891,6 @@ code {
 
 @media (max-width: 600px) {
     .home-brand span {
-        display: none;
-    }
-
-    .home-account .account-name {
         display: none;
     }
 
@@ -5059,13 +5090,7 @@ code {
 }
 
 @media (max-width: 380px) {
-    .home-nav-inner { grid-template-columns: 1fr auto; }
-    .home-mobile-menu-toggle { grid-column: 2; }
-    .home-account { grid-column: 1 / -1; grid-row: 2; justify-content: stretch; }
-    .home-account > div { flex: 1; }
-    .home-account-card,
-    .home-auth-button { width: 100%; }
-    .home-nav-links { top: calc(100% + 8px); }
+    .home-nav-menu { top: calc(100% + 8px); }
 }
 
 @media (hover: none) {

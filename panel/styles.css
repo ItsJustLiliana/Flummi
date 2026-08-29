@@ -203,6 +203,10 @@ body {
     box-shadow: 0 18px 50px rgba(0, 0, 0, .42);
 }
 
+.account-menu:not([open]) > .account-menu-popover {
+    display: none;
+}
+
 .account-menu-popover-up {
     inset: auto 0 calc(100% + 8px) 0;
     width: 100%;
@@ -1870,7 +1874,7 @@ th.sortable:hover {
         top: 100%;
         left: 0;
         display: flex;
-        width: 100%;
+        width: min(360px, calc(100vw - 44px));
         height: calc(100vh - 68px);
         height: calc(100dvh - 68px);
         min-height: 0;
@@ -1881,9 +1885,18 @@ th.sortable:hover {
         overscroll-behavior: contain;
         scrollbar-gutter: stable;
         border-top: 1px solid var(--border);
+        border-right: 1px solid var(--border);
         border-bottom: 1px solid var(--border);
+        border-radius: 0 0 16px 0;
         background: linear-gradient(180deg, #101a35, #0b1328);
         box-shadow: 0 18px 40px rgba(0, 0, 0, .42);
+    }
+
+    #dashboardLayout .management-nav-group > .management-parent {
+        justify-content: center;
+        padding-right: 44px;
+        padding-left: 44px;
+        text-align: center;
     }
 
     .sidebar-actions,

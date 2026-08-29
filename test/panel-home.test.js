@@ -442,6 +442,9 @@ test('landing, developer tools, and dashboard adapt to touch screens and tablets
     assert.match(panelHtml, /#dashboardLayout \.brand \{ width: 100%; padding: 0; border-bottom: 0; \}/);
     assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?#dashboardLayout \.tabs \{[\s\S]*?flex-direction: column;/);
     assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?\.developer-tool-nav \{[\s\S]*?flex-direction: column;/);
+    assert.match(panelStyles, /\.account-menu:not\(\[open\]\) > \.account-menu-popover \{[\s\S]*?display: none;/);
+    assert.match(panelStyles, /\.sidebar\.mobile-menu-open \.mobile-sidebar-content \{[\s\S]*?width: min\(360px, calc\(100vw - 44px\)\)/);
+    assert.match(panelStyles, /#dashboardLayout \.management-nav-group > \.management-parent \{[\s\S]*?justify-content: center;[\s\S]*?padding-left: 44px;[\s\S]*?text-align: center;/);
     assert.match(panelStyles, /\.home-nav-links \{[\s\S]*?position: absolute;[\s\S]*?max-height: calc\(100dvh - 92px\)/);
     assert.match(panelStyles, /\.home-nav-group > summary \{[\s\S]*?grid-template-columns: 1fr auto 1fr;[\s\S]*?text-align: center/);
     assert.match(panelStyles, /@media \(hover: hover\) and \(min-width: 821px\)[\s\S]*?\.home-nav-group:not\(\[open\]\):hover > \.home-nav-popover/);

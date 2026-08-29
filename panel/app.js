@@ -2172,16 +2172,33 @@ document.querySelector('#dashboardLayout .brand')?.addEventListener('click', eve
     showHomeView('servers');
 });
 
-document.querySelectorAll('[data-home-view]').forEach(button => button.addEventListener('click', () => showHomeView(button.dataset.homeView)));
+document.querySelectorAll('[data-home-view]').forEach(button => button.addEventListener('click', () => {
+    showHomeView(button.dataset.homeView);
+    if (button.closest('.home-nav-group')) {
+        homeNavPinnedGroup = null;
+        homeNavHoveredGroup = null;
+        closeHomeNavGroups();
+    }
+    setHomeMobileMenu(false);
+}));
 document.getElementById('homeCommandSearch').addEventListener('input', event => renderPublicCommands(event.target.value));
 const homeMobileMenuToggle = document.getElementById('homeMobileMenuToggle');
 const homeNavigation = document.getElementById('homeNavigation');
 const homeNavGroups = [...document.querySelectorAll('.home-nav-group')];
+const homeDesktopNavMedia = window.matchMedia('(hover: hover) and (min-width: 821px)');
+let homeNavPinnedGroup = null;
+let homeNavHoveredGroup = null;
 
 function closeHomeNavGroups(except = null) {
     for (const group of homeNavGroups) {
         if (group !== except) group.removeAttribute('open');
     }
+}
+
+function syncDesktopHomeNav() {
+    if (!homeDesktopNavMedia.matches) return;
+    const visibleGroup = homeNavHoveredGroup || homeNavPinnedGroup;
+    for (const group of homeNavGroups) group.toggleAttribute('open', group === visibleGroup);
 }
 
 function setHomeMobileMenu(open) {
@@ -2193,12 +2210,32 @@ function setHomeMobileMenu(open) {
 
 for (const group of homeNavGroups) {
     group.addEventListener('toggle', () => {
-        if (group.open) closeHomeNavGroups(group);
+        if (!homeDesktopNavMedia.matches && group.open) closeHomeNavGroups(group);
+    });
+    group.addEventListener('pointerenter', () => {
+        if (!homeDesktopNavMedia.matches) return;
+        homeNavHoveredGroup = group;
+        syncDesktopHomeNav();
+    });
+    group.addEventListener('pointerleave', () => {
+        if (!homeDesktopNavMedia.matches || homeNavHoveredGroup !== group) return;
+        homeNavHoveredGroup = null;
+        syncDesktopHomeNav();
+    });
+    group.querySelector('summary')?.addEventListener('click', event => {
+        if (!homeDesktopNavMedia.matches) return;
+        event.preventDefault();
+        homeNavPinnedGroup = homeNavPinnedGroup === group ? null : group;
+        syncDesktopHomeNav();
     });
 }
 
 document.addEventListener('click', event => {
-    if (!event.target.closest('.home-nav-group')) closeHomeNavGroups();
+    if (!event.target.closest('.home-nav-group')) {
+        homeNavPinnedGroup = null;
+        homeNavHoveredGroup = null;
+        closeHomeNavGroups();
+    }
     if (homeMobileMenuToggle.getAttribute('aria-expanded') === 'true'
         && !event.target.closest('#homeNavigation')
         && !event.target.closest('#homeMobileMenuToggle')) {
@@ -2215,12 +2252,19 @@ document.addEventListener('keydown', event => {
     }
     const openGroup = homeNavGroups.find(group => group.open);
     if (!openGroup) return;
+    homeNavPinnedGroup = null;
+    homeNavHoveredGroup = null;
     openGroup.removeAttribute('open');
     openGroup.querySelector('summary')?.focus();
 });
 
 homeMobileMenuToggle.addEventListener('click', () => setHomeMobileMenu(homeMobileMenuToggle.getAttribute('aria-expanded') !== 'true'));
-window.addEventListener('resize', () => { if (window.innerWidth > 820) setHomeMobileMenu(false); });
+window.addEventListener('resize', () => {
+    homeNavPinnedGroup = null;
+    homeNavHoveredGroup = null;
+    if (window.innerWidth > 820) setHomeMobileMenu(false);
+    else closeHomeNavGroups();
+});
 document.getElementById('homeGuilds').addEventListener('click', event => {
     const card = event.target.closest('[data-open-guild]');
     if (card) openDashboard(card.dataset.openGuild).catch(handleUiError);

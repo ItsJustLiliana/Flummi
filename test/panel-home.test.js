@@ -445,6 +445,10 @@ test('landing, developer tools, and dashboard adapt to touch screens and tablets
     assert.match(panelStyles, /\.home-nav-links \{[\s\S]*?position: absolute;[\s\S]*?max-height: calc\(100dvh - 92px\)/);
     assert.match(panelStyles, /\.home-nav-group > summary \{[\s\S]*?grid-template-columns: 1fr auto 1fr;[\s\S]*?text-align: center/);
     assert.match(panelStyles, /@media \(hover: hover\) and \(min-width: 821px\)[\s\S]*?\.home-nav-group:not\(\[open\]\):hover > \.home-nav-popover/);
+    assert.match(panelScript, /homeDesktopNavMedia = window\.matchMedia\('\(hover: hover\) and \(min-width: 821px\)'\)/);
+    assert.match(panelScript, /group\.addEventListener\('pointerenter'[\s\S]*?homeNavHoveredGroup = group;[\s\S]*?syncDesktopHomeNav\(\)/);
+    assert.match(panelScript, /group\.querySelector\('summary'\)\?\.addEventListener\('click'[\s\S]*?homeNavPinnedGroup = homeNavPinnedGroup === group \? null : group/);
+    assert.match(panelScript, /group\.addEventListener\('pointerleave'[\s\S]*?homeNavHoveredGroup = null;[\s\S]*?syncDesktopHomeNav\(\)/);
     assert.match(panelScript, /homeMobileMenuToggle\.getAttribute\('aria-expanded'\) === 'true'[\s\S]*?!event\.target\.closest\('#homeNavigation'\)[\s\S]*?setHomeMobileMenu\(false\)/);
 });
 

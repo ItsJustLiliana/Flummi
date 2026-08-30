@@ -7,7 +7,6 @@ const {
     getUserRole,
     isDeveloper,
     isAdmin,
-    normalizeRole,
     roleMeetsRequirement
 } = require('../stores/access-store');
 const { readSettings } = require('../stores/settings-store');
@@ -53,7 +52,6 @@ function getConfiguredCommandRows(client) {
 
     return Object.entries(commandPermissions)
         .map(([pathKey, configuredRole]) => {
-            const requiredRole = normalizeRole(configuredRole);
             const isContainerOnly = !pathKey.includes('.') &&
                 configuredPaths.some(candidate => candidate.startsWith(`${pathKey}.`));
 
@@ -62,17 +60,21 @@ function getConfiguredCommandRows(client) {
             }
 
             const commandName = pathKey.split('.')[0];
+            const pathParts = pathKey.split('.');
+            const subcommandName = pathParts.length > 1 ? pathParts.at(-1) : null;
+            const groupName = pathParts.length > 2 ? pathParts[1] : null;
             const command = commands.get(commandName);
 
             if (!command) {
                 return null;
             }
 
+            const requiredRole = getRequiredCommandRole(commandName, subcommandName, command, groupName);
             return {
                 pathKey,
                 command,
-                requiredRole: command.public ? 'member' : requiredRole,
-                label: formatCommandPath(pathKey, command, command.public ? 'member' : requiredRole)
+                requiredRole,
+                label: formatCommandPath(pathKey, command, requiredRole)
             };
         })
         .filter(Boolean);

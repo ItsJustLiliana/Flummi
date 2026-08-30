@@ -16,6 +16,7 @@ const defaults = Object.freeze({
         privacy: 'both',
         workflow: 'dashboard'
     },
+    statusSubscription: 'off',
     updatedAt: null
 });
 
@@ -36,6 +37,7 @@ function normalize(userId, value = {}) {
             const value = source.notificationDelivery?.[kind];
             return [kind, notificationChannels.has(value) ? value : defaults.notificationDelivery[kind]];
         })),
+        statusSubscription: notificationChannels.has(source.statusSubscription) ? source.statusSubscription : defaults.statusSubscription,
         updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : null
     };
 }
@@ -48,6 +50,14 @@ function readPreferences(userId) {
     }
 }
 
+function readPreferencesFromRoot(userId, root) {
+    try {
+        return normalize(userId, JSON.parse(fs.readFileSync(path.join(root, String(userId), 'panel-preferences.json'), 'utf8')));
+    } catch {
+        return normalize(userId, defaults);
+    }
+}
+
 function updatePreferences(userId, updates = {}) {
     const next = normalize(userId, { ...readPreferences(userId), ...updates, updatedAt: new Date().toISOString() });
     ensureGlobalUserDir(userId);
@@ -55,4 +65,12 @@ function updatePreferences(userId, updates = {}) {
     return next;
 }
 
-module.exports = { defaults, normalize, readPreferences, updatePreferences };
+function listStatusSubscribers(root = path.join(__dirname, '..', 'data', 'global', 'users')) {
+    if (!fs.existsSync(root)) return [];
+    return fs.readdirSync(root, { withFileTypes: true })
+        .filter(entry => entry.isDirectory())
+        .map(entry => ({ userId: entry.name, delivery: readPreferencesFromRoot(entry.name, root).statusSubscription }))
+        .filter(entry => entry.delivery !== 'off');
+}
+
+module.exports = { defaults, listStatusSubscribers, normalize, readPreferences, updatePreferences };

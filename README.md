@@ -31,10 +31,10 @@ Support and feedback submissions require Discord sign-in so the requester can be
 
 ### Server workspace
 
-- **Overview:** guild details, member and bot counts, roles, channels, bot state, feature availability, server health, recent reversible changes, module activity, dependency warnings, and recommendations.
+- **Overview:** guild details, member and bot counts, roles, channels, bot state, feature availability, server health, recent reversible changes, module activity, dependency warnings, recommendations, and a prioritized attention centre.
 - **Stats & Analytics:** selectable 1/7/30/90-day UTC date ranges or all-time views, hourly charts for a selected day, message and voice charts, heatmaps, member/channel filtering, comparison periods, media usage, and administrator-only moderation totals.
 - **Triggers:** create and audit text or image responses, limits, cooldowns, imports, and exports.
-- **Members & Permissions:** inspect members and configure per-user command and feature overrides. Discord server administrators automatically receive dashboard admin access.
+- **Members & Permissions:** inspect members, configure per-user feature overrides, and simulate the dashboard pages, features, and commands each member can effectively access. Discord server administrators automatically receive dashboard admin access.
 - **Profile & account:** the separate `/account` page on the main website has tabs for the Flummi profile, private AI consent, AI memory controls, notification delivery, dashboard defaults, accessibility, privacy/data controls, exports, correction requests, and active sessions. It is not mixed into the server dashboard, remains available without a shared server, and follows the signed-in Discord account across servers.
 - **Profiles and AI memory:** inspect user-supplied profiles and permitted AI conversation memory.
 - **Settings:** guild bot settings, feature switches, configurable navigation, retention, backups, storage inspection, and targeted data-reset tools.
@@ -43,9 +43,9 @@ Support and feedback submissions require Discord sign-in so the requester can be
 
 Dashboard forms load resources directly from Discord. Single and multi-select controls expose the roles, channels, categories, members, servers, and banned users that are actually available in the selected guild. Workflow JSON remains an advanced editor, with role and channel pickers for inserting valid references.
 
-Every module page includes an explanation, stable shareable link, scenario-based non-destructive test, permission guidance, readiness checks, and dependency warnings. Server-setting writes use revision checks and a readable change preview to prevent accidental overwrites, while recent saved changes can be undone from Overview. Resource-safe presets can be applied or copied between administered servers without transferring channel, role, or member IDs. Workflow Studio includes a condition-by-condition debugger that never executes its simulated actions.
+Every module page includes an explanation, setup checklist, stable shareable link, scenario-based non-destructive test, permission guidance, readiness checks, and pre-save configuration validation. Dependencies are offered only after confirmation. Server-setting writes use revision checks and a readable change preview to prevent accidental overwrites, while the recovery centre keeps 30 days of restorable settings and server snapshots. Resource-safe presets can be applied or copied between administered servers without transferring channel, role, or member IDs. Workflow Studio includes a condition-by-condition debugger that never executes its simulated actions.
 
-The staff inbox combines reports, modmail, tickets, and appeals behind an **All** filter. Administrators can schedule privacy-safe server, moderation, or community summaries to a Discord channel, while analytics graphs annotate relevant configuration and operational events. Signed-in dashboards receive notification and dashboard invalidation events over authenticated Server-Sent Events, with normal refresh behavior retained as a fallback.
+The staff inbox combines reports, modmail, tickets, and appeals behind an **All** filter. Administrators can schedule privacy-safe server, moderation, or community summaries to a Discord channel, while analytics graphs annotate relevant configuration and operational events. The command catalog includes examples and option explanations, and `Ctrl+K` opens unified navigation for pages, modules, members, and commands. Signed-in users can subscribe to public status updates in their dashboard, Discord DMs, or both. Dashboards receive notification and invalidation events over authenticated Server-Sent Events, with normal refresh behavior retained as a fallback.
 
 ### Management modules
 

@@ -806,6 +806,7 @@ function installManagementModuleExperience() {
                 <div><h3>${escapeHtml(uiText('Recommended setup'))}</h3><ol><li>${escapeHtml(uiText('Turn the module on so its saved configuration can run.'))}</li><li>${escapeHtml(uiText('Work through the setup sections from top to bottom.'))}</li><li>${escapeHtml(uiText('Save each section before testing the result in Discord.'))}</li></ol></div>
                 <div><h3>${escapeHtml(uiText('What to expect'))}</h3><ul><li>${escapeHtml(uiText('Settings apply only to the selected server.'))}</li><li>${escapeHtml(uiText('Turning the module off pauses it without deleting its settings.'))}</li><li>${escapeHtml(uiText('Discord permissions and role hierarchy can still limit actions.'))}</li></ul></div>
             </div>
+            <div class="module-onboarding" data-module-onboarding="${escapeHtml(key)}"><div class="empty">Checking setup progress…</div></div>
             ${sectionDetails.length ? `<div class="module-guide-sections"><h3>${escapeHtml(uiText('On this page'))}</h3><div>${sectionDetails.map(section => `<button type="button" class="module-guide-link" data-module-section-target="${escapeHtml(section.id)}"><strong>${escapeHtml(section.title)}</strong>${section.description ? `<span>${escapeHtml(section.description)}</span>` : ''}</button>`).join('')}</div></div>` : ''}`;
         toolbar.after(guide);
     }
@@ -841,6 +842,8 @@ function installManagementModuleExperience() {
         if (testButton) {
             const original = testButton.textContent; testButton.disabled = true; testButton.textContent = 'Testing…';
             api(withGuild('/api/management/test'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ module: testButton.dataset.moduleTest }) }).then(result => {
+                localStorage.setItem(`flummi.module-tested.${state.guildId}.${testButton.dataset.moduleTest}`, result.checkedAt || new Date().toISOString());
+                refreshModuleOnboarding().catch(() => {});
                 const problems = result.checks || [];
                 testButton.textContent = problems.length ? `${problems.length} issue${problems.length === 1 ? '' : 's'} found` : 'Configuration ready';
                 testButton.title = problems.length ? problems.map(check => `${check.title}: ${check.detail}`).join('\n') : 'Saved resources and required Discord permissions are available.';
@@ -854,6 +857,30 @@ function installManagementModuleExperience() {
 }
 
 installManagementModuleExperience();
+
+let latestManagementValidation = null;
+
+function renderModuleOnboarding(moduleKey, validation = latestManagementValidation) {
+    const container = document.querySelector(`[data-module-onboarding="${moduleKey}"]`);
+    if (!container || !state.management) return;
+    const moduleIssues = [...(validation?.errors || []), ...(validation?.warnings || [])].filter(item => item.module === moduleKey || item.field?.startsWith(`${moduleKey}.`));
+    const enabled = state.management.modules?.[moduleKey] === true;
+    const saved = JSON.stringify(state.management?.[moduleKey]) === JSON.stringify(savedManagementSnapshot?.[moduleKey]) && state.management.modules?.[moduleKey] === savedManagementSnapshot?.modules?.[moduleKey];
+    const testedAt = localStorage.getItem(`flummi.module-tested.${state.guildId}.${moduleKey}`);
+    const steps = [
+        { done: enabled, label: 'Enable the module', detail: enabled ? 'The module can run.' : 'Turn it on when the setup is ready.' },
+        { done: moduleIssues.length === 0, label: 'Complete configuration', detail: moduleIssues[0]?.message || 'Required resources are available.' },
+        { done: saved, label: 'Save the configuration', detail: saved ? 'The dashboard and saved version match.' : 'There are unsaved module changes.' },
+        { done: Boolean(testedAt), label: 'Run a safe test', detail: testedAt ? `Last tested ${formatDateTime(testedAt)}.` : 'Preview what Flummi would do without sending anything.' }
+    ];
+    container.innerHTML = `<div class="section-title-row"><div><h3>Setup checklist</h3><p class="sub">${steps.filter(step => step.done).length} of ${steps.length} complete</p></div><span class="badge ${steps.every(step => step.done) ? 'ok' : 'warn'}">${steps.every(step => step.done) ? 'Ready' : 'In progress'}</span></div><div class="module-onboarding-steps">${steps.map(step => `<article class="${step.done ? 'done' : ''}"><span aria-hidden="true">${step.done ? '✓' : ''}</span><div><strong>${escapeHtml(step.label)}</strong><small>${escapeHtml(step.detail)}</small></div></article>`).join('')}</div>`;
+}
+
+async function refreshModuleOnboarding() {
+    if (!state.guildId || !state.management || state.role === 'member') return;
+    latestManagementValidation = await api(withGuild('/api/management/validate'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ management: state.management }) });
+    Object.keys(managementModuleDefinitions).forEach(key => renderModuleOnboarding(key));
+}
 
 const actionPermissionExplanations = {
     managementRunAction: 'Requires the matching Discord permission (for example Moderate Members, Kick Members, Ban Members or Manage Messages) and a role below Flummi.',
@@ -1863,7 +1890,7 @@ function renderPublicCommands(query = '') {
         const roleRows = rows.filter(row => row.role === role);
         if (!roleRows.length) return '';
         return `<section class="public-command-group"><h2>${escapeHtml(role)} commands <span class="public-command-count">${roleRows.length}</span></h2><div class="public-command-list">${roleRows.map(row => `
-            <article class="public-command-row"><code>${escapeHtml(row.path)}</code><p>${escapeHtml(row.description)}${row.restricted ? ' · Selected servers only' : ''}</p><span class="command-role-badge ${escapeHtml(role)}">${escapeHtml(role)}</span></article>
+            <article class="public-command-row"><code>${escapeHtml(row.path)}</code><p>${escapeHtml(row.description)}${row.restricted ? ' · Selected servers only' : ''}</p><span class="command-role-badge ${escapeHtml(role)}">${escapeHtml(role)}</span><details class="command-example"><summary>Example and options</summary><div><span>Example</span><code>${escapeHtml(row.example || row.path)}</code>${row.options?.length ? `<dl>${row.options.map(option => `<div><dt>${escapeHtml(option.name)}</dt><dd>${escapeHtml(option.description)} · ${escapeHtml(option.type)} · ${option.required ? 'required' : 'optional'}</dd></div>`).join('')}</dl>` : '<p>No options are required.</p>'}</div></details></article>
         `).join('')}</div></section>`;
     }).join('') || '<div class="home-panel empty">No matching commands found.</div>';
 }
@@ -1906,7 +1933,25 @@ async function loadPublicStatus() {
     const container = document.getElementById('publicIncidentHistory');
     const incidents = data.incidents || [];
     container.innerHTML = incidents.length ? `<h2>Incident history</h2>${incidents.map(incident => `<article class="public-incident"><span class="badge ${incident.status === 'resolved' ? 'ok' : 'warn'}">${escapeHtml(incident.status)}</span><div><strong>${escapeHtml(incident.title)}</strong><p>${escapeHtml(incident.message || 'No additional details.')}</p><small>${escapeHtml(formatDateTime(incident.createdAt))}${incident.resolvedAt ? ` · Resolved ${escapeHtml(formatDateTime(incident.resolvedAt))}` : ''}</small></div></article>`).join('')}` : '<p class="sub">No public incidents have been recorded.</p>';
+    const subscription = document.getElementById('publicStatusSubscription');
+    subscription.hidden = !state.authenticated;
+    if (state.authenticated) {
+        const preferences = (await api('/api/account/preferences')).preferences;
+        document.getElementById('publicStatusDelivery').value = preferences.statusSubscription || 'off';
+    }
 }
+
+document.getElementById('savePublicStatusSubscription').addEventListener('click', async () => {
+    const button = document.getElementById('savePublicStatusSubscription');
+    const status = document.getElementById('publicStatusSubscriptionStatus');
+    button.disabled = true;
+    try {
+        const data = await api('/api/account/preferences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ statusSubscription: document.getElementById('publicStatusDelivery').value }) });
+        state.preferences = data.preferences;
+        setStatus(status, data.preferences.statusSubscription === 'off' ? 'Status notifications turned off.' : 'Status notification preference saved.', 'ok');
+    } catch (error) { setStatus(status, error.message, 'error'); }
+    finally { button.disabled = false; }
+});
 
 function applyAccountPreferences(preferences = state.preferences || {}) {
     state.preferences = preferences;
@@ -2616,6 +2661,26 @@ function renderModuleInsights(entries = []) {
     container.innerHTML = visible.length ? visible.map(entry => `<article class="module-insight-card ${entry.recommendation ? 'attention' : ''}"><div><strong>${escapeHtml(managementModuleDefinitions[entry.key]?.label || entry.key)}</strong><span class="badge ${entry.enabled ? 'ok' : ''}">${entry.enabled ? 'Enabled' : 'Paused'}</span></div><p>${entry.events30d} event${entry.events30d === 1 ? '' : 's'} in 30 days${entry.lastActivityAt ? ` · Last ${escapeHtml(formatDateTime(entry.lastActivityAt))}` : ''}</p>${entry.recommendation ? `<small>${escapeHtml(entry.recommendation)}</small>` : '<small>Configured and no attention is needed.</small>'}<button class="secondary compact" type="button" data-open-module="${escapeHtml(entry.key)}">Open module</button></article>`).join('') : '<div class="empty">No module activity or recommendations yet.</div>';
 }
 
+async function loadAttentionCentre() {
+    const container = document.getElementById('overviewAttentionCentre');
+    if (!container || !state.guildId || !['developer', 'admin'].includes(state.role)) return;
+    const data = await api(withGuild('/api/management/attention'));
+    const items = data.items || [];
+    container.innerHTML = items.length ? items.map(item => `<button type="button" class="attention-item ${escapeHtml(item.severity)}" data-attention-tab="${escapeHtml(item.tab)}"><span class="attention-count">${Number(item.count) || 0}</span><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail)}</small></span><span aria-hidden="true">→</span></button>`).join('') : '<div class="contextual-empty empty-positive"><strong>You are all caught up</strong><span>No reports, incidents, failed actions, or critical checks need attention.</span></div>';
+}
+
+document.getElementById('refreshAttentionCentre').addEventListener('click', async event => {
+    event.currentTarget.disabled = true;
+    try { await loadAttentionCentre(); } catch (error) { handleUiError(error); }
+    finally { event.currentTarget.disabled = false; }
+});
+
+document.getElementById('overviewAttentionCentre').addEventListener('click', event => {
+    const item = event.target.closest('[data-attention-tab]');
+    if (!item) return;
+    document.querySelector(`.tab-btn[data-tab="${item.dataset.attentionTab}"]`)?.click();
+});
+
 document.getElementById('dashboardLayout').addEventListener('click', async event => {
     const moduleButton = event.target.closest('[data-open-module]');
     if (moduleButton) {
@@ -2863,6 +2928,7 @@ async function loadOverview() {
         renderOverviewHealth(data.health);
         renderOverviewChanges(data.recentChanges || []);
         renderModuleInsights(data.moduleInsights || []);
+        await loadAttentionCentre();
     }
     const localFeatures = data.settings?.features || {};
     state.globalFeatures = data.globalFeatures || state.globalFeatures || {};
@@ -3738,6 +3804,10 @@ function renderPermissionsEditor(userId, data) {
         </p>
         <div class="two-col">${featureRows}</div>
     `;
+    const simulation = data.simulation || {};
+    const allowed = (simulation.commands || []).filter(command => command.allowed);
+    const blocked = (simulation.commands || []).filter(command => !command.allowed);
+    document.getElementById('permissionSimulator').innerHTML = `<div class="section-title-row"><div><h3>Effective access preview</h3><p class="sub">Exactly what this member can see and use with their current Discord role and Flummi settings.</p></div><span class="badge ${blocked.length ? 'warn' : 'ok'}">${Number(simulation.allowedCommands || 0)} commands available</span></div><div class="permission-simulator-grid"><article><strong>Dashboard pages</strong><div class="command-chip-list">${(simulation.dashboardTabs || []).map(tab => `<span>${escapeHtml(tab.replace(/^management-/, '').replaceAll('-', ' '))}</span>`).join('')}</div></article><article><strong>Personal feature access</strong>${Object.entries(simulation.features || {}).map(([key, value]) => `<p><span>${escapeHtml(key.replace(/([A-Z])/g, ' $1'))}</span><span class="badge ${value ? 'ok' : 'off'}">${value ? 'Allowed' : 'Blocked'}</span></p>`).join('')}</article></div><details><summary>Command access · ${allowed.length} allowed, ${blocked.length} blocked</summary><div class="permission-command-list">${(simulation.commands || []).map(command => `<div><code>${escapeHtml(command.path)}</code><span class="badge ${command.allowed ? 'ok' : 'off'}">${command.allowed ? 'Available' : `Needs ${escapeHtml(command.requiredRole)}`}</span></div>`).join('')}</div></details>`;
 }
 
 async function loadPermissionsEditor(userId) {
@@ -3769,9 +3839,9 @@ permissionsEditor.addEventListener('change', async event => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, [key]: toggle.checked })
-    }).then(data => {
+    }).then(async () => {
         setStatus(permissionsStatusField, `Updated ${key} for ${resourceDisplay(userId)}.`, 'ok');
-        renderPermissionsEditor(userId, data);
+        await loadPermissionsEditor(userId);
     }).catch(error => {
         setStatus(permissionsStatusField, error.message, 'error');
     });
@@ -4980,6 +5050,7 @@ function renderAdvancedOperations(data) {
 async function loadAdvancedManagement() {
     await loadManagement();
     await refreshAdvancedOperations();
+    if (document.getElementById('tab-management-backups').classList.contains('active')) await loadRecoveryCentre();
     if (document.getElementById('tab-management-workflows').classList.contains('active')) await loadCustomCommands();
 }
 
@@ -4987,6 +5058,28 @@ async function refreshAdvancedOperations() {
     const data = await api(withGuild('/api/management/operations'));
     renderAdvancedOperations(data);
 }
+
+async function loadRecoveryCentre() {
+    const container = document.getElementById('recoverySettingsHistory');
+    if (!container) return;
+    const data = await api(withGuild('/api/management/recovery'));
+    container.innerHTML = (data.changes || []).length ? data.changes.map(change => `<article class="recovery-item"><div><strong>${escapeHtml(change.summary || 'Dashboard configuration changed')}</strong><p>${escapeHtml(change.actorName || 'Unknown administrator')} · ${escapeHtml(formatDateTime(change.at))}</p><small>${change.undoable ? `Recoverable until ${escapeHtml(formatDateTime(change.expiresAt))}` : `Restored ${escapeHtml(formatDateTime(change.undoneAt))}`}</small></div><button class="secondary compact" type="button" data-recover-settings="${escapeHtml(change.id)}" ${change.undoable ? '' : 'disabled'}>${change.undoable ? 'Restore version' : 'Restored'}</button></article>`).join('') : `<div class="empty">No recoverable dashboard changes from the last ${Number(data.retentionDays) || 30} days.</div>`;
+}
+
+document.getElementById('recoverySettingsHistory').addEventListener('click', async event => {
+    const button = event.target.closest('[data-recover-settings]');
+    if (!button) return;
+    const confirmed = await confirmAction({ title: 'Restore this dashboard configuration?', message: 'Flummi will restore the complete server settings from before this change. Discord roles and channels are not deleted.', confirmLabel: 'Restore configuration', danger: false });
+    if (!confirmed) return;
+    button.disabled = true;
+    try {
+        const result = await api(withGuild('/api/settings/undo'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: button.dataset.recoverSettings }) });
+        state.management = result.settings.management; state.settingsRevision = result.revision; savedManagementSnapshot = structuredClone(state.management);
+        hydrateManagementEditors(); renderManagementCards(); applyManagementNavigation();
+        await loadRecoveryCentre();
+        setStatus(document.getElementById('managementBackupsStatus'), 'Dashboard configuration restored.', 'ok');
+    } catch (error) { setStatus(document.getElementById('managementBackupsStatus'), error.message, 'error'); button.disabled = false; }
+});
 
 async function loadCustomCommands() {
     if (!state.guildId || state.role === 'member') return;
@@ -5059,6 +5152,14 @@ document.getElementById('publishWebhook').addEventListener('click', async () => 
 });
 
 async function persistManagement(statusField) {
+    const validation = await api(withGuild('/api/management/validate'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ management: state.management }) });
+    latestManagementValidation = validation;
+    if (!validation.ok) throw new Error(validation.errors.map(item => item.message).join(' '));
+    if (validation.warnings.length) {
+        const warningText = validation.warnings.slice(0, 6).map(item => `• ${item.message}`).join('\n');
+        const confirmed = await confirmAction({ title: `Save with ${validation.warnings.length} warning${validation.warnings.length === 1 ? '' : 's'}?`, message: `${warningText}${validation.warnings.length > 6 ? `\n• …and ${validation.warnings.length - 6} more` : ''}`, confirmLabel: 'Save anyway', danger: false });
+        if (!confirmed) throw new Error('Save cancelled so you can review the configuration warnings.');
+    }
     const result = await api(withGuild('/api/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Flummi-Settings-Revision': String(state.settingsRevision ?? '') },
@@ -5071,6 +5172,7 @@ async function persistManagement(statusField) {
     applyManagementNavigation();
     hydrateManagementEditors();
     clearManagementDirty();
+    Object.keys(managementModuleDefinitions).forEach(key => renderModuleOnboarding(key));
     if (statusField) setStatus(statusField, 'Saved.', 'ok');
 }
 
@@ -5085,6 +5187,7 @@ async function loadManagement() {
     renderManagementCards();
     applyManagementNavigation();
     await loadManagementTemplates();
+    await refreshModuleOnboarding();
 }
 
 let pendingManagementTemplate = null;
@@ -5130,6 +5233,7 @@ document.getElementById('applyManagementTemplate').addEventListener('click', asy
     try {
         const data = await api(withGuild('/api/management/templates'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...pendingManagementTemplate, apply: true }) });
         state.management = data.settings.management;
+        state.settingsRevision = data.revision;
         savedManagementSnapshot = structuredClone(state.management);
         hydrateManagementEditors(); renderManagementCards(); applyManagementNavigation();
         document.getElementById('applyManagementTemplate').disabled = true;
@@ -5151,6 +5255,14 @@ async function toggleManagementModule(moduleKey, statusField) {
     const definition = managementModuleDefinitions[moduleKey];
     if (!definition || !state.management) return;
     const nextEnabled = state.management.modules[moduleKey] !== true;
+    const dependencies = { staffOperations: ['cases'], copilot: ['tickets', 'reports'], workflows: ['automation'], communityHealth: ['serverDoctor'] };
+    const missingDependencies = nextEnabled ? (dependencies[moduleKey] || []).filter(key => !state.management.modules[key]) : [];
+    if (missingDependencies.length) {
+        const names = missingDependencies.map(key => managementModuleDefinitions[key]?.title || key).join(' and ');
+        const confirmed = await confirmAction({ title: `Also enable ${names}?`, message: `${definition.title} uses ${names} for its complete workflow. Nothing else will be changed.`, confirmLabel: 'Enable dependencies', danger: false });
+        if (!confirmed) { renderManagementCards(); applyManagementNavigation(); return; }
+        missingDependencies.forEach(key => { state.management.modules[key] = true; });
+    }
     state.management.modules[moduleKey] = nextEnabled;
     try {
         await persistManagement(statusField);
@@ -5158,6 +5270,7 @@ async function toggleManagementModule(moduleKey, statusField) {
         if (statusField) setStatus(statusField, `${definition.title} turned ${nextEnabled ? 'on' : 'off'}.`, 'ok');
     } catch (error) {
         state.management.modules[moduleKey] = !nextEnabled;
+        missingDependencies.forEach(key => { state.management.modules[key] = false; });
         renderManagementCards();
         if (statusField) setStatus(statusField, error.message, 'error');
     }
@@ -7167,6 +7280,67 @@ document.getElementById('deleteAnalyticsCorrection').addEventListener('click', a
 });
 
 // ---------- Init ----------
+const commandPalette = document.getElementById('commandPalette');
+const commandPaletteSearch = document.getElementById('commandPaletteSearch');
+const commandPaletteResults = document.getElementById('commandPaletteResults');
+let commandPaletteEntries = [];
+let commandPaletteVisibleEntries = [];
+let commandPaletteIndex = 0;
+
+function buildCommandPaletteEntries() {
+    const entries = [];
+    const seen = new Set();
+    const add = entry => { const key = entry.id || `${entry.type}:${entry.label}`; if (!seen.has(key)) { seen.add(key); entries.push(entry); } };
+    const pageLabels = { servers: 'Home', account: 'Profile & account', commands: 'Commands', status: 'Status', support: 'Support', feedback: 'Feedback', terms: 'Terms of Service', privacy: 'Privacy Policy', licenses: 'Licenses', archive: 'Policy Archive', credits: 'Acknowledgements', developer: 'Developer Tools' };
+    for (const button of document.querySelectorAll('[data-home-view]')) {
+        const view = button.dataset.homeView;
+        const label = pageLabels[view] || button.querySelector('strong')?.textContent.trim() || button.textContent.trim();
+        if (label && view) add({ id: `page:${view}`, type: 'Page', label, detail: 'Flummi website', action: () => showHomeView(view) });
+    }
+    if (!document.getElementById('dashboardLayout').hidden) {
+        for (const button of tabButtons.filter(item => !item.hidden)) {
+            const label = button.textContent.trim().replace(/\s+/g, ' ');
+            if (label) add({ type: 'Dashboard', label, detail: 'Open dashboard section', action: () => button.click() });
+        }
+        for (const [key, definition] of Object.entries(managementModuleDefinitions)) if (state.management?.modules?.[key]) add({ type: 'Module', label: definition.title, detail: definition.description, action: () => document.querySelector(`.tab-btn[data-tab="${definition.tab}"]`)?.click() });
+        for (const [userId, member] of state.guildMembers) {
+            const label = member.nickname || member.displayName || member.username;
+            if (label) add({ type: 'Member', label, detail: member.username ? `@${member.username}` : 'Server member', action: () => { document.querySelector('.tab-btn[data-tab="users"]')?.click(); window.setTimeout(() => { document.getElementById('memberPermissionsSection').hidden = false; loadPermissionsEditor(userId).catch(handleUiError); }, 250); } });
+        }
+    }
+    for (const command of state.publicCommands) add({ type: 'Command', label: command.path, detail: command.description, action: () => { showHomeView('commands'); const search = document.getElementById('homeCommandSearch'); search.value = command.path; renderPublicCommands(command.path); } });
+    return entries;
+}
+
+function renderCommandPalette(query = '') {
+    const normalized = String(query).trim().toLowerCase();
+    commandPaletteVisibleEntries = commandPaletteEntries.filter(entry => !normalized || `${entry.label} ${entry.detail} ${entry.type}`.toLowerCase().includes(normalized)).slice(0, 12);
+    commandPaletteIndex = Math.min(commandPaletteIndex, Math.max(0, commandPaletteVisibleEntries.length - 1));
+    commandPaletteResults.innerHTML = commandPaletteVisibleEntries.length ? commandPaletteVisibleEntries.map((entry, index) => `<button type="button" role="option" data-palette-index="${index}" aria-selected="${index === commandPaletteIndex}"><span><small>${escapeHtml(entry.type)}</small><strong>${escapeHtml(entry.label)}</strong><em>${escapeHtml(entry.detail || '')}</em></span><kbd>↵</kbd></button>`).join('') : '<div class="empty">No matching page, module, member, or command.</div>';
+}
+
+async function openCommandPalette() {
+    if (!state.publicCommands.length) { try { state.publicCommands = (await api('/api/public/commands')).commands || []; } catch { /* navigation still works */ } }
+    commandPaletteEntries = buildCommandPaletteEntries(); commandPaletteIndex = 0; commandPaletteSearch.value = ''; renderCommandPalette();
+    commandPalette.showModal(); commandPaletteSearch.focus();
+}
+
+function activateCommandPaletteEntry(index = commandPaletteIndex) {
+    const entry = commandPaletteVisibleEntries[index]; if (!entry) return;
+    commandPalette.close(); entry.action();
+}
+
+document.addEventListener('keydown', event => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openCommandPalette().catch(handleUiError); return; }
+    if (!commandPalette.open) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); commandPaletteIndex = (commandPaletteIndex + (event.key === 'ArrowDown' ? 1 : -1) + commandPaletteVisibleEntries.length) % Math.max(1, commandPaletteVisibleEntries.length); renderCommandPalette(commandPaletteSearch.value); }
+    if (event.key === 'Enter') { event.preventDefault(); activateCommandPaletteEntry(); }
+});
+document.querySelectorAll('[data-open-command-palette]').forEach(button => button.addEventListener('click', () => openCommandPalette().catch(handleUiError)));
+commandPaletteSearch.addEventListener('input', () => { commandPaletteIndex = 0; renderCommandPalette(commandPaletteSearch.value); });
+commandPaletteResults.addEventListener('click', event => { const button = event.target.closest('[data-palette-index]'); if (button) activateCommandPaletteEntry(Number(button.dataset.paletteIndex)); });
+commandPalette.addEventListener('click', event => { if (event.target === commandPalette) commandPalette.close(); });
+
 const rememberedTab = localStorage.getItem('flummi.activeTab');
 const rememberedButton = tabButtons.find(button => button.dataset.tab === rememberedTab);
 if (rememberedButton) {

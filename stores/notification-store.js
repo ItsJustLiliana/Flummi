@@ -28,7 +28,10 @@ function addNotification(userId, notification) {
         : /ticket|modmail|support|feedback|report/i.test(type) ? 'support'
             : /moderation|case|incident|automod/i.test(type) ? 'moderation'
                 : /workflow|automation/i.test(type) ? 'workflow' : 'general';
-    const delivery = panelPreferences.readPreferences(userId).notificationDelivery?.[category] || 'dashboard';
+    const requestedDelivery = String(notification.delivery || '');
+    const delivery = ['dashboard', 'dm', 'both', 'off'].includes(requestedDelivery)
+        ? requestedDelivery
+        : panelPreferences.readPreferences(userId).notificationDelivery?.[category] || 'dashboard';
     const entry = {
         id: `notification-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
         type,

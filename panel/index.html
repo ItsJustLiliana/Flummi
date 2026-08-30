@@ -91,6 +91,10 @@
                     <div><span class="home-eyebrow">Release</span><h2 id="publicStatusUpdateHeading">Latest bot update</h2><p>When the currently available version was last updated.</p></div>
                     <time id="publicStatusUpdated" datetime="">Loading update information...</time>
                 </section>
+                <section id="publicStatusSubscription" class="home-panel status-subscription" hidden>
+                    <div><span class="home-eyebrow">Notifications</span><h2>Status notifications</h2><p>Choose whether incident and recovery updates should appear in your dashboard, Discord DMs, or both.</p></div>
+                    <div class="status-subscription-controls"><select id="publicStatusDelivery" aria-label="Status notification delivery"><option value="off">Off</option><option value="dashboard">Dashboard</option><option value="dm">Discord DM</option><option value="both">Dashboard and DM</option></select><button id="savePublicStatusSubscription" class="secondary" type="button">Save</button></div><span id="publicStatusSubscriptionStatus" class="status"></span>
+                </section>
                 <p id="publicStatusChecked" class="public-status-checked">Checking status...</p>
                 <div id="publicIncidentHistory" class="public-incident-history" aria-live="polite"></div>
             </section>
@@ -279,6 +283,7 @@
                         <div id="overviewRecentChanges" class="overview-change-list"><div class="empty">Loading recent changes...</div></div>
                     </section>
                 </div>
+                <section class="section" data-admin-only><div class="section-title-row"><div><h2>Attention centre</h2><p class="sub">The most important open work across moderation, support, automation, and server health.</p></div><button id="refreshAttentionCentre" class="secondary compact" type="button">Refresh</button></div><div id="overviewAttentionCentre" class="attention-centre"><div class="empty">Loading attention items…</div></div></section>
                 <section class="section" data-admin-only><div class="section-title-row"><div><h2>Module activity &amp; recommendations</h2><p class="sub">See what is active, what depends on another module, and where configuration needs attention.</p></div></div><div id="overviewModuleInsights" class="module-insight-grid"><div class="empty">Loading module insights…</div></div></section>
                 <div id="overviewBanner"></div>
             </section>
@@ -602,6 +607,7 @@
                         <h2>Manage a Member's Permissions</h2>
                     <p class="sub">Toggle feature access for the member selected with Manage above.</p>
                     <div id="permissionsEditor" style="margin-top: 12px;"></div>
+                    <div id="permissionSimulator" class="permission-simulator"><div class="empty">Select a member to preview their effective access.</div></div>
                     <p id="permissionsStatus" class="status"></p>
                 </div>
             </section>
@@ -893,7 +899,7 @@
             <section id="tab-management-backups" class="tab-panel" data-admin-only>
                 <h2 style="font-size:20px;">Configuration Backup &amp; Recovery</h2><p class="sub tab-intro">Keep versioned snapshots of roles, channels, and permission overwrites for incident recovery.</p>
                 <div class="section module-page-switch" data-module-page-switch="backups"><div class="management-module-heading"><div><h3>Server snapshots</h3><p class="sub">Snapshots never include message content.</p></div><button class="module-toggle" type="button" data-page-module-toggle="backups">Off</button></div></div>
-                <div class="section"><div class="section-title-row"><div><h2>Backup schedule</h2><p class="sub">Create a snapshot now or keep an automatic rotation.</p></div><button id="createServerSnapshot" class="secondary" type="button">Create snapshot</button></div><div class="two-col"><div class="checkbox-row"><input id="advancedBackupsAutomatic" type="checkbox" data-advanced-field="backups.automaticEnabled"><label for="advancedBackupsAutomatic">Automatic snapshots</label></div><div class="field"><label for="advancedBackupsInterval">Every (hours)</label><input id="advancedBackupsInterval" type="number" min="1" max="720" data-advanced-field="backups.intervalHours"></div><div class="field"><label for="advancedBackupsKeep">Snapshots to retain</label><input id="advancedBackupsKeep" type="number" min="1" max="100" data-advanced-field="backups.keepCount"></div></div><div class="actions"><span id="managementBackupsStatus" class="status"></span><button class="primary" data-save-advanced="backups" type="button">Save backup settings</button></div></div><div class="section"><h2>Available snapshots</h2><div id="serverSnapshotsTable" class="table-wrap"><div class="empty">No snapshots loaded.</div></div></div>
+                <div class="section"><div class="section-title-row"><div><h2>Backup schedule</h2><p class="sub">Create a snapshot now or keep an automatic rotation.</p></div><button id="createServerSnapshot" class="secondary" type="button">Create snapshot</button></div><div class="two-col"><div class="checkbox-row"><input id="advancedBackupsAutomatic" type="checkbox" data-advanced-field="backups.automaticEnabled"><label for="advancedBackupsAutomatic">Automatic snapshots</label></div><div class="field"><label for="advancedBackupsInterval">Every (hours)</label><input id="advancedBackupsInterval" type="number" min="1" max="720" data-advanced-field="backups.intervalHours"></div><div class="field"><label for="advancedBackupsKeep">Snapshots to retain</label><input id="advancedBackupsKeep" type="number" min="1" max="100" data-advanced-field="backups.keepCount"></div></div><div class="actions"><span id="managementBackupsStatus" class="status"></span><button class="primary" data-save-advanced="backups" type="button">Save backup settings</button></div></div><div class="section"><h2>Recovery centre</h2><p class="sub">Restore recent dashboard configuration or recreate server resources from a snapshot. Every restore requires confirmation.</p><div id="recoverySettingsHistory" class="recovery-list"><div class="empty">Loading recoverable changes…</div></div><h3>Server snapshots</h3><div id="serverSnapshotsTable" class="table-wrap"><div class="empty">No snapshots loaded.</div></div></div>
             </section>
 
             <section id="tab-management-copilot" class="tab-panel" data-admin-only>
@@ -1618,7 +1624,7 @@
 
             <div id="mobileSidebarContent" class="mobile-sidebar-content">
                 <div class="dashboard-search-shell">
-                    <div class="developer-search-wrap"><input id="dashboardSearch" type="search" autocomplete="off" aria-label="Search dashboard features and settings" placeholder="Search triggers, permissions, voice, settings..."></div>
+                    <div class="developer-search-wrap dashboard-search-with-palette"><input id="dashboardSearch" type="search" autocomplete="off" aria-label="Search dashboard features and settings" placeholder="Search triggers, permissions, voice, settings..."><button class="secondary compact" type="button" data-open-command-palette aria-label="Open quick navigation">Ctrl K</button></div>
                     <div id="dashboardSearchResults" class="developer-search-results" hidden></div>
                 </div>
                 <nav class="tabs" aria-label="Dashboard sections">
@@ -1725,6 +1731,9 @@
                 <button id="textInputDialogAccept" class="primary" type="submit">Continue</button>
             </div>
         </form>
+    </dialog>
+    <dialog id="commandPalette" class="command-palette">
+        <div class="command-palette-body"><div class="command-palette-search"><span aria-hidden="true">⌕</span><input id="commandPaletteSearch" type="search" autocomplete="off" placeholder="Go to a page, module, member, or command…" aria-label="Search Flummi"></div><div id="commandPaletteResults" class="command-palette-results" role="listbox"></div><footer><span>↑↓ navigate</span><span>Enter open</span><span>Esc close</span></footer></div>
     </dialog>
     <dialog id="mediaLightbox" class="media-lightbox">
         <div class="media-lightbox-body">

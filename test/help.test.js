@@ -56,3 +56,21 @@ test('help discovers every registered subcommand including developer commands', 
     assert.deepEqual(rows.map(row => row.pathKey).sort(), ['settings.triggers', 'settings.view']);
     assert.equal(rows.find(row => row.pathKey === 'settings.triggers').requiredRole, 'developer');
 });
+
+test('public commands keep developer-only subcommands out of the member section', () => {
+    const client = { commands: new Collection() };
+    const data = {
+        public: true,
+        developerSubcommands: ['correction-update'],
+        data: new SlashCommandBuilder()
+            .setName('data')
+            .setDescription('Data tools')
+            .addSubcommand(option => option.setName('view').setDescription('View your data'))
+            .addSubcommand(option => option.setName('correction-update').setDescription('Update a correction request'))
+    };
+    client.commands.set('data', data);
+
+    const rows = getRegisteredCommandRows(client, 'guild');
+    assert.equal(rows.find(row => row.pathKey === 'data.view').requiredRole, 'member');
+    assert.equal(rows.find(row => row.pathKey === 'data.correction-update').requiredRole, 'developer');
+});

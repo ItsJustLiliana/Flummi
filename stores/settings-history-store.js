@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const recoveryWindowMs = 30 * 86400000;
 
 function targetPath(guildId) {
     return path.join(__dirname, '..', 'data', 'guilds', String(guildId), 'settings-history.json');
@@ -8,7 +9,8 @@ function targetPath(guildId) {
 function readHistory(guildId) {
     try {
         const value = JSON.parse(fs.readFileSync(targetPath(guildId), 'utf8'));
-        return { revision: Number(value.revision) || 0, entries: Array.isArray(value.entries) ? value.entries : [] };
+        const entries = Array.isArray(value.entries) ? value.entries : [];
+        return { revision: Number(value.revision) || 0, entries: entries.filter(entry => Date.now() - new Date(entry.at).getTime() <= recoveryWindowMs) };
     } catch {
         return { revision: 0, entries: [] };
     }
@@ -44,4 +46,4 @@ function markUndone(guildId, id, actorId) {
     return { entry, revision: current.revision };
 }
 
-module.exports = { markUndone, readHistory, recordChange };
+module.exports = { markUndone, readHistory, recordChange, recoveryWindowMs };

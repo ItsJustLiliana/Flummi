@@ -53,6 +53,7 @@ const { nextExecutions } = require('./services/schedule-service');
 const { scanServer, snapshotGuild, previewSnapshot, restoreSnapshot } = require('./services/operations-service');
 const configTemplates = require('./services/config-template-service');
 const { simulateWorkflows } = require('./services/workflow-service');
+const { buildAttentionCenter, validateManagement } = require('./services/dashboard-experience-service');
 const { createOverwatchHistoryService } = require('./services/overwatch-history-service');
 const {
     activePunishments,
@@ -211,12 +212,26 @@ function buildPublicCommandCatalog() {
         const topLevelOptions = payload.options || [];
         const containers = topLevelOptions.filter(option => option.type === 1 || option.type === 2);
 
+        const describeOptions = options => (options || []).filter(option => ![1, 2].includes(option.type)).map(option => ({
+            name: option.name,
+            description: option.description,
+            required: option.required === true,
+            type: ({ 3: 'text', 4: 'number', 5: 'yes/no', 6: 'member', 7: 'channel', 8: 'role', 9: 'mention', 10: 'number', 11: 'attachment' })[option.type] || 'value'
+        }));
+        const exampleValue = option => ({ member: '@member', channel: '#channel', role: '@role', mention: '@member', 'yes/no': 'true', number: '1', attachment: 'file' })[option.type] || option.name.replace(/[-_]/g, ' ');
+        const withExample = (pathValue, options) => {
+            const described = describeOptions(options);
+            return { options: described, example: `${pathValue}${described.map(option => ` ${option.name}:${exampleValue(option)}`).join('')}` };
+        };
+
         if (!containers.length) {
+            const pathValue = `/${payload.name}`;
             rows.push({
-                path: `/${payload.name}`,
+                path: pathValue,
                 description: payload.description,
-                role: command.public ? 'member' : accessStore.getRequiredCommandRole(payload.name, null, command),
-                restricted: Array.isArray(command.allowedGuildIds)
+                role: accessStore.getRequiredCommandRole(payload.name, null, command),
+                restricted: Array.isArray(command.allowedGuildIds),
+                ...withExample(pathValue, topLevelOptions)
             });
             continue;
         }
@@ -225,11 +240,13 @@ function buildPublicCommandCatalog() {
             const subcommands = option.type === 2 ? (option.options || []).filter(child => child.type === 1) : [option];
             for (const subcommand of subcommands) {
                 const groupName = option.type === 2 ? option.name : null;
+                const pathValue = `/${payload.name} ${groupName ? `${groupName} ` : ''}${subcommand.name}`;
                 rows.push({
-                    path: `/${payload.name} ${groupName ? `${groupName} ` : ''}${subcommand.name}`,
+                    path: pathValue,
                     description: subcommand.description,
-                    role: command.public ? 'member' : accessStore.getRequiredCommandRole(payload.name, subcommand.name, command, groupName),
-                    restricted: Array.isArray(command.allowedGuildIds)
+                    role: accessStore.getRequiredCommandRole(payload.name, subcommand.name, command, groupName),
+                    restricted: Array.isArray(command.allowedGuildIds),
+                    ...withExample(pathValue, subcommand.options)
                 });
             }
         }
@@ -2576,6 +2593,37 @@ function createServer() {
                 return;
             }
 
+            if (req.method === 'POST' && requestUrl.pathname === '/api/management/validate') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Configuration validation requires server administrator access.')) return;
+                const parsed = JSON.parse(await readBody(req) || '{}');
+                const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
+                await Promise.all([guild.channels.fetch().catch(() => null), guild.roles.fetch().catch(() => null)]);
+                sendJson(res, 200, validateManagement(guild, parsed.management || settingsStore.readSettings(guildId).management));
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/management/attention') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'The attention centre requires server administrator access.')) return;
+                const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
+                const management = settingsStore.readSettings(guildId).management;
+                const doctor = await scanServer(guild);
+                sendJson(res, 200, { items: buildAttentionCenter(guildId, doctor, management), checkedAt: new Date().toISOString() });
+                return;
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/management/recovery') {
+                const guildId = requireGuildId(requestUrl, res); if (!guildId) return;
+                if (!await requireGuildAdminAccess(panelSession, guildId, res, 'Recovery data requires server administrator access.')) return;
+                const history = settingsHistoryStore.readHistory(guildId);
+                const snapshots = operationsStore.readState(guildId).snapshots.map(snapshot => ({ id: snapshot.id, createdAt: snapshot.createdAt, reason: snapshot.reason, roleCount: snapshot.roles?.length || 0, channelCount: snapshot.channels?.length || 0 }));
+                sendJson(res, 200, { revision: history.revision, retentionDays: 30, changes: history.entries.map(({ before, after, ...entry }) => ({ ...entry, undoable: !entry.undoneAt, expiresAt: new Date(new Date(entry.at).getTime() + settingsHistoryStore.recoveryWindowMs).toISOString() })), snapshots });
+                return;
+            }
+
             if (requestUrl.pathname === '/api/account/preferences') {
                 if (req.method === 'GET') {
                     sendJson(res, 200, { preferences: panelPreferenceStore.readPreferences(panelSession.userId) });
@@ -2689,6 +2737,7 @@ function createServer() {
                     if (!String(parsed.title || '').trim()) { sendJson(res, 400, { error: 'An incident title is required.' }); return; }
                     const incident = publicIncidentStore.addIncident(parsed);
                     auditPanelAction(panelSession, 'public-incident', `Published public incident: ${incident.title}`);
+                    for (const subscriber of panelPreferenceStore.listStatusSubscribers()) notificationStore.addNotification(subscriber.userId, { type: 'status-incident', title: incident.title, message: incident.message || `Status changed to ${incident.status}.`, href: '/status', referenceId: incident.id, delivery: subscriber.delivery });
                     sendJson(res, 200, { ok: true, incident, incidents: publicIncidentStore.readIncidents() }); return;
                 }
             }
@@ -2748,9 +2797,9 @@ function createServer() {
                     const preview = buildFieldChanges(current.management, management, settingAuditLabels);
                     if (parsed.apply !== true) { sendJson(res, 200, { ok: true, label, preview, management }); return; }
                     const saved = settingsStore.writeSettings({ ...current, management }, guildId);
-                    settingsHistoryStore.recordChange(guildId, { actorId: panelSession.userId, actorName: panelSession.username, before: current, after: saved });
+                    const recorded = settingsHistoryStore.recordChange(guildId, { actorId: panelSession.userId, actorName: panelSession.username, before: current, after: saved });
                     auditPanelAction(panelSession, 'settings-template', `Applied ${label}`, { guildId, changes: preview });
-                    sendJson(res, 200, { ok: true, label, preview, settings: saved }); return;
+                    sendJson(res, 200, { ok: true, label, preview, settings: saved, revision: recorded.revision, changeId: recorded.entry.id }); return;
                 }
             }
 
@@ -3036,6 +3085,12 @@ function createServer() {
                 delete parsed._revision;
                 const current = settingsStore.readSettings(guildId);
                 const next = { ...current, ...parsed };
+                if (parsed.management) {
+                    const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+                    if (!guild) { sendJson(res, 404, { error: 'Server is unavailable.' }); return; }
+                    const validation = validateManagement(guild, parsed.management);
+                    if (!validation.ok) { sendJson(res, 400, { error: validation.errors.map(item => item.message).join(' '), validation }); return; }
+                }
                 const saved = settingsStore.writeSettings(next, guildId);
                 const changes = buildFieldChanges(current, saved, settingAuditLabels);
                 const recorded = settingsHistoryStore.recordChange(guildId, { actorId: panelSession.userId, actorName: panelSession.username, before: current, after: saved });
@@ -3149,12 +3204,18 @@ function createServer() {
                     return;
                 }
 
+                const role = await getCurrentMemberRole(userId, guildId);
+                const featurePermissions = accessStore.getUserPermissions(userId, guildId);
+                const commandAccess = buildPublicCommandCatalog().map(command => ({ path: command.path, requiredRole: command.role, allowed: accessStore.roleMeetsRequirement(role, command.role) }));
+                const adminTabs = ['overview', 'analytics', 'voice', 'soundboard', 'triggers', 'users', 'management', 'settings'];
+                const memberTabs = ['overview', 'analytics', 'voice', 'soundboard'];
                 sendJson(res, 200, {
-                    role: await getCurrentMemberRole(userId, guildId),
+                    role,
                     member: await getMemberIdentity(guildId, userId),
-                    permissions: accessStore.getUserPermissions(userId, guildId),
+                    permissions: featurePermissions,
                     canEdit: await canEditMemberPermissions(panelSession, guildId, userId),
-                    featureAvailability: getMemberFeatureAvailability(guildId)
+                    featureAvailability: getMemberFeatureAvailability(guildId),
+                    simulation: { dashboardTabs: accessStore.roleMeetsRequirement(role, 'admin') ? adminTabs : memberTabs, features: featurePermissions, commands: commandAccess, allowedCommands: commandAccess.filter(command => command.allowed).length, blockedCommands: commandAccess.filter(command => !command.allowed).length }
                 });
                 return;
             }

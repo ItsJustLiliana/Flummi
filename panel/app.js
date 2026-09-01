@@ -2704,7 +2704,14 @@ document.getElementById('dashboardLayout').addEventListener('click', async event
 function showChartTooltip(event, row, metricLabel) {
     const tooltip = document.getElementById('chartTooltip');
     const timestamp = row.granularity === 'hour' ? `${row.date}:00` : row.date;
-    tooltip.innerHTML = `<strong>${escapeHtml(formatDateTime(timestamp))}</strong><br>${escapeHtml(metricLabel)}: ${escapeHtml(String(Number(row.count) || 0))}`;
+    let coverage = '';
+    if (row.coverageStatus === 'unknown') {
+        coverage = '<br><span class="chart-coverage-detail unknown">Data coverage: not recorded for this full period</span>';
+    } else if (Number.isFinite(row.coveragePercent)) {
+        const offline = Number(row.coverageOfflineMs) > 0 ? ` · ${formatDuration(row.coverageOfflineMs)} unavailable` : '';
+        coverage = `<br><span class="chart-coverage-detail ${escapeHtml(row.coverageStatus || 'complete')}">Data coverage: ${escapeHtml(String(row.coveragePercent))}%${escapeHtml(offline)}</span>`;
+    }
+    tooltip.innerHTML = `<strong>${escapeHtml(formatDateTime(timestamp))}</strong><br>${escapeHtml(metricLabel)}: ${escapeHtml(String(Number(row.count) || 0))}${coverage}`;
     tooltip.classList.add('visible');
     positionFloatingElement(tooltip, {
         left: event.clientX,
@@ -2714,6 +2721,29 @@ function showChartTooltip(event, row, metricLabel) {
         width: 0,
         height: 0
     });
+}
+
+function summarizeChartCoverage(rows, allowUnknownAverage = false) {
+    const tracked = rows.filter(row => row.coverageStatus);
+    if (!tracked.length) return {};
+    const finite = tracked.filter(row => Number.isFinite(row.coveragePercent));
+    const coverageUnknownCount = tracked.length - finite.length;
+    if (!finite.length || (coverageUnknownCount && !allowUnknownAverage)) return { coveragePercent: null, coverageStatus: 'unknown', coverageUnknownCount, coverageReason: 'Coverage was not recorded for this complete period.' };
+    const coveragePercent = Math.round(finite.reduce((total, row) => total + row.coveragePercent, 0) / finite.length);
+    return {
+        coveragePercent,
+        coverageStatus: coverageUnknownCount ? 'partial' : coveragePercent >= 99 ? 'complete' : coveragePercent > 0 ? 'partial' : 'missing',
+        coverageUnknownCount,
+        coverageOfflineMs: finite.reduce((total, row) => total + (Number(row.coverageOfflineMs) || 0), 0),
+        coverageReason: finite.some(row => row.coverageReason) ? 'Includes bot availability for this period.' : ''
+    };
+}
+
+function chartCoverageColor(row) {
+    if (row.coverageStatus === 'unknown') return '#a5b1d8';
+    if (row.coverageStatus === 'missing') return '#ff6b7a';
+    if (row.coverageStatus === 'partial') return '#ffc267';
+    return '#63e6be';
 }
 
 function hideChartTooltip() {
@@ -2764,7 +2794,8 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
         values.push({
             date: group.length === 1 ? group[0].date : `${group[0].date} – ${group[group.length - 1].date}`,
             count: group.reduce((total, row) => total + (Number(row.count) || 0), 0),
-            granularity: group.length === 1 ? group[0].granularity : null
+            granularity: group.length === 1 ? group[0].granularity : null,
+            ...summarizeChartCoverage(group)
         });
     }
     const maximum = Math.max(1, ...values.map(row => Number(row.count) || 0));
@@ -2793,8 +2824,21 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
     canvas.height = Math.round(height * scale);
     canvas.style.height = `${height}px`;
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', uiText(`${metricLabel} over time`));
+    const chartCoverage = summarizeChartCoverage(values, true);
+    const coverageAria = Number.isFinite(chartCoverage.coveragePercent) ? `, ${chartCoverage.coveragePercent}% data coverage` : chartCoverage.coverageStatus === 'unknown' ? ', data coverage unknown' : '';
+    canvas.setAttribute('aria-label', uiText(`${metricLabel} over time${coverageAria}`));
     container.replaceChildren(canvas);
+    if (chartCoverage.coverageStatus) {
+        const coverageBadge = document.createElement('span');
+        coverageBadge.className = `analytics-coverage-summary ${chartCoverage.coverageStatus}`;
+        coverageBadge.textContent = Number.isFinite(chartCoverage.coveragePercent)
+            ? `${chartCoverage.coveragePercent}% coverage${chartCoverage.coverageUnknownCount ? ` · ${chartCoverage.coverageUnknownCount} unknown` : ''}`
+            : 'Coverage unknown';
+        coverageBadge.title = Number.isFinite(chartCoverage.coverageOfflineMs) && chartCoverage.coverageOfflineMs > 0
+            ? `${formatDuration(chartCoverage.coverageOfflineMs)} without reliable bot data in the visible buckets.`
+            : chartCoverage.coverageReason || 'Data coverage for the visible buckets.';
+        container.append(coverageBadge);
+    }
     const context = canvas.getContext('2d');
     context.scale(scale, scale);
     context.font = '11px Segoe UI, sans-serif';
@@ -2816,15 +2860,36 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
         });
     }
     if (chartType === 'line') {
-        context.strokeStyle = '#75cfff'; context.lineWidth = 3; context.lineJoin = 'round'; context.lineCap = 'round'; context.beginPath();
-        points.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y)); context.stroke();
+        context.strokeStyle = '#75cfff'; context.lineWidth = 3; context.lineJoin = 'round'; context.lineCap = 'round';
+        for (let index = 1; index < points.length; index++) {
+            const incomplete = [values[index - 1], values[index]].some(row => row.coverageStatus && row.coverageStatus !== 'complete');
+            context.setLineDash(incomplete ? [5, 5] : []);
+            context.beginPath(); context.moveTo(points[index - 1].x, points[index - 1].y); context.lineTo(points[index].x, points[index].y); context.stroke();
+        }
+        context.setLineDash([]);
         context.fillStyle = '#8be0ff';
-        points.forEach(point => { context.beginPath(); context.arc(point.x, point.y, 4, 0, Math.PI * 2); context.fill(); });
+        points.forEach((point, index) => {
+            context.beginPath(); context.arc(point.x, point.y, 4, 0, Math.PI * 2); context.fill();
+            if (!values[index].coverageStatus) return;
+            context.strokeStyle = chartCoverageColor(values[index]); context.lineWidth = 2; context.beginPath(); context.arc(point.x, point.y, 6, 0, Math.PI * 2); context.stroke();
+        });
     } else {
-        points.forEach(point => {
+        points.forEach((point, index) => {
             const gradient = context.createLinearGradient(0, point.y, 0, top + plotHeight);
             gradient.addColorStop(0, '#83d9ff'); gradient.addColorStop(1, '#4e6bff'); context.fillStyle = gradient;
-            context.beginPath(); context.roundRect(point.x - barWidth / 2, point.y, barWidth, Math.max(2, top + plotHeight - point.y), 4); context.fill();
+            const barHeight = Math.max(2, top + plotHeight - point.y);
+            context.beginPath(); context.roundRect(point.x - barWidth / 2, point.y, barWidth, barHeight, 4); context.fill();
+            const row = values[index];
+            if (!row.coverageStatus) return;
+            if (row.coverageStatus !== 'complete') {
+                context.save(); context.beginPath(); context.roundRect(point.x - barWidth / 2, point.y, barWidth, barHeight, 4); context.clip();
+                context.strokeStyle = chartCoverageColor(row); context.globalAlpha = .72; context.lineWidth = 1;
+                for (let offset = -barHeight; offset < barWidth + barHeight; offset += 6) {
+                    context.beginPath(); context.moveTo(point.x - barWidth / 2 + offset, point.y + barHeight); context.lineTo(point.x - barWidth / 2 + offset + barHeight, point.y); context.stroke();
+                }
+                context.restore();
+            }
+            context.fillStyle = chartCoverageColor(row); context.beginPath(); context.arc(point.x, Math.max(5, point.y - 7), 3, 0, Math.PI * 2); context.fill();
         });
     }
     canvas.addEventListener('pointermove', event => {
@@ -2839,11 +2904,12 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
 function renderChartAnnotations(containerId, annotations = []) {
     const container = document.getElementById(containerId);
     container.querySelector('.analytics-annotations')?.remove();
+    container.classList.toggle('has-annotations', Boolean(annotations.length));
     if (!annotations.length) return;
     const list = document.createElement('div');
     list.className = 'analytics-annotations';
     list.setAttribute('aria-label', 'Events affecting this graph');
-    list.innerHTML = annotations.slice(0, 8).map(row => `<span title="${escapeHtml(row.label)}"><i></i>${escapeHtml(new Date(row.at).toLocaleDateString(uiLocale(), { day: 'numeric', month: 'short' }))} · ${escapeHtml(row.label)}</span>`).join('');
+    list.innerHTML = annotations.slice(0, 8).map(row => `<span title="${escapeHtml(`${row.label}${Number(row.count) > 1 ? ` (${row.count} events)` : ''}`)}"><i></i>${escapeHtml(new Date(row.at).toLocaleDateString(uiLocale(), { day: 'numeric', month: 'short' }))} · ${escapeHtml(row.label)}${Number(row.count) > 1 ? `<b>${escapeHtml(String(row.count))}×</b>` : ''}</span>`).join('');
     container.append(list);
 }
 

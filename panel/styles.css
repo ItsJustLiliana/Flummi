@@ -2745,11 +2745,39 @@ code {
 
 .analytics-chart {
     display: block;
+    position: relative;
     height: 210px;
     padding: 16px 18px 30px;
     border-bottom: 1px solid var(--border);
     overflow: hidden;
 }
+
+.analytics-coverage-summary {
+    position: absolute;
+    top: 9px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 7px;
+    border: 1px solid rgba(99, 230, 190, .28);
+    border-radius: 999px;
+    background: rgba(10, 19, 39, .86);
+    color: #8ff0cf;
+    font-size: 10px;
+    font-weight: 750;
+    line-height: 1;
+    pointer-events: auto;
+}
+
+.analytics-coverage-summary.partial { border-color: rgba(255, 194, 103, .35); color: #ffd59a; }
+.analytics-coverage-summary.missing { border-color: rgba(255, 107, 122, .35); color: #ff9aa5; }
+.analytics-coverage-summary.unknown { border-color: rgba(165, 177, 216, .28); color: #b8c1df; }
+
+.chart-coverage-detail { color: #8ff0cf; }
+.chart-coverage-detail.partial { color: #ffd59a; }
+.chart-coverage-detail.missing { color: #ff9aa5; }
+.chart-coverage-detail.unknown { color: #b8c1df; }
 
 .analytics-bar {
     min-width: 18px;
@@ -2790,6 +2818,10 @@ code {
 
 .analytics-chart.compact .analytics-canvas {
     min-height: 66px;
+}
+
+.analytics-chart.compact .analytics-coverage-summary {
+    display: none;
 }
 
 .analytics-grid {
@@ -4180,6 +4212,16 @@ code {
     max-height: 150px;
     margin-top: 12px;
     overflow-y: auto;
+}
+
+.release-commit-card .release-center-commits {
+    flex: 1;
+    max-height: 190px;
+}
+
+.release-commit-card {
+    display: flex;
+    flex-direction: column;
 }
 
 .release-center-commit {
@@ -5587,7 +5629,7 @@ code {
 @media(max-width:600px){.account-page-tabs{margin-top:18px}.account-page-tabs button{flex:0 0 auto}.account-page-panel .section-title-row{align-items:stretch;flex-direction:column}.account-page-panel .section-title-row>button{width:100%}}
 
 /* Account security, simulations, templates, and realtime context */
-.notification-delivery-grid,.workflow-debug-trace,.change-preview-list{display:grid;gap:10px;margin-top:14px}.notification-delivery-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,240px);align-items:center;gap:16px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025)}.notification-link{color:inherit;text-decoration:none}.notification-link:hover strong{color:#8edcff}.danger-zone{border-color:rgba(255,108,129,.38)!important}.button-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.change-preview-list article,.workflow-debug-rule,.module-test-result{padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025)}.change-preview-list article{display:grid;gap:4px}.change-preview-list span{color:var(--muted);font-size:13px}.workflow-debug-rule{display:grid;gap:8px}.workflow-debug-rule header,.workflow-debug-rule p{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0}.workflow-debug-rule p{padding-top:8px;border-top:1px solid var(--line);color:var(--muted)}.workflow-debug-rule.matched{border-color:rgba(94,221,172,.4)}.module-test-result{margin-top:12px}.module-test-result ol{margin:12px 0;padding-left:22px;color:var(--muted)}.analytics-annotations{display:flex;gap:7px;overflow-x:auto;margin-top:8px;padding:8px 2px 2px}.analytics-annotations span{display:inline-flex;align-items:center;flex:0 0 auto;gap:7px;max-width:280px;padding:6px 9px;border:1px solid rgba(117,207,255,.22);border-radius:999px;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.analytics-annotations i{width:7px;height:7px;border-radius:50%;background:#75cfff}.account-page-tabs{scrollbar-width:thin}
+.notification-delivery-grid,.workflow-debug-trace,.change-preview-list{display:grid;gap:10px;margin-top:14px}.notification-delivery-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,240px);align-items:center;gap:16px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025)}.notification-link{color:inherit;text-decoration:none}.notification-link:hover strong{color:#8edcff}.danger-zone{border-color:rgba(255,108,129,.38)!important}.button-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.change-preview-list article,.workflow-debug-rule,.module-test-result{padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025)}.change-preview-list article{display:grid;gap:4px}.change-preview-list span{color:var(--muted);font-size:13px}.workflow-debug-rule{display:grid;gap:8px}.workflow-debug-rule header,.workflow-debug-rule p{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0}.workflow-debug-rule p{padding-top:8px;border-top:1px solid var(--line);color:var(--muted)}.workflow-debug-rule.matched{border-color:rgba(94,221,172,.4)}.module-test-result{margin-top:12px}.module-test-result ol{margin:12px 0;padding-left:22px;color:var(--muted)}.analytics-chart.has-annotations{height:auto;min-height:210px}.analytics-annotations{display:flex;gap:7px;overflow-x:auto;margin-top:8px;padding:8px 2px 2px}.analytics-annotations span{display:inline-flex;align-items:center;flex:0 0 auto;gap:7px;max-width:280px;padding:6px 9px;border:1px solid rgba(117,207,255,.22);border-radius:999px;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.analytics-annotations i{width:7px;height:7px;border-radius:50%;background:#75cfff}.analytics-annotations b{padding:2px 5px;border-radius:999px;background:rgba(117,207,255,.12);color:#9de4ff;font-size:10px}.account-page-tabs{scrollbar-width:thin}
 @media(max-width:600px){.notification-delivery-row{grid-template-columns:1fr}.notification-delivery-row select{width:100%}.workflow-debug-rule header,.workflow-debug-rule p{align-items:flex-start;flex-direction:column}.account-page .card-grid{grid-template-columns:1fr 1fr}}
 
 /* Guided configuration, access preview, recovery, attention and quick navigation */

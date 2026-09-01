@@ -14,6 +14,8 @@ const { buildFieldChanges } = require('./utils/audit-details');
 const { RepositoryFileError, RepositoryFileManager, isSensitivePath } = require('./services/repository-file-manager');
 const { buildReleaseStatus } = require('./services/release-status');
 const { correctAnalytics } = require('./services/analytics-correction-service');
+const { addDataCoverage } = require('./services/data-coverage-service');
+const { buildAnalyticsAnnotations } = require('./services/analytics-annotations-service');
 const { readCompliance, updateOpenRouter } = require('./stores/compliance-store');
 const { PROCEDURES: complianceProcedures } = require('./services/compliance-operations-service');
 const config = readConfig();
@@ -752,10 +754,7 @@ function auditPanelAction(session, type, message, details = {}) {
 }
 
 function analyticsAnnotations(guildId, from = null, to = null) {
-    const start = from ? new Date(from).getTime() : -Infinity;
-    const end = to ? new Date(to).getTime() : Infinity;
-    const visibleTypes = new Set(['settings-update', 'settings-undo', 'settings-template', 'public-incident', 'moderation-action', 'module-test', 'server-restore']);
-    return readActivity().filter(entry => String(entry.guildId || '') === String(guildId) && visibleTypes.has(entry.type) && new Date(entry.at).getTime() >= start && new Date(entry.at).getTime() <= end).slice(0, 50).map(entry => ({ at: entry.at, type: entry.type, label: entry.message || entry.type }));
+    return buildAnalyticsAnnotations(readActivity(), guildId, from, to);
 }
 
 function loginPage(message = '') {
@@ -2281,6 +2280,9 @@ function createServer() {
                 const to = requestedDays === null ? requestedTo : defaultSpan === null ? null : requestedTo || new Date(now).toISOString();
                 const span = from && to ? Math.max(1, new Date(to).getTime() - new Date(from).getTime() + 1) : defaultSpan;
                 const analytics = voiceStore.getVoiceAnalytics(guildId, from, to, channelId);
+                const availability = pingMetricsStore.getAvailability();
+                analytics.activeOverTime = addDataCoverage(analytics.activeOverTime, availability, now);
+                analytics.minutesOverTime = addDataCoverage(analytics.minutesOverTime, availability, now);
                 if (requestedDays !== null) {
                     const allTime = rangeDays === null ? analytics : voiceStore.getVoiceAnalytics(guildId, null, null, channelId);
                     const rangeStart = from ? new Date(from).getTime() : null;
@@ -2480,7 +2482,7 @@ function createServer() {
                         uniqueAuthors: messages.uniqueAuthors,
                         changePercent: messages.comparison?.changePercent ?? null,
                         busiestHour: messages.comparison?.busiestHour ?? null,
-                        activity: messages.dailyMessages
+                        activity: addDataCoverage(messages.dailyMessages, pingMetricsStore.getAvailability(), now)
                     },
                     voice: {
                         totalMs: voice.totalMs,
@@ -2488,7 +2490,7 @@ function createServer() {
                         activeMembers: voice.userTotals.length,
                         averageSessionMs: voice.averageSessionMs,
                         busiestHour: voice.busiestHour,
-                        activity: voice.activeOverTime
+                        activity: addDataCoverage(voice.activeOverTime, pingMetricsStore.getAvailability(), now)
                     },
                     media: {
                         soundPlays: sounds.plays,
@@ -2510,6 +2512,7 @@ function createServer() {
                 ]);
                 const mediaRange = { from: requestUrl.searchParams.get('from'), to: requestUrl.searchParams.get('to') };
                 const summary = analyticsStore.getSoundboardSummary(guildId, requestUrl.searchParams.get('days'), mediaRange);
+                summary.byDay = addDataCoverage(summary.byDay, pingMetricsStore.getAvailability());
                 const mediaUsage = analyticsStore.getMediaUsageSummary(guildId, requestUrl.searchParams.get('days'), mediaRange);
                 const soundUsage = new Map(summary.itemDetails.map(row => [String(row.id), row]));
                 const emojiUsage = new Map(mediaUsage.emojis.map(row => [String(row.id), row]));
@@ -2578,6 +2581,7 @@ function createServer() {
                     from: requestUrl.searchParams.get('from'),
                     to: requestUrl.searchParams.get('to')
                 });
+                analytics.dailyMessages = addDataCoverage(analytics.dailyMessages, pingMetricsStore.getAvailability());
                 analytics.annotations = analyticsAnnotations(guildId, requestUrl.searchParams.get('from'), requestUrl.searchParams.get('to'));
                 if (!['developer', 'admin'].includes(getPanelGuildRole(panelSession, guildId))) analytics.moderation = null;
                 sendJson(res, 200, analytics);

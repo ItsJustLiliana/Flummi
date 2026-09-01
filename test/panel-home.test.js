@@ -413,6 +413,7 @@ test('GitHub update status compares staged and live commits and records promotio
     assert.match(panelHtml, /release\.stagedCommits/);
     assert.match(panelHtml, /function renderReleaseCenterSummary\(release = \{\}\)/);
     assert.match(panelHtml, /loadReleaseCenterSummary\(\)/);
+    assert.match(panelMarkup, /Release center[\s\S]*?<\/section>[\s\S]*?class="developer-overview-card release-commit-card"[\s\S]*?Staging commits/);
     assert.match(panelServer, /release: buildReleaseStatus\(\)/);
     assert.match(promoteScript, /record-update-status\.js" promoted/);
     assert.ok(promoteScript.indexOf('record-update-status.js" promoted') < promoteScript.indexOf('systemctl --user restart flummi.service'));

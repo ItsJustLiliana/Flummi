@@ -207,12 +207,16 @@
                 <div id="developerSearchResults" class="developer-search-results" hidden></div>
                 <div class="developer-overview-grid">
                     <section class="developer-overview-card" data-tailscale-required>
-                        <div class="developer-card-title-row"><h2><span class="developer-card-icon">↗</span>Release center</h2><span id="releaseCenterCommitCount" class="badge">Checking…</span></div>
+                        <h2><span class="developer-card-icon">↗</span>Release center</h2>
                         <p class="sub">Publish the exact commit you approved on private Tailscale staging to the live Flummi service.</p>
-                        <div id="releaseCenterCommitNames" class="release-center-commits"><span class="sub">Checking staging commits…</span></div>
                         <div class="actions"><button id="promoteLiveRelease" class="primary" type="button">Promote staging to live</button></div>
                         <p id="releaseStatus" class="status"></p>
                         <p class="developer-security-note">Requires Tailscale and a recent Discord login</p>
+                    </section>
+                    <section class="developer-overview-card release-commit-card" data-tailscale-required>
+                        <div class="developer-card-title-row"><h2><span class="developer-card-icon">≡</span>Staging commits</h2><span id="releaseCenterCommitCount" class="badge">Checking…</span></div>
+                        <p class="sub">Commits currently present on staging but not yet promoted to live.</p>
+                        <div id="releaseCenterCommitNames" class="release-center-commits"><span class="sub">Checking staging commits…</span></div>
                     </section>
                 </div>
                 <section class="developer-tool-shell" aria-label="Developer workspace">

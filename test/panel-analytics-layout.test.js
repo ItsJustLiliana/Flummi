@@ -174,6 +174,15 @@ test('finite analytics periods expose linked date controls and one-day charts ke
     assert.match(panelHtml, /data-calendar-date/);
 });
 
+test('activity charts expose per-bucket data coverage without cluttering compact charts', () => {
+    assert.match(panelHtml, /function summarizeChartCoverage\(rows, allowUnknownAverage = false\)/);
+    assert.match(panelHtml, /Data coverage: \$\{escapeHtml\(String\(row\.coveragePercent\)\)\}%/);
+    assert.match(panelHtml, /context\.setLineDash\(incomplete \? \[5, 5\] : \[\]\)/);
+    assert.match(panelHtml, /context\.roundRect[\s\S]*?context\.clip\(\)/);
+    assert.match(panelHtml, /\.analytics-coverage-summary\.partial/);
+    assert.match(panelHtml, /\.analytics-chart\.compact \.analytics-coverage-summary[\s\S]*?display: none/);
+});
+
 test('tooltips activate only from help controls and unavailable Tailscale features', () => {
     assert.doesNotMatch(panelHtml, /surface\.dataset\.tooltip/);
     assert.doesNotMatch(panelHtml, /closest\?\.\('\[data-tooltip\]'\)/);

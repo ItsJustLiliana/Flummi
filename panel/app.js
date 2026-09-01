@@ -2169,6 +2169,7 @@ async function activateDeveloperWorkspace(preferredTab = null) {
         localStorage.setItem('flummi.guildId', state.guildId);
     }
     applyAccessVisibility();
+    await loadReleaseCenterSummary();
     if (state.guildId && state.role !== 'member') {
         try {
             await ensureManagementResources();
@@ -2348,7 +2349,7 @@ document.getElementById('homeDeveloperGuild').addEventListener('change', async e
     refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
 });
 document.getElementById('refreshDeveloperTool').addEventListener('click', () => {
-    refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
+    Promise.all([refreshActiveTab(), loadReleaseCenterSummary()]).then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
 });
 
 function fillGuildSelect(rows) {
@@ -6681,6 +6682,36 @@ async function loadBotProfiles() {
     document.getElementById('guildBotBio').value = data.guildProfile?.bio || '';
 }
 
+function renderReleaseCenterSummary(release = {}) {
+    const count = document.getElementById('releaseCenterCommitCount');
+    const names = document.getElementById('releaseCenterCommitNames');
+    if (!count || !names) return;
+
+    if (!release.available) {
+        count.textContent = 'Unavailable';
+        count.className = 'badge off';
+        names.innerHTML = `<span class="sub">${escapeHtml(release.reason || 'Git comparison is unavailable.')}</span>`;
+        return;
+    }
+
+    const commits = release.stagedCommits || [];
+    const pending = Number(release.pendingCommitCount) || 0;
+    count.textContent = `${pending} commit${pending === 1 ? '' : 's'}`;
+    count.className = `badge ${pending ? 'accent' : 'on'}`;
+    names.innerHTML = commits.length
+        ? commits.map(commit => `<div class="release-center-commit"><code title="${escapeHtml(commit.hash)}">${escapeHtml(commit.shortHash)}</code><span title="${escapeHtml(commit.subject || 'Untitled commit')}">${escapeHtml(commit.subject || 'Untitled commit')}</span></div>`).join('')
+        : `<span class="sub">${escapeHtml(release.relation === 'behind' ? 'Staging is behind live.' : 'Staging and live match.')}</span>`;
+}
+
+async function loadReleaseCenterSummary() {
+    try {
+        const updateStatus = await api('/api/update-status');
+        renderReleaseCenterSummary(updateStatus.release || {});
+    } catch (error) {
+        renderReleaseCenterSummary({ available: false, reason: error.message });
+    }
+}
+
 async function loadAi() {
     await populateGuildUserSelects();
     const configData = await api('/api/config'); const ai = configData.ai || {};
@@ -6729,6 +6760,7 @@ async function loadAi() {
     const aiHealth = await api('/api/ai-health');
     document.getElementById('aiHealthCards').innerHTML = [statCard('Current model', aiHealth.currentModel || 'Not configured'), statCard('Last reply', aiHealth.lastReply?.latencyMs ? `${aiHealth.lastReply.latencyMs}ms` : 'No data yet'), statCard('Success rate', aiHealth.successRate === null ? 'No data yet' : `${aiHealth.successRate}%`), statCard('Timeouts', aiHealth.timeouts || 0), statCard('Rate limits', aiHealth.rateLimits || 0), statCard('Failures', aiHealth.failures || 0)].join('');
     const release = updateStatus.release || {};
+    renderReleaseCenterSummary(release);
     const liveCommitId = updateStatus.lastPromotedShortCommit || release.live?.shortHash || 'Unavailable';
     const liveCommitTimestamp = updateStatus.lastPromotedAt || release.live?.promotedAt;
     document.getElementById('updateStatusCards').innerHTML = [

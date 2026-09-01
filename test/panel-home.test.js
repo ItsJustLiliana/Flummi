@@ -404,13 +404,15 @@ test('management modules include live actions, case timelines, AutoMod rules, ro
 });
 
 test('GitHub update status compares staged and live commits and records promotions', () => {
-    for (const id of ['updateStatusCards', 'releaseComparisonStatus', 'stagedCommitList']) {
+    for (const id of ['updateStatusCards', 'releaseComparisonStatus', 'stagedCommitList', 'releaseCenterCommitCount', 'releaseCenterCommitNames']) {
         assert.match(panelHtml, new RegExp(`id="${id}"`));
     }
     assert.match(panelHtml, /statCard\('Staged, not live'/);
     assert.match(panelHtml, /statCard\('Last pushed live'/);
     assert.match(panelHtml, /statCard\('Live push date'/);
     assert.match(panelHtml, /release\.stagedCommits/);
+    assert.match(panelHtml, /function renderReleaseCenterSummary\(release = \{\}\)/);
+    assert.match(panelHtml, /loadReleaseCenterSummary\(\)/);
     assert.match(panelServer, /release: buildReleaseStatus\(\)/);
     assert.match(promoteScript, /record-update-status\.js" promoted/);
     assert.ok(promoteScript.indexOf('record-update-status.js" promoted') < promoteScript.indexOf('systemctl --user restart flummi.service'));
@@ -450,6 +452,8 @@ test('landing, developer tools, and dashboard adapt to touch screens and tablets
     assert.match(panelHtml, /#dashboardLayout \.brand \{ width: 100%; padding: 0; border-bottom: 0; \}/);
     assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?#dashboardLayout \.tabs \{[\s\S]*?flex-direction: column;/);
     assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?\.developer-tool-nav \{[\s\S]*?flex-direction: column;/);
+    assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?\.developer-command-bar \{[\s\S]*?flex-wrap: wrap;/);
+    assert.match(panelStyles, /@media \(max-width: 820px\)[\s\S]*?\.developer-command-bar \.secondary \{[\s\S]*?width: 100%;/);
     assert.match(panelStyles, /\.account-menu:not\(\[open\]\) > \.account-menu-popover \{[\s\S]*?display: none;/);
     assert.match(panelStyles, /\.sidebar\.mobile-menu-open \.mobile-sidebar-content \{[\s\S]*?width: min\(360px, calc\(100vw - 44px\)\)/);
     assert.match(panelStyles, /#dashboardLayout \.management-nav-group > \.management-parent \{[\s\S]*?justify-content: center;[\s\S]*?padding-left: 44px;[\s\S]*?text-align: center;/);

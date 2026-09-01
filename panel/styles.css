@@ -4163,6 +4163,47 @@ code {
     font-size: 16px;
 }
 
+.developer-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.developer-card-title-row h2 {
+    margin-bottom: 7px;
+}
+
+.release-center-commits {
+    display: grid;
+    gap: 6px;
+    max-height: 150px;
+    margin-top: 12px;
+    overflow-y: auto;
+}
+
+.release-center-commit {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .035);
+}
+
+.release-center-commit code {
+    color: #a9ddff;
+    font-size: 11px;
+}
+
+.release-center-commit span {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .developer-overview-card .sub {
     min-height: 42px;
     line-height: 1.55;
@@ -4705,6 +4746,14 @@ code {
 }
 
 @media (max-width: 820px) {
+    .developer-command-bar {
+        flex-wrap: wrap;
+    }
+
+    .developer-command-bar .secondary {
+        width: 100%;
+    }
+
     .home-nav-inner {
         width: min(100% - 28px, 1280px);
         grid-template-columns: 1fr auto;

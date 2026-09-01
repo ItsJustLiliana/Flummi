@@ -260,8 +260,12 @@ function buildPublicStatus() {
     let updateStatus = {};
     try { updateStatus = JSON.parse(fs.readFileSync(updateStatusFilePath, 'utf8')); } catch { /* no live promotion recorded yet */ }
     const release = buildReleaseStatus();
-    const discordReady = client.isReady();
-    const gatewayPing = Number.isFinite(client.ws.ping) ? Math.max(0, Math.round(client.ws.ping)) : null;
+    const panelDiscordReady = client.isReady();
+    const mainBotHealth = pingMetricsStore.getPingMetrics().system;
+    const mainBotHeartbeatAgeMs = Date.now() - new Date(mainBotHealth?.at || 0).getTime();
+    const mainBotHeartbeatFresh = Number.isFinite(mainBotHeartbeatAgeMs) && mainBotHeartbeatAgeMs <= 90 * 1000;
+    const discordReady = mainBotHeartbeatFresh && mainBotHealth?.ready === true;
+    const gatewayPing = Number.isFinite(mainBotHealth?.gatewayLatency) ? Math.max(0, Math.round(mainBotHealth.gatewayLatency)) : null;
     const connectedServers = client.guilds.cache.size;
     const components = [
         {
@@ -273,8 +277,8 @@ function buildPublicStatus() {
         {
             key: 'dashboard',
             label: 'Dashboard and API',
-            status: 'operational',
-            detail: 'The website and public API are responding.'
+            status: panelDiscordReady ? 'operational' : 'degraded',
+            detail: panelDiscordReady ? 'The website and public API are responding.' : 'The website is responding, but its Discord connection is unavailable.'
         },
         {
             key: 'gateway',

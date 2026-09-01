@@ -6259,6 +6259,17 @@ async function loadReliability() {
 document.getElementById('createBackup').addEventListener('click', async () => { try { const result = await api(withGuild('/api/reliability/backup'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), `Backup created: ${result.backup}`, 'ok'); await loadReliability(); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
 document.getElementById('downloadReliabilityExport').addEventListener('click', () => { if (state.guildId) window.location.href = withGuild('/api/backup'); });
 document.getElementById('reconcileVoice').addEventListener('click', async () => { try { await api(withGuild('/api/reliability/reconcile-voice'), { method: 'POST' }); setStatus(document.getElementById('reliabilityStatus'), 'Voice sessions reconciled with Discord.', 'ok'); } catch (error) { setStatus(document.getElementById('reliabilityStatus'), error.message, 'error'); } });
+document.getElementById('reliabilityRestart').addEventListener('click', async event => {
+    if (!await confirmAction({ title: 'Restart Flummi?', message: 'The bot and panel will disconnect briefly while the Discord connections are rebuilt.', confirmLabel: 'Restart Flummi' })) return;
+    event.currentTarget.disabled = true;
+    try {
+        const result = await fileMutation('restart', { confirmation: 'RESTART' });
+        setStatus(document.getElementById('reliabilityStatus'), `${result.message} Reconnect in a few seconds.`, 'ok');
+    } catch (error) {
+        setStatus(document.getElementById('reliabilityStatus'), error.message, 'error');
+        event.currentTarget.disabled = false;
+    }
+});
 
 // ---------- Developer files ----------
 const developerFiles = {

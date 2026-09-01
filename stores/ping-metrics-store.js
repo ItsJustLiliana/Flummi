@@ -35,10 +35,11 @@ function recordPingMetrics({ commandLatency, gatewayLatency, acknowledgementLate
     return sample;
 }
 
-function recordSystemPingMetrics({ gatewayLatency, apiLatency, apiStatus }) {
+function recordSystemPingMetrics({ gatewayLatency, apiLatency, apiStatus, ready }) {
     const data = readData();
     data.system = {
         at: new Date().toISOString(),
+        ready: ready === true,
         gatewayLatency: Number.isFinite(gatewayLatency) ? Math.round(gatewayLatency) : null,
         apiLatency: Number.isFinite(apiLatency) ? Math.round(apiLatency) : null,
         apiStatus: apiStatus || null

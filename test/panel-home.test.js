@@ -502,7 +502,7 @@ test('Tailscale-only features are disabled and explained on public sessions', ()
 
     for (const id of [
         'fileNew', 'fileNewFolder', 'fileSearch', 'fileSearchButton', 'fileUpload',
-        'fileUploadButton', 'fileRename', 'fileTrash', 'fileSave', 'fileRunTests', 'fileRestart'
+        'fileUploadButton', 'fileRename', 'fileTrash', 'fileSave', 'fileRunTests', 'fileRestart', 'reliabilityRestart'
     ]) {
         assert.match(panelHtml, new RegExp(`id="${id}"[^>]*data-tailscale-required`));
     }

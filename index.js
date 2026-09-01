@@ -28,8 +28,24 @@ const client = new Client({
 client.commands = new Collection();
 
 const DISCORD_HEALTH_CHECK_INTERVAL_MS = 30 * 1000;
+const DISCORD_RECOVERY_RESTART_MS = 2 * 60 * 1000;
+let discordRecoveryFailureStartedAt = null;
+
+function evaluateDiscordRecovery(discordReady, discordApiReachable) {
+    if (discordReady || !discordApiReachable) {
+        discordRecoveryFailureStartedAt = null;
+        return;
+    }
+
+    discordRecoveryFailureStartedAt ||= Date.now();
+    if (Date.now() - discordRecoveryFailureStartedAt < DISCORD_RECOVERY_RESTART_MS) return;
+
+    console.error('Discord API is reachable, but the bot gateway did not recover within two minutes. Restarting Flummi.');
+    process.exit(1);
+}
 
 async function recordAutomaticDiscordLatency() {
+    const discordReady = client.isReady();
     const gatewayLatency = Number.isFinite(client.ws.ping) ? Math.max(0, Math.round(client.ws.ping)) : null;
     const controller = new AbortController();
     const startedAt = Date.now();
@@ -38,16 +54,20 @@ async function recordAutomaticDiscordLatency() {
     try {
         const response = await fetch('https://discord.com/api/v10/gateway', { signal: controller.signal });
         recordSystemPingMetrics({
+            ready: discordReady,
             gatewayLatency,
             apiLatency: Date.now() - startedAt,
             apiStatus: response.status
         });
+        evaluateDiscordRecovery(discordReady, response.ok);
     } catch (error) {
         recordSystemPingMetrics({
+            ready: discordReady,
             gatewayLatency,
             apiLatency: null,
             apiStatus: error?.name === 'AbortError' ? 'Timed out' : 'Unavailable'
         });
+        evaluateDiscordRecovery(discordReady, false);
     } finally {
         clearTimeout(timeout);
     }

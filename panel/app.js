@@ -7529,4 +7529,40 @@ async function initializePanel() {
     }
 }
 
+// Keep revealed blocks visible for the whole visit, including live data refreshes.
+function initializeStatsReveal() {
+    if (!('IntersectionObserver' in window)) return;
+    const dashboard = document.getElementById('dashboardLayout');
+    const panels = [...document.querySelectorAll('#tab-analytics, #tab-stats, #tab-voice, #tab-soundboard')];
+    const blockSelector = '.section, .card-grid, .chart-card, .stat-card';
+    let currentPanel = null;
+    let blocks = [];
+    const observer = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+            if (!entry.isIntersecting || !currentPanel?.contains(entry.target)) continue;
+            entry.target.classList.add('stats-revealed');
+            observer.unobserve(entry.target);
+        }
+    }, { threshold: 0 });
+
+    const sync = () => {
+        const nextPanel = dashboard.hidden ? null : panels.find(panel => panel.classList.contains('active'));
+        if (nextPanel === currentPanel) return;
+        observer.disconnect();
+        blocks.forEach(block => block.classList.remove('stats-reveal', 'stats-revealed'));
+        currentPanel = nextPanel;
+        blocks = currentPanel ? [...currentPanel.querySelectorAll(blockSelector)]
+            .filter(block => !block.parentElement.closest(blockSelector)) : [];
+        for (const block of blocks) {
+            block.classList.add('stats-reveal');
+            observer.observe(block);
+        }
+    };
+    const navigationObserver = new MutationObserver(sync);
+    panels.forEach(panel => navigationObserver.observe(panel, { attributes: true, attributeFilter: ['class'] }));
+    navigationObserver.observe(dashboard, { attributes: true, attributeFilter: ['hidden'] });
+    sync();
+}
+
+initializeStatsReveal();
 initializePanel().catch(error => handleUiError(error, () => initializePanel().catch(handleUiError)));

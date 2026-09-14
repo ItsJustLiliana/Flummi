@@ -5274,6 +5274,24 @@ code {
     animation: panel-fade-enter 160ms ease-out;
 }
 
+.stats-reveal {
+    opacity: 0;
+    transition: opacity 400ms ease-out;
+}
+
+.stats-reveal.stats-revealed,
+.stats-reveal:focus-within,
+.a11y-reduced-motion .stats-reveal {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stats-reveal {
+        opacity: 1;
+        transition: none;
+    }
+}
+
 .confirm-dialog,
 .command-palette {
     opacity: 0;

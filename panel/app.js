@@ -680,7 +680,7 @@ const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
 const sidebar = document.querySelector('.sidebar');
 const mobileMenuToggle = document.getElementById('mobileMenuToggle');
 const mobileMenuBackdrop = document.getElementById('mobileMenuBackdrop');
-const mobileMenuMedia = window.matchMedia('(max-width: 820px)');
+const mobileMenuMedia = window.matchMedia('(max-width: 1000px)');
 const defaultPanelTitles = Object.fromEntries(tabPanels.map(panel => {
     const heading = panel.querySelector(':scope > h2');
     const textNode = Array.from(heading?.childNodes || []).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
@@ -1337,7 +1337,7 @@ function isDashboardVisible() {
 const mobileSaveDock = document.getElementById('mobileSaveDock');
 const mobileSaveDockButton = document.getElementById('mobileSaveDockButton');
 const mobileSaveDockContext = document.getElementById('mobileSaveDockContext');
-const mobileSaveMedia = window.matchMedia('(max-width: 820px)');
+const mobileSaveMedia = window.matchMedia('(max-width: 1000px)');
 let mobileSaveTarget = null;
 
 function dashboardSaveButtons(panel) {
@@ -2248,7 +2248,7 @@ const homeMobileMenuToggle = document.getElementById('homeMobileMenuToggle');
 const homeMobileMenuPanel = document.getElementById('homeMobileMenuPanel');
 const homeNavigation = document.getElementById('homeNavigation');
 const homeNavGroups = [...document.querySelectorAll('.home-nav-group')];
-const homeDesktopNavMedia = window.matchMedia('(hover: hover) and (min-width: 821px)');
+const homeDesktopNavMedia = window.matchMedia('(hover: hover) and (min-width: 1001px)');
 let homeNavPinnedGroup = null;
 let homeNavHoveredGroup = null;
 
@@ -2265,7 +2265,7 @@ function syncDesktopHomeNav() {
 }
 
 function setHomeMobileMenu(open) {
-    const expanded = Boolean(open) && window.matchMedia('(max-width: 820px)').matches;
+    const expanded = Boolean(open) && window.matchMedia('(max-width: 1000px)').matches;
     homeMobileMenuToggle.setAttribute('aria-expanded', String(expanded));
     homeMobileMenuPanel.classList.toggle('open', expanded);
     homeNavigation.classList.toggle('open', expanded);
@@ -2326,7 +2326,7 @@ homeMobileMenuToggle.addEventListener('click', () => setHomeMobileMenu(homeMobil
 window.addEventListener('resize', () => {
     homeNavPinnedGroup = null;
     homeNavHoveredGroup = null;
-    if (window.innerWidth > 820) setHomeMobileMenu(false);
+    if (window.innerWidth > 1000) setHomeMobileMenu(false);
     else closeHomeNavGroups();
 });
 document.getElementById('homeGuilds').addEventListener('click', event => {
@@ -7530,39 +7530,59 @@ async function initializePanel() {
 }
 
 // Keep revealed blocks visible for the whole visit, including live data refreshes.
-function initializeStatsReveal() {
+function initializePageReveal() {
     if (!('IntersectionObserver' in window)) return;
-    const dashboard = document.getElementById('dashboardLayout');
-    const panels = [...document.querySelectorAll('#tab-analytics, #tab-stats, #tab-voice, #tab-soundboard')];
+    const pageSelector = '.tab-panel, .home-view, .account-page-panel';
     const blockSelector = '.section, .card-grid, .chart-card, .stat-card';
-    let currentPanel = null;
-    let blocks = [];
+    const visits = new Map();
     const observer = new IntersectionObserver(entries => {
         for (const entry of entries) {
-            if (!entry.isIntersecting || !currentPanel?.contains(entry.target)) continue;
-            entry.target.classList.add('stats-revealed');
+            if (!entry.isIntersecting || !entry.target.classList.contains('page-reveal')) continue;
+            entry.target.classList.add('page-revealed');
             observer.unobserve(entry.target);
         }
-    }, { threshold: 0 });
+    }, { rootMargin: '0px 0px -64px 0px', threshold: 0 });
 
     const sync = () => {
-        const nextPanel = dashboard.hidden ? null : panels.find(panel => panel.classList.contains('active'));
-        if (nextPanel === currentPanel) return;
-        observer.disconnect();
-        blocks.forEach(block => block.classList.remove('stats-reveal', 'stats-revealed'));
-        currentPanel = nextPanel;
-        blocks = currentPanel ? [...currentPanel.querySelectorAll(blockSelector)]
-            .filter(block => !block.parentElement.closest(blockSelector)) : [];
-        for (const block of blocks) {
-            block.classList.add('stats-reveal');
-            observer.observe(block);
+        const pages = [...document.querySelectorAll(pageSelector)];
+        const visiblePages = new Set(pages.filter(page => !page.closest('[hidden]')
+            && (!page.matches('.tab-panel') || page.classList.contains('active'))
+            && page.getClientRects().length));
+        for (const [page, blocks] of visits) {
+            if (visiblePages.has(page)) continue;
+            for (const block of blocks) {
+                observer.unobserve(block);
+                block.classList.remove('page-reveal', 'page-revealed');
+            }
+            visits.delete(page);
+        }
+        for (const page of visiblePages) {
+            if (!visits.has(page)) visits.set(page, new Set());
+            const blocks = visits.get(page);
+            for (const block of blocks) {
+                if (page.contains(block)) continue;
+                observer.unobserve(block);
+                blocks.delete(block);
+            }
+            for (const block of page.querySelectorAll(blockSelector)) {
+                if (block.closest(pageSelector) !== page || blocks.has(block)) continue;
+                const parentBlock = block.parentElement.closest(blockSelector);
+                if (parentBlock && page.contains(parentBlock)) continue;
+                blocks.add(block);
+                block.classList.add('page-reveal');
+                observer.observe(block);
+            }
         }
     };
-    const navigationObserver = new MutationObserver(sync);
-    panels.forEach(panel => navigationObserver.observe(panel, { attributes: true, attributeFilter: ['class'] }));
-    navigationObserver.observe(dashboard, { attributes: true, attributeFilter: ['hidden'] });
+    const navigationObserver = new MutationObserver(records => {
+        if (records.some(record => record.type === 'childList'
+            || record.attributeName === 'hidden' || record.target.matches(pageSelector))) sync();
+    });
+    navigationObserver.observe(document.body, {
+        subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden']
+    });
     sync();
 }
 
-initializeStatsReveal();
+initializePageReveal();
 initializePanel().catch(error => handleUiError(error, () => initializePanel().catch(handleUiError)));

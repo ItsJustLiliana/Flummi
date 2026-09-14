@@ -1862,11 +1862,11 @@ th.sortable:hover {
         display: none;
     }
 
+    .sidebar .mobile-sidebar-content,
     .sidebar.mobile-menu-open .mobile-sidebar-content {
         position: absolute;
         top: 100%;
         left: 0;
-        display: flex;
         width: min(360px, calc(100vw - 44px));
         height: calc(100vh - 68px);
         height: calc(100dvh - 68px);
@@ -1883,6 +1883,10 @@ th.sortable:hover {
         border-radius: 0 0 16px 0;
         background: linear-gradient(180deg, #101a35, #0b1328);
         box-shadow: 0 18px 40px rgba(0, 0, 0, .42);
+    }
+
+    .sidebar.mobile-menu-open .mobile-sidebar-content {
+        display: flex;
     }
 
     #dashboardLayout .management-nav-group > .management-parent {
@@ -5222,55 +5226,130 @@ code {
     }
 }
 
-/* Keep entrance motion brief; translate preserves existing popover positioning. */
-@keyframes panel-menu-enter {
-    from { opacity: 0; translate: 0 var(--menu-enter-offset, -7px); }
-    to { opacity: 1; translate: 0 0; }
-}
-
+/* State transitions replay and reverse, including when a menu closes mid-motion. */
 @keyframes panel-fade-enter {
     from { opacity: 0; }
     to { opacity: 1; }
 }
 
+.home-nav-group::details-content,
+.account-menu::details-content {
+    transition: content-visibility 180ms allow-discrete;
+}
+
+.home-nav-popover,
+.account-menu-popover {
+    opacity: 0;
+    translate: 0 var(--menu-enter-offset, -7px);
+    transition: opacity 180ms ease-out, translate 180ms cubic-bezier(.2, .7, .3, 1);
+}
+
 .home-nav-group[open] > .home-nav-popover,
-.account-menu[open] > .account-menu-popover,
-.management-subnav:not([hidden]) {
-    animation: panel-menu-enter 180ms cubic-bezier(.2, .7, .3, 1);
+.account-menu[open] > .account-menu-popover {
+    opacity: 1;
+    translate: 0 0;
+}
+
+/* Native details content handles hiding after the exit transition. */
+@supports selector(details::details-content) {
+    .account-menu:not([open]) > .account-menu-popover {
+        display: grid;
+    }
+}
+
+.home-nav-group:not([open]) > .home-nav-popover,
+.account-menu:not([open]) > .account-menu-popover {
+    pointer-events: none;
 }
 
 .account-menu-popover-up {
     --menu-enter-offset: 7px;
 }
 
-@media (hover: hover) and (min-width: 821px) {
-    .home-nav-group:not([open]):hover > .home-nav-popover {
-        animation: panel-menu-enter 180ms cubic-bezier(.2, .7, .3, 1);
-    }
-}
-
 .tab-panel.active {
     animation: panel-fade-enter 160ms ease-out;
 }
 
+.management-subnav,
+.confirm-dialog,
+.command-palette {
+    opacity: 0;
+    translate: 0 -7px;
+    transition: opacity 180ms ease-out, translate 180ms ease-out,
+        display 180ms allow-discrete, overlay 180ms allow-discrete;
+}
+
+.management-subnav:not([hidden]),
 .confirm-dialog[open],
 .command-palette[open] {
-    --menu-enter-offset: 8px;
-    animation: panel-menu-enter 180ms cubic-bezier(.2, .7, .3, 1);
+    opacity: 1;
+    translate: 0 0;
+}
+
+.management-subnav[hidden] {
+    pointer-events: none;
+}
+
+.confirm-dialog::backdrop,
+.command-palette::backdrop {
+    opacity: 0;
+    transition: opacity 180ms ease-out, display 180ms allow-discrete,
+        overlay 180ms allow-discrete;
 }
 
 .confirm-dialog[open]::backdrop,
 .command-palette[open]::backdrop {
-    animation: panel-fade-enter 160ms ease-out;
+    opacity: 1;
 }
 
-@media (max-width: 820px) {
-    .sidebar.mobile-menu-open .mobile-sidebar-content {
-        animation: panel-menu-enter 180ms ease-out;
+@starting-style {
+    .home-nav-group[open] > .home-nav-popover,
+    .account-menu[open] > .account-menu-popover,
+    .management-subnav:not([hidden]),
+    .confirm-dialog[open],
+    .command-palette[open] {
+        opacity: 0;
+        translate: 0 var(--menu-enter-offset, -7px);
+    }
+
+    .confirm-dialog[open]::backdrop,
+    .command-palette[open]::backdrop {
+        opacity: 0;
     }
 }
 
+@media (max-width: 820px) {
+    .sidebar .mobile-sidebar-content {
+        opacity: 0;
+        translate: 0 -7px;
+        transition: opacity 180ms ease-out, translate 180ms ease-out,
+            display 180ms allow-discrete;
+    }
+
+    .sidebar.mobile-menu-open .mobile-sidebar-content {
+        opacity: 1;
+        translate: 0 0;
+    }
+
+    @starting-style {
+        .sidebar.mobile-menu-open .mobile-sidebar-content {
+            opacity: 0;
+            translate: 0 -7px;
+        }
+    }
+}
+
+.a11y-reduced-motion .home-nav-group::details-content,
+.a11y-reduced-motion .account-menu::details-content {
+    transition-duration: .01ms !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
+
+    .home-nav-group::details-content,
+    .account-menu::details-content {
+        transition-duration: .01ms !important;
+    }
 
     *,
     *::before,

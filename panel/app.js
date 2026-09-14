@@ -4283,6 +4283,7 @@ function setAnalyticsExpanded(expanded) {
     const open = Boolean(expanded);
     toggle.setAttribute('aria-expanded', String(open));
     toggle.setAttribute('aria-label', uiText(`${open ? 'Collapse' : 'Expand'} Analytics tabs`));
+    subnav.inert = !open;
     subnav.hidden = !open;
 }
 
@@ -4292,6 +4293,7 @@ function setManagementExpanded(expanded) {
     const open = Boolean(expanded);
     toggle.setAttribute('aria-expanded', String(open));
     toggle.setAttribute('aria-label', uiText(`${open ? 'Collapse' : 'Expand'} Management tabs`));
+    subnav.inert = !open;
     subnav.hidden = !open;
 }
 

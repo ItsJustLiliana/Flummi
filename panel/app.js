@@ -7541,7 +7541,7 @@ function initializePageReveal() {
             entry.target.classList.add('page-revealed');
             observer.unobserve(entry.target);
         }
-    }, { rootMargin: '0px 0px -64px 0px', threshold: 0 });
+    }, { rootMargin: '0px 0px -120px 0px', threshold: 0 });
 
     const sync = () => {
         const pages = [...document.querySelectorAll(pageSelector)];

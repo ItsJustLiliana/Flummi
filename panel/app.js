@@ -414,8 +414,25 @@ function formatDateTime(value) {
 }
 
 async function api(pathAndQuery, options) {
-    const response = await fetch(pathAndQuery, options);
-    const data = await response.json().catch(() => ({}));
+    const requestedGuild = new URL(pathAndQuery, window.location.origin).searchParams.get('guildId');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    let response;
+    let data;
+    try {
+        response = await fetch(pathAndQuery, { ...options, signal: options?.signal || controller.signal });
+        data = await response.json();
+    } catch (error) {
+        if (controller.signal.aborted) throw new Error('The request took too long. Please try again.');
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+    if (requestedGuild && requestedGuild !== String(state.guildId)) {
+        const error = new Error('The selected server changed while loading.');
+        error.code = 'STALE_GUILD';
+        throw error;
+    }
 
     if (!response.ok) {
         const error = new Error(data.error || `Request failed (${response.status}).`);
@@ -444,6 +461,8 @@ function showPageNotice(message, { type = 'error', actionLabel = '', action = nu
     button.hidden = !actionLabel;
     button.textContent = actionLabel || 'Try again';
     button.onclick = action;
+    if (document.getElementById('dashboardLayout').hidden) document.body.prepend(notice);
+    else document.querySelector('#dashboardLayout .content').prepend(notice);
     notice.hidden = false;
 }
 
@@ -452,6 +471,7 @@ function clearPageNotice() {
 }
 
 function handleUiError(error, retry = null) {
+    if (error?.code === 'STALE_GUILD') return;
     const signedOut = error?.status === 401;
     const needsReauthentication = error?.code === 'REAUTH_REQUIRED';
     showPageNotice(error?.message || 'Something went wrong. Please try again.', {
@@ -1287,40 +1307,43 @@ document.getElementById('managementNavToggle').addEventListener('click', event =
     setManagementExpanded(event.currentTarget.getAttribute('aria-expanded') !== 'true');
 });
 
-tabButtons.forEach(btn => {
-    btn.addEventListener('click', async () => {
-        if (dirtyManagementPanel && !dirtyManagementPanel.classList.contains('active')) clearManagementDirty();
-        if (dirtyManagementPanel && btn.dataset.tab !== dirtyManagementPanel.id.replace(/^tab-/, '')) {
-            const leave = await confirmAction({ title: 'Discard unsaved changes?', message: 'This module has changes that have not been saved yet.', confirmLabel: 'Discard and leave' });
-            if (!leave) return;
-            clearManagementDirty();
-            await refreshActiveTab().catch(handleUiError);
-        }
-        if (btn.dataset.managementModule) {
-            setManagementExpanded(true);
-        } else if (btn.hasAttribute('data-analytics-child')) {
-            setAnalyticsExpanded(true);
-        }
-        setMobileMenu(false);
-        tabButtons.forEach(b => b.classList.remove('active'));
-        tabPanels.forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-        updateMobileSaveDock();
-        const developerTool = fixedDeveloperTabIds.has(btn.dataset.tab);
-        localStorage.setItem(developerTool ? 'flummi.developerTab' : 'flummi.activeTab', btn.dataset.tab);
-        if (developerTool && !document.getElementById('homeViewDeveloper').hidden) {
-            history.replaceState(null, '', `/?view=developer&tool=${encodeURIComponent(btn.dataset.tab)}`);
-        } else if (!document.getElementById('dashboardLayout').hidden && state.guildId) {
-            history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(btn.dataset.tab)}`);
-        }
-        lastAutoRefreshAt = Date.now();
+async function activateTab(btn) {
+    if (dirtyManagementPanel && !dirtyManagementPanel.classList.contains('active')) clearManagementDirty();
+    if (dirtyManagementPanel && btn.dataset.tab !== dirtyManagementPanel.id.replace(/^tab-/, '')) {
+        const leave = await confirmAction({ title: 'Discard unsaved changes?', message: 'This module has changes that have not been saved yet.', confirmLabel: 'Discard and leave' });
+        if (!leave) return;
+        clearManagementDirty();
+        await refreshActiveTab().catch(handleUiError);
+    }
+    if (btn.dataset.managementModule) {
+        setManagementExpanded(true);
+    } else if (btn.hasAttribute('data-analytics-child')) {
+        setAnalyticsExpanded(true);
+    }
+    setMobileMenu(false);
+    tabButtons.forEach(b => b.classList.remove('active'));
+    tabPanels.forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+    updateMobileSaveDock();
+    const developerTool = fixedDeveloperTabIds.has(btn.dataset.tab);
+    localStorage.setItem(developerTool ? 'flummi.developerTab' : 'flummi.activeTab', btn.dataset.tab);
+    if (developerTool && !document.getElementById('homeViewDeveloper').hidden) {
+        history.replaceState(null, '', `/?view=developer&tool=${encodeURIComponent(btn.dataset.tab)}`);
+    } else if (!document.getElementById('dashboardLayout').hidden && state.guildId) {
+        history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(btn.dataset.tab)}`);
+    }
+    lastAutoRefreshAt = Date.now();
 
-        const loader = tabLoaders[btn.dataset.tab];
-        if (loader) {
-            loader().then(() => { clearPageNotice(); updateLiveDurations(); }).catch(error => handleUiError(error, () => loader().catch(handleUiError)));
-        }
-    });
+    const loader = tabLoaders[btn.dataset.tab];
+    if (loader) {
+        await refreshActiveTab();
+        clearPageNotice();
+    }
+}
+
+tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => activateTab(btn).catch(error => handleUiError(error, () => activateTab(btn).catch(handleUiError))));
 });
 
 function activeTab() {
@@ -2187,6 +2210,7 @@ async function activateDeveloperWorkspace(preferredTab = null) {
 
 async function openDashboard(guildId, tab = null) {
     const requestedHash = window.location.hash;
+    const rememberedDashboardTab = localStorage.getItem('flummi.activeTab');
     fillGuildSelect(state.guilds);
     const previousGuildId = state.guildId;
     guildSelect.value = String(guildId || state.guilds[0]?.id || '');
@@ -2200,15 +2224,26 @@ async function openDashboard(guildId, tab = null) {
     state.role = state.guildRoles.get(String(state.guildId)) || state.role;
     localStorage.setItem('flummi.guildId', state.guildId);
     applyAccessVisibility();
-    if (state.role !== 'member') await loadManagement();
     document.getElementById('homeShell').hidden = true;
     document.getElementById('dashboardLayout').hidden = false;
-    const rememberedDashboardTab = localStorage.getItem('flummi.activeTab');
-    const selectedTab = [tab, state.preferences?.defaultTab, rememberedDashboardTab, 'overview'].find(candidate => candidate && !fixedDeveloperTabIds.has(candidate) && tabButtons.some(button => button.dataset.tab === candidate && !button.hidden)) || 'overview';
+    const openingGuildId = state.guildId;
+    let managementNavigation;
+    if (state.role !== 'member' && !state.management) {
+        managementNavigation = api(withGuild('/api/settings')).then(data => {
+            if (state.management) return;
+            state.management = data.settings.management;
+            applyManagementNavigation();
+        }).catch(error => console.error('Management navigation could not be loaded:', error));
+    }
+    if ((tab || rememberedDashboardTab || state.preferences?.defaultTab || '').startsWith('management-')) {
+        await managementNavigation;
+    }
+    if (state.guildId !== openingGuildId || document.getElementById('dashboardLayout').hidden) return;
+    const selectedTab = [tab, rememberedDashboardTab, state.preferences?.defaultTab, 'overview'].find(candidate => candidate && !fixedDeveloperTabIds.has(candidate) && tabButtons.some(button => button.dataset.tab === candidate && !button.hidden)) || 'overview';
     const button = tabButtons.find(candidate => candidate.dataset.tab === selectedTab);
-    if (button) button.click();
     history.replaceState(null, '', `/?guildId=${encodeURIComponent(state.guildId)}&tab=${encodeURIComponent(selectedTab)}${requestedHash}`);
-    await refreshActiveTab();
+    if (button) await activateTab(button);
+    if (requestedHash) history.replaceState(null, '', `${window.location.pathname}${window.location.search}${requestedHash}`);
     if (requestedHash) document.getElementById(requestedHash.slice(1))?.scrollIntoView({ block: 'start' });
 }
 
@@ -2331,7 +2366,7 @@ window.addEventListener('resize', () => {
 });
 document.getElementById('homeGuilds').addEventListener('click', event => {
     const card = event.target.closest('[data-open-guild]');
-    if (card) openDashboard(card.dataset.openGuild).catch(handleUiError);
+    if (card) openDashboard(card.dataset.openGuild).catch(error => handleUiError(error, () => openDashboard(card.dataset.openGuild).catch(handleUiError)));
 });
 document.getElementById('dashboardHome').addEventListener('click', () => showHomeView('servers'));
 document.getElementById('homeDeveloperGuild').addEventListener('change', async event => {
@@ -2402,16 +2437,10 @@ async function loadGuilds() {
     await refreshActiveTab();
 }
 
-guildSelect.addEventListener('change', async () => {
-    state.guildId = guildSelect.value || null;
-    if (state.guildId && !document.getElementById('dashboardLayout').hidden) setServerPageTitle(state.guildId);
-    if (state.guildId) state.role = state.guildRoles.get(String(state.guildId)) || state.role;
-    state.management = null;
-    managementChannelsGuildId = null;
-    applyAccessVisibility();
-    if (state.guildId) localStorage.setItem('flummi.guildId', state.guildId);
-    if (state.guildId && state.role !== 'member') await ensureManagementResources();
-    refreshActiveTab().then(clearPageNotice).catch(error => handleUiError(error, () => refreshActiveTab().catch(handleUiError)));
+guildSelect.addEventListener('change', () => {
+    const guildId = guildSelect.value;
+    const tab = activeTab();
+    openDashboard(guildId, tab).catch(error => handleUiError(error, () => openDashboard(guildId, tab).catch(handleUiError)));
 });
 
 document.getElementById('refreshAll').addEventListener('click', () => {
@@ -2762,7 +2791,16 @@ async function ensureAnalyticsChannelFilter(selectId, endpoint) {
     const select = document.getElementById(selectId);
     if (!state.guildId || select.dataset.guildId === state.guildId) return;
     const previousValue = select.value;
-    const data = await api(withGuild(endpoint));
+    // Channel discovery depends on Discord; stored statistics should still load if it fails.
+    let data;
+    try {
+        data = await api(withGuild(endpoint));
+    } catch (error) {
+        if (error.code === 'STALE_GUILD' || error.status === 401 || error.status === 403) throw error;
+        select.innerHTML = '<option value="">All channels (channel list unavailable)</option>';
+        console.error('Analytics channel filter could not be loaded:', error);
+        return;
+    }
     select.innerHTML = '<option value="">All channels</option>';
     for (const channel of data.channels || []) {
         const option = document.createElement('option');
@@ -7510,8 +7548,7 @@ async function initializePanel() {
     const initialView = publicViews.has(requestedView) ? requestedView : 'servers';
     loadInviteLink().catch(error => console.error(error));
     const authenticated = await loadPanelAccount();
-    showHomeView(initialView);
-    if (!authenticated) return;
+    if (!authenticated) { showHomeView(initialView); return; }
     try { applyAccountPreferences((await api('/api/account/preferences')).preferences); } catch (error) { console.error(error); }
     const data = await api('/api/guilds');
     renderHomeGuilds(data.guilds || []);
@@ -7526,6 +7563,8 @@ async function initializePanel() {
         await openAccountArea(requestedAccount === 'notifications' ? 'notifications' : 'account-profile');
     } else if (requestedView === 'developer' && state.actualRole === 'developer') {
         showHomeView(requestedView, requestedParams.get('tool'));
+    } else {
+        showHomeView(initialView);
     }
 }
 
@@ -7585,4 +7624,16 @@ function initializePageReveal() {
 }
 
 initializePageReveal();
-initializePanel().catch(error => handleUiError(error, () => initializePanel().catch(handleUiError)));
+async function startPanel() {
+    const loading = document.getElementById('panelLoading');
+    loading.hidden = false;
+    try {
+        await initializePanel();
+    } catch (error) {
+        handleUiError(error, startPanel);
+    } finally {
+        loading.hidden = true;
+    }
+}
+
+startPanel();

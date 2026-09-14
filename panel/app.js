@@ -7549,13 +7549,17 @@ async function initializePanel() {
     loadInviteLink().catch(error => console.error(error));
     const authenticated = await loadPanelAccount();
     if (!authenticated) { showHomeView(initialView); return; }
-    try { applyAccountPreferences((await api('/api/account/preferences')).preferences); } catch (error) { console.error(error); }
+    const preferencesRequest = api('/api/account/preferences')
+        .then(data => applyAccountPreferences(data.preferences))
+        .catch(error => console.error(error));
     const data = await api('/api/guilds');
     renderHomeGuilds(data.guilds || []);
     const requestedGuild = requestedParams.get('guildId');
     const requestedTab = requestedParams.get('tab');
     const requestedAccount = requestedParams.get('account');
     if (requestedGuild && state.guilds.some(guild => guild.id === requestedGuild)) {
+        // An explicit destination does not depend on the account's default tab.
+        if (!requestedTab && !localStorage.getItem('flummi.activeTab')) await preferencesRequest;
         await openDashboard(requestedGuild, requestedTab);
     } else if (requestedView === 'account') {
         await openAccountArea(requestedParams.get('tab') || 'profile');
@@ -7625,14 +7629,10 @@ function initializePageReveal() {
 
 initializePageReveal();
 async function startPanel() {
-    const loading = document.getElementById('panelLoading');
-    loading.hidden = false;
     try {
         await initializePanel();
     } catch (error) {
         handleUiError(error, startPanel);
-    } finally {
-        loading.hidden = true;
     }
 }
 

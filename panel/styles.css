@@ -1890,10 +1890,14 @@ th.sortable:hover {
     }
 
     #dashboardLayout .management-nav-group > .management-parent {
-        justify-content: center;
+        justify-content: flex-start;
         padding-right: 44px;
-        padding-left: 44px;
-        text-align: center;
+        padding-left: 12px;
+        text-align: left;
+    }
+
+    #dashboardLayout .dashboard-search-with-palette > button {
+        display: none;
     }
 
     .sidebar-actions,

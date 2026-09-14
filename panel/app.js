@@ -4277,14 +4277,53 @@ let managementChannels = [];
 let managementRoles = [];
 let managementMembers = [];
 
+const subnavAnimations = new WeakMap();
+
+function animateSubnav(subnav, open) {
+    const previous = subnavAnimations.get(subnav);
+    subnav.inert = !open;
+    if (previous?.open === open || (!previous && subnav.hidden === !open)) return;
+
+    // Capture the current frame before cancelling so rapid toggles reverse smoothly.
+    const fromHeight = subnav.hidden ? 0 : subnav.getBoundingClientRect().height;
+    const fromOpacity = subnav.hidden ? 0 : Number(getComputedStyle(subnav).opacity);
+    const fromMargin = subnav.hidden ? -4 : parseFloat(getComputedStyle(subnav).marginBottom);
+    previous?.animation.cancel();
+    subnavAnimations.delete(subnav);
+    subnav.classList.remove('is-expanding');
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        || document.documentElement.classList.contains('a11y-reduced-motion')
+        || typeof subnav.animate !== 'function') {
+        subnav.hidden = !open;
+        return;
+    }
+
+    subnav.hidden = false;
+    const toHeight = open ? subnav.getBoundingClientRect().height : 0;
+    const toMargin = open ? parseFloat(getComputedStyle(subnav).marginBottom) : -4;
+    subnav.classList.add('is-expanding');
+    const animation = subnav.animate([
+        { height: fromHeight + 'px', opacity: fromOpacity, marginBottom: fromMargin + 'px' },
+        { height: toHeight + 'px', opacity: open ? 1 : 0, marginBottom: toMargin + 'px' }
+    ], { duration: 180, easing: 'cubic-bezier(.2, .7, .3, 1)', fill: 'both' });
+    subnavAnimations.set(subnav, { animation, open });
+    animation.onfinish = () => {
+        if (subnavAnimations.get(subnav)?.animation !== animation) return;
+        subnav.hidden = !open;
+        subnav.classList.remove('is-expanding');
+        subnavAnimations.delete(subnav);
+        animation.cancel();
+    };
+}
+
 function setAnalyticsExpanded(expanded) {
     const toggle = document.getElementById('analyticsNavToggle');
     const subnav = document.getElementById('analyticsSubnav');
     const open = Boolean(expanded);
     toggle.setAttribute('aria-expanded', String(open));
     toggle.setAttribute('aria-label', uiText(`${open ? 'Collapse' : 'Expand'} Analytics tabs`));
-    subnav.inert = !open;
-    subnav.hidden = !open;
+    animateSubnav(subnav, open);
 }
 
 function setManagementExpanded(expanded) {
@@ -4293,8 +4332,7 @@ function setManagementExpanded(expanded) {
     const open = Boolean(expanded);
     toggle.setAttribute('aria-expanded', String(open));
     toggle.setAttribute('aria-label', uiText(`${open ? 'Collapse' : 'Expand'} Management tabs`));
-    subnav.inert = !open;
-    subnav.hidden = !open;
+    animateSubnav(subnav, open);
 }
 
 function applyManagementNavigation() {

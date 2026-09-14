@@ -5270,7 +5270,6 @@ code {
     animation: panel-fade-enter 160ms ease-out;
 }
 
-.management-subnav,
 .confirm-dialog,
 .command-palette {
     opacity: 0;
@@ -5279,14 +5278,22 @@ code {
         display 180ms allow-discrete, overlay 180ms allow-discrete;
 }
 
-.management-subnav:not([hidden]),
 .confirm-dialog[open],
 .command-palette[open] {
     opacity: 1;
     translate: 0 0;
 }
 
-.management-subnav[hidden] {
+.management-subnav {
+    align-content: start;
+}
+
+/* Clip children to the animated height so adjacent categories never overlap. */
+.management-subnav.is-expanding {
+    overflow: clip;
+}
+
+.management-subnav[inert] {
     pointer-events: none;
 }
 
@@ -5305,7 +5312,6 @@ code {
 @starting-style {
     .home-nav-group[open] > .home-nav-popover,
     .account-menu[open] > .account-menu-popover,
-    .management-subnav:not([hidden]),
     .confirm-dialog[open],
     .command-palette[open] {
         opacity: 0;

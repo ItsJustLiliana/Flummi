@@ -5211,6 +5211,24 @@ code {
     animation: panel-fade-enter 160ms ease-out;
 }
 
+.tab-panel[data-page-reveal-loading="true"] {
+    position: relative;
+    min-height: 220px;
+}
+
+.tab-panel[data-page-reveal-loading="true"] > :not(.tab-data-loading) {
+    display: none;
+}
+
+.tab-data-loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-size: 14px;
+}
+
 .page-reveal {
     opacity: 0;
     transition: opacity 400ms ease-out;

@@ -1324,7 +1324,20 @@ async function activateTab(btn) {
     tabButtons.forEach(b => b.classList.remove('active'));
     tabPanels.forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+    const panel = document.getElementById(`tab-${btn.dataset.tab}`);
+    // Do not let the reveal observer consume cards while this tab is still
+    // replacing its placeholders with live data and settling its layout.
+    panel.dataset.pageRevealLoading = 'true';
+    let loadingMessage = panel.querySelector(':scope > .tab-data-loading');
+    if (!loadingMessage) {
+        loadingMessage = document.createElement('div');
+        loadingMessage.className = 'tab-data-loading';
+        loadingMessage.setAttribute('role', 'status');
+        loadingMessage.setAttribute('aria-live', 'polite');
+        loadingMessage.textContent = uiText('Loading data…');
+        panel.append(loadingMessage);
+    }
+    panel.classList.add('active');
     updateMobileSaveDock();
     const developerTool = fixedDeveloperTabIds.has(btn.dataset.tab);
     localStorage.setItem(developerTool ? 'flummi.developerTab' : 'flummi.activeTab', btn.dataset.tab);
@@ -1336,9 +1349,14 @@ async function activateTab(btn) {
     lastAutoRefreshAt = Date.now();
 
     const loader = tabLoaders[btn.dataset.tab];
-    if (loader) {
-        await refreshActiveTab();
-        clearPageNotice();
+    try {
+        if (loader) {
+            await refreshActiveTab();
+            clearPageNotice();
+        }
+    } finally {
+        panel.removeAttribute('data-page-reveal-loading');
+        loadingMessage.remove();
     }
 }
 
@@ -7584,7 +7602,9 @@ function initializePageReveal() {
             entry.target.classList.add('page-revealed');
             observer.unobserve(entry.target);
         }
-    }, { rootMargin: '0px 0px -120px 0px', threshold: 0 });
+    // Start well before a card enters view; a positive bottom margin expands
+    // the observer's viewport instead of delaying the animation.
+    }, { rootMargin: '0px 0px 240px 0px', threshold: 0 });
 
     const sync = () => {
         const pages = [...document.querySelectorAll(pageSelector)];
@@ -7600,6 +7620,7 @@ function initializePageReveal() {
             visits.delete(page);
         }
         for (const page of visiblePages) {
+            if (page.dataset.pageRevealLoading === 'true') continue;
             if (!visits.has(page)) visits.set(page, new Set());
             const blocks = visits.get(page);
             for (const block of blocks) {
@@ -7619,10 +7640,11 @@ function initializePageReveal() {
     };
     const navigationObserver = new MutationObserver(records => {
         if (records.some(record => record.type === 'childList'
-            || record.attributeName === 'hidden' || record.target.matches(pageSelector))) sync();
+            || record.attributeName === 'hidden' || record.attributeName === 'data-page-reveal-loading'
+            || record.target.matches(pageSelector))) sync();
     });
     navigationObserver.observe(document.body, {
-        subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden']
+        subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden', 'data-page-reveal-loading']
     });
     sync();
 }

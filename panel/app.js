@@ -2878,6 +2878,10 @@ function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar',
     canvas.className = 'analytics-canvas';
     canvas.width = Math.round(width * scale);
     canvas.height = Math.round(height * scale);
+    // Keep the CSS box in lockstep with the coordinate space used below.
+    // A percentage width can differ after the panel layout settles, which
+    // stretches the already-drawn chart horizontally.
+    canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     canvas.setAttribute('role', 'img');
     const chartCoverage = summarizeChartCoverage(values, true);
@@ -7602,9 +7606,9 @@ function initializePageReveal() {
             entry.target.classList.add('page-revealed');
             observer.unobserve(entry.target);
         }
-    // Start well before a card enters view; a positive bottom margin expands
-    // the observer's viewport instead of delaying the animation.
-    }, { rootMargin: '0px 0px 240px 0px', threshold: 0 });
+    // Reveal when the block actually reaches the viewport.  Preloading this
+    // animation made it finish just below the fold, before it could be seen.
+    }, { rootMargin: '0px', threshold: 0.01 });
 
     const sync = () => {
         const pages = [...document.querySelectorAll(pageSelector)];
@@ -7634,7 +7638,13 @@ function initializePageReveal() {
                 if (parentBlock && page.contains(parentBlock)) continue;
                 blocks.add(block);
                 block.classList.add('page-reveal');
-                observer.observe(block);
+                // Let the hidden state paint first. This makes cards inserted
+                // by a completed data request visibly fade in when already on
+                // screen instead of being revealed in the same layout pass.
+                requestAnimationFrame(() => {
+                    if (!block.isConnected || !block.classList.contains('page-reveal') || !block.getClientRects().length) return;
+                    observer.observe(block);
+                });
             }
         }
     };

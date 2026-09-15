@@ -1024,6 +1024,7 @@
                 <div id="developerAnalyticsCorrection" class="section" data-tailscale-required>
                     <h2>Correct false visualization data</h2>
                     <p class="sub">Preview and remove incorrect analytics records from the selected server. Recent raw records can be filtered by member or channel. Anonymous history can only be removed as complete server-wide UTC days.</p>
+                    <div class="banner banner-with-action"><span id="analyticsCorrectionInstance">Checking which bot data is open…</span><a id="analyticsCorrectionOtherInstance" class="analytics-instance-link secondary" href="#" hidden></a></div>
                     <div class="banner warn">Deletion changes charts and totals permanently. Always preview first. The action requires Tailscale, a recent Discord login, an audit reason, and final confirmation.</div>
                     <div class="two-col">
                         <div class="field"><label for="analyticsCorrectionCategory">Analytics type</label><select id="analyticsCorrectionCategory"><option value="messages">Messages</option><option value="voice">Voice</option><option value="soundboard">Server media</option><option value="moderation">Moderation events</option></select></div>
@@ -1035,7 +1036,7 @@
                     </div>
                     <div class="checkbox-row"><input id="analyticsCorrectionAnonymous" type="checkbox"><label for="analyticsCorrectionAnonymous">Also remove complete anonymous UTC-day buckets in this range</label></div>
                     <div class="actions"><button id="previewAnalyticsCorrection" class="secondary" type="button">Preview correction</button><button id="deleteAnalyticsCorrection" class="danger" type="button" disabled>Delete previewed data</button></div>
-                    <p id="analyticsCorrectionStatus" class="status"></p>
+                    <p id="analyticsCorrectionStatus" class="status" role="status" aria-live="assertive"></p>
                     <div id="analyticsCorrectionPreview" class="table-wrap"></div>
                 </div>
                 <div id="developerComplianceOperations" class="section">

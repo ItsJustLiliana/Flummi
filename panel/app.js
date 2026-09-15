@@ -14,7 +14,8 @@ const state = {
     accountUserId: '',
     guildRoles: new Map(),
     preferences: null,
-    settingsRevision: null
+    settingsRevision: null,
+    panelInstance: { name: 'production', port: 3789 }
 };
 
 const guildSelect = document.getElementById('guild');
@@ -1744,6 +1745,8 @@ async function loadPanelAccount() {
     state.authenticated = data.authenticated === true;
     if (!state.authenticated) return false;
     state.privateConnection = data.privateConnection === true;
+    state.panelInstance = data.panelInstance || state.panelInstance;
+    updateAnalyticsCorrectionInstance();
     state.role = ['developer', 'admin', 'member'].includes(data.role) ? data.role : 'member';
     state.actualRole = data.actualRole === 'developer' ? 'developer' : 'admin';
     state.globalFeatures = data.globalFeatures || {};
@@ -7404,6 +7407,18 @@ document.getElementById('saveOpenRouterAgreement').addEventListener('click', asy
 // ---------- Analytics corrections ----------
 let analyticsCorrectionPreview = null;
 
+function updateAnalyticsCorrectionInstance() {
+    const label = document.getElementById('analyticsCorrectionInstance');
+    const link = document.getElementById('analyticsCorrectionOtherInstance');
+    if (!label || !link) return;
+    const staging = state.panelInstance.name === 'staging';
+    const otherPort = staging ? 3789 : 3790;
+    label.textContent = `You are correcting ${staging ? 'staging' : 'production'} bot data on port ${state.panelInstance.port}.`;
+    link.textContent = `Open ${staging ? 'production' : 'staging'} data (:${otherPort})`;
+    link.href = `http://${window.location.hostname}:${otherPort}${window.location.pathname}${window.location.search}`;
+    link.hidden = false;
+}
+
 function localDateTimeInputValue(value) {
     const date = new Date(value);
     const offset = date.getTimezoneOffset() * 60000;
@@ -7479,13 +7494,29 @@ document.getElementById('deleteAnalyticsCorrection').addEventListener('click', a
     });
     if (!confirmation) return;
     const status = document.getElementById('analyticsCorrectionStatus');
+    const button = document.getElementById('deleteAnalyticsCorrection');
+    const correctionPanel = document.getElementById('developerAnalyticsCorrection');
+    const preview = analyticsCorrectionPreview;
+    button.disabled = true;
+    button.classList.add('is-loading');
+    button.textContent = 'Deleting previewed data…';
+    correctionPanel.setAttribute('aria-busy', 'true');
+    setStatus(status, `Deleting the previewed ${state.panelInstance.name} data now…`, '');
     try {
-        const result = await api(withGuild('/api/developer/analytics-correction'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...analyticsCorrectionPreview.payload, action: 'delete', confirmation }) });
-        renderAnalyticsCorrectionPreview(result);
+        const result = await api(withGuild('/api/developer/analytics-correction'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...preview.payload, action: 'delete', confirmation }) });
+        const verification = await api(withGuild('/api/developer/analytics-correction'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...preview.payload, action: 'preview' }) });
+        renderAnalyticsCorrectionPreview(verification);
         analyticsCorrectionPreview = null;
-        document.getElementById('deleteAnalyticsCorrection').disabled = true;
-        setStatus(status, `Removed ${result.raw.matched} raw record(s) and ${result.anonymous.matchedDays} anonymous day(s).`, 'ok');
-    } catch (error) { setStatus(status, error.message, 'error'); }
+        const remaining = Number(verification.raw?.matched) + Number(verification.anonymous?.matchedDays);
+        setStatus(status, `Deletion complete for ${result.instance?.name || state.panelInstance.name}: removed ${result.raw.matched} raw record(s) and ${result.anonymous.matchedDays} anonymous day(s). Fresh verification found ${remaining} matching item(s).`, remaining ? 'error' : 'ok');
+    } catch (error) {
+        setStatus(status, `Deletion failed: ${error.message}`, 'error');
+        button.disabled = false;
+    } finally {
+        button.classList.remove('is-loading');
+        button.textContent = 'Delete previewed data';
+        correctionPanel.removeAttribute('aria-busy');
+    }
 });
 
 // ---------- Init ----------

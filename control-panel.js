@@ -75,6 +75,8 @@ const botToken = process.env.DISCORD_BOT_TOKEN || config.token;
 // for tunnel-only deployments.
 const host = process.env.PANEL_HOST || '0.0.0.0';
 const port = Number(process.env.PANEL_PORT) || 3789;
+const panelInstance = process.env.FLUMMI_INSTANCE
+    || (path.basename(__dirname).toLowerCase().endsWith('-staging') ? 'staging' : 'production');
 const openBrowserOnStart = config.panel?.openBrowserOnStart === true;
 const indexPath = path.join(__dirname, 'panel', 'index.html');
 const panelScriptPath = path.join(__dirname, 'panel', 'app.js');
@@ -1674,6 +1676,7 @@ function createServer() {
                     actualRole: isDeveloperSession(session) ? 'developer' : 'admin',
                     globalFeatures: config.features || {},
                     privateConnection: developerFileWriteStatus(req, session).privateConnection,
+                    panelInstance: { name: panelInstance, port },
                     previewAdminView: Boolean(getPreviewPanelRole(session)),
                     previewPanelRole: getPreviewPanelRole(session),
                     discordRoleSimulation: accessStore.getDeveloperRoleSimulation(session.userId)
@@ -3635,7 +3638,7 @@ function createServer() {
                     guildId, reason: String(parsed.reason || '').slice(0, 500), rawRecords: result.raw.matched,
                     anonymousDays: result.anonymous.matchedDays, from: parsed.from, to: parsed.to
                 });
-                sendJson(res, 200, result);
+                sendJson(res, 200, { ...result, instance: { name: panelInstance, port } });
                 return;
             }
 

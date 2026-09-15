@@ -131,3 +131,7 @@ test('analytics date helpers reject malformed calendar values and recover date s
     assert.equal(context.isValidUtcMonth('invalid'), false);
     assert.match(context.shiftUtcDate('', -30), /^\d{4}-\d{2}-\d{2}$/);
 });
+
+test('calendar clicks stay inside the date picker while it redraws', () => {
+    assert.match(source, /editor\.addEventListener\('click', event => \{[\s\S]*?event\.stopPropagation\(\);/);
+});

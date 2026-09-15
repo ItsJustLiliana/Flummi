@@ -3760,6 +3760,10 @@ function bindAnalyticsDateControls(rangeId, load) {
         }
     });
     editor.addEventListener('click', event => {
+        // Calendar actions redraw the editor. Do not let the document-level
+        // outside-click handler treat the now-detached clicked button as an
+        // outside target and close the picker.
+        event.stopPropagation();
         const monthButton = event.target.closest('[data-calendar-month]');
         if (monthButton) {
             const fallbackMonth = isValidUtcDateInput(document.getElementById(toId).value)

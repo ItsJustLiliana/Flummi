@@ -583,6 +583,11 @@ test('analytics correction loads selectable Discord resources and a usable defau
     assert.match(panelScript, /function initializeAnalyticsCorrectionRange\(\)[\s\S]*?7 \* 86400000/);
     assert.match(panelServer, /function listKnownGuildMembers\(guildId\)[\s\S]*?getServerStatsSummary[\s\S]*?getVoiceStatsSummary/);
     assert.match(panelServer, /pathname === '\/api\/management\/channels'[\s\S]*?listKnownGuildMembers\(guildId\)/);
+    assert.match(panelMarkup, /id="analyticsCorrectionInstance"[\s\S]*?id="analyticsCorrectionOtherInstance"/);
+    assert.match(panelServer, /panelInstance: \{ name: panelInstance, port \}/);
+    assert.match(panelScript, /Deleting previewed data…/);
+    assert.match(panelScript, /action: 'delete'[\s\S]*?action: 'preview'/);
+    assert.match(panelScript, /Fresh verification found \$\{remaining\} matching item/);
 });
 
 test('dashboard empty states are contextual and mobile pages keep a reachable Save dock', () => {

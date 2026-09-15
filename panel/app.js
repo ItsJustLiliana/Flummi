@@ -2808,14 +2808,31 @@ function bindChartHover(container, values, metricLabel) {
     });
 }
 
+// A range or tab change can trigger several refreshes before Discord has
+// answered the first channel-list request. Keep those refreshes attached to
+// one request instead of making each one fetch the guild's channels again.
+const analyticsChannelFilterRequests = new Map();
+
 async function ensureAnalyticsChannelFilter(selectId, endpoint) {
     const select = document.getElementById(selectId);
     if (!state.guildId || select.dataset.guildId === state.guildId) return;
     const previousValue = select.value;
+    const guildId = String(state.guildId);
+    const requestKey = `${selectId}:${guildId}`;
     // Channel discovery depends on Discord; stored statistics should still load if it fails.
     let data;
     try {
-        data = await api(withGuild(endpoint));
+        let request = analyticsChannelFilterRequests.get(requestKey);
+        if (!request) {
+            request = api(withGuild(endpoint));
+            analyticsChannelFilterRequests.set(requestKey, request);
+            request.finally(() => {
+                if (analyticsChannelFilterRequests.get(requestKey) === request) {
+                    analyticsChannelFilterRequests.delete(requestKey);
+                }
+            }).catch(() => {});
+        }
+        data = await request;
     } catch (error) {
         if (error.code === 'STALE_GUILD' || error.status === 401 || error.status === 403) throw error;
         select.innerHTML = '<option value="">All channels (channel list unavailable)</option>';
@@ -2830,7 +2847,7 @@ async function ensureAnalyticsChannelFilter(selectId, endpoint) {
         select.appendChild(option);
     }
     if (previousValue && (data.channels || []).some(channel => channel.id === previousValue)) select.value = previousValue;
-    select.dataset.guildId = state.guildId;
+    select.dataset.guildId = guildId;
 }
 
 function renderActivityChart(containerId, rows, emptyMessage, chartType = 'bar', metricLabel = 'Events') {

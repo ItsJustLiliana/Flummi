@@ -88,8 +88,36 @@ test('a failed Discord channel list does not prevent statistics loading', async 
         withGuild: path => path, console: { error() {} },
         api: async () => { throw new Error('Discord unavailable'); }
     });
-    vm.runInContext(extract('async function ensureAnalyticsChannelFilter(', 'function renderActivityChart('), context);
+    vm.runInContext(extract('const analyticsChannelFilterRequests = new Map();', 'function renderActivityChart('), context);
     await context.ensureAnalyticsChannelFilter('analyticsChannel', '/api/channels');
     assert.match(select.innerHTML, /All channels/);
     assert.equal(select.dataset.guildId, undefined, 'a later refresh can retry channel discovery');
+});
+
+test('concurrent analytics filter refreshes share one channel discovery request', async () => {
+    const select = {
+        dataset: {}, value: '', innerHTML: '',
+        appendChild(option) { this.innerHTML += option.textContent; }
+    };
+    let resolveRequest;
+    let calls = 0;
+    const context = vm.createContext({
+        Map, state: { guildId: '123' }, document: {
+            getElementById: () => select,
+            createElement: () => ({ value: '', textContent: '' })
+        },
+        withGuild: path => path, console: { error() {} },
+        api: () => {
+            calls += 1;
+            return new Promise(resolve => { resolveRequest = resolve; });
+        }
+    });
+    vm.runInContext(extract('const analyticsChannelFilterRequests = new Map();', 'function renderActivityChart('), context);
+    const first = context.ensureAnalyticsChannelFilter('analyticsChannel', '/api/channels');
+    const second = context.ensureAnalyticsChannelFilter('analyticsChannel', '/api/channels');
+    assert.equal(calls, 1);
+    resolveRequest({ channels: [{ id: 'general', name: 'general' }] });
+    await Promise.all([first, second]);
+    assert.equal(select.dataset.guildId, '123');
+    assert.match(select.innerHTML, /#general/);
 });

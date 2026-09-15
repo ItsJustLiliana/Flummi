@@ -3371,8 +3371,19 @@ function utcDateInputValue(date = new Date()) {
     return date.toISOString().slice(0, 10);
 }
 
+function isValidUtcDateInput(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function isValidUtcMonth(value) {
+    return /^\d{4}-(0[1-9]|1[0-2])$/.test(value || '');
+}
+
 function shiftUtcDate(value, days) {
     const date = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) return utcDateInputValue();
     date.setUTCDate(date.getUTCDate() + days);
     return utcDateInputValue(date);
 }
@@ -3384,7 +3395,9 @@ function renderAnalyticsCalendar(rangeId) {
     const wrapper = document.querySelector(`[data-range-dates="${rangeId}"]`);
     const editor = wrapper.querySelector('[data-range-editor]');
     if (!fromValue || !toValue || document.getElementById(rangeId).value === 'all') return;
-    const monthValue = wrapper.dataset.calendarMonth || toValue.slice(0, 7);
+    const fallbackMonth = isValidUtcDateInput(toValue) ? toValue.slice(0, 7) : utcDateInputValue().slice(0, 7);
+    const monthValue = isValidUtcMonth(wrapper.dataset.calendarMonth) ? wrapper.dataset.calendarMonth : fallbackMonth;
+    wrapper.dataset.calendarMonth = monthValue;
     const month = new Date(`${monthValue}-01T00:00:00.000Z`);
     const firstGridDay = new Date(month);
     firstGridDay.setUTCDate(1 - ((month.getUTCDay() + 6) % 7));
@@ -3438,8 +3451,8 @@ function syncAnalyticsDateRange(rangeId, changed = 'range') {
     const today = utcDateInputValue();
     from.max = shiftUtcDate(today, 1 - days);
     to.max = today;
-    if (!to.value) to.value = today;
-    if (!from.value) from.value = shiftUtcDate(to.value, 1 - days);
+    if (!isValidUtcDateInput(to.value)) to.value = today;
+    if (!isValidUtcDateInput(from.value)) from.value = shiftUtcDate(to.value, 1 - days);
     if (changed === 'from') {
         to.value = shiftUtcDate(from.value, days - 1);
         if (to.value > today) {
@@ -3749,8 +3762,16 @@ function bindAnalyticsDateControls(rangeId, load) {
     editor.addEventListener('click', event => {
         const monthButton = event.target.closest('[data-calendar-month]');
         if (monthButton) {
-            const month = new Date(`${wrapper.dataset.calendarMonth}-01T00:00:00.000Z`);
-            month.setUTCMonth(month.getUTCMonth() + Number(monthButton.dataset.calendarMonth));
+            const fallbackMonth = isValidUtcDateInput(document.getElementById(toId).value)
+                ? document.getElementById(toId).value.slice(0, 7)
+                : utcDateInputValue().slice(0, 7);
+            const currentMonth = isValidUtcMonth(wrapper.dataset.calendarMonth)
+                ? wrapper.dataset.calendarMonth
+                : fallbackMonth;
+            const change = Number(monthButton.dataset.calendarMonth);
+            if (!Number.isInteger(change)) return;
+            const month = new Date(`${currentMonth}-01T00:00:00.000Z`);
+            month.setUTCMonth(month.getUTCMonth() + change);
             wrapper.dataset.calendarMonth = month.toISOString().slice(0, 7);
             renderAnalyticsCalendar(rangeId);
             return;

@@ -121,3 +121,13 @@ test('concurrent analytics filter refreshes share one channel discovery request'
     assert.equal(select.dataset.guildId, '123');
     assert.match(select.innerHTML, /#general/);
 });
+
+test('analytics date helpers reject malformed calendar values and recover date shifts', () => {
+    const context = vm.createContext({ Date, Number });
+    vm.runInContext(extract('function utcDateInputValue(', 'function renderAnalyticsCalendar('), context);
+    assert.equal(context.isValidUtcDateInput('2026-02-28'), true);
+    assert.equal(context.isValidUtcDateInput('2026-02-30'), false);
+    assert.equal(context.isValidUtcMonth('2026-02'), true);
+    assert.equal(context.isValidUtcMonth('invalid'), false);
+    assert.match(context.shiftUtcDate('', -30), /^\d{4}-\d{2}-\d{2}$/);
+});
